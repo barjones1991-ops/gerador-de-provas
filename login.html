@@ -76,6 +76,16 @@
       font-size: 13px; color: #94a3b8; text-decoration: none;
     }
     .back-link:hover { color: #667eea; }
+    .helper-actions {
+      display: flex; justify-content: center; margin-top: 14px;
+    }
+    .link-button {
+      border: none; background: transparent; padding: 4px;
+      color: #667eea; cursor: pointer; font: inherit;
+      font-size: 13px; font-weight: 700;
+    }
+    .link-button:hover { color: #4f46e5; text-decoration: underline; }
+    .link-button:disabled { opacity: 0.55; cursor: not-allowed; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -99,7 +109,7 @@
         <div class="field-error" id="emailError"></div>
       </div>
       <div class="form-group">
-        <label>Senha</label>
+        <label id="passwordLabel">Senha</label>
         <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
         <div class="field-error" id="passwordError"></div>
       </div>
@@ -114,6 +124,9 @@
       </div>
       <button type="submit" class="btn-submit" id="submitBtn">Entrar</button>
     </form>
+    <div class="helper-actions" id="resetWrap">
+      <button type="button" class="link-button" id="resetPasswordBtn">Esqueci minha senha</button>
+    </div>
 
     <a href="index.html" class="back-link">← Voltar ao início</a>
   </div>
@@ -122,25 +135,59 @@
   <script src="js/auth.js"></script>
   <script>
     let isLogin = true;
+    let isRecovery = false;
     let auth = null;
 
     document.addEventListener('DOMContentLoaded', () => {
       auth = initAuthManager();
+      const recovery = getRecoveryParams();
+      if (recovery.accessToken && auth) {
+        auth.startRecoverySession(recovery.accessToken, recovery.refreshToken);
+        enableRecoveryMode();
+        return;
+      }
       if (auth && auth.isAuthenticated()) {
         window.location.href = 'dashboard.html';
       }
     });
 
     function setMode(mode) {
+      if (isRecovery) return;
       isLogin = (mode === 'login');
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
       document.getElementById('tabSignup').classList.toggle('active', !isLogin);
       document.getElementById('nameGroup').style.display = isLogin ? 'none' : 'block';
       document.getElementById('schoolGroup').style.display = isLogin ? 'none' : 'block';
       document.getElementById('submitBtn').textContent = isLogin ? 'Entrar' : 'Criar conta';
+      document.getElementById('resetWrap').style.display = isLogin ? 'flex' : 'none';
       document.getElementById('name').required = !isLogin;
       clearAlerts();
       document.getElementById('authForm').reset();
+    }
+
+    function getRecoveryParams() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const query = new URLSearchParams(window.location.search);
+      return {
+        accessToken: hash.get('access_token') || query.get('access_token'),
+        refreshToken: hash.get('refresh_token') || query.get('refresh_token') || '',
+        type: hash.get('type') || query.get('type') || '',
+      };
+    }
+
+    function enableRecoveryMode() {
+      isRecovery = true;
+      isLogin = false;
+      document.querySelector('.tab-row').style.display = 'none';
+      document.getElementById('resetWrap').style.display = 'none';
+      document.getElementById('email').closest('.form-group').style.display = 'none';
+      document.getElementById('nameGroup').style.display = 'none';
+      document.getElementById('schoolGroup').style.display = 'none';
+      document.getElementById('passwordLabel').textContent = 'Nova senha';
+      document.getElementById('password').autocomplete = 'new-password';
+      document.getElementById('password').placeholder = 'Digite sua nova senha';
+      document.getElementById('submitBtn').textContent = 'Salvar nova senha';
+      showAlert('Digite sua nova senha para concluir a recuperação.', 'success');
     }
 
     function showAlert(msg, type) {
@@ -165,7 +212,7 @@
       btn.disabled = on;
       btn.innerHTML = on
         ? '<div class="spinner"></div> Aguarde...'
-        : (isLogin ? 'Entrar' : 'Criar conta');
+        : (isRecovery ? 'Salvar nova senha' : (isLogin ? 'Entrar' : 'Criar conta'));
     }
 
     document.getElementById('authForm').addEventListener('submit', async (e) => {
@@ -181,6 +228,27 @@
       const password = document.getElementById('password').value;
       const name = document.getElementById('name').value.trim();
       const school = document.getElementById('school').value.trim();
+
+      if (isRecovery) {
+        if (!password || password.length < 6) { showFieldError('passwordError', 'Senha deve ter ao menos 6 caracteres'); return; }
+        setLoading(true);
+        try {
+          const result = await auth.updatePassword(password);
+          if (!result.success) {
+            showAlert(traduzirErro(result.error), 'error');
+            return;
+          }
+          await auth.signOut();
+          window.history.replaceState({}, document.title, window.location.pathname);
+          showAlert('Senha atualizada! Faça login com a nova senha.', 'success');
+          setTimeout(() => window.location.href = 'login.html', 1400);
+        } catch (err) {
+          showAlert(traduzirErro(err.message), 'error');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
 
       if (!email) { showFieldError('emailError', 'E-mail obrigatório'); return; }
       if (!password || password.length < 6) { showFieldError('passwordError', 'Senha deve ter ao menos 6 caracteres'); return; }
@@ -217,6 +285,40 @@
         showAlert(traduzirErro(err.message), 'error');
       } finally {
         setLoading(false);
+      }
+    });
+
+    document.getElementById('resetPasswordBtn').addEventListener('click', async () => {
+      clearAlerts();
+
+      if (!auth) {
+        showAlert('Erro: sistema não inicializado. Recarregue a página.', 'error');
+        return;
+      }
+
+      const email = document.getElementById('email').value.trim();
+      if (!email) {
+        showFieldError('emailError', 'Digite seu e-mail para recuperar a senha');
+        return;
+      }
+
+      const btn = document.getElementById('resetPasswordBtn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      try {
+        const redirectTo = `${window.location.origin}${window.location.pathname}`;
+        const result = await auth.resetPassword(email, redirectTo);
+        if (!result.success) {
+          showAlert(traduzirErro(result.error), 'error');
+          return;
+        }
+        showAlert('Enviamos as instruções de recuperação para o seu e-mail.', 'success');
+      } catch (err) {
+        showAlert(traduzirErro(err.message), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Esqueci minha senha';
       }
     });
 

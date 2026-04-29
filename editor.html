@@ -155,6 +155,265 @@
     .hline { height: 20px; border-bottom: 1px solid #cbd5e1; }
     .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .nowrap { white-space: pre-line; }
+    .image-drop {
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 14px;
+      min-height: 116px;
+      padding: 10px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      background: #f8fafc;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .image-drop:hover,
+    .image-drop.dragover {
+      border-color: #667eea;
+      background: #eef2ff;
+    }
+    .image-drop img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: contain;
+      display: block;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .image-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .image-actions button {
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .question-image {
+      margin: 10px 0 12px;
+      text-align: center;
+    }
+    .question-image img {
+      max-width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 4px;
+      background: #fff;
+    }
+    .image-word-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .image-word-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+      background: #fff;
+    }
+    .image-match-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .match-images {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .match-image {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 8px;
+      text-align: center;
+      break-inside: avoid;
+    }
+    .match-image img {
+      max-width: 100%;
+      height: 95px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 6px;
+    }
+    .bank-item {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fff;
+      display: grid;
+      gap: 8px;
+    }
+    .bank-title { font-weight: 800; font-size: 14px; }
+    .bank-meta { color: var(--muted); font-size: 12px; }
+    .bank-badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #eef2ff;
+      color: #4338ca;
+    }
+    .bank-badge.public { background: #f1f5f9; color: #475569; }
+    .bank-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .bank-actions button { padding: 7px 10px; border-radius: 10px; font-size: 12px; }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      place-items: center;
+      z-index: 80;
+      padding: 16px;
+    }
+    .modal-overlay.show { display: grid; }
+    .bank-modal {
+      width: min(920px, 100%);
+      max-height: min(760px, 92vh);
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 24px 80px rgba(15,23,42,0.28);
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      overflow: hidden;
+    }
+    .bank-modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .bank-modal-title { font-size: 18px; font-weight: 900; }
+    .bank-modal-body {
+      padding: 16px 20px 20px;
+      overflow: auto;
+    }
+    .icon-close {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      padding: 7px 10px;
+      line-height: 1;
+    }
+    .bank-toolbar {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #f8fafc;
+    }
+
+    @media (max-width: 720px) {
+      .wrap { padding: 10px; }
+      .grid { gap: 12px; }
+      .card { border-radius: 14px; padding: 12px; }
+      .title { font-size: 18px; }
+      .row.two,
+      .row.three,
+      .two-cols,
+      .image-word-grid,
+      .image-match-grid,
+      .match-images {
+        grid-template-columns: 1fr;
+      }
+      .btnbar {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+      .btnbar > *,
+      #cloudBar a,
+      #cloudBar button,
+      #loginLink {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+      #cloudBar.visible {
+        display: grid !important;
+        grid-template-columns: 1fr;
+      }
+      #cloudBar > div:last-child {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        width: 100%;
+      }
+      .qhead {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .qhead > div:last-child {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .qhead button {
+        width: 100%;
+        min-height: 36px;
+      }
+      label { letter-spacing: 0.08em; }
+      input, select, textarea { font-size: 16px; }
+      .preview {
+        max-width: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .paper {
+        border-width: 6px;
+        padding: 18px;
+      }
+      .pv-header {
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .pv-school { font-size: 22px; }
+      .pv-title { font-size: 16px; }
+      .pv-kicker { letter-spacing: 0.16em; }
+      .logo {
+        width: 68px;
+        height: 68px;
+        border-radius: 14px;
+      }
+      .info-grid,
+      .student-grid {
+        grid-template-columns: 1fr;
+      }
+      .qtitle {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .wrap { padding: 0; }
+      .card {
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+      }
+      .paper {
+        border-width: 0;
+        padding: 16px;
+      }
+      .pv-header {
+        flex-direction: column;
+      }
+      .logo {
+        width: 76px;
+        height: 76px;
+      }
+      .chipbar {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+    }
 
     @media print {
       .wrap { max-width: none; padding: 0; }
@@ -270,6 +529,8 @@
               <option value="marcarx">Marcar X</option>
               <option value="lacunas">Complete as lacunas</option>
               <option value="relacione">Relacione as colunas</option>
+              <option value="imagem">De acordo com a imagem</option>
+              <option value="relacione_imagens">Relacione imagens e palavras</option>
             </select>
             <button id="addQuestion" class="primary" type="button" style="white-space:nowrap;">＋ Adicionar</button>
           </div>
@@ -279,14 +540,24 @@
 
         <hr />
 
+        <div id="questionBankPanel">
+          <label>Banco de questões</label>
+          <button id="openBankBtn" class="outline" type="button" style="width:100%; margin-top:8px;">Abrir banco de questões</button>
+          <div class="small" style="margin-top:8px;">Pesquise, insira, edite ou exclua questões salvas.</div>
+        </div>
+
+        <hr />
+
         <!-- Barra quando logado -->
         <div id="cloudBar" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:12px 16px; margin-bottom:10px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
           <div>
             <div style="font-weight:700; font-size:13px; color:#166534;">☁️ Conectado: <span id="cloudUser" style="font-weight:500;"></span></div>
             <div id="lastSaved" style="font-size:12px; color:#4ade80; margin-top:2px;"></div>
+            <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <button id="saveCloudBtn" class="primary" type="button" style="background:#16a34a; border-color:#16a34a; font-size:13px; padding:8px 16px;">💾 Salvar na Nuvem</button>
+            <a id="printPageLink" href="print.html" style="padding:8px 14px; font-size:13px; font-weight:700; color:#0f172a; text-decoration:none; border:1px solid #cbd5e1; border-radius:12px; background:white;">PDF limpo</a>
             <a href="dashboard.html" style="padding:8px 14px; font-size:13px; font-weight:700; color:#64748b; text-decoration:none; border:1px solid #e2e8f0; border-radius:12px; background:white;">← Minhas Provas</a>
           </div>
         </div>
@@ -368,6 +639,35 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="questionBankModal">
+    <div class="bank-modal">
+      <div class="bank-modal-head">
+        <div>
+          <div class="bank-modal-title">Banco de questões</div>
+          <div class="small">Questões suas podem ser editadas ou excluídas. Questões públicas podem apenas ser usadas.</div>
+        </div>
+        <button class="icon-close" id="closeBankBtn" type="button">Fechar</button>
+      </div>
+      <div class="bank-toolbar">
+        <div class="row two">
+          <input id="bankSearch" type="text" placeholder="Buscar por texto, habilidade ou título" />
+          <input id="bankGrade" type="text" placeholder="Série/ano ex: 5º ano" />
+          <input id="bankSkill" type="text" placeholder="Habilidade/observação" />
+          <select id="bankDifficulty">
+            <option value="">Todas as dificuldades</option>
+            <option value="facil">Fácil</option>
+            <option value="media">Média</option>
+            <option value="dificil">Difícil</option>
+          </select>
+          <button id="loadBankBtn" class="primary" type="button">Buscar questões</button>
+        </div>
+      </div>
+      <div class="bank-modal-body">
+        <div id="questionBankList" class="row"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function parsePtNumber(s) {
       const n = Number(String(s || '').trim().replace('.', '').replace(',', '.'));
@@ -380,7 +680,8 @@
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function el(id) { return document.getElementById(id); }
-    const STORAGE_KEY = 'gerador-provas-state-v1';
+    const STORAGE_KEY_BASE = 'gerador-provas-state-v1';
+    let activeStorageKey = STORAGE_KEY_BASE;
 
     const typeLabel = {
       multipla: 'Múltipla escolha',
@@ -389,6 +690,8 @@
       marcarx: 'Marcar X',
       lacunas: 'Complete as lacunas',
       relacione: 'Relacione as colunas',
+      imagem: 'De acordo com a imagem',
+      relacione_imagens: 'Relacione imagens e palavras',
     };
 
     const templates = {
@@ -398,6 +701,18 @@
       marcarx: () => ({ type: 'marcarx', text: '', items: ['', '', '', ''], points: '1,0' }),
       lacunas: () => ({ type: 'lacunas', text: '', points: '1,0' }),
       relacione: () => ({ type: 'relacione', text: '', left: ['', ''], right: ['', ''], points: '1,0' }),
+      imagem: () => ({ type: 'imagem', text: 'Observe a imagem e responda.', imageDataUrl: '', imageFileName: '', lines: 5, points: '1,0' }),
+      relacione_imagens: () => ({
+        type: 'relacione_imagens',
+        text: 'Relacione as imagens com as palavras.',
+        pairs: [
+          { imageDataUrl: '', imageFileName: '', word: '' },
+          { imageDataUrl: '', imageFileName: '', word: '' },
+          { imageDataUrl: '', imageFileName: '', word: '' },
+          { imageDataUrl: '', imageFileName: '', word: '' },
+        ],
+        points: '1,0',
+      }),
     };
 
     const defaultSchool = {
@@ -424,9 +739,16 @@
       questions: defaultQuestions.map((q) => ({ ...q })),
     };
 
+    function resetStateToDefault() {
+      state.school = { ...defaultSchool };
+      state.logoDataUrl = '';
+      state.logoFileName = '';
+      state.questions = defaultQuestions.map((q) => JSON.parse(JSON.stringify(q)));
+    }
+
     function saveState() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        localStorage.setItem(activeStorageKey, JSON.stringify({
           school: state.school,
           logoDataUrl: state.logoDataUrl,
           logoFileName: state.logoFileName,
@@ -437,10 +759,10 @@
       }
     }
 
-    function loadSavedState() {
+    function loadSavedState(storageKey = activeStorageKey) {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return false;
         const saved = JSON.parse(raw);
         if (saved && typeof saved === 'object') {
           if (saved.school && typeof saved.school === 'object') {
@@ -455,10 +777,12 @@
           if (Array.isArray(saved.questions) && saved.questions.length > 0) {
             state.questions = saved.questions;
           }
+          return true;
         }
       } catch (error) {
         console.warn('Nao foi possivel restaurar os dados salvos.', error);
       }
+      return false;
     }
 
     function applyStateToInputs() {
@@ -499,6 +823,97 @@
       const copy = JSON.parse(JSON.stringify(state.questions[idx]));
       state.questions.splice(idx + 1, 0, copy);
       renderAll();
+    }
+
+    function readImageFile(file, onReady) {
+      if (!file || !file.type.startsWith('image/')) {
+        window.alert('Selecione um arquivo de imagem valido.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxSide = 1200;
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+          onReady(dataUrl, file.name);
+        };
+        img.onerror = () => window.alert('Nao foi possivel carregar esta imagem.');
+        img.src = String(reader.result || '');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function createImagePicker({ getImage, setImage, clearImage }) {
+      const wrap = document.createElement('div');
+      wrap.className = 'row';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.className = 'visually-hidden';
+
+      const drop = document.createElement('div');
+      drop.className = 'image-drop';
+
+      const refresh = () => {
+        const image = getImage();
+        drop.innerHTML = image.dataUrl
+          ? `<img src="${image.dataUrl}" alt="${esc(image.fileName || 'Imagem da questao')}" />`
+          : '<div><strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span></div>';
+      };
+
+      const applyFile = (file) => readImageFile(file, (dataUrl, fileName) => {
+        setImage(dataUrl, fileName);
+        refresh();
+        renderPreview();
+      });
+
+      drop.addEventListener('click', () => fileInput.click());
+      drop.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        drop.classList.add('dragover');
+      });
+      drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+      drop.addEventListener('drop', (event) => {
+        event.preventDefault();
+        drop.classList.remove('dragover');
+        applyFile(event.dataTransfer.files && event.dataTransfer.files[0]);
+      });
+      fileInput.addEventListener('change', (event) => {
+        applyFile(event.target.files && event.target.files[0]);
+        event.target.value = '';
+      });
+
+      const actions = document.createElement('div');
+      actions.className = 'image-actions';
+      const chooseBtn = document.createElement('button');
+      chooseBtn.type = 'button';
+      chooseBtn.className = 'outline';
+      chooseBtn.textContent = 'Selecionar imagem';
+      chooseBtn.addEventListener('click', () => fileInput.click());
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'danger';
+      removeBtn.textContent = 'Remover imagem';
+      removeBtn.addEventListener('click', () => {
+        clearImage();
+        refresh();
+        renderPreview();
+      });
+      actions.appendChild(chooseBtn);
+      actions.appendChild(removeBtn);
+
+      refresh();
+      wrap.appendChild(drop);
+      wrap.appendChild(fileInput);
+      wrap.appendChild(actions);
+      return wrap;
     }
 
     function renderQuestionsEditor() {
@@ -556,6 +971,13 @@
         dupBtn.textContent = '⊕';
         dupBtn.addEventListener('click', () => duplicateQuestion(idx));
 
+        const bankBtn = document.createElement('button');
+        bankBtn.type = 'button'; bankBtn.className = 'outline';
+        bankBtn.title = 'Salvar no banco de questões';
+        bankBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
+        bankBtn.textContent = 'Banco';
+        bankBtn.addEventListener('click', () => saveQuestionToBank(idx));
+
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'danger';
@@ -570,6 +992,7 @@
         actions.appendChild(upBtn);
         actions.appendChild(downBtn);
         actions.appendChild(dupBtn);
+        actions.appendChild(bankBtn);
         actions.appendChild(removeBtn);
         head.appendChild(actions);
 
@@ -624,6 +1047,30 @@
             <label>Linhas de resposta</label>
             <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines)}" />
           `;
+          body.appendChild(block);
+        }
+
+        if (q.type === 'imagem') {
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Imagem da questão</label>`;
+          block.appendChild(createImagePicker({
+            getImage: () => ({ dataUrl: q.imageDataUrl || '', fileName: q.imageFileName || '' }),
+            setImage: (dataUrl, fileName) => {
+              q.imageDataUrl = dataUrl;
+              q.imageFileName = fileName;
+            },
+            clearImage: () => {
+              q.imageDataUrl = '';
+              q.imageFileName = '';
+            },
+          }));
+          const lines = document.createElement('div');
+          lines.innerHTML = `
+            <label>Linhas de resposta</label>
+            <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines || 5)}" />
+          `;
+          block.appendChild(lines);
           body.appendChild(block);
         }
 
@@ -682,6 +1129,48 @@
           body.appendChild(block);
         }
 
+        if (q.type === 'relacione_imagens') {
+          if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
+            q.pairs = templates.relacione_imagens().pairs;
+          }
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Imagens e palavras</label>`;
+          const grid = document.createElement('div');
+          grid.className = 'image-word-grid';
+          q.pairs.forEach((pair, j) => {
+            const card = document.createElement('div');
+            card.className = 'image-word-card';
+            const title = document.createElement('div');
+            title.className = 'small';
+            title.style.marginBottom = '8px';
+            title.textContent = `Par ${j + 1}`;
+            const input = document.createElement('input');
+            input.value = pair.word || '';
+            input.placeholder = `Palavra ${j + 1}`;
+            input.addEventListener('input', () => {
+              pair.word = input.value;
+              renderPreview();
+            });
+            card.appendChild(title);
+            card.appendChild(createImagePicker({
+              getImage: () => ({ dataUrl: pair.imageDataUrl || '', fileName: pair.imageFileName || '' }),
+              setImage: (dataUrl, fileName) => {
+                pair.imageDataUrl = dataUrl;
+                pair.imageFileName = fileName;
+              },
+              clearImage: () => {
+                pair.imageDataUrl = '';
+                pair.imageFileName = '';
+              },
+            }));
+            card.appendChild(input);
+            grid.appendChild(card);
+          });
+          block.appendChild(grid);
+          body.appendChild(block);
+        }
+
         body.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
@@ -701,6 +1190,7 @@
     }
 
     function renderQuestionPreview(q) {
+      const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => `<div class="hline"></div>`).join('')}</div>`;
       if (q.type === 'multipla') {
         const items = q.options.map((op, i) => {
           const letter = String.fromCharCode(65 + i);
@@ -710,8 +1200,7 @@
         return `<div class="spacey">${items}</div>`;
       }
       if (q.type === 'discursiva') {
-        const lines = Array.from({ length: q.lines || 5 }).map(() => `<div class="hline"></div>`).join('');
-        return `<div class="spacey" style="gap:14px; padding-top:6px;">${lines}</div>`;
+        return answerLines(q.lines || 5);
       }
       if (q.type === 'vf') {
         return `<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>`;
@@ -727,6 +1216,23 @@
         const left = q.left.map((item, i) => `<div>${i + 1}. ${esc(item || `Item A${i + 1}`)}</div>`).join('');
         const right = q.right.map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item B${i + 1}`)}</div>`).join('');
         return `<div class="two-cols"><div class="spacey">${left}</div><div class="spacey">${right}</div></div>`;
+      }
+      if (q.type === 'imagem') {
+        const image = q.imageDataUrl
+          ? `<div class="question-image"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem da questão')}" /></div>`
+          : `<div class="question-image small">Imagem não selecionada.</div>`;
+        return `${image}${answerLines(q.lines || 5)}`;
+      }
+      if (q.type === 'relacione_imagens') {
+        const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+        const images = pairs.map((pair, i) => `
+          <div class="match-image">
+            ${pair.imageDataUrl ? `<img src="${pair.imageDataUrl}" alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
+            <strong>Imagem ${i + 1}</strong>
+          </div>
+        `).join('');
+        const words = pairs.map((pair, i) => `<div>( &nbsp; ) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`).join('');
+        return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
       return '';
     }
@@ -846,6 +1352,9 @@
     let auth = null;
     let currentExamId = localStorage.getItem('editExamId') || null;
     let toastTimer;
+    let currentReviewStatus = 'rascunho';
+    let currentExamOwnerId = null;
+    let currentReviewNotes = '';
 
     function showToast(msg, type = 'ok') {
       let t = document.getElementById('editorToast');
@@ -861,6 +1370,216 @@
       toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
     }
 
+    function cloneQuestion(question) {
+      return JSON.parse(JSON.stringify(question || {}));
+    }
+
+    function questionTitle(question) {
+      const text = String(question?.text || '').trim();
+      return text ? text.slice(0, 80) : (question?.type ? `Questão ${question.type}` : 'Questão sem título');
+    }
+
+    async function saveQuestionToBank(idx) {
+      if (!auth || !auth.isAuthenticated()) {
+        showToast('Entre na conta para usar o banco de questões.', 'err');
+        return;
+      }
+
+      syncSchoolFromInputs();
+      const question = cloneQuestion(state.questions[idx]);
+      const grade = document.getElementById('bankGrade').value.trim() || state.school.className || '';
+      const skill = document.getElementById('bankSkill').value.trim();
+      const difficulty = document.getElementById('bankDifficulty').value || 'media';
+
+      try {
+        await auth.authenticatedRequest('/question_bank', {
+          method: 'POST',
+          headers: { 'Prefer': 'return=minimal' },
+          body: JSON.stringify({
+            user_id: auth.getCurrentUser().id,
+            title: questionTitle(question),
+            subject: state.school.subject || '',
+            grade,
+            skill,
+            difficulty,
+            question_type: question.type || '',
+            question,
+            is_public: false,
+          }),
+        });
+        showToast('Questão salva no banco.', 'ok');
+      } catch (err) {
+        showToast('Erro ao salvar no banco: ' + err.message, 'err');
+      }
+    }
+
+    function renderQuestionBank(items) {
+      const root = document.getElementById('questionBankList');
+      if (!root) return;
+      if (!items.length) {
+        root.innerHTML = '<div class="small">Nenhuma questão encontrada.</div>';
+        window.currentQuestionBankResults = [];
+        return;
+      }
+      const currentUserId = auth?.getCurrentUser()?.id || '';
+      root.innerHTML = items.map((item, index) => {
+        const q = item.question || {};
+        const isMine = item.user_id === currentUserId;
+        const visibility = item.is_public ? 'Pública' : 'Privada';
+        return `
+          <div class="bank-item">
+            <span class="bank-badge ${isMine ? '' : 'public'}">${isMine ? `Criada por você · ${visibility}` : 'Questão pública'}</span>
+            <div class="bank-title">${esc(item.title || questionTitle(q))}</div>
+            <div class="bank-meta">${esc(item.subject || 'Sem disciplina')} · ${esc(item.grade || 'Sem série')} · ${esc(item.difficulty || 'média')} · ${esc(typeLabel[q.type] || q.type || 'tipo')}</div>
+            ${item.skill ? `<div class="bank-meta">Habilidade: ${esc(item.skill)}</div>` : ''}
+            <div class="small">${esc(String(q.text || '').slice(0, 140))}</div>
+            <div class="bank-actions">
+              <button class="primary" type="button" data-bank-action="insert" data-bank-index="${index}">Inserir na prova</button>
+              ${isMine ? `<button class="outline" type="button" data-bank-action="edit" data-bank-index="${index}">Alterar</button>` : ''}
+              ${isMine ? `<button class="outline" type="button" data-bank-action="visibility" data-bank-index="${index}">${item.is_public ? 'Tornar privada' : 'Tornar pública'}</button>` : ''}
+              ${isMine ? `<button class="danger" type="button" data-bank-action="delete" data-bank-index="${index}">Excluir</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+      window.currentQuestionBankResults = items;
+    }
+
+    async function loadQuestionBank() {
+      const root = document.getElementById('questionBankList');
+      if (!auth || !auth.isAuthenticated()) {
+        if (root) root.innerHTML = '<div class="small">Entre na conta para pesquisar o banco de questões.</div>';
+        showToast('Entre na conta para pesquisar o banco de questões.', 'err');
+        return;
+      }
+
+      const search = document.getElementById('bankSearch').value.trim().toLowerCase();
+      const grade = document.getElementById('bankGrade').value.trim();
+      const skill = document.getElementById('bankSkill').value.trim().toLowerCase();
+      const difficulty = document.getElementById('bankDifficulty').value;
+
+      root.innerHTML = '<div class="small">Buscando questões...</div>';
+      window.currentQuestionBankResults = [];
+
+      try {
+        const params = [
+          'select=*',
+          'order=created_at.desc',
+          'limit=30',
+        ];
+        if (grade) params.push(`grade=ilike.*${encodeURIComponent(grade)}*`);
+        if (difficulty) params.push(`difficulty=eq.${encodeURIComponent(difficulty)}`);
+
+        const data = await auth.authenticatedRequest(`/question_bank?${params.join('&')}`);
+        let items = Array.isArray(data) ? data : [];
+        if (search) {
+          items = items.filter((item) => {
+            const q = item.question || {};
+            return [item.title, item.subject, item.grade, item.skill, item.difficulty, q.text]
+              .some(value => String(value || '').toLowerCase().includes(search));
+          });
+        }
+        if (skill) {
+          items = items.filter((item) => String(item.skill || '').toLowerCase().includes(skill));
+        }
+        renderQuestionBank(items);
+      } catch (err) {
+        root.innerHTML = `<div class="small">Não foi possível buscar as questões. ${esc(err.message)}</div>`;
+        showToast('Erro ao buscar banco: ' + err.message, 'err');
+      }
+    }
+
+    function insertBankQuestion(index) {
+      const item = window.currentQuestionBankResults?.[index];
+      if (!item?.question) return;
+      state.questions.push(cloneQuestion(item.question));
+      renderAll();
+      showToast('Questão inserida na prova.', 'ok');
+    }
+
+    function editBankQuestion(index) {
+      const item = window.currentQuestionBankResults?.[index];
+      if (!item?.question) return;
+      if (item.user_id !== auth?.getCurrentUser()?.id) {
+        showToast('Você só pode alterar questões criadas por você.', 'err');
+        return;
+      }
+      state.questions.push(cloneQuestion(item.question));
+      renderAll();
+      closeQuestionBankModal();
+      showToast('Questão aberta no editor. Depois de ajustar, salve novamente no banco.', 'ok');
+    }
+
+    async function deleteBankQuestion(index) {
+      const item = window.currentQuestionBankResults?.[index];
+      if (!item?.id) return;
+      if (item.user_id !== auth?.getCurrentUser()?.id) {
+        showToast('Você só pode excluir questões criadas por você.', 'err');
+        return;
+      }
+      if (!window.confirm('Excluir esta questão do banco?')) return;
+
+      try {
+        await auth.authenticatedRequest(`/question_bank?id=eq.${item.id}`, { method: 'DELETE' });
+        window.currentQuestionBankResults = (window.currentQuestionBankResults || []).filter((_, i) => i !== index);
+        renderQuestionBank(window.currentQuestionBankResults);
+        showToast('Questão excluída do banco.', 'ok');
+      } catch (err) {
+        showToast('Erro ao excluir questão: ' + err.message, 'err');
+      }
+    }
+
+    async function toggleBankQuestionVisibility(index) {
+      const item = window.currentQuestionBankResults?.[index];
+      if (!item?.id) return;
+      if (item.user_id !== auth?.getCurrentUser()?.id) {
+        showToast('Você só pode alterar a visibilidade de questões criadas por você.', 'err');
+        return;
+      }
+
+      const nextVisibility = !item.is_public;
+      const previous = item.is_public;
+      item.is_public = nextVisibility;
+      renderQuestionBank(window.currentQuestionBankResults || []);
+
+      try {
+        await auth.authenticatedRequest(`/question_bank?id=eq.${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            is_public: nextVisibility,
+            updated_at: new Date().toISOString(),
+          }),
+        });
+        showToast(nextVisibility ? 'Questão marcada como pública.' : 'Questão voltou a ser privada.', 'ok');
+      } catch (err) {
+        item.is_public = previous;
+        renderQuestionBank(window.currentQuestionBankResults || []);
+        showToast('Erro ao alterar visibilidade: ' + err.message, 'err');
+      }
+    }
+
+    function openQuestionBankModal() {
+      document.getElementById('questionBankModal').classList.add('show');
+      loadQuestionBank();
+    }
+
+    function closeQuestionBankModal() {
+      document.getElementById('questionBankModal').classList.remove('show');
+    }
+
+    function handleQuestionBankAction(event) {
+      const button = event.target.closest('[data-bank-action]');
+      if (!button) return;
+
+      const index = Number(button.dataset.bankIndex);
+      if (!Number.isInteger(index)) return;
+
+      if (button.dataset.bankAction === 'insert') insertBankQuestion(index);
+      if (button.dataset.bankAction === 'edit') editBankQuestion(index);
+      if (button.dataset.bankAction === 'visibility') toggleBankQuestionVisibility(index);
+      if (button.dataset.bankAction === 'delete') deleteBankQuestion(index);
+    }
+
     async function initCloud() {
       if (!window.CONFIG || !window.initAuthManager) return;
       auth = initAuthManager();
@@ -874,20 +1593,122 @@
 
       // Logado: mostra barra de nuvem, esconde link de login
       const user = auth.getCurrentUser();
+      useUserDraftStorage(user.id);
       document.getElementById('cloudBar').classList.add('visible');
       document.getElementById('loginLink').classList.add('hidden');
       document.getElementById('cloudUser').textContent = user.email;
 
       if (currentExamId) {
         await loadFromCloud(currentExamId);
+      } else {
+        await applyProfileDefaults();
+      }
+      updatePrintPageLink();
+    }
+
+    function updatePrintPageLink() {
+      const link = document.getElementById('printPageLink');
+      if (!link) return;
+      link.href = currentExamId ? `print.html?id=${encodeURIComponent(currentExamId)}` : 'print.html';
+    }
+
+    function getNextReviewStatusForSave() {
+      if (currentReviewStatus === 'devolvida') return 'rascunho';
+      if (
+        currentReviewStatus === 'enviada' &&
+        currentExamOwnerId &&
+        currentExamOwnerId !== auth.getCurrentUser().id
+      ) {
+        return 'em_revisao';
+      }
+      return currentReviewStatus;
+    }
+
+    function getReviewPayloadForSave() {
+      const nextStatus = getNextReviewStatusForSave();
+      const payload = { review_status: nextStatus };
+      if (currentReviewStatus === 'devolvida' && nextStatus === 'rascunho') {
+        payload.review_notes = '';
+        payload.reviewed_by = null;
+        payload.reviewed_at = null;
+        payload.locked_at = null;
+      }
+      return payload;
+    }
+
+    function applyReviewLock() {
+      const locked = ['aprovada', 'bloqueada'].includes(currentReviewStatus);
+      const labels = {
+        rascunho: '',
+        enviada: 'Status: enviada para coordenação',
+        em_revisao: 'Status: em revisão pela coordenação',
+        aprovada: 'Status: aprovada e bloqueada',
+        devolvida: 'Status: devolvida para ajustes',
+        bloqueada: 'Status: bloqueada pela coordenação',
+      };
+      const info = document.getElementById('reviewInfo');
+      if (info) {
+        const note = currentReviewStatus === 'devolvida' && currentReviewNotes
+          ? ` | Devolutiva: ${currentReviewNotes}`
+          : '';
+        info.textContent = `${labels[currentReviewStatus] || ''}${note}`;
+      }
+      document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button')
+        .forEach((node) => {
+          if (['printBtn', 'printBtn2'].includes(node.id)) return;
+          node.disabled = locked;
+        });
+      const saveBtn = document.getElementById('saveCloudBtn');
+      if (saveBtn) saveBtn.disabled = locked;
+      if (locked) showToast('Esta prova foi aprovada/bloqueada pela coordenação e não pode mais ser alterada.', 'err');
+    }
+
+    function useUserDraftStorage(userId) {
+      activeStorageKey = `${STORAGE_KEY_BASE}:${userId}`;
+      if (currentExamId) return;
+
+      const hasUserDraft = loadSavedState(activeStorageKey);
+      if (!hasUserDraft) {
+        resetStateToDefault();
+      }
+      applyStateToInputs();
+      renderAll();
+    }
+
+    async function applyProfileDefaults() {
+      try {
+        const user = auth.getCurrentUser();
+        const data = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name`);
+        const profile = Array.isArray(data) ? data[0] : null;
+        if (!profile) return;
+
+        const shouldUseSchool = !state.school.schoolName || state.school.schoolName === defaultSchool.schoolName;
+        const shouldUseTeacher = !state.school.teacher || state.school.teacher === defaultSchool.teacher;
+
+        if (shouldUseSchool && profile.school_name) state.school.schoolName = profile.school_name;
+        if (shouldUseTeacher && profile.full_name) state.school.teacher = profile.full_name;
+
+        applyStateToInputs();
+        renderAll();
+      } catch {
+        // Perfil é um atalho de preenchimento; se falhar, o editor continua normal.
       }
     }
 
     async function loadFromCloud(examId) {
       try {
         const data = await auth.authenticatedRequest(`/exams?id=eq.${examId}&select=*`);
-        if (!Array.isArray(data) || !data[0]) return;
+        if (!Array.isArray(data) || !data[0]) {
+          currentExamId = null;
+          localStorage.removeItem('editExamId');
+          resetStateToDefault();
+          applyStateToInputs();
+          renderAll();
+          showToast('Prova não encontrada para este usuário. Abrindo uma nova prova.', 'err');
+          return;
+        }
         const exam = data[0];
+        currentExamOwnerId = exam.user_id || null;
         state.school = {
           schoolName: exam.school_name || defaultSchool.schoolName,
           examTitle: exam.title || defaultSchool.examTitle,
@@ -902,10 +1723,13 @@
         if (Array.isArray(exam.questions) && exam.questions.length > 0) {
           state.questions = exam.questions;
         }
+        currentReviewStatus = exam.review_status || 'rascunho';
+        currentReviewNotes = exam.review_notes || '';
         state.logoDataUrl = exam.logo_data_url || '';
         state.logoFileName = exam.logo_data_url ? 'Logo carregada da nuvem.' : '';
         applyStateToInputs();
         renderAll();
+        applyReviewLock();
         showToast('Prova carregada da nuvem ✓', 'ok');
       } catch (err) {
         showToast('Erro ao carregar prova da nuvem', 'err');
@@ -924,7 +1748,6 @@
       syncSchoolFromInputs();
 
       const payload = {
-        user_id: auth.getCurrentUser().id,
         title: state.school.examTitle || 'Sem título',
         school_name: state.school.schoolName,
         subject: state.school.subject,
@@ -937,6 +1760,7 @@
         questions: state.questions,
         logo_data_url: state.logoDataUrl,
         is_draft: true,
+        ...getReviewPayloadForSave(),
         updated_at: new Date().toISOString(),
       };
 
@@ -947,6 +1771,7 @@
             body: JSON.stringify(payload),
           });
         } else {
+          payload.user_id = auth.getCurrentUser().id;
           const response = await fetch(`${window.CONFIG.API_URL}/exams`, {
             method: 'POST',
             headers: {
@@ -960,12 +1785,18 @@
           const data = await response.json();
           if (Array.isArray(data) && data[0]?.id) {
             currentExamId = data[0].id;
+            currentExamOwnerId = auth.getCurrentUser().id;
             localStorage.setItem('editExamId', currentExamId);
+            updatePrintPageLink();
           }
         }
 
         const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         document.getElementById('lastSaved').textContent = `Último salvamento: ${hora}`;
+        currentReviewStatus = payload.review_status || currentReviewStatus;
+        currentReviewNotes = payload.review_notes ?? currentReviewNotes;
+        applyReviewLock();
+        updatePrintPageLink();
         showToast('✓ Salvo na nuvem!', 'ok');
       } catch (err) {
         showToast('Erro ao salvar: ' + err.message, 'err');
@@ -976,6 +1807,10 @@
     }
 
     document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
+    document.getElementById('openBankBtn').addEventListener('click', openQuestionBankModal);
+    document.getElementById('closeBankBtn').addEventListener('click', closeQuestionBankModal);
+    document.getElementById('loadBankBtn').addEventListener('click', loadQuestionBank);
+    document.getElementById('questionBankList').addEventListener('click', handleQuestionBankAction);
     window.addEventListener('DOMContentLoaded', initCloud);
   </script>
 </body>

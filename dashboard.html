@@ -34,6 +34,15 @@
       transition: all 0.15s; font-family: inherit;
     }
     .btn-logout:hover { border-color: #dc2626; color: #dc2626; }
+    .btn-profile {
+      padding: 7px 12px; border: 1.5px solid #e2e8f0;
+      background: #f8fafc; border-radius: 9px; font-size: 13px;
+      font-weight: 700; color: #475569; cursor: pointer;
+      transition: all 0.15s; font-family: inherit;
+    }
+    .btn-profile:hover { border-color: #667eea; color: #667eea; background: white; }
+    .btn-coordination { display: none; }
+    .btn-coordination.show { display: inline-flex; }
 
     /* MAIN */
     .main { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
@@ -81,6 +90,13 @@
     }
     .filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
     .filter-btn:hover:not(.active) { border-color: #667eea; color: #667eea; }
+    .select-control {
+      min-width: 170px; padding: 10px 12px;
+      border: 1.5px solid #e2e8f0; border-radius: 11px;
+      background: white; color: #475569; font-size: 13px;
+      font-weight: 600; outline: none; font-family: inherit;
+    }
+    .select-control:focus { border-color: #667eea; }
 
     /* GRID */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
@@ -103,11 +119,19 @@
     }
     .badge-draft { background: #fef3c7; color: #92400e; }
     .badge-published { background: #dcfce7; color: #166534; }
+    .badge-review { background: #dbeafe; color: #1d4ed8; }
+    .badge-locked { background: #e2e8f0; color: #475569; }
     .card-title { font-size: 16px; font-weight: 800; color: #0f172a; margin: 20px 0 12px; padding-right: 70px; line-height: 1.3; }
     .card-meta { display: grid; gap: 6px; margin-bottom: 16px; }
     .meta-row { display: flex; justify-content: space-between; font-size: 13px; }
     .meta-label { color: #94a3b8; }
     .meta-value { font-weight: 600; color: #334155; }
+    .review-note {
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px;
+      padding: 10px 12px; font-size: 13px; color: #78350f;
+      line-height: 1.45; margin-top: 2px;
+    }
+    .review-note strong { display: block; margin-bottom: 4px; color: #92400e; }
     .card-footer {
       display: flex; gap: 8px; padding-top: 14px;
       border-top: 1px solid #f1f5f9; margin-top: 4px;
@@ -121,6 +145,10 @@
     }
     .card-btn:hover { background: #f8fafc; }
     .card-btn.edit:hover { border-color: #667eea; color: #667eea; }
+    .card-btn.print:hover { border-color: #0f172a; color: #0f172a; }
+    .card-btn.review:hover { border-color: #2563eb; color: #2563eb; }
+    .card-btn.publish:hover { border-color: #16a34a; color: #16a34a; }
+    .card-btn.unpublish:hover { border-color: #f59e0b; color: #92400e; }
     .card-btn.delete:hover { border-color: #dc2626; color: #dc2626; }
 
     /* EMPTY STATE */
@@ -166,6 +194,14 @@
     .modal-icon { font-size: 40px; margin-bottom: 12px; }
     .modal h3 { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
     .modal p { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+    .modal-form { display: grid; gap: 14px; text-align: left; margin: 18px 0 24px; }
+    .modal-form label { display: block; font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .modal-form input {
+      width: 100%; padding: 11px 12px;
+      border: 1.5px solid #e2e8f0; border-radius: 11px;
+      font-size: 14px; outline: none; font-family: inherit;
+    }
+    .modal-form input:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
     .modal-btns { display: flex; gap: 10px; }
     .modal-btns button {
       flex: 1; padding: 12px; border-radius: 10px;
@@ -182,6 +218,10 @@
       .stats { grid-template-columns: 1fr; }
       .main { padding: 24px 16px; }
       .topbar h1 { font-size: 22px; }
+      .controls { display: grid; }
+      .filters { overflow-x: auto; padding-bottom: 2px; }
+      .select-control { width: 100%; }
+      .btn-profile, .btn-logout { padding: 7px 9px; }
     }
   </style>
 </head>
@@ -195,6 +235,8 @@
       <div class="user-email" id="userEmail"></div>
     </div>
     <div class="avatar" id="userAvatar">P</div>
+    <a class="btn-profile btn-coordination" id="coordinationLink" href="coordenacao.html">Coordenação</a>
+    <button class="btn-profile" id="profileBtn">Perfil</button>
     <button class="btn-logout" id="logoutBtn">Sair</button>
   </div>
 </header>
@@ -239,12 +281,44 @@
       <button class="filter-btn" data-filter="draft">Rascunhos</button>
       <button class="filter-btn" data-filter="published">Publicadas</button>
     </div>
+    <select class="select-control" id="subjectFilter" aria-label="Filtrar por disciplina">
+      <option value="">Todas as disciplinas</option>
+    </select>
+    <select class="select-control" id="sortSelect" aria-label="Ordenar provas">
+      <option value="created_desc">Mais recentes</option>
+      <option value="created_asc">Mais antigas</option>
+      <option value="title_asc">Título A-Z</option>
+      <option value="subject_asc">Disciplina A-Z</option>
+    </select>
   </div>
 
   <div class="grid" id="examsGrid">
     <div class="skeleton"></div>
     <div class="skeleton"></div>
     <div class="skeleton"></div>
+  </div>
+</div>
+
+<!-- Modal de perfil -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-icon">👤</div>
+    <h3>Editar perfil</h3>
+    <p>Esses dados ajudam a preencher suas provas com mais rapidez.</p>
+    <div class="modal-form">
+      <div>
+        <label>Nome completo</label>
+        <input id="profileNameInput" type="text" placeholder="Seu nome" />
+      </div>
+      <div>
+        <label>Nome da escola</label>
+        <input id="profileSchoolInput" type="text" placeholder="Nome da escola" />
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeProfileModal()">Cancelar</button>
+      <button class="danger" id="saveProfileBtn" style="background:#667eea; border-color:#667eea;">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -269,7 +343,10 @@
 <script>
   let auth = null;
   let exams = [];
+  let currentProfile = { full_name: '', school_name: '' };
   let currentFilter = 'all';
+  let currentSubject = '';
+  let currentSort = 'created_desc';
   let pendingDeleteId = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -284,25 +361,34 @@
 
     // Carregar nome do perfil
     try {
-      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name`);
-      const name = (Array.isArray(profile) && profile[0]?.full_name) ? profile[0].full_name : extrairNome(user.email);
-      document.getElementById('userName').textContent = name;
-      document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,role`);
+      currentProfile = Array.isArray(profile) && profile[0] ? profile[0] : currentProfile;
+      applyProfileToHeader();
+      applyRoleActions();
     } catch {
-      const name = extrairNome(user.email);
-      document.getElementById('userName').textContent = name;
-      document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+      applyProfileToHeader();
     }
 
     await loadExams();
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await auth.signOut();
+      localStorage.removeItem('editExamId');
       window.location.href = 'login.html';
     });
 
     document.getElementById('newExamBtn').addEventListener('click', newExam);
+    document.getElementById('profileBtn').addEventListener('click', openProfileModal);
+    document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
     document.getElementById('searchInput').addEventListener('input', renderExams);
+    document.getElementById('subjectFilter').addEventListener('change', (e) => {
+      currentSubject = e.target.value;
+      renderExams();
+    });
+    document.getElementById('sortSelect').addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      renderExams();
+    });
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -317,6 +403,18 @@
     return email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 
+  function applyProfileToHeader() {
+    const user = auth.getCurrentUser();
+    const name = currentProfile.full_name || extrairNome(user.email);
+    document.getElementById('userName').textContent = name;
+    document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+  }
+
+  function applyRoleActions() {
+    const canCoordinate = ['coordenadora', 'admin'].includes(currentProfile.role);
+    document.getElementById('coordinationLink').classList.toggle('show', canCoordinate);
+  }
+
   async function loadExams() {
     try {
       const user = auth.getCurrentUser();
@@ -324,6 +422,7 @@
         `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`
       );
       exams = Array.isArray(data) ? data : [];
+      renderSubjectOptions();
       renderExams();
     } catch (err) {
       exams = [];
@@ -339,11 +438,13 @@
     let filtered = exams;
     if (currentFilter === 'draft') filtered = exams.filter(e => e.is_draft);
     else if (currentFilter === 'published') filtered = exams.filter(e => e.is_published);
+    if (currentSubject) filtered = filtered.filter(e => (e.subject || '') === currentSubject);
     if (search) filtered = filtered.filter(e =>
       (e.title || '').toLowerCase().includes(search) ||
       (e.subject || '').toLowerCase().includes(search) ||
       (e.class_name || '').toLowerCase().includes(search)
     );
+    filtered = sortExams(filtered);
 
     // Atualizar stats
     document.getElementById('statTotal').textContent = exams.length;
@@ -352,19 +453,32 @@
 
     if (filtered.length === 0) {
       grid.innerHTML = `
-        <div class="empty">
-          <div class="empty-icon">${search ? '🔍' : '📄'}</div>
-          <h2>${search ? 'Nenhuma prova encontrada' : 'Nenhuma prova ainda'}</h2>
-          <p>${search ? 'Tente outros termos de busca.' : 'Crie sua primeira prova clicando no botão acima.'}</p>
-          ${!search ? `<button class="btn-new" onclick="newExam()">＋ Nova Prova</button>` : ''}
+          <div class="empty">
+            <div class="empty-icon">${search ? '🔍' : '📄'}</div>
+          <h2>${search || currentSubject || currentFilter !== 'all' ? 'Nenhuma prova encontrada' : 'Nenhuma prova ainda'}</h2>
+          <p>${search || currentSubject || currentFilter !== 'all' ? 'Ajuste a busca ou os filtros para ver mais provas.' : 'Crie sua primeira prova clicando no botão acima.'}</p>
+          ${!search && !currentSubject && currentFilter === 'all' ? `<button class="btn-new" onclick="newExam()">＋ Nova Prova</button>` : ''}
         </div>`;
       return;
     }
 
     grid.innerHTML = filtered.map(exam => {
       const status = exam.is_published ? 'published' : 'draft';
-      const label = exam.is_published ? 'Publicada' : 'Rascunho';
-      const badgeClass = exam.is_published ? 'badge-published' : 'badge-draft';
+      const review = exam.review_status || (exam.is_published ? 'publicada' : 'rascunho');
+      const reviewLabels = {
+        rascunho: 'Rascunho',
+        enviada: 'Enviada',
+        em_revisao: 'Em revisão',
+        aprovada: 'Aprovada',
+        devolvida: 'Devolvida',
+        bloqueada: 'Bloqueada',
+        publicada: 'Publicada',
+      };
+      const label = reviewLabels[review] || (exam.is_published ? 'Publicada' : 'Rascunho');
+      const badgeClass = ['aprovada', 'bloqueada'].includes(review)
+        ? 'badge-locked'
+        : (['enviada', 'em_revisao', 'devolvida'].includes(review) ? 'badge-review' : (exam.is_published ? 'badge-published' : 'badge-draft'));
+      const locked = ['aprovada', 'bloqueada'].includes(review);
       const date = exam.created_at ? new Date(exam.created_at).toLocaleDateString('pt-BR') : '—';
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
 
@@ -379,12 +493,43 @@
             <div class="meta-row"><span class="meta-label">Questões</span><span class="meta-value">${qCount}</span></div>
             <div class="meta-row"><span class="meta-label">Criada em</span><span class="meta-value">${date}</span></div>
           </div>
+          ${review === 'devolvida' && exam.review_notes ? `<div class="review-note"><strong>Devolutiva da coordenação</strong>${esc(exam.review_notes)}</div>` : ''}
           <div class="card-footer">
-            <button class="card-btn edit" onclick="editExam('${exam.id}')">✏️ Editar</button>
-            <button class="card-btn delete" onclick="askDelete('${exam.id}', '${esc(exam.title || 'esta prova')}')">🗑️ Deletar</button>
+            <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
+            <button class="card-btn print" onclick="printExam('${exam.id}')">PDF</button>
+            <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${locked || review === 'enviada' || review === 'em_revisao' ? 'disabled' : ''}>Coord.</button>
+            <button class="card-btn ${exam.is_published ? 'unpublish' : 'publish'}" onclick="togglePublish('${exam.id}')">${exam.is_published ? 'Rascunho' : 'Publicar'}</button>
+            <button class="card-btn delete" onclick="askDelete('${exam.id}')">🗑️ Deletar</button>
           </div>
         </div>`;
     }).join('');
+  }
+
+  function renderSubjectOptions() {
+    const select = document.getElementById('subjectFilter');
+    const subjects = [...new Set(exams.map(e => e.subject).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const selected = subjects.includes(currentSubject) ? currentSubject : '';
+    currentSubject = selected;
+    select.innerHTML = '<option value="">Todas as disciplinas</option>' + subjects
+      .map(subject => `<option value="${esc(subject)}"${subject === selected ? ' selected' : ''}>${esc(subject)}</option>`)
+      .join('');
+  }
+
+  function sortExams(list) {
+    const sorted = [...list];
+    const byText = (field) => (a, b) => (a[field] || '').localeCompare(b[field] || '', 'pt-BR');
+    const byDate = (dir) => (a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dir === 'asc' ? dateA - dateB : dateB - dateA;
+    };
+
+    if (currentSort === 'created_asc') sorted.sort(byDate('asc'));
+    else if (currentSort === 'title_asc') sorted.sort(byText('title'));
+    else if (currentSort === 'subject_asc') sorted.sort(byText('subject'));
+    else sorted.sort(byDate('desc'));
+    return sorted;
   }
 
   function newExam() {
@@ -397,8 +542,123 @@
     window.location.href = 'editor.html';
   }
 
-  function askDelete(id, title) {
+  function printExam(id) {
+    window.location.href = `print.html?id=${encodeURIComponent(id)}`;
+  }
+
+  async function sendToReview(id) {
+    const exam = exams.find(e => e.id === id);
+    if (!exam) return;
+
+    const previous = {
+      review_status: exam.review_status,
+      is_draft: exam.is_draft,
+      is_published: exam.is_published,
+    };
+    exam.review_status = 'enviada';
+    exam.is_draft = false;
+    exam.is_published = true;
+    renderExams();
+
+    try {
+      await auth.authenticatedRequest(`/exams?id=eq.${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          review_status: 'enviada',
+          is_draft: false,
+          is_published: true,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      showToast('Prova enviada para a coordenação.', 'success');
+    } catch (err) {
+      exam.review_status = previous.review_status;
+      exam.is_draft = previous.is_draft;
+      exam.is_published = previous.is_published;
+      renderExams();
+      showToast('Erro ao enviar para coordenação: ' + err.message, 'error');
+    }
+  }
+
+  function openProfileModal() {
+    document.getElementById('profileNameInput').value = currentProfile.full_name || '';
+    document.getElementById('profileSchoolInput').value = currentProfile.school_name || '';
+    document.getElementById('profileModal').classList.add('show');
+  }
+
+  function closeProfileModal() {
+    document.getElementById('profileModal').classList.remove('show');
+  }
+
+  async function saveProfile() {
+    const btn = document.getElementById('saveProfileBtn');
+    const user = auth.getCurrentUser();
+    const fullName = document.getElementById('profileNameInput').value.trim();
+    const schoolName = document.getElementById('profileSchoolInput').value.trim();
+
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    try {
+      await auth.authenticatedRequest('/profiles?on_conflict=id', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+          id: user.id,
+          email: user.email,
+          full_name: fullName,
+          school_name: schoolName,
+        }),
+      });
+
+      currentProfile = { full_name: fullName, school_name: schoolName };
+      applyProfileToHeader();
+      closeProfileModal();
+      showToast('Perfil atualizado.', 'success');
+    } catch (err) {
+      showToast('Erro ao salvar perfil: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Salvar';
+    }
+  }
+
+  async function togglePublish(id) {
+    const exam = exams.find(e => e.id === id);
+    if (!exam) return;
+
+    const willPublish = !exam.is_published;
+    const previous = {
+      is_draft: exam.is_draft,
+      is_published: exam.is_published,
+    };
+
+    exam.is_published = willPublish;
+    exam.is_draft = !willPublish;
+    renderExams();
+
+    try {
+      await auth.authenticatedRequest(`/exams?id=eq.${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_published: willPublish,
+          is_draft: !willPublish,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      showToast(willPublish ? 'Prova marcada como publicada.' : 'Prova voltou para rascunho.', 'success');
+    } catch (err) {
+      exam.is_published = previous.is_published;
+      exam.is_draft = previous.is_draft;
+      renderExams();
+      showToast('Erro ao atualizar status: ' + err.message, 'error');
+    }
+  }
+
+  function askDelete(id) {
     pendingDeleteId = id;
+    const exam = exams.find(e => e.id === id);
+    const title = exam?.title || 'esta prova';
     document.getElementById('deleteModalMsg').textContent = `Deletar "${title}"? Esta ação não pode ser desfeita.`;
     document.getElementById('deleteModal').classList.add('show');
     document.getElementById('confirmDeleteBtn').onclick = () => confirmDelete();

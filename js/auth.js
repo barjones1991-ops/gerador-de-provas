@@ -171,6 +171,50 @@ class AuthManager {
   }
 
   /**
+   * Usar token temporário recebido no link de recuperação de senha
+   */
+  startRecoverySession(accessToken, refreshToken = '') {
+    this.session = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: null,
+    };
+    this.currentUser = null;
+  }
+
+  /**
+   * Atualizar senha usando a sessão atual
+   */
+  async updatePassword(newPassword) {
+    try {
+      if (!this.session?.access_token) {
+        throw new Error('Sessão de recuperação inválida');
+      }
+
+      const response = await fetch(`${this.config.AUTH_URL}/user`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': this.config.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${this.session.access_token}`,
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error?.message || data.message || 'Erro ao atualizar senha');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Fazer requisição autenticada
    */
   async authenticatedRequest(endpoint, options = {}) {
@@ -191,7 +235,21 @@ class AuthManager {
     });
 
     if (!response.ok) {
-      throw new Error(`Erro na requisição: ${response.statusText}`);
+      let detail = response.statusText || `HTTP ${response.status}`;
+      try {
+        const text = await response.text();
+        if (text) {
+          try {
+            const data = JSON.parse(text);
+            detail = data.message || data.error_description || data.details || data.hint || text;
+          } catch {
+            detail = text;
+          }
+        }
+      } catch {
+        // Mantem o statusText como fallback.
+      }
+      throw new Error(`Erro na requisição: ${detail}`);
     }
 
     // Alguns endpoints retornam texto vazio
@@ -206,9 +264,12 @@ class AuthManager {
   /**
    * Resetar senha
    */
-  async resetPassword(email) {
+  async resetPassword(email, redirectTo = '') {
     try {
-      const response = await fetch(`${this.config.AUTH_URL}/recover`, {
+      const url = redirectTo
+        ? `${this.config.AUTH_URL}/recover?redirect_to=${encodeURIComponent(redirectTo)}`
+        : `${this.config.AUTH_URL}/recover`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
