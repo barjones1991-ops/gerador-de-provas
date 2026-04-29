@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Provas</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 56px 48px;
+      max-width: 640px;
+      width: 100%;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+    .emoji { font-size: 56px; margin-bottom: 20px; }
+    h1 { font-size: 32px; font-weight: 900; color: #1e293b; margin-bottom: 8px; }
+    .sub { color: #64748b; font-size: 16px; margin-bottom: 36px; }
+    .status {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 999px; font-size: 14px; font-weight: 600;
+      margin-bottom: 36px;
+    }
+    .status.ok { background: #dcfce7; color: #166534; }
+    .status.warn { background: #fef3c7; color: #92400e; }
+    .btns { display: grid; gap: 12px; margin-bottom: 40px; }
+    .btn {
+      padding: 16px 24px; border-radius: 16px; font-size: 16px; font-weight: 700;
+      text-decoration: none; border: none; cursor: pointer; transition: all 0.2s;
+      display: block;
+    }
+    .btn-green { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .btn-green:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(16,185,129,0.35); }
+    .btn-purple { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+    .btn-purple:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(102,126,234,0.35); }
+    .features {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left;
+    }
+    @media (max-width: 480px) {
+      .card { padding: 40px 24px; }
+      h1 { font-size: 26px; }
+      .features { grid-template-columns: 1fr; }
+    }
+    .feature-item {
+      display: flex; align-items: center; gap: 10px;
+      background: #f8fafc; border-radius: 12px; padding: 12px 14px;
+      font-size: 14px; color: #334155; font-weight: 500;
+    }
+    .feature-item span { font-size: 18px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">📝</div>
+    <h1>Gerador de Provas</h1>
+    <p class="sub">Crie avaliações profissionais em minutos</p>
+
+    <div id="statusBadge" class="status warn">⏳ Verificando...</div>
+
+    <div class="btns">
+      <a href="editor.html" class="btn btn-green">✏️ Criar Prova Agora</a>
+      <a href="login.html" class="btn btn-purple">🔐 Entrar / Criar Conta</a>
+    </div>
+
+    <div class="features">
+      <div class="feature-item"><span>📋</span> 6 tipos de questão</div>
+      <div class="feature-item"><span>☁️</span> Salva na nuvem</div>
+      <div class="feature-item"><span>🖨️</span> Exporta em PDF</div>
+      <div class="feature-item"><span>🏫</span> Logo da escola</div>
+      <div class="feature-item"><span>📱</span> Funciona no celular</div>
+      <div class="feature-item"><span>🔒</span> Login seguro</div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const badge = document.getElementById('statusBadge');
+      if (window.CONFIG && window.CONFIG.SUPABASE_URL && !window.CONFIG.SUPABASE_URL.includes('seu-projeto')) {
+        badge.className = 'status ok';
+        badge.textContent = '✓ Plataforma pronta';
+      } else {
+        badge.className = 'status warn';
+        badge.textContent = '⚙️ Configure o Supabase para salvar na nuvem';
+      }
+    });
+  </script>
+</body>
+</html>

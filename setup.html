@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Gerador de Provas</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            color: #1f4e78;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #64748b;
+            margin: 0 0 32px;
+        }
+
+        .step {
+            margin-bottom: 32px;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .step-number {
+            display: inline-flex;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .step-number.done {
+            background: #10b981;
+        }
+
+        .step-content {
+            margin-left: 38px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: monospace;
+            margin-bottom: 12px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        button.secondary {
+            background: transparent;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+        }
+
+        button.secondary:hover {
+            background: #f1f5f9;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .copy-button {
+            display: inline-block;
+            padding: 6px 12px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .copy-button:hover {
+            background: #e2e8f0;
+        }
+
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 33%;
+            transition: width 0.3s;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Configuração Inicial</h1>
+        <p class="subtitle">Configure suas credenciais Supabase em 3 passos</p>
+
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <form id="setupForm">
+            <!-- Step 1: URL -->
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number" id="step1Number">1</span>
+                    <span>URL do Projeto Supabase</span>
+                </div>
+                <div class="step-content">
+                    <label>Project URL</label>
+                    <input
+                        type="text"
+                        id="supabaseUrl"
+                        placeholder="https://seu-projeto.supabase.co"
+                        autocomplete="off"
+                    />
+                    <div class="helper-text">
+                        📍 Encontre em: Supabase Dashboard > Settings > API > Project URL
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Anon Key -->
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number" id="step2Number">2</span>
+                    <span>Chave Anônima (Anon Key)</span>
+                </div>
+                <div class="step-content">
+                    <label>Anon Public Key</label>
+                    <input
+                        type="password"
+                        id="supabaseKey"
+                        placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                        autocomplete="off"
+                    />
+                    <div class="helper-text">
+                        🔑 Encontre em: Supabase Dashboard > Settings > API > anon public
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Confirm -->
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number" id="step3Number">3</span>
+                    <span>Confirmar e Testar</span>
+                </div>
+                <div class="step-content">
+                    <div id="confirmMessage"></div>
+                    <div class="button-group">
+                        <button type="button" class="secondary" onclick="togglePasswordVisibility()">
+                            👁️ Mostrar Chave
+                        </button>
+                        <button type="submit" class="primary">
+                            ✓ Confirmar Configuração
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('setupForm');
+        const urlInput = document.getElementById('supabaseUrl');
+        const keyInput = document.getElementById('supabaseKey');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const progressBar = document.getElementById('progressBar');
+
+        let currentStep = 0;
+
+        function updateProgress() {
+            const url = urlInput.value.trim();
+            const key = keyInput.value.trim();
+
+            let step = 0;
+            if (url && url.startsWith('https://') && url.endsWith('supabase.co')) step = 1;
+            if (step === 1 && key && key.length > 50) step = 2;
+
+            currentStep = step;
+            progressBar.style.width = (step / 2 * 100) + '%';
+
+            // Atualizar números dos passos
+            updateStepIndicators();
+        }
+
+        function updateStepIndicators() {
+            const step1 = document.getElementById('step1Number');
+            const step2 = document.getElementById('step2Number');
+            const step3 = document.getElementById('step3Number');
+
+            step1.textContent = currentStep >= 1 ? '✓' : '1';
+            step1.classList.toggle('done', currentStep >= 1);
+
+            step2.textContent = currentStep >= 2 ? '✓' : '2';
+            step2.classList.toggle('done', currentStep >= 2);
+
+            step3.textContent = '3';
+            step3.classList.toggle('done', currentStep >= 3);
+        }
+
+        function togglePasswordVisibility() {
+            const type = keyInput.type === 'password' ? 'text' : 'password';
+            keyInput.type = type;
+        }
+
+        form.addEventListener('input', updateProgress);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const url = urlInput.value.trim();
+            const key = keyInput.value.trim();
+
+            // Validações
+            if (!url || !key) {
+                showMessage('❌ Preencha todos os campos', 'error');
+                return;
+            }
+
+            if (!url.startsWith('https://') || !url.endsWith('supabase.co')) {
+                showMessage('❌ URL inválida. Deve ser: https://seu-projeto.supabase.co', 'error');
+                return;
+            }
+
+            if (key.length < 50) {
+                showMessage('❌ Chave muito curta. Copie a chave completa', 'error');
+                return;
+            }
+
+            // Testar credenciais
+            showMessage('⏳ Testando credenciais...', 'info');
+
+            try {
+                const response = await fetch(`${url}/rest/v1/profiles?limit=1`, {
+                    headers: {
+                        'apikey': key,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok && response.status !== 401) {
+                    throw new Error('Credenciais inválidas');
+                }
+
+                // Salvar em config.js
+                saveConfiguration(url, key);
+
+            } catch (error) {
+                showMessage('❌ Erro ao testar: ' + error.message, 'error');
+            }
+        });
+
+        function showMessage(text, type) {
+            confirmMessage.className = type;
+            confirmMessage.textContent = text;
+        }
+
+        function saveConfiguration(url, key) {
+            // Criar conteúdo atualizado do config.js
+            const configContent = `/**
+ * CONFIGURAÇÃO CENTRALIZADA DO SUPABASE
+ *
+ * Este arquivo centraliza todas as credenciais e configurações
+ * Configurado em: ${new Date().toLocaleString('pt-BR')}
+ */
+
+const CONFIG = {
+  SUPABASE_URL: '${url}',
+  SUPABASE_ANON_KEY: '${key}',
+  ENVIRONMENT: 'production',
+  API_URL: '${url}/rest/v1',
+  AUTH_URL: '${url}/auth/v1',
+  TIMEOUT: 10000,
+  MAX_FILE_SIZE: 5 * 1024 * 1024,
+};
+
+function validateConfig() {
+  return CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = CONFIG;
+}`;
+
+            // Como estamos em HTML, não podemos escrever arquivo diretamente
+            // Vamos mostrar instruções para o usuário
+            showManualInstructions(configContent);
+        }
+
+        function showManualInstructions(configContent) {
+            const newWindow = window.open('about:blank', 'config', 'width=800,height=600');
+
+            newWindow.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Copie o conteúdo para config.js</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 800px;
+        }
+        h1 { color: #1f4e78; }
+        .code {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #764ba2;
+        }
+        .success {
+            color: #10b981;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✓ Credenciais Validadas!</h1>
+        <p>Agora você precisa atualizar o arquivo <strong>config.js</strong></p>
+
+        <h3>Opção 1: Copiar e Colar (Recomendado)</h3>
+        <ol>
+            <li>Clique no botão "Copiar Código"</li>
+            <li>Abra o arquivo <strong>config.js</strong> no seu editor</li>
+            <li>Selecione tudo (Ctrl+A)</li>
+            <li>Cole o conteúdo (Ctrl+V)</li>
+            <li>Salve o arquivo (Ctrl+S)</li>
+            <li>Recarregue a página de login</li>
+        </ol>
+
+        <div class="code" id="codeContent">${configContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+
+        <button onclick="copyToClipboard()">📋 Copiar Código</button>
+        <div class="success" id="copyStatus"></div>
+
+        <h3>Opção 2: Editar Manualmente</h3>
+        <ol>
+            <li>Abra <strong>config.js</strong> no seu editor</li>
+            <li>Procure pelas linhas 10-11</li>
+            <li>Substitua os valores:
+                <ul>
+                    <li>SUPABASE_URL → ${url}</li>
+                    <li>SUPABASE_ANON_KEY → (sua chave)</li>
+                </ul>
+            </li>
+            <li>Salve</li>
+        </ol>
+
+        <h3>Próximo Passo</h3>
+        <p>Após atualizar config.js, abra:</p>
+        <code>http://localhost:5500/login.html</code>
+        <p>E crie sua primeira conta!</p>
+    </div>
+
+    <script>
+        function copyToClipboard() {
+            const code = document.getElementById('codeContent');
+            const text = code.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                document.getElementById('copyStatus').textContent = '✓ Copiado para clipboard!';
+                setTimeout(() => {
+                    document.getElementById('copyStatus').textContent = '';
+                }, 3000);
+            });
+        }
+    </script>
+</body>
+</html>
+            `);
+            newWindow.document.close();
+        }
+
+        // Inicializar
+        updateProgress();
+    </script>
+</body>
+</html>
