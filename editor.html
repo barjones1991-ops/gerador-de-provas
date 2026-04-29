@@ -260,20 +260,18 @@
 
         <hr />
 
-        <div class="row">
-          <div>
-            <label>Adicionar nova questão</label>
-            <div class="row two">
-              <select id="pendingType">
-                <option value="multipla">Múltipla escolha</option>
-                <option value="discursiva">Discursativa</option>
-                <option value="vf">Verdadeiro/Falso</option>
-                <option value="marcarx">Marcar X</option>
-                <option value="lacunas">Complete as lacunas</option>
-                <option value="relacione">Relacione as colunas</option>
-              </select>
-              <button id="addQuestion" class="primary" type="button">Nova questão</button>
-            </div>
+        <div>
+          <label>Nova questão</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select id="pendingType" style="flex:1;">
+              <option value="multipla">Múltipla escolha</option>
+              <option value="discursiva">Discursativa</option>
+              <option value="vf">Verdadeiro/Falso</option>
+              <option value="marcarx">Marcar X</option>
+              <option value="lacunas">Complete as lacunas</option>
+              <option value="relacione">Relacione as colunas</option>
+            </select>
+            <button id="addQuestion" class="primary" type="button" style="white-space:nowrap;">＋ Adicionar</button>
           </div>
         </div>
 
@@ -296,11 +294,10 @@
         <div class="btnbar">
           <button id="printBtn" class="primary" type="button">🖨️ Exportar PDF</button>
           <button id="printBtn2" class="outline" type="button">Imprimir</button>
-          <a id="loginLink" href="login.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#667eea; text-decoration:none; border:1.5px solid #667eea; border-radius:14px; display:inline-flex; align-items:center; gap:6px;">🔐 Entrar para salvar na nuvem</a>
+          <a id="loginLink" href="login.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#667eea; text-decoration:none; border:1.5px solid #667eea; border-radius:14px; display:inline-flex; align-items:center; gap:6px;">🔐 Entrar para salvar</a>
           <a href="index.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#94a3b8; text-decoration:none; border:1px solid #e2e8f0; border-radius:14px;">Início</a>
         </div>
-        <p class="muted">Para salvar em PDF, clique em Exportar em PDF e escolha "Salvar como PDF" na janela de impressão do navegador.</p>
-        <p class="muted">O fluxo recomendado é sempre PDF, porque ele preserva o layout da prova com muito mais fidelidade.</p>
+        <p class="muted" style="margin-top:8px;">💡 "Exportar PDF" → escolha "Salvar como PDF" no diálogo de impressão.</p>
       </div>
 
       <div>
@@ -489,9 +486,34 @@
       state.school.instructions = el('instructions').value;
     }
 
+    function moveQuestion(idx, dir) {
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= state.questions.length) return;
+      const tmp = state.questions[idx];
+      state.questions[idx] = state.questions[newIdx];
+      state.questions[newIdx] = tmp;
+      renderAll();
+    }
+
+    function duplicateQuestion(idx) {
+      const copy = JSON.parse(JSON.stringify(state.questions[idx]));
+      state.questions.splice(idx + 1, 0, copy);
+      renderAll();
+    }
+
     function renderQuestionsEditor() {
       const root = el('questionsEditor');
       root.innerHTML = '';
+
+      if (state.questions.length === 0) {
+        root.innerHTML = `
+          <div style="text-align:center; padding:32px 16px; border:2px dashed var(--border); border-radius:16px; color:var(--muted);">
+            <div style="font-size:36px; margin-bottom:10px;">📋</div>
+            <div style="font-weight:700; margin-bottom:4px;">Nenhuma questão ainda</div>
+            <div class="small">Selecione o tipo acima e clique em "Nova questão"</div>
+          </div>`;
+        return;
+      }
 
       state.questions.forEach((q, idx) => {
         const wrap = document.createElement('div');
@@ -500,21 +522,56 @@
         const head = document.createElement('div');
         head.className = 'qhead';
         head.innerHTML = `
-          <div>
-            <div style="font-weight: 800;">Questão ${idx + 1}</div>
-            <div class="qtype">${esc(typeLabel[q.type] || q.type)}</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="background:var(--btn); color:white; border-radius:8px; padding:2px 9px; font-size:13px; font-weight:800;">${idx + 1}</span>
+            <div>
+              <div style="font-weight:800; font-size:14px;">${esc(typeLabel[q.type] || q.type)}</div>
+            </div>
           </div>
         `;
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex; gap:4px; align-items:center;';
+
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button'; upBtn.className = 'outline';
+        upBtn.title = 'Mover para cima';
+        upBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
+        upBtn.textContent = '↑';
+        upBtn.disabled = idx === 0;
+        upBtn.addEventListener('click', () => moveQuestion(idx, -1));
+
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button'; downBtn.className = 'outline';
+        downBtn.title = 'Mover para baixo';
+        downBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
+        downBtn.textContent = '↓';
+        downBtn.disabled = idx === state.questions.length - 1;
+        downBtn.addEventListener('click', () => moveQuestion(idx, 1));
+
+        const dupBtn = document.createElement('button');
+        dupBtn.type = 'button'; dupBtn.className = 'outline';
+        dupBtn.title = 'Duplicar questão';
+        dupBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
+        dupBtn.textContent = '⊕';
+        dupBtn.addEventListener('click', () => duplicateQuestion(idx));
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'danger';
-        removeBtn.textContent = 'Remover';
+        removeBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Remover questão';
         removeBtn.addEventListener('click', () => {
           state.questions.splice(idx, 1);
           renderAll();
         });
-        head.appendChild(removeBtn);
+
+        actions.appendChild(upBtn);
+        actions.appendChild(downBtn);
+        actions.appendChild(dupBtn);
+        actions.appendChild(removeBtn);
+        head.appendChild(actions);
 
         const body = document.createElement('div');
         body.className = 'row';
