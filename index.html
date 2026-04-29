@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Provas - Plataforma Online</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 700px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            color: #1f4e78;
+            font-size: 36px;
+        }
+
+        .tagline {
+            color: #64748b;
+            font-size: 16px;
+            margin: 0 0 48px;
+        }
+
+        .status-box {
+            background: #dcfce7;
+            color: #166534;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 32px;
+            font-weight: 600;
+        }
+
+        .status-box.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        @media (max-width: 600px) {
+            .buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        a, button {
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #f8f8f8;
+        }
+
+        .btn-editor {
+            background: #10b981;
+            color: white;
+            grid-column: 1 / -1;
+        }
+
+        .btn-editor:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(16, 185, 129, 0.4);
+        }
+
+        .info-box {
+            background: #f0f9ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 32px;
+            line-height: 1.8;
+        }
+
+        .info-box h3 {
+            margin: 0 0 12px;
+            color: #1e40af;
+        }
+
+        .info-box ol {
+            margin: 12px 0;
+            padding-left: 20px;
+            text-align: left;
+        }
+
+        .info-box li {
+            margin-bottom: 8px;
+        }
+
+        .feature-list {
+            text-align: left;
+            display: inline-block;
+            margin-top: 32px;
+            color: #64748b;
+        }
+
+        .feature-list li {
+            margin-bottom: 12px;
+        }
+
+        .footer {
+            margin-top: 48px;
+            padding-top: 32px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .check {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            margin-right: 8px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📝</div>
+
+        <h1>Gerador de Provas Online</h1>
+        <p class="tagline">Plataforma completa para criar e gerenciar avaliações</p>
+
+        <div id="statusBox" class="status-box warning">
+            ⚙️ Verificando configuração...
+        </div>
+
+        <div class="buttons">
+            <a href="editor.html" class="btn-editor">✏️ Criar Prova Agora</a>
+            <a href="login.html" class="btn-primary">🔐 Login com Conta</a>
+            <a href="setup.html" class="btn-secondary">🔧 Configurar Supabase</a>
+        </div>
+
+        <div class="info-box">
+            <h3>📋 Como usar:</h3>
+            <ol>
+                <li><strong>Criar prova sem conta</strong>: Clique em "Criar Prova Agora" — funciona direto no navegador</li>
+                <li><strong>Com conta</strong>: Configure o Supabase, faça login e salve provas na nuvem</li>
+                <li>Exporte em PDF pelo menu do editor</li>
+            </ol>
+        </div>
+
+        <ul class="feature-list">
+            <li><span class="check">✓</span> Editor visual de provas</li>
+            <li><span class="check">✓</span> 6 tipos de questões</li>
+            <li><span class="check">✓</span> Exportar em PDF</li>
+            <li><span class="check">✓</span> Upload de logo da escola</li>
+            <li><span class="check">✓</span> Salva automaticamente no navegador</li>
+            <li><span class="check">✓</span> Login e nuvem (requer Supabase)</li>
+        </ul>
+
+        <div class="footer">
+            <p>🚀 Clique em "Criar Prova Agora" para começar sem configuração.</p>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const statusBox = document.getElementById('statusBox');
+            if (window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_URL !== 'https://seu-projeto.supabase.co') {
+                statusBox.className = 'status-box';
+                statusBox.textContent = '✓ Supabase configurado! Você pode fazer login ou criar provas.';
+            } else {
+                statusBox.className = 'status-box warning';
+                statusBox.textContent = '⚙️ Supabase não configurado — você ainda pode criar provas sem conta.';
+            }
+        });
+    </script>
+</body>
+</html>

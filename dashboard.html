@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard - Gerador de Provas</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+        }
+        header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 2px rgba(2,6,23,0.06);
+        }
+        .header-left { display: flex; align-items: center; gap: 32px; }
+        .logo { font-size: 20px; font-weight: 900; color: #1f4e78; }
+        .logo-icon { font-size: 24px; margin-right: 8px; }
+        .header-right { display: flex; align-items: center; gap: 20px; }
+        .user-info { text-align: right; }
+        .user-email { font-size: 13px; color: #64748b; }
+        .user-name { font-weight: 600; font-size: 14px; margin-top: 2px; }
+        button.logout {
+            background: transparent;
+            color: #dc2626;
+            border: 1px solid #dc2626;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        button.logout:hover {
+            background: #dc2626;
+            color: white;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 32px; }
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            color: #0f172a;
+        }
+        .subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            gap: 16px;
+        }
+        .search-box {
+            flex: 1;
+            max-width: 400px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        .exams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .exam-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .exam-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(2,6,23,0.12);
+            border-color: #667eea;
+        }
+        .exam-card.draft { opacity: 0.7; }
+        .exam-card.draft::before {
+            content: 'RASCUNHO';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        .exam-card.published::before {
+            content: 'PUBLICADA';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        .exam-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 12px;
+            margin-top: 20px;
+        }
+        .exam-meta {
+            display: grid;
+            gap: 8px;
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+        }
+        .exam-meta-item {
+            display: flex;
+            justify-content: space-between;
+        }
+        .exam-actions {
+            display: flex;
+            gap: 8px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+            margin-top: 16px;
+        }
+        .exam-actions button {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .exam-actions button:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        .exam-actions button.edit {
+            color: #667eea;
+            border-color: #667eea;
+        }
+        .exam-actions button.delete {
+            color: #dc2626;
+            border-color: #dc2626;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .empty-state h2 {
+            margin: 0 0 8px;
+            font-size: 20px;
+        }
+        .empty-state p {
+            color: #64748b;
+            margin: 0 0 24px;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .filter-btn:hover {
+            border-color: #667eea;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-icon">📝</span>
+                Gerador de Provas
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="user-info">
+                <div class="user-email" id="userEmail">carregando...</div>
+                <div class="user-name" id="userName">Professor</div>
+            </div>
+            <button class="logout" id="logoutBtn">Sair</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h1>Minhas Provas</h1>
+        <p class="subtitle">Crie, edite e gerencie suas avaliações de forma fácil e rápida</p>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Buscar prova por título ou disciplina..."
+                    autocomplete="off"
+                />
+            </div>
+            <button class="primary" id="newExamBtn">+ Nova Prova</button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-filter="all">Todas</button>
+            <button class="filter-btn" data-filter="draft">Rascunhos</button>
+            <button class="filter-btn" data-filter="published">Publicadas</button>
+        </div>
+
+        <!-- Exams Grid -->
+        <div id="examsContainer" class="exams-grid">
+            <div class="empty-state">
+                <div class="empty-state-icon">📄</div>
+                <h2>Nenhuma prova ainda</h2>
+                <p>Comece criando sua primeira prova</p>
+                <button class="primary" id="newExamBtn2">+ Nova Prova</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        let auth = null;
+        let exams = [];
+        let currentUser = null;
+        let currentFilter = 'all';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth = initAuthManager();
+
+            // Verificar autenticação
+            if (!auth || !auth.isAuthenticated()) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Atualizar UI com dados do usuário
+            currentUser = auth.getCurrentUser();
+            document.getElementById('userEmail').textContent = currentUser.email;
+
+            const fullName = currentUser.user_metadata?.full_name || 'Professor';
+            document.getElementById('userName').textContent = fullName;
+
+            // Carregar provas
+            loadExams();
+        });
+
+        // ============================================
+        // CARREGAR PROVAS
+        // ============================================
+        async function loadExams() {
+            if (!currentUser || !auth) return;
+
+            try {
+                const response = await auth.authenticatedRequest(
+                    `/exams?user_id=eq.${currentUser.id}&order=created_at.desc`
+                );
+
+                exams = Array.isArray(response) ? response : [];
+                renderExams();
+            } catch (error) {
+                console.error('Erro ao carregar provas:', error);
+                showEmptyState();
+            }
+        }
+
+        // ============================================
+        // RENDERIZAR PROVAS
+        // ============================================
+        function renderExams() {
+            const container = document.getElementById('examsContainer');
+
+            // Filtrar provas
+            let filtered = exams;
+            if (currentFilter === 'draft') {
+                filtered = exams.filter(e => e.is_draft);
+            } else if (currentFilter === 'published') {
+                filtered = exams.filter(e => e.is_published);
+            }
+
+            // Buscar
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(e =>
+                    e.title.toLowerCase().includes(searchTerm) ||
+                    (e.subject && e.subject.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            if (filtered.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            container.innerHTML = filtered.map(exam => `
+                <div class="exam-card ${exam.is_draft ? 'draft' : 'published'}">
+                    <div class="exam-title">${escapeHtml(exam.title)}</div>
+                    <div class="exam-meta">
+                        <div class="exam-meta-item">
+                            <span>Disciplina:</span>
+                            <strong>${escapeHtml(exam.subject || 'N/A')}</strong>
+                        </div>
+                        <div class="exam-meta-item">
+                            <span>Turma:</span>
+                            <strong>${escapeHtml(exam.class_name || 'N/A')}</strong>
+                        </div>
+                        <div class="exam-meta-item">
+                            <span>Valor:</span>
+                            <strong>${exam.total_value || '10,0'} pontos</strong>
+                        </div>
+                        <div class="exam-meta-item">
+                            <span>Criada:</span>
+                            <strong>${new Date(exam.created_at).toLocaleDateString('pt-BR')}</strong>
+                        </div>
+                    </div>
+                    <div class="exam-actions">
+                        <button class="edit" onclick="editExam('${exam.id}')">✏️ Editar</button>
+                        <button class="delete" onclick="deleteExam('${exam.id}')">🗑️ Deletar</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showEmptyState() {
+            const container = document.getElementById('examsContainer');
+            container.innerHTML = `
+                <div style="grid-column: 1/-1;">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📄</div>
+                        <h2>Nenhuma prova encontrada</h2>
+                        <p>Comece criando sua primeira prova</p>
+                        <button class="primary" id="newExamBtn3">+ Nova Prova</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('newExamBtn3')?.addEventListener('click', createNewExam);
+        }
+
+        // ============================================
+        // FUNÇÕES DE AÇÃO
+        // ============================================
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function createNewExam() {
+            // TODO: Integrar com editor.html
+            alert('Redirecionando para o editor...');
+            localStorage.setItem('newExam', 'true');
+            window.location.href = 'editor.html';
+        }
+
+        function editExam(examId) {
+            // TODO: Integrar com editor.html, passando o ID da prova
+            alert('Abrindo editor para prova: ' + examId);
+            localStorage.setItem('editExamId', examId);
+            window.location.href = 'editor.html';
+        }
+
+        function deleteExam(examId) {
+            if (confirm('Tem certeza que deseja deletar esta prova? Esta ação não pode ser desfeita.')) {
+                // TODO: Fazer requisição DELETE para Supabase
+                alert('Deletando prova: ' + examId);
+                loadExams();
+            }
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                if (auth) {
+                    await auth.signOut();
+                }
+                window.location.href = 'login.html';
+            });
+
+            document.getElementById('newExamBtn').addEventListener('click', createNewExam);
+            const newBtn2 = document.getElementById('newExamBtn2');
+            if (newBtn2) newBtn2.addEventListener('click', createNewExam);
+
+            document.getElementById('searchInput').addEventListener('input', renderExams);
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentFilter = e.target.dataset.filter;
+                    renderExams();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

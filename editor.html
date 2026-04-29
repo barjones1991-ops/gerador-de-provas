@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editor de Prova - Gerador de Provas</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --chip: #f1f5f9;
+      --btn: #0f172a;
+      --btnText: #ffffff;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .grid { display: grid; gap: 16px; }
+    @media (min-width: 1024px) {
+      .grid { grid-template-columns: 420px 1fr; align-items: start; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(2,6,23,0.06);
+    }
+    .title { font-size: 20px; font-weight: 800; margin: 0 0 12px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row { display: grid; gap: 10px; }
+    .row.two { grid-template-columns: 1fr 1fr; }
+    .row.three { grid-template-columns: 2fr 1fr 1fr; }
+    label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .btnbar { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.primary { background: var(--btn); color: var(--btnText); }
+    button.outline { background: transparent; border-color: var(--border); color: var(--text); }
+    button.danger { background: transparent; border-color: rgba(220,38,38,0.3); color: var(--danger); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+    .chipbar { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { background: var(--chip); border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; font-size: 12px; color: #334155; }
+    .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
+    .qhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .qtype { font-size: 13px; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .preview {
+      background: #fff;
+      color: #0f172a;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.12);
+      max-width: 794px;
+      margin: 0 auto;
+    }
+    .paper {
+      border: 10px solid #f1f5f9;
+      padding: 40px;
+    }
+    .pv-header { display: flex; justify-content: space-between; gap: 20px; border-bottom: 4px solid #0f172a; padding-bottom: 18px; }
+    .pv-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.25em; color: #64748b; }
+    .pv-school { font-size: 28px; font-weight: 900; margin: 6px 0 0; }
+    .pv-title { font-size: 18px; font-weight: 800; margin: 6px 0 0; color: #334155; }
+    .logo {
+      width: 84px; height: 84px;
+      border-radius: 18px;
+      border: 2px dashed #cbd5e1;
+      display: grid; place-items: center;
+      font-size: 11px; color: #94a3b8;
+      padding: 8px; text-align: center;
+      background: #fff;
+      overflow: hidden;
+    }
+    .logo.has-image {
+      border-style: solid;
+      padding: 0;
+    }
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .info-grid { display: grid; gap: 10px; margin-top: 16px; }
+    @media (min-width: 640px) { .info-grid { grid-template-columns: repeat(4, 1fr); } }
+    .infobox { border: 1px solid #e2e8f0; border-radius: 16px; padding: 10px; }
+    .infobox .lbl { font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.12em; margin-bottom: 4px; }
+    .infobox .val { font-weight: 700; font-size: 13px; color: #0f172a; }
+    .student-grid { display: grid; gap: 10px; margin-top: 10px; }
+    @media (min-width: 640px) { .student-grid { grid-template-columns: 7fr 2fr 1fr 2fr; } }
+    .line { height: 22px; border-bottom: 1px solid #cbd5e1; }
+    .instructions { margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; }
+    .instructions .h { font-weight: 800; margin-bottom: 6px; }
+    .questions { margin-top: 22px; display: grid; gap: 22px; }
+    .question-block { break-inside: avoid; page-break-inside: avoid; }
+    .qtitle { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+    .qtitle .n { font-size: 18px; font-weight: 900; }
+    .qtitle .p { font-size: 13px; color: #64748b; }
+    .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; }
+    .qpreview { margin-top: 10px; font-size: 15px; }
+    .spacey { display: grid; gap: 8px; }
+    .hline { height: 20px; border-bottom: 1px solid #cbd5e1; }
+    .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .nowrap { white-space: pre-line; }
+
+    @media print {
+      .wrap { max-width: none; padding: 0; }
+      .grid { display: block; }
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .preview {
+        box-shadow: none !important;
+        max-width: none !important;
+        border-radius: 0 !important;
+        overflow: visible !important;
+      }
+      .paper {
+        border: 0 !important;
+        padding: 0 !important;
+      }
+      .pv-header,
+      .info-grid,
+      .student-grid,
+      .instructions,
+      .chipbar,
+      .question-block,
+      .infobox,
+      .two-cols,
+      .spacey,
+      .qpreview {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .questions {
+        display: block !important;
+      }
+      .question-block {
+        margin: 0 0 20px 0;
+      }
+      .qtext {
+        orphans: 3;
+        widows: 3;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm 12mm 12mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <div class="card no-print">
+        <h2 class="title">Editor da prova</h2>
+        <div class="row">
+          <div>
+            <label>Nome da escola</label>
+            <input id="schoolName" value="Nome da Escola" />
+          </div>
+          <div>
+            <label>Título da avaliação</label>
+            <input id="examTitle" value="Avaliação Bimestral" />
+          </div>
+          <div class="row two">
+            <div>
+              <label>Disciplina</label>
+              <input id="subject" value="Disciplina" />
+            </div>
+            <div>
+              <label>Professor(a)</label>
+              <input id="teacher" value="Professor(a)" />
+            </div>
+            <div>
+              <label>Turma</label>
+              <input id="className" value="Turma" />
+            </div>
+            <div>
+              <label>Bimestre/Etapa</label>
+              <input id="term" value="1º Bimestre" />
+            </div>
+            <div>
+              <label>Data</label>
+              <input id="date" value="" placeholder="dd/mm/aaaa" />
+            </div>
+            <div>
+              <label>Valor total</label>
+              <input id="totalValue" value="10,0" />
+            </div>
+          </div>
+          <div>
+            <label>Instruções</label>
+            <textarea id="instructions">Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.</textarea>
+            <div class="small">Dica: quebre linhas para aparecer no impresso.</div>
+          </div>
+          <div>
+            <label>Logo da escola</label>
+            <input id="logoInput" class="visually-hidden" type="file" accept="image/*" />
+            <div class="btnbar" style="margin-top: 8px;">
+              <button id="pickLogoBtn" class="primary" type="button">Selecionar imagem</button>
+              <button id="clearLogoBtn" class="outline" type="button">Remover logo</button>
+            </div>
+            <div id="logoFileName" class="small" style="margin-top: 8px;">Nenhuma imagem selecionada.</div>
+            <div class="small">Envie uma imagem para aparecer no cabeçalho e no PDF exportado.</div>
+          </div>
+        </div>
+
+        <hr />
+
+        <div class="row">
+          <div>
+            <label>Adicionar nova questão</label>
+            <div class="row two">
+              <select id="pendingType">
+                <option value="multipla">Múltipla escolha</option>
+                <option value="discursiva">Discursativa</option>
+                <option value="vf">Verdadeiro/Falso</option>
+                <option value="marcarx">Marcar X</option>
+                <option value="lacunas">Complete as lacunas</option>
+                <option value="relacione">Relacione as colunas</option>
+              </select>
+              <button id="addQuestion" class="primary" type="button">Nova questão</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="questionsEditor" class="row" style="margin-top: 12px;"></div>
+
+        <hr />
+
+        <div id="cloudBar" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:12px 16px; margin-bottom:10px; align-items:center; justify-content:space-between; gap:12px;">
+          <div>
+            <div style="font-weight:700; font-size:13px; color:#166534;">Conectado como: <span id="cloudUser" style="font-weight:400;"></span></div>
+            <div id="saveStatus" style="font-size:12px; color:#166534; margin-top:2px;"></div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button id="saveCloudBtn" class="primary" type="button" style="background:#16a34a; font-size:13px; padding:8px 14px;">☁️ Salvar na Nuvem</button>
+            <a href="dashboard.html" style="padding:8px 14px; font-size:13px; font-weight:700; color:#64748b; text-decoration:none; border:1px solid #e2e8f0; border-radius:14px;">← Minhas Provas</a>
+          </div>
+        </div>
+
+        <div class="btnbar">
+          <button id="printBtn" class="primary" type="button">Exportar em PDF</button>
+          <button id="printBtn2" class="outline" type="button">Imprimir</button>
+          <a id="loginLink" href="login.html" style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #667eea; text-decoration: none; border: 1px solid #667eea; border-radius: 14px;">🔐 Entrar para salvar</a>
+        </div>
+        <p class="muted">Para salvar em PDF, clique em Exportar em PDF e escolha "Salvar como PDF" na janela de impressão do navegador.</p>
+        <p class="muted">O fluxo recomendado é sempre PDF, porque ele preserva o layout da prova com muito mais fidelidade.</p>
+      </div>
+
+      <div>
+        <div id="previewRoot" class="preview">
+          <div id="previewPaper" class="paper">
+            <div class="pv-header">
+              <div>
+                <div class="pv-kicker">Modelo editável</div>
+                <div id="pvSchoolName" class="pv-school"></div>
+                <div id="pvExamTitle" class="pv-title"></div>
+              </div>
+              <div id="pvLogo" class="logo">Logo da escola</div>
+            </div>
+
+            <div class="info-grid">
+              <div class="infobox">
+                <div class="lbl">Disciplina</div>
+                <div id="pvSubject" class="val"></div>
+              </div>
+              <div class="infobox">
+                <div class="lbl">Professor(a)</div>
+                <div id="pvTeacher" class="val"></div>
+              </div>
+              <div class="infobox">
+                <div class="lbl">Turma</div>
+                <div id="pvClassName" class="val"></div>
+              </div>
+              <div class="infobox">
+                <div class="lbl">Bimestre/Etapa</div>
+                <div id="pvTerm" class="val"></div>
+              </div>
+            </div>
+
+            <div class="student-grid">
+              <div class="infobox">
+                <div class="lbl">Aluno(a)</div>
+                <div class="line"></div>
+              </div>
+              <div class="infobox">
+                <div class="lbl">Data</div>
+                <div id="pvDate" class="val"></div>
+              </div>
+              <div class="infobox">
+                <div class="lbl">Nota</div>
+                <div class="val">______</div>
+              </div>
+              <div class="infobox">
+                <div class="lbl">Valor</div>
+                <div id="pvTotalValue" class="val"></div>
+              </div>
+            </div>
+
+            <div class="instructions">
+              <div class="h">Instruções</div>
+              <div id="pvInstructions" class="nowrap"></div>
+            </div>
+
+            <div class="chipbar" style="margin-top: 12px;">
+              <div id="pvChipQuestions" class="chip"></div>
+              <div id="pvChipSum" class="chip"></div>
+              <div class="chip">Pronto para impressão</div>
+            </div>
+
+            <div id="pvQuestions" class="questions"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function parsePtNumber(s) {
+      const n = Number(String(s || '').trim().replace('.', '').replace(',', '.'));
+      return Number.isFinite(n) ? n : 0;
+    }
+    function formatPt1(n) {
+      return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',');
+    }
+    function esc(s) {
+      return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function el(id) { return document.getElementById(id); }
+    const STORAGE_KEY = 'gerador-provas-state-v1';
+
+    const typeLabel = {
+      multipla: 'Múltipla escolha',
+      discursiva: 'Discursativa',
+      vf: 'Verdadeiro/Falso',
+      marcarx: 'Marcar X',
+      lacunas: 'Complete as lacunas',
+      relacione: 'Relacione as colunas',
+    };
+
+    const templates = {
+      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], points: '1,0' }),
+      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, points: '1,0' }),
+      vf: () => ({ type: 'vf', text: '', points: '1,0' }),
+      marcarx: () => ({ type: 'marcarx', text: '', items: ['', '', '', ''], points: '1,0' }),
+      lacunas: () => ({ type: 'lacunas', text: '', points: '1,0' }),
+      relacione: () => ({ type: 'relacione', text: '', left: ['', ''], right: ['', ''], points: '1,0' }),
+    };
+
+    const defaultSchool = {
+      schoolName: 'Nome da Escola',
+      examTitle: 'Avaliação Bimestral',
+      subject: 'Disciplina',
+      teacher: 'Professor(a)',
+      className: 'Turma',
+      date: '',
+      term: '1º Bimestre',
+      totalValue: '10,0',
+      instructions: 'Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.',
+    };
+
+    const defaultQuestions = [
+      { ...templates.multipla(), text: 'Exemplo de questão de múltipla escolha.', options: ['Alternativa A', 'Alternativa B', 'Alternativa C', 'Alternativa D'] },
+      { ...templates.discursiva(), text: 'Exemplo de questão discursiva.' },
+    ];
+
+    const state = {
+      school: { ...defaultSchool },
+      logoDataUrl: '',
+      logoFileName: '',
+      questions: defaultQuestions.map((q) => ({ ...q })),
+    };
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          school: state.school,
+          logoDataUrl: state.logoDataUrl,
+          logoFileName: state.logoFileName,
+          questions: state.questions,
+        }));
+      } catch (error) {
+        console.warn('Nao foi possivel salvar os dados localmente.', error);
+      }
+    }
+
+    function loadSavedState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') {
+          if (saved.school && typeof saved.school === 'object') {
+            state.school = { ...defaultSchool, ...saved.school };
+          }
+          if (typeof saved.logoDataUrl === 'string') {
+            state.logoDataUrl = saved.logoDataUrl;
+          }
+          if (typeof saved.logoFileName === 'string') {
+            state.logoFileName = saved.logoFileName;
+          }
+          if (Array.isArray(saved.questions) && saved.questions.length > 0) {
+            state.questions = saved.questions;
+          }
+        }
+      } catch (error) {
+        console.warn('Nao foi possivel restaurar os dados salvos.', error);
+      }
+    }
+
+    function applyStateToInputs() {
+      el('schoolName').value = state.school.schoolName || '';
+      el('examTitle').value = state.school.examTitle || '';
+      el('subject').value = state.school.subject || '';
+      el('teacher').value = state.school.teacher || '';
+      el('className').value = state.school.className || '';
+      el('term').value = state.school.term || '';
+      el('date').value = state.school.date || '';
+      el('totalValue').value = state.school.totalValue || '';
+      el('instructions').value = state.school.instructions || '';
+      el('logoFileName').textContent = state.logoFileName || (state.logoDataUrl ? 'Logo carregada automaticamente.' : 'Nenhuma imagem selecionada.');
+    }
+
+    function syncSchoolFromInputs() {
+      state.school.schoolName = el('schoolName').value;
+      state.school.examTitle = el('examTitle').value;
+      state.school.subject = el('subject').value;
+      state.school.teacher = el('teacher').value;
+      state.school.className = el('className').value;
+      state.school.term = el('term').value;
+      state.school.date = el('date').value;
+      state.school.totalValue = el('totalValue').value;
+      state.school.instructions = el('instructions').value;
+    }
+
+    function renderQuestionsEditor() {
+      const root = el('questionsEditor');
+      root.innerHTML = '';
+
+      state.questions.forEach((q, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'qcard';
+
+        const head = document.createElement('div');
+        head.className = 'qhead';
+        head.innerHTML = `
+          <div>
+            <div style="font-weight: 800;">Questão ${idx + 1}</div>
+            <div class="qtype">${esc(typeLabel[q.type] || q.type)}</div>
+          </div>
+        `;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'danger';
+        removeBtn.textContent = 'Remover';
+        removeBtn.addEventListener('click', () => {
+          state.questions.splice(idx, 1);
+          renderAll();
+        });
+        head.appendChild(removeBtn);
+
+        const body = document.createElement('div');
+        body.className = 'row';
+        body.style.marginTop = '12px';
+
+        const enun = document.createElement('div');
+        enun.innerHTML = `
+          <label>Enunciado</label>
+          <textarea data-k="text">${esc(q.text)}</textarea>
+        `;
+
+        const points = document.createElement('div');
+        points.innerHTML = `
+          <label>Valor</label>
+          <input data-k="points" value="${esc(q.points)}" />
+        `;
+
+        const topRow = document.createElement('div');
+        topRow.className = 'row three';
+        topRow.appendChild(enun);
+        topRow.appendChild(points);
+        const filler = document.createElement('div');
+        filler.innerHTML = `<label>&nbsp;</label><div class="small">Tipo: ${esc(typeLabel[q.type] || q.type)}</div>`;
+        topRow.appendChild(filler);
+        body.appendChild(topRow);
+
+        if (q.type === 'multipla') {
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Alternativas</label>`;
+          const box = document.createElement('div');
+          box.className = 'row';
+          q.options.forEach((op, j) => {
+            const inp = document.createElement('input');
+            inp.value = op || '';
+            inp.placeholder = `Alternativa ${String.fromCharCode(65 + j)}`;
+            inp.addEventListener('input', () => {
+              q.options[j] = inp.value;
+              renderPreview();
+            });
+            box.appendChild(inp);
+          });
+          block.appendChild(box);
+          body.appendChild(block);
+        }
+
+        if (q.type === 'discursiva') {
+          const block = document.createElement('div');
+          block.innerHTML = `
+            <label>Linhas de resposta</label>
+            <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines)}" />
+          `;
+          body.appendChild(block);
+        }
+
+        if (q.type === 'marcarx') {
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Itens</label>`;
+          const box = document.createElement('div');
+          box.className = 'row';
+          q.items.forEach((item, j) => {
+            const inp = document.createElement('input');
+            inp.value = item || '';
+            inp.placeholder = `Item ${j + 1}`;
+            inp.addEventListener('input', () => {
+              q.items[j] = inp.value;
+              renderPreview();
+            });
+            box.appendChild(inp);
+          });
+          block.appendChild(box);
+          body.appendChild(block);
+        }
+
+        if (q.type === 'relacione') {
+          const block = document.createElement('div');
+          block.innerHTML = `<label>Colunas</label>`;
+          const two = document.createElement('div');
+          two.className = 'row two';
+          const left = document.createElement('div');
+          left.className = 'row';
+          const right = document.createElement('div');
+          right.className = 'row';
+          q.left.forEach((item, j) => {
+            const inp = document.createElement('input');
+            inp.value = item || '';
+            inp.placeholder = `Item A${j + 1}`;
+            inp.addEventListener('input', () => {
+              q.left[j] = inp.value;
+              renderPreview();
+            });
+            left.appendChild(inp);
+          });
+          q.right.forEach((item, j) => {
+            const inp = document.createElement('input');
+            inp.value = item || '';
+            inp.placeholder = `Item B${j + 1}`;
+            inp.addEventListener('input', () => {
+              q.right[j] = inp.value;
+              renderPreview();
+            });
+            right.appendChild(inp);
+          });
+          two.appendChild(left);
+          two.appendChild(right);
+          block.appendChild(two);
+          body.appendChild(block);
+        }
+
+        body.querySelectorAll('[data-k]').forEach((node) => {
+          const key = node.getAttribute('data-k');
+          node.addEventListener('input', () => {
+            if (key === 'lines') {
+              q.lines = Math.max(2, Math.min(15, Number(node.value) || 5));
+            } else {
+              q[key] = node.value;
+            }
+            renderPreview();
+          });
+        });
+
+        wrap.appendChild(head);
+        wrap.appendChild(body);
+        root.appendChild(wrap);
+      });
+    }
+
+    function renderQuestionPreview(q) {
+      if (q.type === 'multipla') {
+        const items = q.options.map((op, i) => {
+          const letter = String.fromCharCode(65 + i);
+          const label = op || `Alternativa ${letter}`;
+          return `<div><span>${letter})</span> <span>${esc(label)}</span></div>`;
+        }).join('');
+        return `<div class="spacey">${items}</div>`;
+      }
+      if (q.type === 'discursiva') {
+        const lines = Array.from({ length: q.lines || 5 }).map(() => `<div class="hline"></div>`).join('');
+        return `<div class="spacey" style="gap:14px; padding-top:6px;">${lines}</div>`;
+      }
+      if (q.type === 'vf') {
+        return `<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>`;
+      }
+      if (q.type === 'marcarx') {
+        const items = q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item ${i + 1}`)}</div>`).join('');
+        return `<div class="spacey">${items}</div>`;
+      }
+      if (q.type === 'lacunas') {
+        return `<div>______________________________________________________________</div>`;
+      }
+      if (q.type === 'relacione') {
+        const left = q.left.map((item, i) => `<div>${i + 1}. ${esc(item || `Item A${i + 1}`)}</div>`).join('');
+        const right = q.right.map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item B${i + 1}`)}</div>`).join('');
+        return `<div class="two-cols"><div class="spacey">${left}</div><div class="spacey">${right}</div></div>`;
+      }
+      return '';
+    }
+
+    function renderPreview() {
+      el('pvSchoolName').textContent = state.school.schoolName || 'Nome da Escola';
+      el('pvExamTitle').textContent = state.school.examTitle || 'Avaliação';
+      el('pvSubject').textContent = state.school.subject || 'Disciplina';
+      el('pvTeacher').textContent = state.school.teacher || 'Professor(a)';
+      el('pvClassName').textContent = state.school.className || 'Turma';
+      el('pvTerm').textContent = state.school.term || 'Etapa';
+      el('pvDate').textContent = state.school.date ? state.school.date : '____/____/______';
+      el('pvTotalValue').textContent = state.school.totalValue || '0,0';
+      el('pvInstructions').textContent = state.school.instructions || '';
+
+      const logo = el('pvLogo');
+      if (state.logoDataUrl) {
+        logo.classList.add('has-image');
+        logo.innerHTML = `<img src="${state.logoDataUrl}" alt="Logo da escola" />`;
+      } else {
+        logo.classList.remove('has-image');
+        logo.textContent = 'Logo da escola';
+      }
+
+      const totalQuestions = state.questions.length;
+      const sum = state.questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
+      el('pvChipQuestions').textContent = `${totalQuestions} questões`;
+      el('pvChipSum').textContent = `Soma configurada: ${formatPt1(sum)} pontos`;
+
+      const pvRoot = el('pvQuestions');
+      pvRoot.innerHTML = state.questions.map((q, i) => {
+        const text = q.text || 'Digite o enunciado da questão.';
+        return `
+          <div class="question-block">
+            <div class="qtitle">
+              <div class="n">Questão ${i + 1}</div>
+              <div class="p">Valor: ${esc(q.points)}</div>
+            </div>
+            <div class="qtext">${esc(text)}</div>
+            <div class="qpreview">${renderQuestionPreview(q)}</div>
+          </div>
+        `;
+      }).join('');
+
+      saveState();
+    }
+
+    function renderAll() {
+      renderQuestionsEditor();
+      renderPreview();
+    }
+
+    function wireSchoolInputs() {
+      const ids = ['schoolName','examTitle','subject','teacher','className','term','date','totalValue','instructions'];
+      ids.forEach((id) => {
+        el(id).addEventListener('input', () => {
+          syncSchoolFromInputs();
+          renderPreview();
+        });
+      });
+    }
+
+    function wireLogoInput() {
+      el('pickLogoBtn').addEventListener('click', () => {
+        el('logoInput').click();
+      });
+
+      el('logoInput').addEventListener('change', (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          window.alert('Selecione um arquivo de imagem valido.');
+          event.target.value = '';
+          state.logoFileName = '';
+          el('logoFileName').textContent = 'Nenhuma imagem selecionada.';
+          return;
+        }
+
+        state.logoFileName = file.name;
+        el('logoFileName').textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.logoDataUrl = String(reader.result || '');
+          renderPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      el('clearLogoBtn').addEventListener('click', () => {
+        state.logoDataUrl = '';
+        state.logoFileName = '';
+        el('logoInput').value = '';
+        el('logoFileName').textContent = 'Nenhuma imagem selecionada.';
+        renderPreview();
+      });
+    }
+
+    el('addQuestion').addEventListener('click', () => {
+      const t = el('pendingType').value;
+      state.questions.push(templates[t] ? templates[t]() : templates.multipla());
+      renderAll();
+    });
+    el('printBtn').addEventListener('click', () => window.print());
+    el('printBtn2').addEventListener('click', () => window.print());
+
+    loadSavedState();
+    applyStateToInputs();
+    wireSchoolInputs();
+    wireLogoInput();
+    renderAll();
+  </script>
+
+  <script src="config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let auth = null;
+    let currentExamId = localStorage.getItem('editExamId') || null;
+
+    async function initCloud() {
+      if (!window.CONFIG || !window.initAuthManager) return;
+
+      auth = initAuthManager();
+      if (!auth || !auth.isAuthenticated()) return;
+
+      const user = auth.getCurrentUser();
+      document.getElementById('cloudBar').style.display = 'flex';
+      document.getElementById('loginLink').style.display = 'none';
+      document.getElementById('cloudUser').textContent = user.email;
+
+      if (currentExamId) {
+        await loadFromCloud(currentExamId);
+      }
+    }
+
+    async function loadFromCloud(examId) {
+      try {
+        const data = await auth.authenticatedRequest(`/exams?id=eq.${examId}&select=*`);
+        if (!Array.isArray(data) || !data[0]) return;
+        const exam = data[0];
+        state.school = {
+          schoolName: exam.school_name || defaultSchool.schoolName,
+          examTitle: exam.title || defaultSchool.examTitle,
+          subject: exam.subject || defaultSchool.subject,
+          teacher: exam.teacher || defaultSchool.teacher,
+          className: exam.class_name || defaultSchool.className,
+          term: exam.term || defaultSchool.term,
+          date: exam.date || '',
+          totalValue: exam.total_value || defaultSchool.totalValue,
+          instructions: exam.instructions || defaultSchool.instructions,
+        };
+        if (Array.isArray(exam.questions) && exam.questions.length > 0) {
+          state.questions = exam.questions;
+        }
+        state.logoDataUrl = exam.logo_data_url || '';
+        state.logoFileName = exam.logo_data_url ? 'Logo carregada da nuvem.' : '';
+        applyStateToInputs();
+        renderAll();
+        showSaveStatus('Prova carregada da nuvem.');
+      } catch (err) {
+        console.error('Erro ao carregar prova:', err);
+      }
+    }
+
+    async function saveToCloud() {
+      if (!auth || !auth.isAuthenticated()) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      const btn = document.getElementById('saveCloudBtn');
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+
+      syncSchoolFromInputs();
+
+      const payload = {
+        user_id: auth.getCurrentUser().id,
+        title: state.school.examTitle || 'Sem título',
+        school_name: state.school.schoolName,
+        subject: state.school.subject,
+        class_name: state.school.className,
+        teacher: state.school.teacher,
+        term: state.school.term,
+        date: state.school.date,
+        total_value: state.school.totalValue,
+        instructions: state.school.instructions,
+        questions: state.questions,
+        logo_data_url: state.logoDataUrl,
+        is_draft: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        if (currentExamId) {
+          await auth.authenticatedRequest(`/exams?id=eq.${currentExamId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+          });
+          showSaveStatus('✓ Salvo na nuvem!');
+        } else {
+          const response = await fetch(`${window.CONFIG.API_URL}/exams`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': window.CONFIG.SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${auth.getAccessToken()}`,
+              'Prefer': 'return=representation',
+            },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (Array.isArray(data) && data[0]?.id) {
+            currentExamId = data[0].id;
+            localStorage.setItem('editExamId', currentExamId);
+          }
+          showSaveStatus('✓ Prova criada na nuvem!');
+        }
+      } catch (err) {
+        showSaveStatus('❌ Erro ao salvar: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '☁️ Salvar na Nuvem';
+      }
+    }
+
+    function showSaveStatus(msg) {
+      const el = document.getElementById('saveStatus');
+      el.textContent = msg;
+      setTimeout(() => { el.textContent = ''; }, 4000);
+    }
+
+    document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
+
+    window.addEventListener('DOMContentLoaded', initCloud);
+  </script>
+</body>
+</html>

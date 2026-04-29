@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login - Gerador de Provas</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 16px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 420px;
+            width: 100%;
+        }
+        .logo { text-align: center; margin-bottom: 32px; }
+        .logo h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #1f4e78;
+            font-weight: 900;
+        }
+        .logo p {
+            margin: 8px 0 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        h2 {
+            font-size: 20px;
+            margin: 0 0 24px;
+            color: #0f172a;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        input:invalid {
+            border-color: #dc2626;
+        }
+        .error {
+            color: #dc2626;
+            font-size: 13px;
+            margin-top: 6px;
+            display: none;
+        }
+        .error.show { display: block; }
+        button {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 24px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        button:active { transform: translateY(0); }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .divider {
+            text-align: center;
+            margin: 24px 0;
+            color: #cbd5e1;
+            font-size: 13px;
+        }
+        .switch {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .switch a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .switch a:hover { color: #764ba2; }
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 13px;
+        }
+        .success.show { display: block; }
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>📝 Gerador de Provas</h1>
+            <p>Plataforma para Professores</p>
+        </div>
+
+        <h2 id="title">Faça Login</h2>
+
+        <div class="success" id="successMsg"></div>
+
+        <form id="authForm">
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    required
+                    autocomplete="email"
+                />
+                <div class="error" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                    autocomplete="current-password"
+                />
+                <div class="error" id="passwordError"></div>
+            </div>
+
+            <div class="form-group" id="nameGroup" style="display: none;">
+                <label for="name">Nome Completo</label>
+                <input
+                    id="name"
+                    type="text"
+                    placeholder="João Silva"
+                    autocomplete="name"
+                />
+                <div class="error" id="nameError"></div>
+            </div>
+
+            <div class="form-group" id="schoolGroup" style="display: none;">
+                <label for="school">Nome da Escola</label>
+                <input
+                    id="school"
+                    type="text"
+                    placeholder="Escola Exemplo"
+                    autocomplete="off"
+                />
+            </div>
+
+            <button type="submit" id="submitBtn">Entrar</button>
+        </form>
+
+        <div class="switch">
+            <span id="switchText">Não tem conta? <a href="#" id="toggleLink">Criar conta</a></span>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Inicializar auth manager quando página carregar
+        let auth = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth = initAuthManager();
+
+            // Se já está logado, redirecionar para dashboard
+            if (auth && auth.isAuthenticated()) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.classList.add('show');
+            }
+        }
+
+        function hideError(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.remove('show');
+            }
+        }
+
+        function showSuccess(message) {
+            const element = document.getElementById('successMsg');
+            element.textContent = message;
+            element.classList.add('show');
+            setTimeout(() => element.classList.remove('show'), 4000);
+        }
+
+        function setLoading(isLoading) {
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = isLoading;
+            if (isLoading) {
+                btn.innerHTML = '<span class="loading"></span> Aguarde...';
+            } else {
+                btn.textContent = isLogin ? 'Entrar' : 'Criar Conta';
+            }
+        }
+
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        let isLogin = true;
+
+        const form = document.getElementById('authForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const nameInput = document.getElementById('name');
+        const schoolInput = document.getElementById('school');
+        const title = document.getElementById('title');
+        const toggleLink = document.getElementById('toggleLink');
+        const switchText = document.getElementById('switchText');
+        const nameGroup = document.getElementById('nameGroup');
+        const schoolGroup = document.getElementById('schoolGroup');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        function handleToggle(e) {
+            e.preventDefault();
+            isLogin = !isLogin;
+
+            if (isLogin) {
+                title.textContent = 'Faça Login';
+                switchText.innerHTML = 'Não tem conta? <a href="#" id="toggleLink">Criar conta</a>';
+                nameGroup.style.display = 'none';
+                schoolGroup.style.display = 'none';
+                submitBtn.textContent = 'Entrar';
+                nameInput.required = false;
+            } else {
+                title.textContent = 'Criar Conta';
+                switchText.innerHTML = 'Já tem conta? <a href="#" id="toggleLink">Fazer login</a>';
+                nameGroup.style.display = 'block';
+                schoolGroup.style.display = 'block';
+                submitBtn.textContent = 'Criar Conta';
+                nameInput.required = true;
+            }
+
+            document.getElementById('toggleLink').addEventListener('click', handleToggle);
+
+            form.reset();
+            document.querySelectorAll('.error').forEach(el => el.classList.remove('show'));
+        }
+
+        toggleLink.addEventListener('click', handleToggle);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!auth) {
+                showError('emailError', 'Sistema não inicializado. Recarregue a página.');
+                return;
+            }
+
+            // Limpar erros anteriores
+            document.querySelectorAll('.error').forEach(el => el.classList.remove('show'));
+
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            const name = nameInput.value.trim();
+            const school = schoolInput.value.trim();
+
+            // Validações básicas
+            if (!email) {
+                showError('emailError', 'E-mail é obrigatório');
+                return;
+            }
+            if (!password || password.length < 6) {
+                showError('passwordError', 'Senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            if (!isLogin && !name) {
+                showError('nameError', 'Nome é obrigatório');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                if (isLogin) {
+                    // FAZER LOGIN
+                    const result = await auth.signIn(email, password);
+
+                    if (!result.success) {
+                        showError('emailError', result.error || 'Erro ao fazer login');
+                        setLoading(false);
+                        return;
+                    }
+
+                    showSuccess('✓ Login realizado! Redirecionando...');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } else {
+                    // CRIAR CONTA
+                    const result = await auth.signUp(email, password, {
+                        full_name: name,
+                        school_name: school,
+                    });
+
+                    if (!result.success) {
+                        showError('emailError', result.error || 'Erro ao criar conta');
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Criar perfil na tabela profiles
+                    const profileResult = await auth.createProfile(result.user.id, {
+                        email: email,
+                        full_name: name,
+                        school_name: school,
+                    });
+
+                    if (!profileResult.success) {
+                        console.warn('Aviso: Perfil não foi criado, mas conta foi criada');
+                    }
+
+                    showSuccess('✓ Conta criada com sucesso! Redirecionando...');
+                    setTimeout(() => {
+                        // Login automático após signup
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showError('emailError', error.message || 'Erro ao processar');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Validar email em tempo real
+        emailInput.addEventListener('input', () => {
+            hideError('emailError');
+        });
+
+        passwordInput.addEventListener('input', () => {
+            hideError('passwordError');
+        });
+
+        nameInput.addEventListener('input', () => {
+            hideError('nameError');
+        });
+    </script>
+</body>
+</html>
