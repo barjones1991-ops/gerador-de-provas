@@ -463,6 +463,72 @@
       }
     }
 
+    /* Seletor visual de tipo de questão */
+    .qtype-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-top: 4px;
+    }
+    .qtype-btn {
+      background: #f1f5f9;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 7px 3px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      text-align: center;
+      line-height: 1.4;
+      transition: all 0.15s;
+    }
+    .qtype-btn:hover { background: #e2e8f0; border-color: #cbd5e1; }
+    .qtype-btn.selected { background: #0f172a; color: #fff; border-color: #0f172a; }
+
+    /* Gabarito */
+    .gabarito-page { margin-top: 36px; border-top: 3px dashed #94a3b8; padding-top: 20px; }
+    .gabarito-title { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+    .gabarito-subtitle { font-size: 12px; color: #64748b; margin-bottom: 14px; }
+    .gabarito-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .gabarito-item { font-size: 12px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; background: #f8fafc; }
+    .gabarito-item .gi-num { font-weight: 800; color: #0f172a; font-size: 13px; }
+    .gabarito-item .gi-ans { color: #334155; margin-top: 3px; line-height: 1.5; }
+    .gabarito-discursiva { font-size: 12px; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px; background: #fffbeb; color: #78350f; margin-top: 8px; }
+
+    /* Indicador visual de quebra de página A4 no preview */
+    .a4-break-indicator {
+      border-top: 2px dashed #94a3b8;
+      margin: 16px 0 8px;
+      position: relative;
+    }
+    .a4-break-indicator::after {
+      content: 'Quebra de página A4';
+      position: absolute;
+      left: 50%;
+      top: -9px;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 0 8px;
+      font-size: 9px;
+      color: #94a3b8;
+      white-space: nowrap;
+      letter-spacing: 0.08em;
+    }
+
+    /* Toggle de espaço de resposta / número */
+    .q-toggles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .q-toggle-btn {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 4px 9px;
+      font-size: 11px;
+      color: #475569;
+      cursor: pointer;
+    }
+    .q-toggle-btn.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+
     @media print {
       .wrap { max-width: none; padding: 0; }
       .grid { display: block; }
@@ -496,11 +562,24 @@
       }
       .question-block {
         margin: 0 0 20px 0;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .qpreview, .spacey, .two-cols, .mark-grid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .question-image {
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
       .qtext {
         orphans: 3;
         widows: 3;
       }
+      .a4-break-indicator { display: none; }
+      .gabarito-page { break-before: page; page-break-before: always; }
+      .answer-space-hidden { display: none !important; }
       @page {
         size: A4 portrait;
         margin: 10mm 12mm 12mm 12mm;
@@ -571,25 +650,32 @@
             <div id="logoFileName" class="small" style="margin-top: 8px;">Nenhuma imagem selecionada.</div>
             <div class="small">Envie uma imagem para aparecer no cabeçalho e no PDF exportado.</div>
           </div>
+          <div>
+            <label>Modelo de cabeçalho</label>
+            <div class="btnbar" style="margin-top:4px;">
+              <button id="saveHeaderTplBtn" class="outline" type="button" style="font-size:12px; padding:7px 12px;">💾 Salvar modelo</button>
+              <button id="loadHeaderTplBtn" class="outline" type="button" style="font-size:12px; padding:7px 12px;">📂 Carregar modelo</button>
+              <button id="clearHeaderTplBtn" class="outline" type="button" style="font-size:12px; padding:7px 12px; color:#dc2626;">✕ Apagar modelo</button>
+            </div>
+            <div id="headerTplStatus" class="small" style="margin-top:5px; color:#64748b;"></div>
+          </div>
         </div>
 
         <hr />
 
         <div>
           <label>Nova questão</label>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <select id="pendingType" style="flex:1;">
-              <option value="multipla">Múltipla escolha</option>
-              <option value="discursiva">Discursativa</option>
-              <option value="vf">Verdadeiro/Falso</option>
-              <option value="marcarx">Marcar X</option>
-              <option value="lacunas">Complete as lacunas</option>
-              <option value="relacione">Relacione as colunas</option>
-              <option value="imagem">De acordo com a imagem</option>
-              <option value="relacione_imagens">Relacione imagens e palavras</option>
-            </select>
-            <button id="addQuestion" class="primary" type="button" style="white-space:nowrap;">＋ Adicionar</button>
+          <div class="qtype-grid" id="qtypeGrid">
+            <button class="qtype-btn selected" data-type="multipla" type="button">🔘<br>Múltipla<br>escolha</button>
+            <button class="qtype-btn" data-type="discursiva" type="button">✏️<br>Discursiva</button>
+            <button class="qtype-btn" data-type="vf" type="button">V/F<br>Verdadeiro<br>ou Falso</button>
+            <button class="qtype-btn" data-type="marcarx" type="button">☑<br>Marcar X</button>
+            <button class="qtype-btn" data-type="lacunas" type="button">___<br>Complete<br>lacunas</button>
+            <button class="qtype-btn" data-type="relacione" type="button">↔<br>Relacione<br>colunas</button>
+            <button class="qtype-btn" data-type="imagem" type="button">🖼️<br>Imagem</button>
+            <button class="qtype-btn" data-type="relacione_imagens" type="button">🖼️↔<br>Img+<br>Palavra</button>
           </div>
+          <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
 
         <div id="questionsEditor" class="row" style="margin-top: 12px;"></div>
@@ -620,6 +706,7 @@
 
         <div class="btnbar">
           <button id="printBtn" class="primary" type="button">🖨️ Exportar PDF</button>
+          <button id="gabaritoBtn" class="outline" type="button" title="Imprime a prova com o gabarito numa página separada">📋 Com gabarito</button>
           <button id="printBtn2" class="outline" type="button">Imprimir</button>
           <a id="loginLink" href="login.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#667eea; text-decoration:none; border:1.5px solid #667eea; border-radius:14px; display:inline-flex; align-items:center; gap:6px;">🔐 Entrar para salvar</a>
           <a href="index.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#94a3b8; text-decoration:none; border:1px solid #e2e8f0; border-radius:14px;">Início</a>
@@ -690,6 +777,7 @@
             </div>
 
             <div id="pvQuestions" class="questions"></div>
+            <div id="gabaritoSection" style="display:none;"></div>
           </div>
         </div>
       </div>
@@ -842,8 +930,8 @@
     };
 
     const templates = {
-      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0' }),
-      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', points: '1,0' }),
+      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0', hideNumber: false }),
+      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', points: '1,0', hideNumber: false, showAnswerSpace: true }),
       vf: () => ({
         type: 'vf',
         text: 'Marque V para verdadeiro e F para falso.',
@@ -853,6 +941,7 @@
           { text: '', answer: '' },
         ],
         points: '1,0',
+        hideNumber: false,
       }),
       marcarx: () => ({
         type: 'marcarx',
@@ -865,6 +954,7 @@
           { text: '', checked: false },
         ],
         points: '1,0',
+        hideNumber: false,
       }),
       lacunas: () => ({
         type: 'lacunas',
@@ -874,6 +964,7 @@
         ],
         answers: [''],
         points: '1,0',
+        hideNumber: false,
       }),
       relacione: () => ({
         type: 'relacione',
@@ -886,6 +977,7 @@
         ],
         rightOrder: [2, 0, 3, 1],
         points: '1,0',
+        hideNumber: false,
       }),
       imagem: () => ({
         type: 'imagem',
@@ -906,6 +998,8 @@
           { text: '', checked: false },
         ],
         points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
       }),
       relacione_imagens: () => ({
         type: 'relacione_imagens',
@@ -918,6 +1012,7 @@
         ],
         wordOrder: [2, 0, 3, 1],
         points: '1,0',
+        hideNumber: false,
       }),
     };
 
@@ -1240,10 +1335,36 @@
           renderAll();
         });
 
+        const hideNumBtn = document.createElement('button');
+        hideNumBtn.type = 'button';
+        hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? ' active' : '');
+        hideNumBtn.title = 'Ocultar/mostrar número da questão';
+        hideNumBtn.style.cssText = 'padding:5px 9px; font-size:11px;';
+        hideNumBtn.textContent = q.hideNumber ? 'Nº oculto' : 'Nº visível';
+        hideNumBtn.addEventListener('click', () => {
+          q.hideNumber = !q.hideNumber;
+          renderAll();
+        });
+
+        const hasAnswerSpace = q.type === 'discursiva' || q.type === 'imagem';
+        const showSpaceBtn = document.createElement('button');
+        showSpaceBtn.type = 'button';
+        showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
+        showSpaceBtn.title = 'Mostrar/ocultar espaço de resposta na impressão';
+        showSpaceBtn.style.cssText = 'padding:5px 9px; font-size:11px;';
+        showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Resp. visível' : 'Sem resposta';
+        showSpaceBtn.style.display = hasAnswerSpace ? '' : 'none';
+        showSpaceBtn.addEventListener('click', () => {
+          q.showAnswerSpace = !(q.showAnswerSpace !== false);
+          renderAll();
+        });
+
         actions.appendChild(collapseBtn);
         actions.appendChild(upBtn);
         actions.appendChild(downBtn);
         actions.appendChild(dupBtn);
+        actions.appendChild(hideNumBtn);
+        actions.appendChild(showSpaceBtn);
         actions.appendChild(bankBtn);
         actions.appendChild(removeBtn);
         head.appendChild(actions);
@@ -1992,6 +2113,7 @@
         return `<div class="spacey">${items}</div>`;
       }
       if (q.type === 'discursiva') {
+        if (q.showAnswerSpace === false) return '';
         return answerArea(q);
       }
       if (q.type === 'vf') {
@@ -2039,6 +2161,7 @@
           }).join('');
           return `${image}<div class="spacey">${items}</div>`;
         }
+        if (q.showAnswerSpace === false) return `${image}`;
         return `${image}${answerArea(q)}`;
       }
       if (q.type === 'relacione_imagens') {
@@ -2100,26 +2223,166 @@
       }
 
       const pvRoot = el('pvQuestions');
+      let qNum = 0;
       pvRoot.innerHTML = state.questions.map((q, i) => {
+        if (!q.hideNumber) qNum++;
         const text = q.text || 'Digite o enunciado da questão.';
+        const numLabel = q.hideNumber ? '' : `<div class="n">Questão ${qNum}</div>`;
+        const preview = renderQuestionPreview(q);
         return `
           <div class="question-block">
             <div class="qtitle">
-              <div class="n">Questão ${i + 1}</div>
-              <div class="p">Valor: ${esc(q.points)}</div>
+              ${numLabel}
+              <div class="p">${q.hideNumber ? '' : `Valor: ${esc(q.points)}`}</div>
             </div>
             <div class="qtext">${esc(text)}</div>
-            <div class="qpreview">${renderQuestionPreview(q)}</div>
+            <div class="qpreview">${preview}</div>
           </div>
         `;
       }).join('');
 
+      renderGabarito();
       saveState();
+    }
+
+    function gerarGabaritoQuestao(q, num) {
+      const tipo = q.type;
+      if (tipo === 'multipla' || (tipo === 'imagem' && q.imageAnswerType === 'multipla')) {
+        const opts = q.options || [];
+        if (q.correctOption !== null && q.correctOption >= 0 && q.correctOption < opts.length) {
+          const letra = String.fromCharCode(65 + q.correctOption);
+          const texto = opts[q.correctOption] ? ` — ${opts[q.correctOption]}` : '';
+          return { tipo: 'objetivo', num, ans: letra + texto };
+        }
+        return { tipo: 'objetivo', num, ans: '(não marcado)' };
+      }
+      if (tipo === 'vf') {
+        if (Array.isArray(q.items) && q.items.length) {
+          const respostas = q.items.map((it, j) => `${j + 1}.${it.answer || '?'}`).join('  ');
+          return { tipo: 'objetivo', num, ans: respostas };
+        }
+        return null;
+      }
+      if (tipo === 'marcarx' || (tipo === 'imagem' && q.imageAnswerType === 'marcarx')) {
+        const items = q.items || [];
+        const certos = items.map((it, j) => it.checked ? String.fromCharCode(65 + j) : null).filter(Boolean);
+        return { tipo: 'objetivo', num, ans: certos.length ? certos.join(', ') : '(nenhum marcado)' };
+      }
+      if (tipo === 'lacunas') {
+        normalizeLacunasQuestion(q);
+        const respostas = q.items.map((it, j) => `${j + 1}. ${it.answer || '___'}`).join('\n');
+        return { tipo: 'objetivo', num, ans: respostas };
+      }
+      if (tipo === 'relacione') {
+        const ans = relacioneAnswer(q);
+        return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
+      }
+      if (tipo === 'relacione_imagens') {
+        const ans = relacioneImagensAnswer(q);
+        return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
+      }
+      if (tipo === 'discursiva' || (tipo === 'imagem' && q.imageAnswerType === 'discursiva')) {
+        return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
+      }
+      return null;
+    }
+
+    function renderGabarito() {
+      const sec = el('gabaritoSection');
+      if (!sec) return;
+      if (!sec.dataset.show || sec.dataset.show !== 'true') return;
+
+      const school = state.school;
+      let qNum = 0;
+      const itens = state.questions.map((q) => {
+        if (!q.hideNumber) qNum++;
+        return gerarGabaritoQuestao(q, qNum);
+      }).filter(Boolean);
+
+      const objetivos = itens.filter(it => it.tipo === 'objetivo');
+      const discursivos = itens.filter(it => it.tipo === 'discursiva');
+
+      const objetivoHTML = objetivos.length
+        ? `<div class="gabarito-grid">${objetivos.map(it =>
+            `<div class="gabarito-item"><div class="gi-num">Q${it.num}</div><div class="gi-ans">${esc(it.ans)}</div></div>`
+          ).join('')}</div>`
+        : '<div class="small">Nenhuma questão objetiva com gabarito definido.</div>';
+
+      const discursivoHTML = discursivos.length
+        ? `<div class="gabarito-discursiva">📝 Questões dissertativas (${discursivos.map(it => `Q${it.num}`).join(', ')}): corrija manualmente conforme critérios.</div>`
+        : '';
+
+      sec.innerHTML = `
+        <div class="gabarito-page">
+          <div class="gabarito-title">Gabarito — ${esc(school.examTitle || 'Avaliação')}</div>
+          <div class="gabarito-subtitle">${esc(school.subject || '')} · ${esc(school.teacher || '')} · ${esc(school.className || '')}</div>
+          ${objetivoHTML}
+          ${discursivoHTML}
+        </div>
+      `;
     }
 
     function renderAll() {
       renderQuestionsEditor();
       renderPreview();
+      setTimeout(renderA4BreakIndicators, 120);
+    }
+
+    // Indicadores visuais de quebra de página A4 no preview
+    function renderA4BreakIndicators() {
+      const paper = el('previewPaper');
+      if (!paper) return;
+      // Remove indicadores anteriores
+      paper.querySelectorAll('.a4-break-indicator').forEach(el => el.remove());
+
+      const pvQ = el('pvQuestions');
+      if (!pvQ) return;
+      const paperRect = paper.getBoundingClientRect();
+      const paperTop = paperRect.top + window.scrollY;
+
+      // A4 a 96dpi: 297mm → ~1122px. Margem impresso: 22mm topo+baixo ≈ 83px.
+      // Conteúdo por página ≈ 1039px. Mas na tela o zoom varia, então usamos
+      // a proporção da largura do paper em relação a 794px (A4 width at 96dpi).
+      const paperWidth = paperRect.width || 794;
+      const scale = paperWidth / 794;
+      const pageHeightPx = Math.round(1039 * scale);
+
+      const blocks = pvQ.querySelectorAll('.question-block');
+      let markers = new Set();
+      blocks.forEach(block => {
+        const blockRect = block.getBoundingClientRect();
+        const blockTop = blockRect.top + window.scrollY - paperTop;
+        const blockBottom = blockTop + blockRect.height;
+        const pageStart = Math.floor(blockTop / pageHeightPx);
+        const pageEnd = Math.floor(blockBottom / pageHeightPx);
+        if (pageEnd > pageStart) {
+          // Esta questão cruza uma quebra de página
+          for (let p = pageStart + 1; p <= pageEnd; p++) {
+            markers.add(p);
+          }
+        }
+      });
+
+      // Insere marcadores nos pontos de quebra dentro da lista de questões
+      if (markers.size === 0) return;
+      const allBlocks = Array.from(pvQ.querySelectorAll('.question-block'));
+      markers.forEach(pageNum => {
+        const breakY = pageNum * pageHeightPx;
+        // Encontra o bloco logo antes do breakY
+        let insertBefore = null;
+        for (const block of allBlocks) {
+          const bRect = block.getBoundingClientRect();
+          const bTop = bRect.top + window.scrollY - paperTop;
+          if (bTop >= breakY) { insertBefore = block; break; }
+        }
+        const indicator = document.createElement('div');
+        indicator.className = 'a4-break-indicator no-print';
+        if (insertBefore) {
+          pvQ.insertBefore(indicator, insertBefore);
+        } else {
+          pvQ.appendChild(indicator);
+        }
+      });
     }
 
     function wireSchoolInputs() {
@@ -2176,13 +2439,90 @@
       });
     }
 
+    // Seletor visual de tipo de questão
+    let selectedQType = 'multipla';
+    document.querySelectorAll('#qtypeGrid .qtype-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#qtypeGrid .qtype-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedQType = btn.dataset.type;
+      });
+    });
+
     el('addQuestion').addEventListener('click', () => {
-      const t = el('pendingType').value;
+      const t = selectedQType;
       state.questions.push(templates[t] ? templates[t]() : templates.multipla());
       renderAll();
+      // Scroll para a nova questão
+      const editor = el('questionsEditor');
+      if (editor) setTimeout(() => editor.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     });
-    el('printBtn').addEventListener('click', () => window.print());
-    el('printBtn2').addEventListener('click', () => window.print());
+
+    el('printBtn').addEventListener('click', () => {
+      const sec = el('gabaritoSection');
+      if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
+      window.print();
+    });
+    el('printBtn2').addEventListener('click', () => {
+      const sec = el('gabaritoSection');
+      if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
+      window.print();
+    });
+    el('gabaritoBtn').addEventListener('click', () => {
+      const sec = el('gabaritoSection');
+      if (!sec) return;
+      sec.dataset.show = 'true';
+      sec.style.display = 'block';
+      renderGabarito();
+      window.print();
+      // Oculta após impressão
+      setTimeout(() => { sec.style.display = 'none'; sec.dataset.show = 'false'; }, 500);
+    });
+
+    // Modelos de cabeçalho
+    const HEADER_TPL_KEY = 'gerador-provas-header-tpl';
+    el('saveHeaderTplBtn').addEventListener('click', () => {
+      syncSchoolFromInputs();
+      const tpl = {
+        schoolName: state.school.schoolName,
+        teacher: state.school.teacher,
+        subject: state.school.subject,
+        className: state.school.className,
+        term: state.school.term,
+        totalValue: state.school.totalValue,
+        instructions: state.school.instructions,
+        logoDataUrl: state.logoDataUrl,
+        logoFileName: state.logoFileName,
+      };
+      localStorage.setItem(HEADER_TPL_KEY, JSON.stringify(tpl));
+      el('headerTplStatus').textContent = '✓ Modelo salvo com sucesso.';
+      setTimeout(() => { el('headerTplStatus').textContent = ''; }, 3000);
+    });
+    el('loadHeaderTplBtn').addEventListener('click', () => {
+      const raw = localStorage.getItem(HEADER_TPL_KEY);
+      if (!raw) { el('headerTplStatus').textContent = 'Nenhum modelo salvo ainda.'; return; }
+      try {
+        const tpl = JSON.parse(raw);
+        if (tpl.schoolName !== undefined) { state.school.schoolName = tpl.schoolName; el('schoolName').value = tpl.schoolName; }
+        if (tpl.teacher !== undefined) { state.school.teacher = tpl.teacher; el('teacher').value = tpl.teacher; }
+        if (tpl.subject !== undefined) { state.school.subject = tpl.subject; el('subject').value = tpl.subject; }
+        if (tpl.className !== undefined) { state.school.className = tpl.className; el('className').value = tpl.className; }
+        if (tpl.term !== undefined) { state.school.term = tpl.term; el('term').value = tpl.term; }
+        if (tpl.totalValue !== undefined) { state.school.totalValue = tpl.totalValue; el('totalValue').value = tpl.totalValue; }
+        if (tpl.instructions !== undefined) { state.school.instructions = tpl.instructions; el('instructions').value = tpl.instructions; }
+        if (tpl.logoDataUrl) { state.logoDataUrl = tpl.logoDataUrl; state.logoFileName = tpl.logoFileName || ''; el('logoFileName').textContent = tpl.logoFileName || 'Imagem carregada.'; }
+        renderPreview();
+        el('headerTplStatus').textContent = '✓ Modelo carregado.';
+        setTimeout(() => { el('headerTplStatus').textContent = ''; }, 3000);
+      } catch (e) {
+        el('headerTplStatus').textContent = 'Erro ao carregar modelo.';
+      }
+    });
+    el('clearHeaderTplBtn').addEventListener('click', () => {
+      localStorage.removeItem(HEADER_TPL_KEY);
+      el('headerTplStatus').textContent = 'Modelo apagado.';
+      setTimeout(() => { el('headerTplStatus').textContent = ''; }, 2000);
+    });
 
     loadSavedState();
     applyStateToInputs();

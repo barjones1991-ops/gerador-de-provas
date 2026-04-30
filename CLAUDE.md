@@ -228,22 +228,22 @@ git push --set-upstream origin main
 ## O que Ainda Pode Melhorar
 
 ### Prioridade: geração e acabamento da prova
-- [ ] Revisar a experiência de criação de questões para deixar o fluxo mais claro, rápido e com menos campos confusos.
+- [x] Revisar a experiência de criação de questões: seletor visual por botões com ícones (substituiu dropdown).
 - [ ] Criar painel de propriedades da questão selecionada, separando enunciado, mídia, alternativas, resposta esperada, pontuação e configuração de impressão.
-- [ ] Permitir escolher se a questão deve aparecer com ou sem espaço para resposta.
+- [x] Permitir escolher se a questão deve aparecer com ou sem espaço para resposta (toggle por questão).
 - [x] Permitir controlar o número de linhas de resposta por questão discursiva e questão com imagem.
 - [x] Permitir definir pontuação com validação e alerta quando a soma das questões não bater com o valor total da prova.
 - [x] Permitir duplicar, mover, remover e recolher/expandir questões com melhor organização visual no editor.
-- [ ] Criar numeração automática mais refinada, com opção de reiniciar ou ocultar numeração em blocos específicos.
-- [ ] Adicionar pré-visualização por página A4, com indicação visual de quebras de página antes de imprimir.
-- [ ] Evitar que uma questão seja cortada entre duas páginas sempre que possível.
-- [ ] Criar modo "somente prova" e modo "prova com gabarito" para exportação.
+- [x] Criar numeração automática refinada: opção de ocultar número por questão; numeração automática pula questões ocultas.
+- [x] Adicionar pré-visualização por página A4, com indicação visual de quebras de página antes de imprimir.
+- [x] Evitar que uma questão seja cortada entre duas páginas (CSS break-inside: avoid em todos os blocos).
+- [x] Criar modo "somente prova" e modo "prova com gabarito" para exportação (botão "Com gabarito").
 - [x] Criar gabarito separado para múltipla escolha.
 - [x] Criar gabarito separado para verdadeiro/falso.
 - [x] Criar gabarito separado para marcar X.
 - [x] Criar gabarito separado para relacionar colunas.
-- [ ] Criar gabarito separado para demais questões objetivas.
-- [ ] Permitir salvar modelos de cabeçalho por escola/professor.
+- [x] Criar gabarito separado para demais questões objetivas (lacunas, imagem, relacione imagens).
+- [x] Permitir salvar modelos de cabeçalho por escola/professor (salvar/carregar/apagar no localStorage).
 - [x] Criar modelos de instruções reutilizáveis por tipo de avaliação.
 
 ### Prioridade: imagens nas questões
