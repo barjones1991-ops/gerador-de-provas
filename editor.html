@@ -83,7 +83,15 @@
     hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
     .chipbar { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { background: var(--chip); border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; font-size: 12px; color: #334155; }
+    .chip.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+    .chip.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+    .mark-grid.two-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 18px;
+    }
     .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
+    .qcard.collapsed { border-style: solid; background: #f8fafc; }
     .qhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .qtype { font-size: 13px; color: var(--muted); }
     .small { font-size: 12px; color: var(--muted); }
@@ -196,6 +204,8 @@
       margin: 10px 0 12px;
       text-align: center;
     }
+    .question-image.left { text-align: left; }
+    .question-image.right { text-align: right; }
     .question-image img {
       max-width: 100%;
       max-height: 260px;
@@ -204,6 +214,16 @@
       border-radius: 12px;
       padding: 4px;
       background: #fff;
+    }
+    .question-image.small img { max-width: 35%; }
+    .question-image.medium img { max-width: 60%; }
+    .question-image.large img { max-width: 82%; }
+    .question-image.full img { width: 100%; max-width: 100%; }
+    .image-caption {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #64748b;
+      font-style: italic;
     }
     .image-word-grid {
       display: grid;
@@ -309,14 +329,42 @@
       border-bottom: 1px solid var(--border);
       background: #f8fafc;
     }
+    .option-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .option-row input[type="radio"] {
+      width: auto;
+      accent-color: #0f172a;
+    }
+    .option-row button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .match-pair-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .match-pair-row button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
 
     @media (max-width: 720px) {
       .wrap { padding: 10px; }
       .grid { gap: 12px; }
       .card { border-radius: 14px; padding: 12px; }
+      .match-pair-row { grid-template-columns: 1fr; }
       .title { font-size: 18px; }
       .row.two,
       .row.three,
+      .mark-grid.two-columns,
       .two-cols,
       .image-word-grid,
       .image-match-grid,
@@ -502,6 +550,14 @@
           </div>
           <div>
             <label>Instruções</label>
+            <select id="instructionTemplate" style="margin-bottom: 8px;">
+              <option value="">Escolher modelo de instruções</option>
+              <option value="padrao">Prova padrão</option>
+              <option value="recuperacao">Recuperação</option>
+              <option value="atividade">Atividade avaliativa</option>
+              <option value="simulado">Simulado</option>
+              <option value="anos_iniciais">Anos iniciais</option>
+            </select>
             <textarea id="instructions">Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.</textarea>
             <div class="small">Dica: quebre linhas para aparecer no impresso.</div>
           </div>
@@ -629,6 +685,7 @@
             <div class="chipbar" style="margin-top: 12px;">
               <div id="pvChipQuestions" class="chip"></div>
               <div id="pvChipSum" class="chip"></div>
+              <div id="pvChipScoreStatus" class="chip"></div>
               <div class="chip">Pronto para impressão</div>
             </div>
 
@@ -680,6 +737,96 @@
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function el(id) { return document.getElementById(id); }
+    function normalizeRelacioneQuestion(q) {
+      if (!q || q.type !== 'relacione') return q;
+      if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
+        const left = Array.isArray(q.left) ? q.left : ['', '', '', ''];
+        const right = Array.isArray(q.right) ? q.right : ['', '', '', ''];
+        const size = Math.max(left.length, right.length, 2);
+        q.pairs = Array.from({ length: size }).map((_, i) => ({
+          left: left[i] || '',
+          right: right[i] || '',
+        }));
+      }
+      q.pairs = q.pairs.map((pair) => {
+        if (typeof pair === 'string') return { left: pair, right: '' };
+        if (!pair || typeof pair !== 'object') return { left: '', right: '' };
+        if (typeof pair.left !== 'string') pair.left = '';
+        if (typeof pair.right !== 'string') pair.right = '';
+        return pair;
+      });
+      const validOrder = Array.isArray(q.rightOrder)
+        && q.rightOrder.length === q.pairs.length
+        && q.rightOrder.every((n) => Number.isInteger(n) && n >= 0 && n < q.pairs.length)
+        && new Set(q.rightOrder).size === q.pairs.length;
+      if (!validOrder) {
+        q.rightOrder = q.pairs.map((_, i) => i);
+      }
+      q.left = q.pairs.map((pair) => pair.left);
+      q.right = q.pairs.map((pair) => pair.right);
+      return q;
+    }
+    function relacioneAnswer(q) {
+      normalizeRelacioneQuestion(q);
+      return q.pairs
+        .map((_, i) => {
+          const pos = q.rightOrder.indexOf(i);
+          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
+        })
+        .filter(Boolean)
+        .join('; ');
+    }
+    function normalizeLacunasQuestion(q) {
+      if (!q || q.type !== 'lacunas') return q;
+      const legacyAnswers = Array.isArray(q.answers) ? q.answers : [];
+      if (!Array.isArray(q.items) || q.items.length === 0) {
+        const legacyText = String(q.text || '').trim();
+        q.items = legacyText && legacyText.includes('_')
+          ? [{ text: legacyText, answer: legacyAnswers[0] || '' }]
+          : [{ text: '', answer: legacyAnswers[0] || '' }];
+        if (legacyText && legacyText.includes('_')) {
+          q.text = 'Complete as lacunas.';
+        }
+      }
+      q.items = q.items.map((item, i) => {
+        if (typeof item === 'string') return { text: item, answer: legacyAnswers[i] || '' };
+        if (!item || typeof item !== 'object') return { text: '', answer: legacyAnswers[i] || '' };
+        if (typeof item.text !== 'string') item.text = '';
+        if (typeof item.answer !== 'string') item.answer = legacyAnswers[i] || '';
+        return item;
+      });
+      q.answers = q.items.map((item) => item.answer);
+      return q;
+    }
+    function normalizeRelacioneImagensQuestion(q) {
+      if (!q || q.type !== 'relacione_imagens') return q;
+      if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
+        q.pairs = templates.relacione_imagens().pairs.map((pair) => ({ ...pair }));
+      }
+      q.pairs = q.pairs.map((pair) => ({
+        imageDataUrl: pair?.imageDataUrl || '',
+        imageFileName: pair?.imageFileName || '',
+        word: pair?.word || '',
+      }));
+      const validOrder = Array.isArray(q.wordOrder)
+        && q.wordOrder.length === q.pairs.length
+        && q.wordOrder.every((n) => Number.isInteger(n) && n >= 0 && n < q.pairs.length)
+        && new Set(q.wordOrder).size === q.pairs.length;
+      if (!validOrder) {
+        q.wordOrder = q.pairs.map((_, i) => i);
+      }
+      return q;
+    }
+    function relacioneImagensAnswer(q) {
+      normalizeRelacioneImagensQuestion(q);
+      return q.pairs
+        .map((_, i) => {
+          const pos = q.wordOrder.indexOf(i);
+          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
+        })
+        .filter(Boolean)
+        .join('; ');
+    }
     const STORAGE_KEY_BASE = 'gerador-provas-state-v1';
     let activeStorageKey = STORAGE_KEY_BASE;
 
@@ -695,13 +842,71 @@
     };
 
     const templates = {
-      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], points: '1,0' }),
-      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, points: '1,0' }),
-      vf: () => ({ type: 'vf', text: '', points: '1,0' }),
-      marcarx: () => ({ type: 'marcarx', text: '', items: ['', '', '', ''], points: '1,0' }),
-      lacunas: () => ({ type: 'lacunas', text: '', points: '1,0' }),
-      relacione: () => ({ type: 'relacione', text: '', left: ['', ''], right: ['', ''], points: '1,0' }),
-      imagem: () => ({ type: 'imagem', text: 'Observe a imagem e responda.', imageDataUrl: '', imageFileName: '', lines: 5, points: '1,0' }),
+      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0' }),
+      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', points: '1,0' }),
+      vf: () => ({
+        type: 'vf',
+        text: 'Marque V para verdadeiro e F para falso.',
+        items: [
+          { text: '', answer: '' },
+          { text: '', answer: '' },
+          { text: '', answer: '' },
+        ],
+        points: '1,0',
+      }),
+      marcarx: () => ({
+        type: 'marcarx',
+        text: '',
+        markLayout: 'lista',
+        items: [
+          { text: '', checked: false },
+          { text: '', checked: false },
+          { text: '', checked: false },
+          { text: '', checked: false },
+        ],
+        points: '1,0',
+      }),
+      lacunas: () => ({
+        type: 'lacunas',
+        text: 'Complete as lacunas.',
+        items: [
+          { text: 'Hoje tivemos que __________ depois do meio dia pois nos atrasamos.', answer: '' },
+        ],
+        answers: [''],
+        points: '1,0',
+      }),
+      relacione: () => ({
+        type: 'relacione',
+        text: 'Relacione corretamente as colunas.',
+        pairs: [
+          { left: '', right: '' },
+          { left: '', right: '' },
+          { left: '', right: '' },
+          { left: '', right: '' },
+        ],
+        rightOrder: [2, 0, 3, 1],
+        points: '1,0',
+      }),
+      imagem: () => ({
+        type: 'imagem',
+        text: 'Observe a imagem e responda.',
+        imageDataUrl: '',
+        imageFileName: '',
+        imageSize: 'medium',
+        imageAlign: 'center',
+        imageCaption: '',
+        imageAnswerType: 'discursiva',
+        lines: 5,
+        answerStyle: 'linhas',
+        options: ['', '', '', ''],
+        correctOption: null,
+        items: [
+          { text: '', checked: false },
+          { text: '', checked: false },
+          { text: '', checked: false },
+        ],
+        points: '1,0',
+      }),
       relacione_imagens: () => ({
         type: 'relacione_imagens',
         text: 'Relacione as imagens com as palavras.',
@@ -711,6 +916,7 @@
           { imageDataUrl: '', imageFileName: '', word: '' },
           { imageDataUrl: '', imageFileName: '', word: '' },
         ],
+        wordOrder: [2, 0, 3, 1],
         points: '1,0',
       }),
     };
@@ -727,8 +933,16 @@
       instructions: 'Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.',
     };
 
+    const instructionTemplates = {
+      padrao: 'Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.',
+      recuperacao: 'Esta avaliação faz parte do processo de recuperação. Leia cada questão com atenção e responda tudo o que souber. Revise suas respostas antes de entregar.',
+      atividade: 'Realize a atividade com atenção e capricho. Use os espaços indicados para responder e peça orientação apenas quando necessário.',
+      simulado: 'Preencha seus dados corretamente. Marque apenas uma alternativa por questão objetiva. Não deixe questões em branco e confira o gabarito antes de entregar.',
+      anos_iniciais: 'Leia com calma. Capriche na letra e nos desenhos. Se precisar, peça para a professora repetir a orientação.',
+    };
+
     const defaultQuestions = [
-      { ...templates.multipla(), text: 'Exemplo de questão de múltipla escolha.', options: ['Alternativa A', 'Alternativa B', 'Alternativa C', 'Alternativa D'] },
+      { ...templates.multipla(), text: 'Exemplo de questão de múltipla escolha.', options: ['Alternativa A', 'Alternativa B', 'Alternativa C', 'Alternativa D'], correctOption: 0 },
       { ...templates.discursiva(), text: 'Exemplo de questão discursiva.' },
     ];
 
@@ -737,6 +951,7 @@
       logoDataUrl: '',
       logoFileName: '',
       questions: defaultQuestions.map((q) => ({ ...q })),
+      collapsedQuestions: {},
     };
 
     function resetStateToDefault() {
@@ -744,6 +959,7 @@
       state.logoDataUrl = '';
       state.logoFileName = '';
       state.questions = defaultQuestions.map((q) => JSON.parse(JSON.stringify(q)));
+      state.collapsedQuestions = {};
     }
 
     function saveState() {
@@ -753,6 +969,7 @@
           logoDataUrl: state.logoDataUrl,
           logoFileName: state.logoFileName,
           questions: state.questions,
+          collapsedQuestions: state.collapsedQuestions,
         }));
       } catch (error) {
         console.warn('Nao foi possivel salvar os dados localmente.', error);
@@ -776,6 +993,9 @@
           }
           if (Array.isArray(saved.questions) && saved.questions.length > 0) {
             state.questions = saved.questions;
+          }
+          if (saved.collapsedQuestions && typeof saved.collapsedQuestions === 'object') {
+            state.collapsedQuestions = saved.collapsedQuestions;
           }
           return true;
         }
@@ -816,12 +1036,28 @@
       const tmp = state.questions[idx];
       state.questions[idx] = state.questions[newIdx];
       state.questions[newIdx] = tmp;
+      const currentCollapsed = !!state.collapsedQuestions[idx];
+      const targetCollapsed = !!state.collapsedQuestions[newIdx];
+      state.collapsedQuestions[idx] = targetCollapsed;
+      state.collapsedQuestions[newIdx] = currentCollapsed;
       renderAll();
     }
 
     function duplicateQuestion(idx) {
       const copy = JSON.parse(JSON.stringify(state.questions[idx]));
       state.questions.splice(idx + 1, 0, copy);
+      const nextCollapsed = {};
+      state.questions.forEach((_, i) => {
+        if (i <= idx) nextCollapsed[i] = !!state.collapsedQuestions[i];
+        else if (i === idx + 1) nextCollapsed[i] = false;
+        else nextCollapsed[i] = !!state.collapsedQuestions[i - 1];
+      });
+      state.collapsedQuestions = nextCollapsed;
+      renderAll();
+    }
+
+    function toggleQuestionCollapsed(idx) {
+      state.collapsedQuestions[idx] = !state.collapsedQuestions[idx];
       renderAll();
     }
 
@@ -931,8 +1167,10 @@
       }
 
       state.questions.forEach((q, idx) => {
+        const isCollapsed = !!state.collapsedQuestions[idx];
         const wrap = document.createElement('div');
         wrap.className = 'qcard';
+        if (isCollapsed) wrap.classList.add('collapsed');
 
         const head = document.createElement('div');
         head.className = 'qhead';
@@ -947,6 +1185,14 @@
 
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex; gap:4px; align-items:center;';
+
+        const collapseBtn = document.createElement('button');
+        collapseBtn.type = 'button';
+        collapseBtn.className = 'outline';
+        collapseBtn.title = isCollapsed ? 'Expandir questao' : 'Recolher questao';
+        collapseBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
+        collapseBtn.textContent = isCollapsed ? 'Expandir' : 'Recolher';
+        collapseBtn.addEventListener('click', () => toggleQuestionCollapsed(idx));
 
         const upBtn = document.createElement('button');
         upBtn.type = 'button'; upBtn.className = 'outline';
@@ -986,9 +1232,15 @@
         removeBtn.title = 'Remover questão';
         removeBtn.addEventListener('click', () => {
           state.questions.splice(idx, 1);
+          const nextCollapsed = {};
+          state.questions.forEach((_, i) => {
+            nextCollapsed[i] = !!state.collapsedQuestions[i >= idx ? i + 1 : i];
+          });
+          state.collapsedQuestions = nextCollapsed;
           renderAll();
         });
 
+        actions.appendChild(collapseBtn);
         actions.appendChild(upBtn);
         actions.appendChild(downBtn);
         actions.appendChild(dupBtn);
@@ -999,11 +1251,17 @@
         const body = document.createElement('div');
         body.className = 'row';
         body.style.marginTop = '12px';
+        if (isCollapsed) {
+          body.style.display = 'none';
+        }
 
+        const textPlaceholder = q.type === 'lacunas'
+          ? 'Ex.: Hoje tivemos que __________ depois do meio dia pois nos atrasamos.'
+          : 'Digite o enunciado da questão.';
         const enun = document.createElement('div');
         enun.innerHTML = `
           <label>Enunciado</label>
-          <textarea data-k="text">${esc(q.text)}</textarea>
+          <textarea data-k="text" placeholder="${esc(textPlaceholder)}">${esc(q.text)}</textarea>
         `;
 
         const points = document.createElement('div');
@@ -1022,12 +1280,31 @@
         body.appendChild(topRow);
 
         if (q.type === 'multipla') {
+          if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', ''];
+          if (q.options.length > 6) q.options = q.options.slice(0, 6);
+          if (q.correctOption !== null && (q.correctOption < 0 || q.correctOption >= q.options.length)) {
+            q.correctOption = null;
+          }
+
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = `<label>Alternativas</label>`;
+          block.innerHTML = `<label>Alternativas</label><div class="small">Marque o círculo da alternativa correta para gerar gabarito.</div>`;
           const box = document.createElement('div');
           box.className = 'row';
           q.options.forEach((op, j) => {
+            const row = document.createElement('div');
+            row.className = 'option-row';
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = `correct-${idx}`;
+            radio.title = 'Alternativa correta';
+            radio.checked = q.correctOption === j;
+            radio.addEventListener('change', () => {
+              q.correctOption = j;
+              renderPreview();
+            });
+
             const inp = document.createElement('input');
             inp.value = op || '';
             inp.placeholder = `Alternativa ${String.fromCharCode(65 + j)}`;
@@ -1035,22 +1312,152 @@
               q.options[j] = inp.value;
               renderPreview();
             });
-            box.appendChild(inp);
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Remover';
+            remove.disabled = q.options.length <= 2;
+            remove.addEventListener('click', () => {
+              q.options.splice(j, 1);
+              if (q.correctOption === j) q.correctOption = null;
+              else if (q.correctOption > j) q.correctOption -= 1;
+              renderAll();
+            });
+
+            row.appendChild(radio);
+            row.appendChild(inp);
+            row.appendChild(remove);
+            box.appendChild(row);
           });
           block.appendChild(box);
+          const addOption = document.createElement('button');
+          addOption.type = 'button';
+          addOption.className = 'outline';
+          addOption.textContent = 'Adicionar alternativa';
+          addOption.disabled = q.options.length >= 6;
+          addOption.addEventListener('click', () => {
+            if (q.options.length >= 6) return;
+            q.options.push('');
+            renderAll();
+          });
+          block.appendChild(addOption);
           body.appendChild(block);
         }
 
         if (q.type === 'discursiva') {
+          if (!q.answerStyle) q.answerStyle = 'linhas';
           const block = document.createElement('div');
+          block.className = 'row two';
           block.innerHTML = `
-            <label>Linhas de resposta</label>
-            <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines)}" />
+            <div>
+              <label>Formato da resposta</label>
+              <select data-k="answerStyle">
+                <option value="linhas" ${q.answerStyle === 'linhas' ? 'selected' : ''}>Linhas pautadas</option>
+                <option value="caixa" ${q.answerStyle === 'caixa' ? 'selected' : ''}>Caixa de resposta</option>
+                <option value="espaco" ${q.answerStyle === 'espaco' ? 'selected' : ''}>Espaco em branco</option>
+              </select>
+            </div>
+            <div>
+              <label>Altura da resposta</label>
+              <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines)}" />
+            </div>
           `;
           body.appendChild(block);
         }
 
+        if (q.type === 'vf') {
+          if (!Array.isArray(q.items) || q.items.length === 0) {
+            q.items = [
+              { text: '', answer: '' },
+              { text: '', answer: '' },
+              { text: '', answer: '' },
+            ];
+          }
+
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Itens verdadeiro/falso</label><div class="small">Marque a resposta esperada para gerar gabarito.</div>`;
+          const box = document.createElement('div');
+          box.className = 'row';
+
+          q.items.forEach((item, j) => {
+            const row = document.createElement('div');
+            row.className = 'option-row';
+            row.style.gridTemplateColumns = '1fr auto auto auto';
+
+            const input = document.createElement('input');
+            input.value = item.text || '';
+            input.placeholder = `Afirmação ${j + 1}`;
+            input.addEventListener('input', () => {
+              item.text = input.value;
+              renderPreview();
+            });
+
+            const trueLabel = document.createElement('label');
+            trueLabel.style.cssText = 'display:flex; align-items:center; gap:4px; margin:0; letter-spacing:0; text-transform:none;';
+            trueLabel.innerHTML = `<input type="radio" name="vf-${idx}-${j}" ${item.answer === 'V' ? 'checked' : ''}> V`;
+            trueLabel.querySelector('input').addEventListener('change', () => {
+              item.answer = 'V';
+              renderPreview();
+            });
+
+            const falseLabel = document.createElement('label');
+            falseLabel.style.cssText = 'display:flex; align-items:center; gap:4px; margin:0; letter-spacing:0; text-transform:none;';
+            falseLabel.innerHTML = `<input type="radio" name="vf-${idx}-${j}" ${item.answer === 'F' ? 'checked' : ''}> F`;
+            falseLabel.querySelector('input').addEventListener('change', () => {
+              item.answer = 'F';
+              renderPreview();
+            });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Remover';
+            remove.disabled = q.items.length <= 1;
+            remove.addEventListener('click', () => {
+              q.items.splice(j, 1);
+              renderAll();
+            });
+
+            row.appendChild(input);
+            row.appendChild(trueLabel);
+            row.appendChild(falseLabel);
+            row.appendChild(remove);
+            box.appendChild(row);
+          });
+
+          const addItem = document.createElement('button');
+          addItem.type = 'button';
+          addItem.className = 'outline';
+          addItem.textContent = 'Adicionar afirmação';
+          addItem.addEventListener('click', () => {
+            q.items.push({ text: '', answer: '' });
+            renderAll();
+          });
+
+          block.appendChild(box);
+          block.appendChild(addItem);
+          body.appendChild(block);
+        }
+
         if (q.type === 'imagem') {
+          if (!q.imageAnswerType) q.imageAnswerType = 'discursiva';
+          if (!q.answerStyle) q.answerStyle = 'linhas';
+          if (!q.imageSize) q.imageSize = 'medium';
+          if (!q.imageAlign) q.imageAlign = 'center';
+          if (typeof q.imageCaption !== 'string') q.imageCaption = '';
+          if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', '', '', ''];
+          if (q.options.length > 6) q.options = q.options.slice(0, 6);
+          if (q.correctOption !== null && (q.correctOption < 0 || q.correctOption >= q.options.length)) q.correctOption = null;
+          if (!Array.isArray(q.items) || q.items.length === 0) {
+            q.items = [
+              { text: '', checked: false },
+              { text: '', checked: false },
+              { text: '', checked: false },
+            ];
+          }
+          q.items = q.items.map((item) => typeof item === 'string' ? { text: item, checked: false } : item);
           const block = document.createElement('div');
           block.className = 'row';
           block.innerHTML = `<label>Imagem da questão</label>`;
@@ -1065,77 +1472,392 @@
               q.imageFileName = '';
             },
           }));
+          const imageLayout = document.createElement('div');
+          imageLayout.className = 'row three';
+          imageLayout.innerHTML = `
+            <div>
+              <label>Tamanho da imagem</label>
+              <select data-k="imageSize">
+                <option value="small" ${q.imageSize === 'small' ? 'selected' : ''}>Pequena</option>
+                <option value="medium" ${q.imageSize === 'medium' ? 'selected' : ''}>Média</option>
+                <option value="large" ${q.imageSize === 'large' ? 'selected' : ''}>Grande</option>
+                <option value="full" ${q.imageSize === 'full' ? 'selected' : ''}>Largura total</option>
+              </select>
+            </div>
+            <div>
+              <label>Alinhamento</label>
+              <select data-k="imageAlign">
+                <option value="left" ${q.imageAlign === 'left' ? 'selected' : ''}>Esquerda</option>
+                <option value="center" ${q.imageAlign === 'center' ? 'selected' : ''}>Centro</option>
+                <option value="right" ${q.imageAlign === 'right' ? 'selected' : ''}>Direita</option>
+              </select>
+            </div>
+            <div>
+              <label>Legenda</label>
+              <input data-k="imageCaption" value="${esc(q.imageCaption)}" placeholder="Ex.: Figura 1" />
+            </div>
+          `;
+          block.appendChild(imageLayout);
           const lines = document.createElement('div');
+          lines.className = 'row two';
           lines.innerHTML = `
-            <label>Linhas de resposta</label>
-            <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines || 5)}" />
+            <div>
+              <label>Formato da resposta discursiva</label>
+              <select data-k="answerStyle">
+                <option value="linhas" ${q.answerStyle === 'linhas' ? 'selected' : ''}>Linhas pautadas</option>
+                <option value="caixa" ${q.answerStyle === 'caixa' ? 'selected' : ''}>Caixa de resposta</option>
+                <option value="espaco" ${q.answerStyle === 'espaco' ? 'selected' : ''}>Espaco em branco</option>
+              </select>
+            </div>
+            <div>
+              <label>Altura</label>
+              <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines || 5)}" />
+            </div>
           `;
           block.appendChild(lines);
+          const responseMode = document.createElement('div');
+          responseMode.innerHTML = `
+            <label>Tipo de resposta da imagem</label>
+            <select data-k="imageAnswerType">
+              <option value="discursiva" ${q.imageAnswerType === 'discursiva' ? 'selected' : ''}>Resposta discursiva</option>
+              <option value="multipla" ${q.imageAnswerType === 'multipla' ? 'selected' : ''}>Múltipla escolha</option>
+              <option value="marcarx" ${q.imageAnswerType === 'marcarx' ? 'selected' : ''}>Marcar X</option>
+            </select>
+          `;
+          block.appendChild(responseMode);
+
+          if (q.imageAnswerType === 'multipla') {
+            const box = document.createElement('div');
+            box.className = 'row';
+            box.innerHTML = `<label>Alternativas da imagem</label><div class="small">Marque a alternativa correta para gerar gabarito.</div>`;
+            q.options.forEach((op, j) => {
+              const row = document.createElement('div');
+              row.className = 'option-row';
+              const radio = document.createElement('input');
+              radio.type = 'radio';
+              radio.name = `image-correct-${idx}`;
+              radio.checked = q.correctOption === j;
+              radio.addEventListener('change', () => {
+                q.correctOption = j;
+                renderPreview();
+              });
+              const inp = document.createElement('input');
+              inp.value = op || '';
+              inp.placeholder = `Alternativa ${String.fromCharCode(65 + j)}`;
+              inp.addEventListener('input', () => {
+                q.options[j] = inp.value;
+                renderPreview();
+              });
+              const remove = document.createElement('button');
+              remove.type = 'button';
+              remove.className = 'danger';
+              remove.textContent = 'Remover';
+              remove.disabled = q.options.length <= 2;
+              remove.addEventListener('click', () => {
+                q.options.splice(j, 1);
+                if (q.correctOption === j) q.correctOption = null;
+                else if (q.correctOption > j) q.correctOption -= 1;
+                renderAll();
+              });
+              row.appendChild(radio);
+              row.appendChild(inp);
+              row.appendChild(remove);
+              box.appendChild(row);
+            });
+            const addOption = document.createElement('button');
+            addOption.type = 'button';
+            addOption.className = 'outline';
+            addOption.textContent = 'Adicionar alternativa';
+            addOption.disabled = q.options.length >= 6;
+            addOption.addEventListener('click', () => {
+              if (q.options.length >= 6) return;
+              q.options.push('');
+              renderAll();
+            });
+            box.appendChild(addOption);
+            block.appendChild(box);
+          }
+
+          if (q.imageAnswerType === 'marcarx') {
+            const box = document.createElement('div');
+            box.className = 'row';
+            box.innerHTML = `<label>Itens para marcar</label><div class="small">Marque os itens corretos para gerar gabarito.</div>`;
+            q.items.forEach((item, j) => {
+              const row = document.createElement('div');
+              row.className = 'option-row';
+              row.style.gridTemplateColumns = 'auto 1fr auto';
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.checked = !!item.checked;
+              checkbox.style.width = 'auto';
+              checkbox.addEventListener('change', () => {
+                item.checked = checkbox.checked;
+                renderPreview();
+              });
+              const inp = document.createElement('input');
+              inp.value = item.text || '';
+              inp.placeholder = `Item ${j + 1}`;
+              inp.addEventListener('input', () => {
+                item.text = inp.value;
+                renderPreview();
+              });
+              const remove = document.createElement('button');
+              remove.type = 'button';
+              remove.className = 'danger';
+              remove.textContent = 'Remover';
+              remove.disabled = q.items.length <= 1;
+              remove.addEventListener('click', () => {
+                q.items.splice(j, 1);
+                renderAll();
+              });
+              row.appendChild(checkbox);
+              row.appendChild(inp);
+              row.appendChild(remove);
+              box.appendChild(row);
+            });
+            const addItem = document.createElement('button');
+            addItem.type = 'button';
+            addItem.className = 'outline';
+            addItem.textContent = 'Adicionar item';
+            addItem.addEventListener('click', () => {
+              q.items.push({ text: '', checked: false });
+              renderAll();
+            });
+            box.appendChild(addItem);
+            block.appendChild(box);
+          }
           body.appendChild(block);
         }
 
         if (q.type === 'marcarx') {
+          if (!Array.isArray(q.items) || q.items.length === 0) {
+            q.items = [
+              { text: '', checked: false },
+              { text: '', checked: false },
+              { text: '', checked: false },
+              { text: '', checked: false },
+            ];
+          }
+          q.items = q.items.map((item) => typeof item === 'string' ? { text: item, checked: false } : item);
+          if (!q.markLayout) q.markLayout = 'lista';
+
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = `<label>Itens</label>`;
+          block.innerHTML = `<label>Itens</label><div class="small">Marque os itens corretos para gerar gabarito.</div>`;
+          const layout = document.createElement('div');
+          layout.innerHTML = `
+            <label>Layout dos itens</label>
+            <select data-k="markLayout">
+              <option value="lista" ${q.markLayout === 'lista' ? 'selected' : ''}>Lista simples</option>
+              <option value="duas_colunas" ${q.markLayout === 'duas_colunas' ? 'selected' : ''}>Duas colunas</option>
+            </select>
+          `;
+          block.appendChild(layout);
           const box = document.createElement('div');
           box.className = 'row';
           q.items.forEach((item, j) => {
-            const inp = document.createElement('input');
-            inp.value = item || '';
-            inp.placeholder = `Item ${j + 1}`;
-            inp.addEventListener('input', () => {
-              q.items[j] = inp.value;
+            const row = document.createElement('div');
+            row.className = 'option-row';
+            row.style.gridTemplateColumns = 'auto 1fr auto';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = !!item.checked;
+            checkbox.title = 'Item correto';
+            checkbox.style.width = 'auto';
+            checkbox.addEventListener('change', () => {
+              item.checked = checkbox.checked;
               renderPreview();
             });
-            box.appendChild(inp);
+
+            const inp = document.createElement('input');
+            inp.value = item.text || '';
+            inp.placeholder = `Item ${j + 1}`;
+            inp.addEventListener('input', () => {
+              item.text = inp.value;
+              renderPreview();
+            });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Remover';
+            remove.disabled = q.items.length <= 1;
+            remove.addEventListener('click', () => {
+              q.items.splice(j, 1);
+              renderAll();
+            });
+
+            row.appendChild(checkbox);
+            row.appendChild(inp);
+            row.appendChild(remove);
+            box.appendChild(row);
+          });
+          const addItem = document.createElement('button');
+          addItem.type = 'button';
+          addItem.className = 'outline';
+          addItem.textContent = 'Adicionar item';
+          addItem.addEventListener('click', () => {
+            q.items.push({ text: '', checked: false });
+            renderAll();
           });
           block.appendChild(box);
+          block.appendChild(addItem);
+          body.appendChild(block);
+        }
+
+        if (q.type === 'lacunas') {
+          normalizeLacunasQuestion(q);
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Frases com lacunas</label><div class="small">Use traços baixos no lugar da palavra e cadastre a resposta esperada para o gabarito.</div>`;
+          const box = document.createElement('div');
+          box.className = 'row';
+
+          q.items.forEach((item, j) => {
+            const row = document.createElement('div');
+            row.className = 'match-pair-row';
+
+            const textArea = document.createElement('textarea');
+            textArea.value = item.text || '';
+            textArea.placeholder = `Frase ${j + 1}: Hoje tivemos que __________ depois do meio dia.`;
+            textArea.rows = 2;
+            textArea.addEventListener('input', () => {
+              item.text = textArea.value;
+              renderPreview();
+            });
+
+            const answerInp = document.createElement('input');
+            answerInp.value = item.answer || '';
+            answerInp.placeholder = `Resposta ${j + 1}`;
+            answerInp.addEventListener('input', () => {
+              item.answer = answerInp.value;
+              q.answers = q.items.map((current) => current.answer);
+              renderPreview();
+            });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Remover';
+            remove.disabled = q.items.length <= 1;
+            remove.addEventListener('click', () => {
+              q.items.splice(j, 1);
+              q.answers = q.items.map((current) => current.answer);
+              renderAll();
+            });
+
+            row.appendChild(textArea);
+            row.appendChild(answerInp);
+            row.appendChild(remove);
+            box.appendChild(row);
+          });
+
+          const addAnswer = document.createElement('button');
+          addAnswer.type = 'button';
+          addAnswer.className = 'outline';
+          addAnswer.textContent = 'Adicionar lacuna';
+          addAnswer.addEventListener('click', () => {
+            q.items.push({ text: '', answer: '' });
+            q.answers = q.items.map((current) => current.answer);
+            renderAll();
+          });
+
+          block.appendChild(box);
+          block.appendChild(addAnswer);
           body.appendChild(block);
         }
 
         if (q.type === 'relacione') {
+          normalizeRelacioneQuestion(q);
           const block = document.createElement('div');
-          block.innerHTML = `<label>Colunas</label>`;
-          const two = document.createElement('div');
-          two.className = 'row two';
-          const left = document.createElement('div');
-          left.className = 'row';
-          const right = document.createElement('div');
-          right.className = 'row';
-          q.left.forEach((item, j) => {
-            const inp = document.createElement('input');
-            inp.value = item || '';
-            inp.placeholder = `Item A${j + 1}`;
-            inp.addEventListener('input', () => {
-              q.left[j] = inp.value;
+          block.className = 'row';
+          block.innerHTML = `<label>Pares corretos</label><div class="small">Preencha cada par correto. A coluna B pode ser embaralhada para a prova, e o gabarito sera gerado automaticamente.</div>`;
+          const box = document.createElement('div');
+          box.className = 'row';
+          q.pairs.forEach((pair, j) => {
+            const row = document.createElement('div');
+            row.className = 'match-pair-row';
+
+            const leftInp = document.createElement('input');
+            leftInp.value = pair.left || '';
+            leftInp.placeholder = `Coluna A ${j + 1}`;
+            leftInp.addEventListener('input', () => {
+              pair.left = leftInp.value;
+              q.left = q.pairs.map((p) => p.left);
               renderPreview();
             });
-            left.appendChild(inp);
-          });
-          q.right.forEach((item, j) => {
-            const inp = document.createElement('input');
-            inp.value = item || '';
-            inp.placeholder = `Item B${j + 1}`;
-            inp.addEventListener('input', () => {
-              q.right[j] = inp.value;
+
+            const rightInp = document.createElement('input');
+            rightInp.value = pair.right || '';
+            rightInp.placeholder = `Resposta correspondente ${j + 1}`;
+            rightInp.addEventListener('input', () => {
+              pair.right = rightInp.value;
+              q.right = q.pairs.map((p) => p.right);
               renderPreview();
             });
-            right.appendChild(inp);
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Remover';
+            remove.disabled = q.pairs.length <= 2;
+            remove.addEventListener('click', () => {
+              q.pairs.splice(j, 1);
+              q.rightOrder = q.rightOrder.filter((n) => n !== j).map((n) => n > j ? n - 1 : n);
+              normalizeRelacioneQuestion(q);
+              renderAll();
+            });
+
+            row.appendChild(leftInp);
+            row.appendChild(rightInp);
+            row.appendChild(remove);
+            box.appendChild(row);
           });
-          two.appendChild(left);
-          two.appendChild(right);
-          block.appendChild(two);
+          const actionsRow = document.createElement('div');
+          actionsRow.style.display = 'flex';
+          actionsRow.style.gap = '8px';
+          actionsRow.style.flexWrap = 'wrap';
+
+          const addPair = document.createElement('button');
+          addPair.type = 'button';
+          addPair.className = 'secondary';
+          addPair.textContent = 'Adicionar par';
+          addPair.addEventListener('click', () => {
+            q.pairs.push({ left: '', right: '' });
+            q.rightOrder.push(q.pairs.length - 1);
+            renderAll();
+          });
+
+          const shuffle = document.createElement('button');
+          shuffle.type = 'button';
+          shuffle.className = 'secondary';
+          shuffle.textContent = 'Embaralhar coluna B';
+          shuffle.addEventListener('click', () => {
+            const previous = q.rightOrder.join(',');
+            q.rightOrder = q.pairs.map((_, pairIndex) => pairIndex);
+            for (let i = q.rightOrder.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [q.rightOrder[i], q.rightOrder[j]] = [q.rightOrder[j], q.rightOrder[i]];
+            }
+            if (q.rightOrder.length > 1 && q.rightOrder.join(',') === previous) {
+              q.rightOrder.push(q.rightOrder.shift());
+            }
+            renderPreview();
+          });
+
+          actionsRow.appendChild(addPair);
+          actionsRow.appendChild(shuffle);
+          box.appendChild(actionsRow);
+          block.appendChild(box);
           body.appendChild(block);
         }
 
         if (q.type === 'relacione_imagens') {
-          if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
-            q.pairs = templates.relacione_imagens().pairs;
-          }
+          normalizeRelacioneImagensQuestion(q);
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = `<label>Imagens e palavras</label>`;
+          block.innerHTML = `<label>Imagens e palavras</label><div class="small">Cadastre cada par correto. As palavras podem ser embaralhadas na prova.</div>`;
           const grid = document.createElement('div');
           grid.className = 'image-word-grid';
           q.pairs.forEach((pair, j) => {
@@ -1144,7 +1866,7 @@
             const title = document.createElement('div');
             title.className = 'small';
             title.style.marginBottom = '8px';
-            title.textContent = `Par ${j + 1}`;
+            title.textContent = `Imagem ${j + 1}`;
             const input = document.createElement('input');
             input.value = pair.word || '';
             input.placeholder = `Palavra ${j + 1}`;
@@ -1165,9 +1887,56 @@
               },
             }));
             card.appendChild(input);
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Remover par';
+            remove.disabled = q.pairs.length <= 2;
+            remove.style.marginTop = '8px';
+            remove.addEventListener('click', () => {
+              q.pairs.splice(j, 1);
+              q.wordOrder = q.wordOrder.filter((n) => n !== j).map((n) => n > j ? n - 1 : n);
+              normalizeRelacioneImagensQuestion(q);
+              renderAll();
+            });
+            card.appendChild(remove);
             grid.appendChild(card);
           });
+          const actionsRow = document.createElement('div');
+          actionsRow.style.display = 'flex';
+          actionsRow.style.gap = '8px';
+          actionsRow.style.flexWrap = 'wrap';
+
+          const addPair = document.createElement('button');
+          addPair.type = 'button';
+          addPair.className = 'outline';
+          addPair.textContent = 'Adicionar par imagem-palavra';
+          addPair.addEventListener('click', () => {
+            q.pairs.push({ imageDataUrl: '', imageFileName: '', word: '' });
+            q.wordOrder.push(q.pairs.length - 1);
+            renderAll();
+          });
+
+          const shuffleWords = document.createElement('button');
+          shuffleWords.type = 'button';
+          shuffleWords.className = 'secondary';
+          shuffleWords.textContent = 'Embaralhar palavras';
+          shuffleWords.addEventListener('click', () => {
+            const previous = q.wordOrder.join(',');
+            q.wordOrder = q.pairs.map((_, pairIndex) => pairIndex);
+            for (let i = q.wordOrder.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [q.wordOrder[i], q.wordOrder[j]] = [q.wordOrder[j], q.wordOrder[i]];
+            }
+            if (q.wordOrder.length > 1 && q.wordOrder.join(',') === previous) {
+              q.wordOrder.push(q.wordOrder.shift());
+            }
+            renderPreview();
+          });
+          actionsRow.appendChild(addPair);
+          actionsRow.appendChild(shuffleWords);
           block.appendChild(grid);
+          block.appendChild(actionsRow);
           body.appendChild(block);
         }
 
@@ -1176,6 +1945,10 @@
           node.addEventListener('input', () => {
             if (key === 'lines') {
               q.lines = Math.max(2, Math.min(15, Number(node.value) || 5));
+            } else if (key === 'imageAnswerType') {
+              q.imageAnswerType = node.value;
+              renderAll();
+              return;
             } else {
               q[key] = node.value;
             }
@@ -1191,6 +1964,25 @@
 
     function renderQuestionPreview(q) {
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => `<div class="hline"></div>`).join('')}</div>`;
+      const imageFigure = (question) => {
+        const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
+        const align = ['left', 'center', 'right'].includes(question.imageAlign) ? question.imageAlign : 'center';
+        const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
+        return question.imageDataUrl
+          ? `<div class="question-image ${size} ${align}"><img src="${question.imageDataUrl}" alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
+          : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
+      };
+      const answerArea = (question) => {
+        const lines = Math.max(2, Math.min(15, Number(question.lines) || 5));
+        const style = question.answerStyle || 'linhas';
+        if (style === 'caixa') {
+          return `<div style="height:${lines * 24}px; border:1px solid #cbd5e1; border-radius:6px; margin-top:8px;"></div>`;
+        }
+        if (style === 'espaco') {
+          return `<div style="height:${lines * 24}px;"></div>`;
+        }
+        return answerLines(lines);
+      };
       if (q.type === 'multipla') {
         const items = q.options.map((op, i) => {
           const letter = String.fromCharCode(65 + i);
@@ -1200,30 +1992,57 @@
         return `<div class="spacey">${items}</div>`;
       }
       if (q.type === 'discursiva') {
-        return answerLines(q.lines || 5);
+        return answerArea(q);
       }
       if (q.type === 'vf') {
+        if (Array.isArray(q.items) && q.items.length) {
+          const items = q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}</div>`).join('');
+          return `<div class="spacey">${items}</div>`;
+        }
         return `<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>`;
       }
       if (q.type === 'marcarx') {
-        const items = q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item ${i + 1}`)}</div>`).join('');
-        return `<div class="spacey">${items}</div>`;
+        const items = q.items.map((item, i) => {
+          const text = typeof item === 'string' ? item : item.text;
+          return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+        }).join('');
+        const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
+        return `<div class="${layoutClass}">${items}</div>`;
       }
       if (q.type === 'lacunas') {
-        return `<div>______________________________________________________________</div>`;
+        normalizeLacunasQuestion(q);
+        const items = q.items.map((item, i) => `<div>${i + 1}. ${esc(item.text || `Frase com lacuna ${i + 1}`)}</div>`).join('');
+        return `<div class="spacey">${items}</div>`;
       }
       if (q.type === 'relacione') {
-        const left = q.left.map((item, i) => `<div>${i + 1}. ${esc(item || `Item A${i + 1}`)}</div>`).join('');
-        const right = q.right.map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item B${i + 1}`)}</div>`).join('');
+        normalizeRelacioneQuestion(q);
+        const left = q.pairs.map((pair, i) => `<div>${i + 1}. ${esc(pair.left || `Item A${i + 1}`)}</div>`).join('');
+        const right = q.rightOrder.map((pairIndex, i) => {
+          const pair = q.pairs[pairIndex] || {};
+          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.right || `Item B${i + 1}`)}</div>`;
+        }).join('');
         return `<div class="two-cols"><div class="spacey">${left}</div><div class="spacey">${right}</div></div>`;
       }
       if (q.type === 'imagem') {
-        const image = q.imageDataUrl
-          ? `<div class="question-image"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem da questão')}" /></div>`
-          : `<div class="question-image small">Imagem não selecionada.</div>`;
-        return `${image}${answerLines(q.lines || 5)}`;
+        const image = imageFigure(q);
+        if (q.imageAnswerType === 'multipla') {
+          const options = (q.options || []).map((op, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+          }).join('');
+          return `${image}<div class="spacey">${options}</div>`;
+        }
+        if (q.imageAnswerType === 'marcarx') {
+          const items = (q.items || []).map((item, i) => {
+            const text = typeof item === 'string' ? item : item.text;
+            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+          }).join('');
+          return `${image}<div class="spacey">${items}</div>`;
+        }
+        return `${image}${answerArea(q)}`;
       }
       if (q.type === 'relacione_imagens') {
+        normalizeRelacioneImagensQuestion(q);
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
         const images = pairs.map((pair, i) => `
           <div class="match-image">
@@ -1231,7 +2050,10 @@
             <strong>Imagem ${i + 1}</strong>
           </div>
         `).join('');
-        const words = pairs.map((pair, i) => `<div>( &nbsp; ) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`).join('');
+        const words = q.wordOrder.map((pairIndex, i) => {
+          const pair = pairs[pairIndex] || {};
+          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`;
+        }).join('');
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
       return '';
@@ -1259,8 +2081,23 @@
 
       const totalQuestions = state.questions.length;
       const sum = state.questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
+      const expectedTotal = parsePtNumber(state.school.totalValue);
+      const scoreDiff = Math.round((sum - expectedTotal) * 10) / 10;
       el('pvChipQuestions').textContent = `${totalQuestions} questões`;
       el('pvChipSum').textContent = `Soma configurada: ${formatPt1(sum)} pontos`;
+      const scoreStatus = el('pvChipScoreStatus');
+      scoreStatus.className = 'chip';
+      if (!expectedTotal) {
+        scoreStatus.textContent = 'Valor total nao informado';
+        scoreStatus.classList.add('warn');
+      } else if (Math.abs(scoreDiff) < 0.05) {
+        scoreStatus.textContent = 'Pontuacao confere';
+        scoreStatus.classList.add('ok');
+      } else {
+        const direction = scoreDiff > 0 ? 'acima' : 'abaixo';
+        scoreStatus.textContent = `Atencao: ${formatPt1(Math.abs(scoreDiff))} ponto(s) ${direction} do total`;
+        scoreStatus.classList.add('warn');
+      }
 
       const pvRoot = el('pvQuestions');
       pvRoot.innerHTML = state.questions.map((q, i) => {
@@ -1292,6 +2129,14 @@
           syncSchoolFromInputs();
           renderPreview();
         });
+      });
+      el('instructionTemplate').addEventListener('change', (event) => {
+        const value = event.target.value;
+        if (!value || !instructionTemplates[value]) return;
+        el('instructions').value = instructionTemplates[value];
+        event.target.value = '';
+        syncSchoolFromInputs();
+        renderPreview();
       });
     }
 

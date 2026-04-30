@@ -118,14 +118,14 @@ index.html → login.html → dashboard.html → editor.html
 ## Tipos de Questão no Editor
 | Tipo | Chave | Campos extras |
 |---|---|---|
-| Múltipla escolha | `multipla` | `options[]` (4 alternativas) |
-| Discursiva | `discursiva` | `lines` (nº de linhas) |
+| Múltipla escolha | `multipla` | `options[]` (2 a 6 alternativas), `correctOption` |
+| Discursiva | `discursiva` | `lines` (altura), `answerStyle` |
 | Verdadeiro/Falso | `vf` | — |
-| Marcar X | `marcarx` | `items[]` |
-| Complete as lacunas | `lacunas` | — |
-| Relacione as colunas | `relacione` | `left[]`, `right[]` |
-| De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `lines` |
-| Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com imagem + palavra |
+| Marcar X | `marcarx` | `items[]`, `markLayout` |
+| Complete as lacunas | `lacunas` | `items[]` com frase + resposta, `answers[]` |
+| Relacione as colunas | `relacione` | `pairs[]`, `rightOrder[]` |
+| De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `imageSize`, `imageAlign`, `imageCaption`, `imageAnswerType`, `lines`, `options[]`, `items[]` |
+| Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com imagem + palavra, `wordOrder[]` |
 
 ---
 
@@ -227,6 +227,72 @@ git push --set-upstream origin main
 
 ## O que Ainda Pode Melhorar
 
+### Prioridade: geração e acabamento da prova
+- [ ] Revisar a experiência de criação de questões para deixar o fluxo mais claro, rápido e com menos campos confusos.
+- [ ] Criar painel de propriedades da questão selecionada, separando enunciado, mídia, alternativas, resposta esperada, pontuação e configuração de impressão.
+- [ ] Permitir escolher se a questão deve aparecer com ou sem espaço para resposta.
+- [x] Permitir controlar o número de linhas de resposta por questão discursiva e questão com imagem.
+- [x] Permitir definir pontuação com validação e alerta quando a soma das questões não bater com o valor total da prova.
+- [x] Permitir duplicar, mover, remover e recolher/expandir questões com melhor organização visual no editor.
+- [ ] Criar numeração automática mais refinada, com opção de reiniciar ou ocultar numeração em blocos específicos.
+- [ ] Adicionar pré-visualização por página A4, com indicação visual de quebras de página antes de imprimir.
+- [ ] Evitar que uma questão seja cortada entre duas páginas sempre que possível.
+- [ ] Criar modo "somente prova" e modo "prova com gabarito" para exportação.
+- [x] Criar gabarito separado para múltipla escolha.
+- [x] Criar gabarito separado para verdadeiro/falso.
+- [x] Criar gabarito separado para marcar X.
+- [x] Criar gabarito separado para relacionar colunas.
+- [ ] Criar gabarito separado para demais questões objetivas.
+- [ ] Permitir salvar modelos de cabeçalho por escola/professor.
+- [x] Criar modelos de instruções reutilizáveis por tipo de avaliação.
+
+### Prioridade: imagens nas questões
+- [ ] Permitir recortar imagem enviada antes de inserir na questão.
+- [ ] Permitir girar imagem para esquerda/direita.
+- [x] Permitir redimensionar imagem no editor com tamanhos: pequena, média, grande e largura total.
+- [x] Permitir escolher alinhamento da imagem: esquerda, centro ou direita.
+- [x] Permitir adicionar legenda abaixo da imagem.
+- [ ] Permitir layout com imagem ao lado do enunciado.
+- [ ] Permitir remover fundo branco ou melhorar contraste da imagem quando possível.
+- [ ] Permitir substituir imagem sem perder o restante da questão.
+- [ ] Permitir inserir mais de uma imagem na mesma questão.
+- [ ] Criar layout "imagem ao lado do texto" para questões de interpretação visual.
+- [ ] Criar layout "grade de imagens" para educação infantil e anos iniciais.
+- [ ] Validar tamanho da imagem e avisar quando ela pode deixar a prova pesada demais.
+- [ ] Melhorar compressão automática das imagens para equilibrar qualidade e tamanho.
+
+### Prioridade: esmeramento dos tipos atuais de questão
+- [x] Múltipla escolha: permitir 2 a 6 alternativas, marcar alternativa correta e gerar gabarito.
+- [ ] Múltipla escolha: permitir alternativas com texto longo sem quebrar o layout.
+- [x] Discursiva: permitir pauta com linhas, caixa de resposta ou espaço em branco.
+- [x] Verdadeiro/Falso: permitir vários itens V/F dentro da mesma questão.
+- [x] Marcar X: permitir itens em lista simples com marcação de resposta correta.
+- [x] Marcar X: permitir itens em duas colunas.
+- [ ] Marcar X: permitir itens em tabela.
+- [x] Complete as lacunas: permitir cadastrar respostas esperadas para o gabarito.
+- [x] Complete as lacunas: permitir várias frases com lacunas na mesma questão.
+- [x] Relacione as colunas: permitir embaralhar a coluna da direita automaticamente.
+- [x] Relacione as colunas: permitir mais pares, adicionar/remover linhas e equilibrar colunas.
+- [x] Questão com imagem: permitir resposta discursiva, múltipla escolha ou marcar X usando a mesma imagem.
+- [x] Relacione imagens e palavras: permitir adicionar/remover pares e embaralhar palavras no PDF.
+
+### Prioridade: novos tipos de questão mais usados por professores
+- [ ] Questão de interpretação de texto com texto-base e perguntas vinculadas.
+- [ ] Questão de interpretação de imagem.
+- [ ] Questão de tabela/gráfico para interpretação de dados.
+- [ ] Questão de caça-palavras.
+- [ ] Questão de cruzadinha.
+- [ ] Questão de ordenação de frases ou etapas.
+- [ ] Questão de associação por setas.
+- [ ] Questão de completar sequência numérica.
+- [ ] Questão de produção textual com espaço grande de resposta.
+- [ ] Questão de ditado/lista de palavras.
+- [ ] Questão de leitura e escrita para alfabetização.
+- [ ] Questão de identificação de sílabas, letras ou sons.
+- [ ] Questão de operações matemáticas em coluna.
+- [ ] Questão com problema matemático e espaço para cálculo.
+- [ ] Questão de desenho ou ilustração com espaço livre.
+
 ### Banco de questões
 - [x] Criar banco de questões por série/ano, disciplina, habilidade e dificuldade.
 - [x] Permitir pesquisar questões por palavra-chave, série, habilidade e nível de dificuldade.
@@ -239,8 +305,8 @@ git push --set-upstream origin main
 - [x] Permitir banco de questões com imagens anexadas.
 
 ### Novos tipos de questão com imagens
-- [ ] Questão com imagem e múltipla escolha.
-- [ ] Questão com imagem para marcar X.
+- [x] Questão com imagem e múltipla escolha.
+- [x] Questão com imagem para marcar X.
 - [ ] Questão de sequência/ordenação de imagens.
 - [ ] Questão para identificar partes de uma imagem com setas ou números.
 - [ ] Questão para comparar duas imagens e responder.

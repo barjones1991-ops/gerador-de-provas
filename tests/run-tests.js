@@ -240,6 +240,47 @@ async function main() {
     assert(editor.includes('resetStateToDefault'), 'draft reset helper missing');
     assert(editor.includes('applyReviewLock'), 'review lock helper missing');
     assert(editor.includes("['aprovada', 'bloqueada']"), 'approved/blocked lock statuses missing');
+    assert(editor.includes('correctOption'), 'multiple choice correct option missing');
+    assert(editor.includes('Adicionar alternativa'), 'multiple choice add option action missing');
+    assert(editor.includes('Adicionar afirmação'), 'true/false add item action missing');
+    assert(editor.includes("item.answer = 'V'"), 'true/false answer V missing');
+    assert(editor.includes("item.answer = 'F'"), 'true/false answer F missing');
+    assert(editor.includes('Adicionar item'), 'mark-x add item action missing');
+    assert(editor.includes('item.checked'), 'mark-x checked answer missing');
+    assert(editor.includes('markLayout'), 'mark-x layout setting missing');
+    assert(editor.includes('Duas colunas'), 'mark-x two-column option missing');
+    assert(editor.includes('mark-grid two-columns'), 'mark-x two-column class missing');
+    assert(editor.includes('normalizeLacunasQuestion'), 'fill-blanks normalizer missing');
+    assert(editor.includes('Adicionar lacuna'), 'fill-blanks add blank action missing');
+    assert(editor.includes('Frases com lacunas'), 'fill-blanks multi sentence editor missing');
+    assert(editor.includes('Hoje tivemos que __________ depois do meio dia pois nos atrasamos.'), 'fill-blanks example sentence missing');
+    assert(editor.includes('normalizeRelacioneImagensQuestion'), 'image-word match normalizer missing');
+    assert(editor.includes('Adicionar par imagem-palavra'), 'image-word add pair action missing');
+    assert(editor.includes('Embaralhar palavras'), 'image-word shuffle action missing');
+    assert(editor.includes('wordOrder'), 'image-word order missing');
+    assert(editor.includes('answerStyle'), 'discursive answer style missing');
+    assert(editor.includes('Linhas pautadas'), 'discursive ruled lines option missing');
+    assert(editor.includes('Caixa de resposta'), 'discursive answer box option missing');
+    assert(editor.includes('Espaco em branco'), 'discursive blank space option missing');
+    assert(editor.includes('imageAnswerType'), 'image answer type missing');
+    assert(editor.includes('Tipo de resposta da imagem'), 'image answer type control missing');
+    assert(editor.includes('Alternativas da imagem'), 'image multiple-choice options missing');
+    assert(editor.includes('Itens para marcar'), 'image mark-x items missing');
+    assert(editor.includes('imageSize'), 'image size control missing');
+    assert(editor.includes('imageAlign'), 'image alignment control missing');
+    assert(editor.includes('imageCaption'), 'image caption control missing');
+    assert(editor.includes('Largura total'), 'image full width option missing');
+    assert(editor.includes('pvChipScoreStatus'), 'score status chip missing');
+    assert(editor.includes('Pontuacao confere'), 'score match message missing');
+    assert(editor.includes('ponto(s) ${direction} do total'), 'score mismatch warning missing');
+    assert(editor.includes('collapsedQuestions'), 'collapsed questions state missing');
+    assert(editor.includes('toggleQuestionCollapsed'), 'question collapse toggle missing');
+    assert(editor.includes('Recolher'), 'collapse question action missing');
+    assert(editor.includes('Expandir'), 'expand question action missing');
+    assert(editor.includes('instructionTemplates'), 'instruction templates missing');
+    assert(editor.includes('instructionTemplate'), 'instruction template selector missing');
+    assert(editor.includes('Prova padrão'), 'default instruction template missing');
+    assert(editor.includes('Recuperação'), 'recovery instruction template missing');
   });
 
   await test('question bank search listener is attached after function declaration', () => {
@@ -268,8 +309,40 @@ async function main() {
     ['imagem', 'relacione_imagens'].forEach((type) => {
       assert(print.includes(`q.type === '${type}'`), `${type} missing in print renderer`);
     });
+    assert(print.includes('renderAnswerKey'), 'print answer key renderer missing');
+    assert(print.includes('gabarito'), 'print answer key query toggle missing');
+    assert(print.includes("q.type === 'vf'"), 'print true/false renderer missing');
+    assert(print.includes("item.answer ? `${i + 1}-${item.answer}`"), 'print true/false answer key missing');
+    assert(print.includes("q.type === 'marcarx'"), 'print mark-x renderer missing');
+    assert(print.includes('!!item.checked'), 'print mark-x answer key missing');
+    assert(print.includes('mark-grid two-columns'), 'print mark-x two-column layout missing');
+    assert(print.includes("q.type === 'relacione'"), 'print match-columns renderer missing');
+    assert(print.includes('relacioneAnswer'), 'print match-columns answer key missing');
+    assert(print.includes('rightOrder'), 'print match-columns order missing');
+    assert(print.includes("q.type === 'lacunas'"), 'print fill-blanks renderer missing');
+    assert(print.includes('normalizeLacunasQuestion'), 'print fill-blanks normalizer missing');
+    assert(print.includes('answerArea'), 'print answer area helper missing');
+    assert(print.includes("style === 'caixa'"), 'print answer box style missing');
+    assert(print.includes("style === 'espaco'"), 'print blank answer style missing');
+    assert(print.includes('imageAnswerType'), 'print image answer type missing');
+    assert(print.includes("q.type === 'imagem' && q.imageAnswerType === 'multipla'"), 'print image multiple-choice answer key missing');
+    assert(print.includes("q.type === 'imagem' && q.imageAnswerType === 'marcarx'"), 'print image mark-x answer key missing');
+    assert(print.includes('imageFigure'), 'print image figure helper missing');
+    assert(print.includes('image-caption'), 'print image caption missing');
+    assert(print.includes('relacioneImagensAnswer'), 'print image-word answer key missing');
+    assert(print.includes('wordOrder'), 'print image-word order missing');
     assert(print.includes('STORAGE_KEY_BASE'), 'print page should use base draft key');
     assert(print.includes('${STORAGE_KEY_BASE}:${auth.getCurrentUser().id}'), 'print page should read user-scoped draft key');
+  });
+
+  await test('editor supports structured match-column questions', () => {
+    const editor = read('editor.html');
+    assert(editor.includes('normalizeRelacioneQuestion'), 'match-column normalizer missing');
+    assert(editor.includes('pairs: ['), 'match-column structured pairs missing');
+    assert(editor.includes('rightOrder'), 'match-column answer order missing');
+    assert(editor.includes('Adicionar par'), 'match-column add pair button missing');
+    assert(editor.includes('Embaralhar coluna B'), 'match-column shuffle button missing');
+    assert(editor.includes('Pares corretos'), 'match-column editing label missing');
   });
 
   await test('Supabase SQL includes idempotent policies and question bank', () => {

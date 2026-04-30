@@ -64,9 +64,12 @@
     .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; }
     .qpreview { margin-top: 10px; font-size: 15px; }
     .spacey { display: grid; gap: 8px; }
+    .mark-grid.two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
     .hline { height: 20px; border-bottom: 1px solid #cbd5e1; }
     .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .question-image { margin: 10px 0 12px; text-align: center; }
+    .question-image.left { text-align: left; }
+    .question-image.right { text-align: right; }
     .question-image img {
       max-width: 100%;
       max-height: 260px;
@@ -76,6 +79,11 @@
       padding: 4px;
       background: #fff;
     }
+    .question-image.small img { max-width: 35%; }
+    .question-image.medium img { max-width: 60%; }
+    .question-image.large img { max-width: 82%; }
+    .question-image.full img { width: 100%; max-width: 100%; }
+    .image-caption { margin-top: 6px; font-size: 12px; color: #64748b; font-style: italic; }
     .image-match-grid {
       display: grid;
       grid-template-columns: 1.2fr 1fr;
@@ -103,6 +111,23 @@
     }
     .message { text-align: center; padding: 80px 20px; color: #64748b; }
     .message h1 { color: #0f172a; font-size: 22px; margin: 0 0 8px; }
+    .answer-key {
+      margin-top: 28px;
+      border-top: 3px solid #0f172a;
+      padding-top: 16px;
+      break-before: page;
+    }
+    .answer-key h2 { font-size: 20px; margin-bottom: 12px; }
+    .answer-grid { display: grid; gap: 8px; }
+    .answer-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
     @media (max-width: 700px) {
       .page { margin: 0; padding: 24px 18px; width: 100%; box-shadow: none; }
       .toolbar { align-items: flex-start; }
@@ -116,7 +141,7 @@
       .toolbar { display: grid; grid-template-columns: 1fr; }
       .page { padding: 18px 14px; }
       .pv-header { flex-direction: column; }
-      .two-cols, .image-match-grid, .match-images { grid-template-columns: 1fr; }
+      .two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }
       .chipbar { display: grid; grid-template-columns: 1fr; }
     }
     @media print {
@@ -135,6 +160,7 @@
     <div class="toolbar-title">Gerador de Provas</div>
     <div class="toolbar-actions">
       <a class="btn" href="dashboard.html">Minhas Provas</a>
+      <button class="btn" type="button" id="answerKeyBtn">Com gabarito</button>
       <button class="btn primary" type="button" onclick="window.print()">Imprimir / PDF</button>
     </div>
   </div>
@@ -154,6 +180,97 @@
     function esc(s) {
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
+    function normalizeRelacioneQuestion(q) {
+      if (!q || q.type !== 'relacione') return q;
+      if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
+        const left = Array.isArray(q.left) ? q.left : ['', '', '', ''];
+        const right = Array.isArray(q.right) ? q.right : ['', '', '', ''];
+        const size = Math.max(left.length, right.length, 2);
+        q.pairs = Array.from({ length: size }).map((_, i) => ({
+          left: left[i] || '',
+          right: right[i] || '',
+        }));
+      }
+      q.pairs = q.pairs.map((pair) => {
+        if (typeof pair === 'string') return { left: pair, right: '' };
+        if (!pair || typeof pair !== 'object') return { left: '', right: '' };
+        if (typeof pair.left !== 'string') pair.left = '';
+        if (typeof pair.right !== 'string') pair.right = '';
+        return pair;
+      });
+      const validOrder = Array.isArray(q.rightOrder)
+        && q.rightOrder.length === q.pairs.length
+        && q.rightOrder.every((n) => Number.isInteger(n) && n >= 0 && n < q.pairs.length)
+        && new Set(q.rightOrder).size === q.pairs.length;
+      if (!validOrder) {
+        q.rightOrder = q.pairs.map((_, i) => i);
+      }
+      return q;
+    }
+    function relacioneAnswer(q) {
+      normalizeRelacioneQuestion(q);
+      return q.pairs
+        .map((_, i) => {
+          const pos = q.rightOrder.indexOf(i);
+          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
+        })
+        .filter(Boolean)
+        .join('; ');
+    }
+    function normalizeLacunasQuestion(q) {
+      if (!q || q.type !== 'lacunas') return q;
+      const legacyAnswers = Array.isArray(q.answers) ? q.answers : [];
+      if (!Array.isArray(q.items) || q.items.length === 0) {
+        const legacyText = String(q.text || '').trim();
+        q.items = legacyText && legacyText.includes('_')
+          ? [{ text: legacyText, answer: legacyAnswers[0] || '' }]
+          : [{ text: '', answer: legacyAnswers[0] || '' }];
+        if (legacyText && legacyText.includes('_')) {
+          q.text = 'Complete as lacunas.';
+        }
+      }
+      q.items = q.items.map((item, i) => {
+        if (typeof item === 'string') return { text: item, answer: legacyAnswers[i] || '' };
+        if (!item || typeof item !== 'object') return { text: '', answer: legacyAnswers[i] || '' };
+        if (typeof item.text !== 'string') item.text = '';
+        if (typeof item.answer !== 'string') item.answer = legacyAnswers[i] || '';
+        return item;
+      });
+      q.answers = q.items.map((item) => item.answer);
+      return q;
+    }
+    function normalizeRelacioneImagensQuestion(q) {
+      if (!q || q.type !== 'relacione_imagens') return q;
+      if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
+        q.pairs = [
+          { imageDataUrl: '', imageFileName: '', word: '' },
+          { imageDataUrl: '', imageFileName: '', word: '' },
+        ];
+      }
+      q.pairs = q.pairs.map((pair) => ({
+        imageDataUrl: pair?.imageDataUrl || '',
+        imageFileName: pair?.imageFileName || '',
+        word: pair?.word || '',
+      }));
+      const validOrder = Array.isArray(q.wordOrder)
+        && q.wordOrder.length === q.pairs.length
+        && q.wordOrder.every((n) => Number.isInteger(n) && n >= 0 && n < q.pairs.length)
+        && new Set(q.wordOrder).size === q.pairs.length;
+      if (!validOrder) {
+        q.wordOrder = q.pairs.map((_, i) => i);
+      }
+      return q;
+    }
+    function relacioneImagensAnswer(q) {
+      normalizeRelacioneImagensQuestion(q);
+      return q.pairs
+        .map((_, i) => {
+          const pos = q.wordOrder.indexOf(i);
+          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
+        })
+        .filter(Boolean)
+        .join('; ');
+    }
 
     function parsePtNumber(s) {
       const n = Number(String(s || '').trim().replace('.', '').replace(',', '.'));
@@ -166,6 +283,25 @@
 
     function renderQuestionPreview(q) {
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => '<div class="hline"></div>').join('')}</div>`;
+      const imageFigure = (question) => {
+        const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
+        const align = ['left', 'center', 'right'].includes(question.imageAlign) ? question.imageAlign : 'center';
+        const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
+        return question.imageDataUrl
+          ? `<div class="question-image ${size} ${align}"><img src="${question.imageDataUrl}" alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
+          : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
+      };
+      const answerArea = (question) => {
+        const lines = Math.max(2, Math.min(15, Number(question.lines) || 5));
+        const style = question.answerStyle || 'linhas';
+        if (style === 'caixa') {
+          return `<div style="height:${lines * 24}px; border:1px solid #cbd5e1; border-radius:6px; margin-top:8px;"></div>`;
+        }
+        if (style === 'espaco') {
+          return `<div style="height:${lines * 24}px;"></div>`;
+        }
+        return answerLines(lines);
+      };
       if (q.type === 'multipla') {
         return `<div class="spacey">${(q.options || []).map((op, i) => {
           const letter = String.fromCharCode(65 + i);
@@ -173,25 +309,54 @@
         }).join('')}</div>`;
       }
       if (q.type === 'discursiva') {
-        return answerLines(q.lines || 5);
+        return answerArea(q);
       }
-      if (q.type === 'vf') return '<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>';
+      if (q.type === 'vf') {
+        if (Array.isArray(q.items) && q.items.length) {
+          return `<div class="spacey">${q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}</div>`).join('')}</div>`;
+        }
+        return '<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>';
+      }
       if (q.type === 'marcarx') {
-        return `<div class="spacey">${(q.items || []).map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item ${i + 1}`)}</div>`).join('')}</div>`;
+        const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
+        return `<div class="${layoutClass}">${(q.items || []).map((item, i) => {
+          const text = typeof item === 'string' ? item : item.text;
+          return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+        }).join('')}</div>`;
       }
-      if (q.type === 'lacunas') return '<div>______________________________________________________________</div>';
+      if (q.type === 'lacunas') {
+        normalizeLacunasQuestion(q);
+        return `<div class="spacey">${q.items.map((item, i) => `<div>${i + 1}. ${esc(item.text || `Frase com lacuna ${i + 1}`)}</div>`).join('')}</div>`;
+      }
       if (q.type === 'relacione') {
-        const left = (q.left || []).map((item, i) => `<div>${i + 1}. ${esc(item || `Item A${i + 1}`)}</div>`).join('');
-        const right = (q.right || []).map((item, i) => `<div>( &nbsp; ) ${esc(item || `Item B${i + 1}`)}</div>`).join('');
+        normalizeRelacioneQuestion(q);
+        const left = q.pairs.map((pair, i) => `<div>${i + 1}. ${esc(pair.left || `Item A${i + 1}`)}</div>`).join('');
+        const right = q.rightOrder.map((pairIndex, i) => {
+          const pair = q.pairs[pairIndex] || {};
+          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.right || `Item B${i + 1}`)}</div>`;
+        }).join('');
         return `<div class="two-cols"><div class="spacey">${left}</div><div class="spacey">${right}</div></div>`;
       }
       if (q.type === 'imagem') {
-        const image = q.imageDataUrl
-          ? `<div class="question-image"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem da questão')}" /></div>`
-          : '<div class="question-image small">Imagem não selecionada.</div>';
-        return `${image}${answerLines(q.lines || 5)}`;
+        const image = imageFigure(q);
+        if (q.imageAnswerType === 'multipla') {
+          const options = (q.options || []).map((op, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+          }).join('');
+          return `${image}<div class="spacey">${options}</div>`;
+        }
+        if (q.imageAnswerType === 'marcarx') {
+          const items = (q.items || []).map((item, i) => {
+            const text = typeof item === 'string' ? item : item.text;
+            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+          }).join('');
+          return `${image}<div class="spacey">${items}</div>`;
+        }
+        return `${image}${answerArea(q)}`;
       }
       if (q.type === 'relacione_imagens') {
+        normalizeRelacioneImagensQuestion(q);
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
         const images = pairs.map((pair, i) => `
           <div class="match-image">
@@ -199,10 +364,75 @@
             <strong>Imagem ${i + 1}</strong>
           </div>
         `).join('');
-        const words = pairs.map((pair, i) => `<div>( &nbsp; ) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`).join('');
+        const words = q.wordOrder.map((pairIndex, i) => {
+          const pair = pairs[pairIndex] || {};
+          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`;
+        }).join('');
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
       return '';
+    }
+
+    function getQuestionAnswer(q) {
+      if (q.type === 'multipla' && Number.isInteger(q.correctOption)) {
+        return String.fromCharCode(65 + q.correctOption);
+      }
+      if (q.type === 'vf' && Array.isArray(q.items)) {
+        const answers = q.items
+          .map((item, i) => item.answer ? `${i + 1}-${item.answer}` : '')
+          .filter(Boolean);
+        return answers.join('; ');
+      }
+      if (q.type === 'marcarx' && Array.isArray(q.items)) {
+        const answers = q.items
+          .map((item, i) => {
+            const checked = typeof item === 'string' ? false : !!item.checked;
+            return checked ? String(i + 1) : '';
+          })
+          .filter(Boolean);
+        return answers.join(', ');
+      }
+      if (q.type === 'relacione') {
+        return relacioneAnswer(q);
+      }
+      if (q.type === 'lacunas') {
+        normalizeLacunasQuestion(q);
+        return q.items
+          .map((item, i) => item.answer ? `${i + 1}-${item.answer}` : '')
+          .filter(Boolean)
+          .join('; ');
+      }
+      if (q.type === 'imagem' && q.imageAnswerType === 'multipla' && Number.isInteger(q.correctOption)) {
+        return String.fromCharCode(65 + q.correctOption);
+      }
+      if (q.type === 'imagem' && q.imageAnswerType === 'marcarx' && Array.isArray(q.items)) {
+        return q.items
+          .map((item, i) => {
+            const checked = typeof item === 'string' ? false : !!item.checked;
+            return checked ? String(i + 1) : '';
+          })
+          .filter(Boolean)
+          .join(', ');
+      }
+      if (q.type === 'relacione_imagens') {
+        return relacioneImagensAnswer(q);
+      }
+      return '';
+    }
+
+    function renderAnswerKey(questions) {
+      const rows = questions
+        .map((q, i) => ({ number: i + 1, answer: getQuestionAnswer(q) }))
+        .filter((item) => item.answer);
+      if (!rows.length) return '';
+      return `
+        <section class="answer-key">
+          <h2>Gabarito</h2>
+          <div class="answer-grid">
+            ${rows.map((item) => `<div class="answer-row"><strong>Questão ${item.number}</strong><span>${esc(item.answer)}</span></div>`).join('')}
+          </div>
+        </section>
+      `;
     }
 
     function normalizeExam(exam) {
@@ -227,6 +457,7 @@
     function renderExam(rawExam) {
       const exam = normalizeExam(rawExam);
       const questions = Array.isArray(exam.questions) ? exam.questions : [];
+      const showAnswerKey = new URLSearchParams(window.location.search).get('gabarito') === '1';
       const sum = questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
       const logo = exam.logo_data_url
         ? `<div class="logo has-image"><img src="${exam.logo_data_url}" alt="Logo da escola" /></div>`
@@ -275,6 +506,7 @@
             </div>
           `).join('')}
         </div>
+        ${showAnswerKey ? renderAnswerKey(questions) : ''}
       `;
     }
 
@@ -312,6 +544,12 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('answerKeyBtn').addEventListener('click', () => {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('gabarito') === '1') url.searchParams.delete('gabarito');
+        else url.searchParams.set('gabarito', '1');
+        window.location.href = url.toString();
+      });
       loadExam().catch((err) => showMessage('Erro ao carregar prova', err.message));
     });
   </script>
