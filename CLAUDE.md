@@ -22,19 +22,26 @@ Desenvolvida em HTML/CSS/JS puro (sem frameworks), com backend no Supabase.
 
 ```
 GERADOR DE PROVAS/
-├── index.html          # Página inicial / landing page
-├── login.html          # Login e cadastro (abas Entrar/Criar conta)
-├── dashboard.html      # Lista de provas do usuário logado
-├── editor.html         # Editor visual de provas (funciona offline tb)
-├── coordenacao.html    # Painel da coordenadora para revisar provas
-├── print.html          # Página limpa de impressão/PDF
-├── config.js           # Credenciais Supabase + expõe window.CONFIG
+├── index.html                    # Página inicial / landing page
+├── login.html                    # Login e cadastro (abas Entrar/Criar conta)
+├── dashboard.html                # Lista de provas do usuário logado
+├── editor.html                   # Editor visual de provas (funciona offline tb)
+├── coordenacao.html              # Painel da coordenadora para revisar provas
+├── print.html                    # Página limpa de impressão/PDF
+├── config.js                     # Credenciais Supabase + expõe window.CONFIG
 ├── js/
-│   └── auth.js         # Classe AuthManager (login, signup, requests)
-├── setup.html          # Página auxiliar de setup (legada)
-├── setup_supabase.sql  # SQL para criar tabelas no Supabase
-├── .gitignore          # Ignora arquivos desnecessários
-└── CLAUDE.md           # Este arquivo
+│   └── auth.js                   # Classe AuthManager (login, signup, requests)
+├── tests/
+│   └── run-tests.js              # Testes automáticos (npm test)
+├── setup.html                    # Página auxiliar de setup (legada)
+├── teste-conexao.html            # Página de diagnóstico de conexão Supabase (legada)
+├── setup_supabase.sql            # SQL para criar tabelas no Supabase
+├── package.json                  # Só define script "npm test"
+├── CLAUDE.md                     # Este arquivo
+├── GUIA_SETUP.md                 # Guia de configuração inicial do projeto
+├── INSTRUÇÕES_CONFIGURE_AGORA.md # Instruções rápidas de configuração
+├── TESTE_AGORA.md                # Checklist de testes manuais
+└── .gitignore                    # Ignora arquivos desnecessários
 ```
 
 ---
@@ -118,14 +125,16 @@ index.html → login.html → dashboard.html → editor.html
 ## Tipos de Questão no Editor
 | Tipo | Chave | Campos extras |
 |---|---|---|
-| Múltipla escolha | `multipla` | `options[]` (2 a 6 alternativas), `correctOption` |
-| Discursiva | `discursiva` | `lines` (altura), `answerStyle` |
-| Verdadeiro/Falso | `vf` | — |
-| Marcar X | `marcarx` | `items[]`, `markLayout` |
-| Complete as lacunas | `lacunas` | `items[]` com frase + resposta, `answers[]` |
-| Relacione as colunas | `relacione` | `pairs[]`, `rightOrder[]` |
-| De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `imageSize`, `imageAlign`, `imageCaption`, `imageAnswerType`, `lines`, `options[]`, `items[]` |
-| Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com imagem + palavra, `wordOrder[]` |
+| Múltipla escolha | `multipla` | `options[]` (2 a 6 alternativas), `correctOption`, `points`, `hideNumber` |
+| Discursiva | `discursiva` | `lines` (altura), `answerStyle` (`linhas`/`caixa`/`espaco`), `points`, `hideNumber`, `showAnswerSpace` |
+| Verdadeiro/Falso | `vf` | `items[]` com `{ text, answer }`, `points`, `hideNumber` |
+| Marcar X | `marcarx` | `items[]` com `{ text, checked }`, `markLayout` (`lista`/`duas_colunas`), `points`, `hideNumber` |
+| Complete as lacunas | `lacunas` | `items[]` com `{ text, answer }`, `answers[]`, `points`, `hideNumber` |
+| Relacione as colunas | `relacione` | `pairs[]` com `{ left, right }`, `rightOrder[]` (embaralhado), `points`, `hideNumber` |
+| De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `imageSize` (`small`/`medium`/`large`/`full`), `imageAlign` (`left`/`center`/`right`/`lado_esquerda`/`lado_direita`), `imageCaption`, `imageAnswerType` (`discursiva`/`multipla`/`marcarx`), `lines`, `options[]`, `items[]`, `points`, `hideNumber`, `showAnswerSpace` |
+| Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com `{ imageDataUrl, imageFileName, word }`, `wordOrder[]` (embaralhado), `points`, `hideNumber` |
+
+> Todos os tipos têm `hideNumber` (oculta numeração nessa questão) e `showAnswerSpace` (controla espaço de resposta, relevante para discursiva e imagem).
 
 ---
 
@@ -186,13 +195,17 @@ git push --set-upstream origin main
 
 7. **Coordenação editando prova** não pode alterar `user_id` da prova. Ao salvar uma prova existente, o editor nunca envia `user_id`; esse campo só é enviado na criação de prova nova.
 
+8. **Modelo de cabeçalho** salvo no localStorage com chave `gerador-provas-header-tpl`. Inclui nome da escola, professor, disciplina, turma, bimestre, valor total, instruções e logo em base64.
+
+9. **Questões do banco salvas como privadas por padrão** (`is_public: false`). O professor pode torná-las públicas pelo botão "Tornar pública" no modal do banco de questões. Questões públicas aparecem para todos os professores na busca do banco.
+
 ---
 
 ## O que Já Foi Feito
 - [x] Estrutura HTML completa (index, login, dashboard, editor)
 - [x] Autenticação email/senha via Supabase Auth
 - [x] Cadastro com criação de perfil automática (trigger SQL)
-- [x] Editor visual com 6 tipos de questão
+- [x] Editor visual com 8 tipos de questão (multipla, discursiva, vf, marcarx, lacunas, relacione, imagem, relacione_imagens)
 - [x] Prévia em tempo real da prova
 - [x] Exportar/Imprimir em PDF
 - [x] Upload de logo da escola
@@ -331,6 +344,6 @@ git push --set-upstream origin main
 ### Melhorias futuras opcionais
 - [ ] Duplicar prova inteira a partir do dashboard.
 - [ ] Criar modelos prontos de provas por disciplina.
-- [ ] Exportar prova com gabarito separado.
+- [x] Exportar prova com gabarito separado (botão "📋 Com gabarito" no editor — gera gabarito em página separada ao imprimir).
 - [ ] Adicionar campo de habilidade/BNCC por questão.
 - [ ] Tema escuro (dark mode), se fizer sentido mais adiante.
