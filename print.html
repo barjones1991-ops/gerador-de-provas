@@ -70,6 +70,10 @@
     .question-image { margin: 10px 0 12px; text-align: center; }
     .question-image.left { text-align: left; }
     .question-image.right { text-align: right; }
+    .question-image.lado_esquerda { float: left; margin: 0 18px 10px 0; text-align: left; clear: left; }
+    .question-image.lado_direita { float: right; margin: 0 0 10px 18px; text-align: right; clear: right; }
+    .question-image.lado_esquerda img, .question-image.lado_direita img { max-height: 200px; }
+    .qpreview { overflow: hidden; }
     .question-image img {
       max-width: 100%;
       max-height: 260px;
@@ -285,7 +289,7 @@
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => '<div class="hline"></div>').join('')}</div>`;
       const imageFigure = (question) => {
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
-        const align = ['left', 'center', 'right'].includes(question.imageAlign) ? question.imageAlign : 'center';
+        const align = ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'].includes(question.imageAlign) ? question.imageAlign : 'center';
         const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
         return question.imageDataUrl
           ? `<div class="question-image ${size} ${align}"><img src="${question.imageDataUrl}" alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`

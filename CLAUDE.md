@@ -247,19 +247,18 @@ git push --set-upstream origin main
 - [x] Criar modelos de instruções reutilizáveis por tipo de avaliação.
 
 ### Prioridade: imagens nas questões
-- [ ] Permitir recortar imagem enviada antes de inserir na questão.
-- [ ] Permitir girar imagem para esquerda/direita.
+- [x] Permitir recortar imagem enviada antes de inserir na questão (modal canvas com drag-to-select).
+- [x] Permitir girar imagem para esquerda/direita (botões ↺ e ↻ no picker de imagem).
 - [x] Permitir redimensionar imagem no editor com tamanhos: pequena, média, grande e largura total.
-- [x] Permitir escolher alinhamento da imagem: esquerda, centro ou direita.
+- [x] Permitir escolher alinhamento da imagem: esquerda, centro, direita, lado esq. do texto, lado dir. do texto.
 - [x] Permitir adicionar legenda abaixo da imagem.
-- [ ] Permitir layout com imagem ao lado do enunciado.
+- [x] Permitir layout com imagem ao lado do enunciado (float left/right com opção no select de alinhamento).
 - [ ] Permitir remover fundo branco ou melhorar contraste da imagem quando possível.
-- [ ] Permitir substituir imagem sem perder o restante da questão.
+- [x] Permitir substituir imagem sem perder o restante da questão (botão "Substituir imagem" aparece quando há imagem).
 - [ ] Permitir inserir mais de uma imagem na mesma questão.
-- [ ] Criar layout "imagem ao lado do texto" para questões de interpretação visual.
 - [ ] Criar layout "grade de imagens" para educação infantil e anos iniciais.
-- [ ] Validar tamanho da imagem e avisar quando ela pode deixar a prova pesada demais.
-- [ ] Melhorar compressão automática das imagens para equilibrar qualidade e tamanho.
+- [x] Validar tamanho da imagem e avisar quando ela pode deixar a prova pesada demais (indicador de KB/MB).
+- [x] Melhorar compressão automática das imagens (WebP quando suportado, JPEG 0.82 como fallback).
 
 ### Prioridade: esmeramento dos tipos atuais de questão
 - [x] Múltipla escolha: permitir 2 a 6 alternativas, marcar alternativa correta e gerar gabarito.

@@ -158,7 +158,7 @@
     .qtitle .n { font-size: 18px; font-weight: 900; }
     .qtitle .p { font-size: 13px; color: #64748b; }
     .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; }
-    .qpreview { margin-top: 10px; font-size: 15px; }
+    .qpreview { margin-top: 10px; font-size: 15px; overflow: hidden; }
     .spacey { display: grid; gap: 8px; }
     .hline { height: 20px; border-bottom: 1px solid #cbd5e1; }
     .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -206,6 +206,23 @@
     }
     .question-image.left { text-align: left; }
     .question-image.right { text-align: right; }
+    .question-image.lado_esquerda {
+      float: left;
+      margin: 0 18px 10px 0;
+      text-align: left;
+      clear: left;
+    }
+    .question-image.lado_direita {
+      float: right;
+      margin: 0 0 10px 18px;
+      text-align: right;
+      clear: right;
+    }
+    .question-image.lado_esquerda img,
+    .question-image.lado_direita img {
+      max-height: 200px;
+    }
+    .clearfix::after { content: ''; display: table; clear: both; }
     .question-image img {
       max-width: 100%;
       max-height: 260px;
@@ -219,6 +236,33 @@
     .question-image.medium img { max-width: 60%; }
     .question-image.large img { max-width: 82%; }
     .question-image.full img { width: 100%; max-width: 100%; }
+    /* Indicador de tamanho de imagem */
+    .img-size-info { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .img-size-warn { font-size: 11px; color: #dc2626; margin-top: 4px; font-weight: 600; }
+
+    /* Modal de recorte de imagem */
+    .crop-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      z-index: 300; display: flex; align-items: center; justify-content: center;
+    }
+    .crop-modal-box {
+      background: #fff; border-radius: 18px; padding: 20px;
+      display: flex; flex-direction: column; gap: 12px;
+      max-width: 92vw; max-height: 92vh; overflow: auto;
+    }
+    .crop-modal-title { font-weight: 800; font-size: 15px; }
+    .crop-canvas-wrap {
+      position: relative; display: inline-block;
+      cursor: crosshair; user-select: none; line-height: 0;
+      border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+    }
+    .crop-canvas-wrap canvas { display: block; max-width: 70vw; max-height: 60vh; }
+    .crop-selection {
+      position: absolute; border: 2px solid #667eea;
+      background: rgba(102,126,234,0.18); pointer-events: none;
+    }
+    .crop-modal-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
     .image-caption {
       margin-top: 6px;
       font-size: 12px;
@@ -1156,6 +1200,33 @@
       renderAll();
     }
 
+    function formatBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+      return (b / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function dataUrlBytes(dataUrl) {
+      const base64 = dataUrl.split(',')[1] || '';
+      return Math.round(base64.length * 3 / 4);
+    }
+
+    function compressDataUrl(dataUrl, quality) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          let out = canvas.toDataURL('image/webp', quality);
+          if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', quality);
+          resolve(out);
+        };
+        img.src = dataUrl;
+      });
+    }
+
     function readImageFile(file, onReady) {
       if (!file || !file.type.startsWith('image/')) {
         window.alert('Selecione um arquivo de imagem valido.');
@@ -1165,20 +1236,166 @@
       reader.onload = () => {
         const img = new Image();
         img.onload = () => {
-          const maxSide = 1200;
+          const maxSide = 1400;
           const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
           const canvas = document.createElement('canvas');
           canvas.width = Math.max(1, Math.round(img.width * scale));
           canvas.height = Math.max(1, Math.round(img.height * scale));
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
-          onReady(dataUrl, file.name);
+          let dataUrl = canvas.toDataURL('image/webp', 0.82);
+          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          const bytes = dataUrlBytes(dataUrl);
+          onReady(dataUrl, file.name, bytes);
         };
         img.onerror = () => window.alert('Nao foi possivel carregar esta imagem.');
         img.src = String(reader.result || '');
       };
       reader.readAsDataURL(file);
+    }
+
+    function rotateImageDataUrl(dataUrl, degrees) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const rad = (degrees * Math.PI) / 180;
+          if (degrees === 90 || degrees === 270) {
+            canvas.width = img.height;
+            canvas.height = img.width;
+          } else {
+            canvas.width = img.width;
+            canvas.height = img.height;
+          }
+          const ctx = canvas.getContext('2d');
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(rad);
+          ctx.drawImage(img, -img.width / 2, -img.height / 2);
+          let out = canvas.toDataURL('image/webp', 0.82);
+          if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(out);
+        };
+        img.src = dataUrl;
+      });
+    }
+
+    function openCropModal(dataUrl, onConfirm) {
+      const overlay = document.createElement('div');
+      overlay.className = 'crop-modal-overlay';
+
+      const box = document.createElement('div');
+      box.className = 'crop-modal-box';
+
+      const title = document.createElement('div');
+      title.className = 'crop-modal-title';
+      title.textContent = 'Recortar imagem — arraste para selecionar a área';
+
+      const canvasWrap = document.createElement('div');
+      canvasWrap.className = 'crop-canvas-wrap';
+
+      const displayCanvas = document.createElement('canvas');
+      const selDiv = document.createElement('div');
+      selDiv.className = 'crop-selection';
+      selDiv.style.display = 'none';
+      canvasWrap.appendChild(displayCanvas);
+      canvasWrap.appendChild(selDiv);
+
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 640;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        displayCanvas.width = Math.round(img.width * scale);
+        displayCanvas.height = Math.round(img.height * scale);
+        displayCanvas.getContext('2d').drawImage(img, 0, 0, displayCanvas.width, displayCanvas.height);
+        canvasWrap.dataset.scale = scale;
+        canvasWrap.dataset.origW = img.width;
+        canvasWrap.dataset.origH = img.height;
+      };
+      img.src = dataUrl;
+
+      let startX = 0, startY = 0, isDragging = false;
+      let cropX = 0, cropY = 0, cropW = 0, cropH = 0;
+
+      const getPos = (e) => {
+        const rect = displayCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: Math.max(0, Math.min(displayCanvas.width, Math.round((clientX - rect.left) * (displayCanvas.width / rect.width)))),
+          y: Math.max(0, Math.min(displayCanvas.height, Math.round((clientY - rect.top) * (displayCanvas.height / rect.height)))),
+        };
+      };
+
+      displayCanvas.addEventListener('mousedown', (e) => {
+        const p = getPos(e);
+        startX = p.x; startY = p.y; isDragging = true;
+        selDiv.style.display = 'block';
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const p = getPos(e);
+        cropX = Math.min(startX, p.x); cropY = Math.min(startY, p.y);
+        cropW = Math.abs(p.x - startX); cropH = Math.abs(p.y - startY);
+        const rect = displayCanvas.getBoundingClientRect();
+        const scaleX = rect.width / displayCanvas.width;
+        const scaleY = rect.height / displayCanvas.height;
+        selDiv.style.left = (cropX * scaleX) + 'px';
+        selDiv.style.top = (cropY * scaleY) + 'px';
+        selDiv.style.width = (cropW * scaleX) + 'px';
+        selDiv.style.height = (cropH * scaleY) + 'px';
+      });
+      document.addEventListener('mouseup', () => { isDragging = false; });
+
+      const btnBar = document.createElement('div');
+      btnBar.className = 'crop-modal-btns';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'primary';
+      confirmBtn.textContent = '✂️ Confirmar recorte';
+      confirmBtn.type = 'button';
+      confirmBtn.addEventListener('click', () => {
+        if (cropW < 4 || cropH < 4) {
+          showToast('Selecione uma área de recorte primeiro.', 'err');
+          return;
+        }
+        const scale = parseFloat(canvasWrap.dataset.scale || '1');
+        const origX = Math.round(cropX / scale);
+        const origY = Math.round(cropY / scale);
+        const origW = Math.round(cropW / scale);
+        const origH = Math.round(cropH / scale);
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = origW;
+        cropCanvas.height = origH;
+        const srcImg = new Image();
+        srcImg.onload = () => {
+          cropCanvas.getContext('2d').drawImage(srcImg, origX, origY, origW, origH, 0, 0, origW, origH);
+          let out = cropCanvas.toDataURL('image/webp', 0.82);
+          if (!out.startsWith('data:image/webp')) out = cropCanvas.toDataURL('image/jpeg', 0.82);
+          document.body.removeChild(overlay);
+          onConfirm(out);
+        };
+        srcImg.src = dataUrl;
+      });
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'outline';
+      cancelBtn.textContent = 'Cancelar';
+      cancelBtn.type = 'button';
+      cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+
+      const hint = document.createElement('div');
+      hint.className = 'small';
+      hint.textContent = 'Clique e arraste sobre a imagem para marcar a área de recorte.';
+
+      btnBar.appendChild(confirmBtn);
+      btnBar.appendChild(cancelBtn);
+      box.appendChild(title);
+      box.appendChild(hint);
+      box.appendChild(canvasWrap);
+      box.appendChild(btnBar);
+      overlay.appendChild(box);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+      document.body.appendChild(overlay);
     }
 
     function createImagePicker({ getImage, setImage, clearImage }) {
@@ -1192,24 +1409,38 @@
       const drop = document.createElement('div');
       drop.className = 'image-drop';
 
+      const sizeInfo = document.createElement('div');
+      sizeInfo.className = 'img-size-info';
+
       const refresh = () => {
         const image = getImage();
-        drop.innerHTML = image.dataUrl
+        const hasImg = !!image.dataUrl;
+        drop.innerHTML = hasImg
           ? `<img src="${image.dataUrl}" alt="${esc(image.fileName || 'Imagem da questao')}" />`
           : '<div><strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span></div>';
+        chooseBtn.textContent = hasImg ? '🔄 Substituir imagem' : '📁 Selecionar imagem';
+        [rotateLeftBtn, rotateRightBtn, cropBtn, removeBtn].forEach(b => {
+          b.style.display = hasImg ? '' : 'none';
+        });
+        if (hasImg) {
+          const bytes = dataUrlBytes(image.dataUrl);
+          const label = formatBytes(bytes);
+          sizeInfo.textContent = `Tamanho: ${label}`;
+          sizeInfo.className = bytes > 600 * 1024 ? 'img-size-warn' : 'img-size-info';
+          if (bytes > 600 * 1024) sizeInfo.textContent += ' ⚠️ Imagem grande pode deixar a prova pesada.';
+        } else {
+          sizeInfo.textContent = '';
+        }
       };
 
-      const applyFile = (file) => readImageFile(file, (dataUrl, fileName) => {
+      const applyFile = (file) => readImageFile(file, (dataUrl, fileName, bytes) => {
         setImage(dataUrl, fileName);
         refresh();
         renderPreview();
       });
 
       drop.addEventListener('click', () => fileInput.click());
-      drop.addEventListener('dragover', (event) => {
-        event.preventDefault();
-        drop.classList.add('dragover');
-      });
+      drop.addEventListener('dragover', (event) => { event.preventDefault(); drop.classList.add('dragover'); });
       drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
       drop.addEventListener('drop', (event) => {
         event.preventDefault();
@@ -1223,25 +1454,75 @@
 
       const actions = document.createElement('div');
       actions.className = 'image-actions';
+
       const chooseBtn = document.createElement('button');
-      chooseBtn.type = 'button';
-      chooseBtn.className = 'outline';
-      chooseBtn.textContent = 'Selecionar imagem';
+      chooseBtn.type = 'button'; chooseBtn.className = 'outline';
+      chooseBtn.textContent = '📁 Selecionar imagem';
       chooseBtn.addEventListener('click', () => fileInput.click());
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'danger';
-      removeBtn.textContent = 'Remover imagem';
-      removeBtn.addEventListener('click', () => {
-        clearImage();
-        refresh();
-        renderPreview();
+
+      const rotateLeftBtn = document.createElement('button');
+      rotateLeftBtn.type = 'button'; rotateLeftBtn.className = 'outline';
+      rotateLeftBtn.textContent = '↺ Girar esq.';
+      rotateLeftBtn.title = 'Girar 90° para a esquerda';
+      rotateLeftBtn.style.display = 'none';
+      rotateLeftBtn.addEventListener('click', () => {
+        const img = getImage();
+        if (!img.dataUrl) return;
+        rotateLeftBtn.disabled = true;
+        rotateImageDataUrl(img.dataUrl, 270).then(out => {
+          setImage(out, img.fileName);
+          refresh(); renderPreview();
+          rotateLeftBtn.disabled = false;
+        });
       });
+
+      const rotateRightBtn = document.createElement('button');
+      rotateRightBtn.type = 'button'; rotateRightBtn.className = 'outline';
+      rotateRightBtn.textContent = '↻ Girar dir.';
+      rotateRightBtn.title = 'Girar 90° para a direita';
+      rotateRightBtn.style.display = 'none';
+      rotateRightBtn.addEventListener('click', () => {
+        const img = getImage();
+        if (!img.dataUrl) return;
+        rotateRightBtn.disabled = true;
+        rotateImageDataUrl(img.dataUrl, 90).then(out => {
+          setImage(out, img.fileName);
+          refresh(); renderPreview();
+          rotateRightBtn.disabled = false;
+        });
+      });
+
+      const cropBtn = document.createElement('button');
+      cropBtn.type = 'button'; cropBtn.className = 'outline';
+      cropBtn.textContent = '✂️ Recortar';
+      cropBtn.title = 'Recortar imagem';
+      cropBtn.style.display = 'none';
+      cropBtn.addEventListener('click', () => {
+        const img = getImage();
+        if (!img.dataUrl) return;
+        openCropModal(img.dataUrl, (croppedUrl) => {
+          setImage(croppedUrl, img.fileName);
+          refresh(); renderPreview();
+        });
+      });
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button'; removeBtn.className = 'danger';
+      removeBtn.textContent = '✕ Remover';
+      removeBtn.style.display = 'none';
+      removeBtn.addEventListener('click', () => {
+        clearImage(); refresh(); renderPreview();
+      });
+
       actions.appendChild(chooseBtn);
+      actions.appendChild(rotateLeftBtn);
+      actions.appendChild(rotateRightBtn);
+      actions.appendChild(cropBtn);
       actions.appendChild(removeBtn);
 
       refresh();
       wrap.appendChild(drop);
+      wrap.appendChild(sizeInfo);
       wrap.appendChild(fileInput);
       wrap.appendChild(actions);
       return wrap;
@@ -1611,6 +1892,8 @@
                 <option value="left" ${q.imageAlign === 'left' ? 'selected' : ''}>Esquerda</option>
                 <option value="center" ${q.imageAlign === 'center' ? 'selected' : ''}>Centro</option>
                 <option value="right" ${q.imageAlign === 'right' ? 'selected' : ''}>Direita</option>
+                <option value="lado_esquerda" ${q.imageAlign === 'lado_esquerda' ? 'selected' : ''}>Lado esq. do texto</option>
+                <option value="lado_direita" ${q.imageAlign === 'lado_direita' ? 'selected' : ''}>Lado dir. do texto</option>
               </select>
             </div>
             <div>
@@ -2087,11 +2370,14 @@
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => `<div class="hline"></div>`).join('')}</div>`;
       const imageFigure = (question) => {
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
-        const align = ['left', 'center', 'right'].includes(question.imageAlign) ? question.imageAlign : 'center';
+        const validAligns = ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'];
+        const align = validAligns.includes(question.imageAlign) ? question.imageAlign : 'center';
+        const isFloat = align === 'lado_esquerda' || align === 'lado_direita';
         const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
-        return question.imageDataUrl
+        const figure = question.imageDataUrl
           ? `<div class="question-image ${size} ${align}"><img src="${question.imageDataUrl}" alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
           : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
+        return figure;
       };
       const answerArea = (question) => {
         const lines = Math.max(2, Math.min(15, Number(question.lines) || 5));
