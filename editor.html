@@ -184,6 +184,61 @@
     .espaco-livre-box.pontilhada { border: 1px dotted #94a3b8; }
     .espaco-livre-box.nenhuma { border: none; }
 
+    /* Tabela */
+    .q-tabela { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+    .q-tabela th { background: #0f172a; color: #fff; padding: 7px 10px; text-align: left; font-weight: 700; }
+    .q-tabela td { border: 1px solid #cbd5e1; padding: 7px 10px; }
+    .q-tabela tr:nth-child(even) td { background: #f8fafc; }
+
+    /* Associação por setas */
+    .assoc-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px 16px; align-items: center; margin-top: 8px; }
+    .assoc-left { background: #f1f5f9; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+    .assoc-right { background: #f1f5f9; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+    .assoc-arrow { text-align: center; color: #94a3b8; font-size: 18px; }
+
+    /* Sequência numérica */
+    .seq-num-list { display: grid; gap: 10px; margin-top: 8px; }
+    .seq-num-row { display: flex; align-items: center; gap: 6px; font-size: 15px; flex-wrap: wrap; }
+    .seq-blank { display: inline-block; min-width: 48px; border-bottom: 2px solid #334155; height: 22px; vertical-align: bottom; }
+
+    /* Leitura e escrita */
+    .leitura-grid { display: grid; gap: 14px; margin-top: 8px; }
+    .leitura-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .leitura-item { display: grid; gap: 4px; }
+    .leitura-word { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
+    .leitura-line { border-bottom: 1px solid #cbd5e1; height: 24px; }
+
+    /* Sílabas */
+    .silabas-grid { display: grid; gap: 12px; margin-top: 8px; }
+    .silaba-item { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; align-items: center; font-size: 15px; }
+    .silaba-word { font-weight: 800; letter-spacing: 0.08em; }
+    .silaba-blank { border-bottom: 2px dashed #94a3b8; height: 24px; }
+
+    /* Sequência de imagens */
+    .seq-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; }
+    .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; }
+    .seq-img-card img { max-width: 100%; max-height: 90px; object-fit: contain; border-radius: 6px; }
+    .seq-img-num { width: 32px; height: 32px; border: 2px solid #94a3b8; border-radius: 6px; margin: 6px auto 0; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+
+    /* Comparar imagens */
+    .comparar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .comparar-img { text-align: center; }
+    .comparar-img img { max-width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px; }
+    .comparar-caption { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+    /* Legenda das imagens */
+    .legenda-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px; margin-top: 8px; }
+    .legenda-item { text-align: center; }
+    .legenda-item img { max-width: 100%; max-height: 100px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; }
+    .legenda-line { border-bottom: 1px solid #334155; height: 24px; margin-top: 6px; }
+
+    /* Associação imagem-imagem */
+    .assoc-img-section { margin-top: 8px; }
+    .assoc-img-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .assoc-img-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; text-align: center; font-size: 13px; }
+    .assoc-img-card img { max-width: 100%; max-height: 80px; object-fit: contain; border-radius: 4px; }
+    .assoc-img-blank { height: 24px; border-bottom: 2px solid #334155; margin-top: 4px; }
+
     .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
     .qcard.collapsed { border-style: solid; background: #f8fafc; }
     .qhead { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
@@ -819,6 +874,15 @@
             <button class="qtype-btn" data-type="ordenacao" type="button">🔀<br>Ordenação<br>de frases</button>
             <button class="qtype-btn" data-type="problema_matematico" type="button">🧮<br>Problema<br>matemático</button>
             <button class="qtype-btn" data-type="espaco_livre" type="button">✏️<br>Espaço<br>desenho</button>
+            <button class="qtype-btn" data-type="tabela" type="button">📊<br>Tabela</button>
+            <button class="qtype-btn" data-type="associacao_setas" type="button">↔️<br>Assoc.<br>setas</button>
+            <button class="qtype-btn" data-type="sequencia_numerica" type="button">🔢<br>Sequência<br>numérica</button>
+            <button class="qtype-btn" data-type="leitura_escrita" type="button">📖<br>Leitura<br>e escrita</button>
+            <button class="qtype-btn" data-type="silabas" type="button">🔤<br>Sílabas<br>/letras</button>
+            <button class="qtype-btn" data-type="sequencia_imagens" type="button">🖼️🔢<br>Sequência<br>imagens</button>
+            <button class="qtype-btn" data-type="comparar_imagens" type="button">🖼️🖼️<br>Comparar<br>imagens</button>
+            <button class="qtype-btn" data-type="legenda_imagens" type="button">🏷️<br>Legenda<br>imagens</button>
+            <button class="qtype-btn" data-type="associacao_imagem_imagem" type="button">🖼️↔🖼️<br>Img↔Img</button>
           </div>
           <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
@@ -1079,6 +1143,15 @@
       ordenacao: 'Ordenação de frases',
       problema_matematico: 'Problema matemático',
       espaco_livre: 'Espaço de desenho',
+      tabela: 'Tabela / gráfico',
+      associacao_setas: 'Associação por setas',
+      sequencia_numerica: 'Sequência numérica',
+      leitura_escrita: 'Leitura e escrita',
+      silabas: 'Sílabas / letras / sons',
+      sequencia_imagens: 'Sequência de imagens',
+      comparar_imagens: 'Comparar duas imagens',
+      legenda_imagens: 'Legenda das imagens',
+      associacao_imagem_imagem: 'Associe imagem a imagem',
     };
 
     const templates = {
@@ -1235,6 +1308,119 @@
         text: '',
         height: 120,
         borderStyle: 'solida',
+        points: '1,0',
+        hideNumber: false,
+      }),
+      tabela: () => ({
+        type: 'tabela',
+        text: 'Observe a tabela abaixo e responda: Qual animal tem 4 patas e vive na terra?',
+        headers: ['Animal', 'Nº de patas', 'Onde vive'],
+        rows: [
+          ['Cachorro', '4', 'Terra'],
+          ['Peixe', '0', 'Água'],
+          ['Pássaro', '2', 'Ar e terra'],
+          ['Sapo', '4', 'Terra e água'],
+        ],
+        answerType: 'discursiva',
+        lines: 3,
+        answerStyle: 'linhas',
+        points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
+      }),
+      associacao_setas: () => ({
+        type: 'associacao_setas',
+        text: 'Ligue cada animal à sua moradia usando uma seta:',
+        leftItems: ['Cachorro', 'Peixe', 'Abelha', 'Pássaro'],
+        rightItems: ['Colmeia', 'Ninho', 'Aquário', 'Canil'],
+        rightOrder: [2, 3, 0, 1],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      sequencia_numerica: () => ({
+        type: 'sequencia_numerica',
+        text: 'Complete as sequências numéricas:',
+        sequences: [
+          { items: '2, 4, ___, 8, ___, 12', answer: '6 e 10' },
+          { items: '5, 10, ___, 20, ___, 30', answer: '15 e 25' },
+          { items: '100, 90, ___, 70, ___', answer: '80 e 60' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      leitura_escrita: () => ({
+        type: 'leitura_escrita',
+        text: 'Leia as palavras em voz alta e copie cada uma na linha abaixo:',
+        words: ['bola', 'casa', 'pato', 'mesa', 'livro', 'sapo'],
+        columns: 2,
+        showCopyLines: true,
+        points: '1,0',
+        hideNumber: false,
+      }),
+      silabas: () => ({
+        type: 'silabas',
+        text: 'Separe as sílabas das palavras abaixo usando hífen:',
+        exerciseType: 'separar',
+        words: [
+          { word: 'ESCOLA', answer: 'ES-CO-LA' },
+          { word: 'BORBOLETA', answer: 'BOR-BO-LE-TA' },
+          { word: 'JANELA', answer: 'JA-NE-LA' },
+          { word: 'LIVRO', answer: 'LI-VRO' },
+          { word: 'CADERNO', answer: 'CA-DER-NO' },
+          { word: 'ÁRVORE', answer: 'ÁR-VO-RE' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      sequencia_imagens: () => ({
+        type: 'sequencia_imagens',
+        text: 'Numere as imagens na ordem correta de 1 a 4:',
+        items: [
+          { imageDataUrl: null, imageFileName: '', order: 1, caption: 'Plantar a semente' },
+          { imageDataUrl: null, imageFileName: '', order: 2, caption: 'Regar todos os dias' },
+          { imageDataUrl: null, imageFileName: '', order: 3, caption: 'Broto aparece' },
+          { imageDataUrl: null, imageFileName: '', order: 4, caption: 'Planta crescida' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      comparar_imagens: () => ({
+        type: 'comparar_imagens',
+        text: 'Observe as duas imagens e escreva uma semelhança e uma diferença entre elas:',
+        image1DataUrl: null, image1FileName: '', image1Caption: 'Imagem A',
+        image2DataUrl: null, image2FileName: '', image2Caption: 'Imagem B',
+        lines: 4,
+        answerStyle: 'linhas',
+        points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
+      }),
+      legenda_imagens: () => ({
+        type: 'legenda_imagens',
+        text: 'Observe cada imagem e escreva o nome do animal abaixo dela:',
+        items: [
+          { imageDataUrl: null, imageFileName: '', answer: 'cachorro' },
+          { imageDataUrl: null, imageFileName: '', answer: 'gato' },
+          { imageDataUrl: null, imageFileName: '', answer: 'pássaro' },
+          { imageDataUrl: null, imageFileName: '', answer: 'peixe' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      associacao_imagem_imagem: () => ({
+        type: 'associacao_imagem_imagem',
+        text: 'Ligue cada filhote à sua mãe escrevendo a letra correspondente:',
+        leftItems: [
+          { imageDataUrl: null, imageFileName: '', caption: 'Filhote 1' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Filhote 2' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Filhote 3' },
+        ],
+        rightItems: [
+          { imageDataUrl: null, imageFileName: '', caption: 'Mãe A' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Mãe B' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Mãe C' },
+        ],
+        rightOrder: [1, 2, 0],
         points: '1,0',
         hideNumber: false,
       }),
@@ -1808,7 +1994,7 @@
           renderAll();
         });
 
-        const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'producao_textual', 'problema_matematico'].includes(q.type);
+        const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'producao_textual', 'problema_matematico', 'tabela', 'comparar_imagens'].includes(q.type);
         const showSpaceBtn = document.createElement('button');
         showSpaceBtn.type = 'button';
         showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
@@ -2742,6 +2928,314 @@
           body.appendChild(block);
         }
 
+        if (q.type === 'tabela') {
+          if (!Array.isArray(q.headers) || !q.headers.length) q.headers = ['Coluna 1', 'Coluna 2'];
+          if (!Array.isArray(q.rows) || !q.rows.length) q.rows = [['', '']];
+          if (!q.answerType) q.answerType = 'discursiva';
+          if (!q.answerStyle) q.answerStyle = 'linhas';
+          const tblock = document.createElement('div');
+          tblock.className = 'row';
+          const renderTableEditor = () => {
+            tblock.innerHTML = '';
+            const hrow = document.createElement('div');
+            hrow.innerHTML = '<label>Colunas (cabeçalho)</label>';
+            const hcols = document.createElement('div');
+            hcols.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+            q.headers.forEach((h, hi) => {
+              const inp = document.createElement('input'); inp.value = h; inp.placeholder = `Col ${hi+1}`;
+              inp.style.cssText = 'flex:1;min-width:80px;';
+              inp.addEventListener('input', () => { q.headers[hi] = inp.value; renderPreview(); });
+              hcols.appendChild(inp);
+            });
+            const addColBtn = document.createElement('button'); addColBtn.type='button'; addColBtn.className='outline'; addColBtn.textContent='+ Col';
+            addColBtn.style.cssText='padding:6px 10px;font-size:12px;';
+            addColBtn.addEventListener('click', () => { q.headers.push(`Col ${q.headers.length+1}`); q.rows.forEach(r=>r.push('')); renderTableEditor(); renderPreview(); });
+            hcols.appendChild(addColBtn);
+            hrow.appendChild(hcols);
+            tblock.appendChild(hrow);
+            const rLabel = document.createElement('label'); rLabel.textContent = 'Linhas da tabela';
+            tblock.appendChild(rLabel);
+            q.rows.forEach((row, ri) => {
+              const rrow = document.createElement('div'); rrow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;';
+              row.forEach((cell, ci) => {
+                const inp = document.createElement('input'); inp.value = cell; inp.placeholder = `${ri+1},${ci+1}`;
+                inp.style.cssText = 'flex:1;';
+                inp.addEventListener('input', () => { q.rows[ri][ci] = inp.value; renderPreview(); });
+                rrow.appendChild(inp);
+              });
+              const rmBtn = document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕';
+              rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if (q.rows.length > 1) rmBtn.addEventListener('click', () => { q.rows.splice(ri,1); renderTableEditor(); renderPreview(); });
+              else rmBtn.disabled = true;
+              rrow.appendChild(rmBtn);
+              tblock.appendChild(rrow);
+            });
+            const addRowBtn = document.createElement('button'); addRowBtn.type='button'; addRowBtn.className='secondary'; addRowBtn.textContent='+ Adicionar linha';
+            addRowBtn.addEventListener('click', () => { q.rows.push(q.headers.map(()=>'')); renderTableEditor(); renderPreview(); });
+            tblock.appendChild(addRowBtn);
+            const ansRow = document.createElement('div'); ansRow.className='row two'; ansRow.style.marginTop='8px';
+            ansRow.innerHTML=`<div><label>Tipo de resposta</label><select data-k="answerType"><option value="discursiva" ${q.answerType==='discursiva'?'selected':''}>Discursiva</option><option value="multipla" ${q.answerType==='multipla'?'selected':''}>Múltipla escolha</option><option value="nenhuma" ${q.answerType==='nenhuma'?'selected':''}>Sem resposta</option></select></div><div><label>Linhas</label><input type="number" data-k="lines" value="${q.lines||3}" min="1" max="15"/></div>`;
+            tblock.appendChild(ansRow);
+          };
+          renderTableEditor();
+          body.appendChild(tblock);
+        }
+
+        if (q.type === 'associacao_setas') {
+          if (!Array.isArray(q.leftItems)) q.leftItems = ['', '', ''];
+          if (!Array.isArray(q.rightItems)) q.rightItems = ['', '', ''];
+          if (!Array.isArray(q.rightOrder)) q.rightOrder = q.rightItems.map((_,i)=>i);
+          const sblock = document.createElement('div'); sblock.className = 'row';
+          const renderSetas = () => {
+            sblock.innerHTML = '<label>Pares (esquerda ↔ direita)</label><div class="small">A coluna da direita será embaralhada na impressão.</div>';
+            const n = Math.max(q.leftItems.length, q.rightItems.length);
+            for (let i=0; i<n; i++) {
+              const row = document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:4px;align-items:center;';
+              const li = document.createElement('input'); li.value=q.leftItems[i]||''; li.placeholder=`Esquerda ${i+1}`;
+              li.addEventListener('input', ()=>{ q.leftItems[i]=li.value; renderPreview(); });
+              const ri = document.createElement('input'); ri.value=q.rightItems[i]||''; ri.placeholder=`Direita ${i+1}`;
+              ri.addEventListener('input', ()=>{ q.rightItems[i]=ri.value; renderPreview(); });
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if (n>2) rmBtn.addEventListener('click',()=>{ q.leftItems.splice(i,1); q.rightItems.splice(i,1); q.rightOrder=q.rightItems.map((_,j)=>j); renderSetas(); renderPreview(); });
+              else rmBtn.disabled=true;
+              row.appendChild(li); row.appendChild(ri); row.appendChild(rmBtn);
+              sblock.appendChild(row);
+            }
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Par';
+            addBtn.addEventListener('click',()=>{ q.leftItems.push(''); q.rightItems.push(''); q.rightOrder=q.rightItems.map((_,i)=>i).sort(()=>Math.random()-0.5); renderSetas(); renderPreview(); });
+            sblock.appendChild(addBtn);
+            const shuffleBtn=document.createElement('button'); shuffleBtn.type='button'; shuffleBtn.className='outline'; shuffleBtn.textContent='🔀 Embaralhar coluna direita'; shuffleBtn.style.marginLeft='6px';
+            shuffleBtn.addEventListener('click',()=>{ q.rightOrder=[...Array(q.rightItems.length).keys()].sort(()=>Math.random()-0.5); renderPreview(); });
+            sblock.appendChild(shuffleBtn);
+          };
+          renderSetas();
+          body.appendChild(sblock);
+        }
+
+        if (q.type === 'sequencia_numerica') {
+          if (!Array.isArray(q.sequences)) q.sequences = [{ items:'', answer:'' }];
+          const snblock = document.createElement('div'); snblock.className = 'row';
+          const renderSeqNum = () => {
+            snblock.innerHTML = '<label>Sequências (use ___ para lacunas)</label>';
+            q.sequences.forEach((seq, si) => {
+              const row = document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:2fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center;';
+              const ii = document.createElement('input'); ii.value=seq.items||''; ii.placeholder='Ex.: 2, 4, ___, 8, ___';
+              ii.addEventListener('input', ()=>{ seq.items=ii.value; renderPreview(); });
+              const ai = document.createElement('input'); ai.value=seq.answer||''; ai.placeholder='Resp. (gabarito)';
+              ai.addEventListener('input', ()=>{ seq.answer=ai.value; renderPreview(); });
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if (q.sequences.length>1) rmBtn.addEventListener('click',()=>{ q.sequences.splice(si,1); renderSeqNum(); renderPreview(); });
+              else rmBtn.disabled=true;
+              row.appendChild(ii); row.appendChild(ai); row.appendChild(rmBtn);
+              snblock.appendChild(row);
+            });
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Sequência';
+            addBtn.addEventListener('click',()=>{ q.sequences.push({items:'',answer:''}); renderSeqNum(); renderPreview(); });
+            snblock.appendChild(addBtn);
+          };
+          renderSeqNum();
+          body.appendChild(snblock);
+        }
+
+        if (q.type === 'leitura_escrita') {
+          if (!Array.isArray(q.words)) q.words = [''];
+          if (!q.columns) q.columns = 2;
+          const leblock = document.createElement('div'); leblock.className = 'row';
+          leblock.innerHTML = `<label>Palavras / frases para ler e copiar</label>`;
+          const wordBox = document.createElement('div');
+          const renderWords = () => {
+            wordBox.innerHTML = '';
+            q.words.forEach((w, wi) => {
+              const row = document.createElement('div'); row.style.cssText='display:flex;gap:6px;margin-bottom:4px;';
+              const inp = document.createElement('input'); inp.value=w; inp.placeholder=`Palavra ${wi+1}`;
+              inp.style.flex='1';
+              inp.addEventListener('input',()=>{ q.words[wi]=inp.value; renderPreview(); });
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if(q.words.length>1) rmBtn.addEventListener('click',()=>{ q.words.splice(wi,1); renderWords(); renderPreview(); });
+              else rmBtn.disabled=true;
+              row.appendChild(inp); row.appendChild(rmBtn);
+              wordBox.appendChild(row);
+            });
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Palavra/frase';
+            addBtn.addEventListener('click',()=>{ q.words.push(''); renderWords(); renderPreview(); });
+            wordBox.appendChild(addBtn);
+          };
+          renderWords();
+          leblock.appendChild(wordBox);
+          const opts = document.createElement('div'); opts.className='row two'; opts.style.marginTop='8px';
+          opts.innerHTML=`<div><label>Colunas</label><select data-k="columns"><option value="1" ${q.columns==1?'selected':''}>1 coluna</option><option value="2" ${q.columns==2?'selected':''}>2 colunas</option><option value="3" ${q.columns==3?'selected':''}>3 colunas</option></select></div><div><label>Linha para copiar</label><select data-k="showCopyLines"><option value="true" ${q.showCopyLines!==false?'selected':''}>Sim</option><option value="false" ${q.showCopyLines===false?'selected':''}>Não</option></select></div>`;
+          leblock.appendChild(opts);
+          body.appendChild(leblock);
+        }
+
+        if (q.type === 'silabas') {
+          if (!Array.isArray(q.words)) q.words = [{ word:'', answer:'' }];
+          if (!q.exerciseType) q.exerciseType = 'separar';
+          const silblock = document.createElement('div'); silblock.className = 'row';
+          silblock.innerHTML = `<div class="row two" style="margin-bottom:8px;"><div><label>Tipo de exercício</label><select data-k="exerciseType"><option value="separar" ${q.exerciseType==='separar'?'selected':''}>Separar sílabas</option><option value="contar" ${q.exerciseType==='contar'?'selected':''}>Contar sílabas</option><option value="completar" ${q.exerciseType==='completar'?'selected':''}>Completar a sílaba</option></select></div></div><label>Palavras</label>`;
+          const wbox = document.createElement('div');
+          const renderSilWords = () => {
+            wbox.innerHTML = '';
+            q.words.forEach((w, wi) => {
+              const row = document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:4px;align-items:center;';
+              const wi1 = document.createElement('input'); wi1.value=w.word||''; wi1.placeholder='PALAVRA (maiúscula)';
+              wi1.addEventListener('input',()=>{ w.word=wi1.value; renderPreview(); });
+              const ai = document.createElement('input'); ai.value=w.answer||''; ai.placeholder='Gabarito (ex: PA-LA-VRA)';
+              ai.addEventListener('input',()=>{ w.answer=ai.value; renderPreview(); });
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if(q.words.length>1) rmBtn.addEventListener('click',()=>{ q.words.splice(wi,1); renderSilWords(); renderPreview(); });
+              else rmBtn.disabled=true;
+              row.appendChild(wi1); row.appendChild(ai); row.appendChild(rmBtn);
+              wbox.appendChild(row);
+            });
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Palavra';
+            addBtn.addEventListener('click',()=>{ q.words.push({word:'',answer:''}); renderSilWords(); renderPreview(); });
+            wbox.appendChild(addBtn);
+          };
+          renderSilWords();
+          silblock.appendChild(wbox);
+          body.appendChild(silblock);
+        }
+
+        if (q.type === 'sequencia_imagens') {
+          if (!Array.isArray(q.items)||!q.items.length) q.items=[{imageDataUrl:null,imageFileName:'',order:1,caption:''},{imageDataUrl:null,imageFileName:'',order:2,caption:''},{imageDataUrl:null,imageFileName:'',order:3,caption:''}];
+          const siblock = document.createElement('div'); siblock.className = 'row';
+          siblock.innerHTML = '<label>Imagens em sequência (defina a ordem correta)</label><div class="small">O aluno escreverá os números nos quadradinhos. A ordem definida aqui é o gabarito.</div>';
+          const sibox = document.createElement('div');
+          const renderSeqImgs = () => {
+            sibox.innerHTML = '';
+            q.items.forEach((item, ii) => {
+              const card = document.createElement('div'); card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;';
+              const toprow = document.createElement('div'); toprow.style.cssText='display:grid;grid-template-columns:3em 1fr auto;gap:8px;align-items:center;margin-bottom:8px;';
+              const orderInp = document.createElement('input'); orderInp.type='number'; orderInp.value=item.order||ii+1; orderInp.min=1; orderInp.max=20; orderInp.title='Ordem correta';
+              orderInp.style.textAlign='center';
+              orderInp.addEventListener('input',()=>{ item.order=Number(orderInp.value)||ii+1; renderPreview(); });
+              const capInp = document.createElement('input'); capInp.value=item.caption||''; capInp.placeholder='Legenda (opcional)';
+              capInp.addEventListener('input',()=>{ item.caption=capInp.value; renderPreview(); });
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if(q.items.length>2) rmBtn.addEventListener('click',()=>{ q.items.splice(ii,1); renderSeqImgs(); renderPreview(); });
+              else rmBtn.disabled=true;
+              toprow.appendChild(orderInp); toprow.appendChild(capInp); toprow.appendChild(rmBtn);
+              card.appendChild(toprow);
+              card.appendChild(createImagePicker({
+                getImage:()=>({dataUrl:item.imageDataUrl||'',fileName:item.imageFileName||''}),
+                setImage:(d,f)=>{ item.imageDataUrl=d; item.imageFileName=f; renderPreview(); },
+                clearImage:()=>{ item.imageDataUrl=null; item.imageFileName=''; renderPreview(); },
+              }));
+              sibox.appendChild(card);
+            });
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Imagem';
+            addBtn.addEventListener('click',()=>{ q.items.push({imageDataUrl:null,imageFileName:'',order:q.items.length+1,caption:''}); renderSeqImgs(); renderPreview(); });
+            sibox.appendChild(addBtn);
+          };
+          renderSeqImgs();
+          siblock.appendChild(sibox);
+          body.appendChild(siblock);
+        }
+
+        if (q.type === 'comparar_imagens') {
+          if (!q.answerStyle) q.answerStyle='linhas';
+          const cblock = document.createElement('div'); cblock.className='row';
+          cblock.innerHTML='<label>Imagem A</label>';
+          cblock.appendChild(createImagePicker({
+            getImage:()=>({dataUrl:q.image1DataUrl||'',fileName:q.image1FileName||''}),
+            setImage:(d,f)=>{ q.image1DataUrl=d; q.image1FileName=f; renderPreview(); },
+            clearImage:()=>{ q.image1DataUrl=null; q.image1FileName=''; renderPreview(); },
+          }));
+          const cap1=document.createElement('div'); cap1.innerHTML=`<label>Legenda A</label><input data-k="image1Caption" value="${esc(q.image1Caption||'Imagem A')}" />`;
+          cblock.appendChild(cap1);
+          const img2label=document.createElement('label'); img2label.textContent='Imagem B'; img2label.style.marginTop='10px'; cblock.appendChild(img2label);
+          cblock.appendChild(createImagePicker({
+            getImage:()=>({dataUrl:q.image2DataUrl||'',fileName:q.image2FileName||''}),
+            setImage:(d,f)=>{ q.image2DataUrl=d; q.image2FileName=f; renderPreview(); },
+            clearImage:()=>{ q.image2DataUrl=null; q.image2FileName=''; renderPreview(); },
+          }));
+          const cap2=document.createElement('div'); cap2.innerHTML=`<label>Legenda B</label><input data-k="image2Caption" value="${esc(q.image2Caption||'Imagem B')}" />`;
+          cblock.appendChild(cap2);
+          const ansRow=document.createElement('div'); ansRow.className='row two'; ansRow.style.marginTop='8px';
+          ansRow.innerHTML=`<div><label>Linhas de resposta</label><input type="number" data-k="lines" value="${q.lines||4}" min="1" max="15"/></div><div><label>Formato</label><select data-k="answerStyle"><option value="linhas" ${q.answerStyle==='linhas'?'selected':''}>Linhas</option><option value="caixa" ${q.answerStyle==='caixa'?'selected':''}>Caixa</option><option value="espaco" ${q.answerStyle==='espaco'?'selected':''}>Espaço</option></select></div>`;
+          cblock.appendChild(ansRow);
+          body.appendChild(cblock);
+        }
+
+        if (q.type === 'legenda_imagens') {
+          if (!Array.isArray(q.items)||!q.items.length) q.items=[{imageDataUrl:null,imageFileName:'',answer:''},{imageDataUrl:null,imageFileName:'',answer:''}];
+          const lgblock = document.createElement('div'); lgblock.className='row';
+          lgblock.innerHTML='<label>Imagens com legenda</label><div class="small">Insira as imagens. O campo "Gabarito" é a resposta correta (não aparece na prova).</div>';
+          const lgbox = document.createElement('div');
+          const renderLeg = () => {
+            lgbox.innerHTML='';
+            q.items.forEach((item,ii)=>{
+              const card=document.createElement('div'); card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;';
+              card.appendChild(createImagePicker({
+                getImage:()=>({dataUrl:item.imageDataUrl||'',fileName:item.imageFileName||''}),
+                setImage:(d,f)=>{ item.imageDataUrl=d; item.imageFileName=f; renderPreview(); },
+                clearImage:()=>{ item.imageDataUrl=null; item.imageFileName=''; renderPreview(); },
+              }));
+              const bot=document.createElement('div'); bot.style.cssText='display:flex;gap:6px;align-items:center;margin-top:6px;';
+              const ai=document.createElement('input'); ai.value=item.answer||''; ai.placeholder='Gabarito (ex: cachorro)'; ai.style.flex='1';
+              ai.addEventListener('input',()=>{ item.answer=ai.value; });
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
+              if(q.items.length>1) rmBtn.addEventListener('click',()=>{ q.items.splice(ii,1); renderLeg(); renderPreview(); });
+              else rmBtn.disabled=true;
+              bot.appendChild(ai); bot.appendChild(rmBtn);
+              card.appendChild(bot);
+              lgbox.appendChild(card);
+            });
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Imagem';
+            addBtn.addEventListener('click',()=>{ q.items.push({imageDataUrl:null,imageFileName:'',answer:''}); renderLeg(); renderPreview(); });
+            lgbox.appendChild(addBtn);
+          };
+          renderLeg();
+          lgblock.appendChild(lgbox);
+          body.appendChild(lgblock);
+        }
+
+        if (q.type === 'associacao_imagem_imagem') {
+          if (!Array.isArray(q.leftItems)||!q.leftItems.length) q.leftItems=[{imageDataUrl:null,imageFileName:'',caption:'A'}];
+          if (!Array.isArray(q.rightItems)||!q.rightItems.length) q.rightItems=[{imageDataUrl:null,imageFileName:'',caption:'1'}];
+          if (!Array.isArray(q.rightOrder)) q.rightOrder=q.rightItems.map((_,i)=>i);
+          const aiblock=document.createElement('div'); aiblock.className='row';
+          aiblock.innerHTML='<label>Pares de imagens</label><div class="small">Esquerda: imagens A, B, C… Direita: imagens que serão embaralhadas (o aluno escreve a letra correspondente).</div>';
+          const aibox=document.createElement('div');
+          const renderAssocImg=()=>{
+            aibox.innerHTML='';
+            const n=Math.max(q.leftItems.length,q.rightItems.length);
+            for(let i=0;i<n;i++){
+              const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:8px;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;align-items:start;';
+              const lcard=document.createElement('div');
+              if(q.leftItems[i]) {
+                lcard.innerHTML=`<div class="small" style="margin-bottom:4px;">Esquerda ${String.fromCharCode(65+i)}</div>`;
+                lcard.appendChild(createImagePicker({
+                  getImage:()=>({dataUrl:q.leftItems[i].imageDataUrl||'',fileName:q.leftItems[i].imageFileName||''}),
+                  setImage:(d,f)=>{ q.leftItems[i].imageDataUrl=d; q.leftItems[i].imageFileName=f; renderPreview(); },
+                  clearImage:()=>{ q.leftItems[i].imageDataUrl=null; q.leftItems[i].imageFileName=''; renderPreview(); },
+                }));
+              }
+              const rcard=document.createElement('div');
+              if(q.rightItems[i]) {
+                rcard.innerHTML=`<div class="small" style="margin-bottom:4px;">Direita ${i+1}</div>`;
+                rcard.appendChild(createImagePicker({
+                  getImage:()=>({dataUrl:q.rightItems[i].imageDataUrl||'',fileName:q.rightItems[i].imageFileName||''}),
+                  setImage:(d,f)=>{ q.rightItems[i].imageDataUrl=d; q.rightItems[i].imageFileName=f; renderPreview(); },
+                  clearImage:()=>{ q.rightItems[i].imageDataUrl=null; q.rightItems[i].imageFileName=''; renderPreview(); },
+                }));
+              }
+              const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;align-self:center;';
+              if(n>1) rmBtn.addEventListener('click',()=>{ q.leftItems.splice(i,1); q.rightItems.splice(i,1); q.rightOrder=q.rightItems.map((_,j)=>j); renderAssocImg(); renderPreview(); });
+              else rmBtn.disabled=true;
+              row.appendChild(lcard); row.appendChild(rcard); row.appendChild(rmBtn);
+              aibox.appendChild(row);
+            }
+            const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Par de imagens';
+            addBtn.addEventListener('click',()=>{ q.leftItems.push({imageDataUrl:null,imageFileName:'',caption:''}); q.rightItems.push({imageDataUrl:null,imageFileName:'',caption:''}); q.rightOrder=[...Array(q.rightItems.length).keys()].sort(()=>Math.random()-0.5); renderAssocImg(); renderPreview(); });
+            aibox.appendChild(addBtn);
+          };
+          renderAssocImg();
+          aiblock.appendChild(aibox);
+          body.appendChild(aiblock);
+        }
+
         body.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
@@ -2749,7 +3243,11 @@
               q[key] = Math.max(1, Math.min(40, Number(node.value) || (key==='lines'?5:key==='calcLines'?6:10)));
             } else if (key === 'height') {
               q.height = Math.max(60, Math.min(600, Number(node.value) || 120));
-            } else if (key === 'imageAnswerType' || key === 'answerType') {
+            } else if (key === 'columns') {
+              q.columns = Number(node.value) || 2;
+            } else if (key === 'showCopyLines') {
+              q.showCopyLines = node.value !== 'false';
+            } else if (key === 'imageAnswerType' || key === 'answerType' || key === 'exerciseType') {
               q[key] = node.value;
               renderAll();
               return;
@@ -2922,6 +3420,96 @@
         const border = q.borderStyle || 'solida';
         return `<div class="espaco-livre-box ${border}" style="height:${h}px;"></div>`;
       }
+      if (q.type === 'tabela') {
+        const headers = q.headers || [];
+        const rows = q.rows || [];
+        const thead = `<tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
+        const tbody = rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
+        const tableHtml = `<table class="q-tabela"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        if (q.answerType === 'nenhuma') return tableHtml;
+        if (q.showAnswerSpace === false) return tableHtml;
+        return `${tableHtml}${answerArea(q)}`;
+      }
+      if (q.type === 'associacao_setas') {
+        const left = q.leftItems || [];
+        const right = q.rightItems || [];
+        const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
+        const rows = Math.max(left.length, right.length);
+        let html = '<div class="assoc-grid">';
+        for (let i=0; i<rows; i++) {
+          const l = left[i] || '';
+          const ri = order[i] !== undefined ? right[order[i]] : (right[i] || '');
+          html += `<div class="assoc-left">${esc(l || `Item ${i+1}`)}</div><div class="assoc-arrow">—</div><div class="assoc-right">${esc(ri || `Item ${i+1}`)}</div>`;
+        }
+        return html + '</div>';
+      }
+      if (q.type === 'sequencia_numerica') {
+        const seqs = q.sequences || [];
+        const rows = seqs.map(seq => {
+          const parts = (seq.items||'').split(',').map(s=>s.trim());
+          const rendered = parts.map(p => p === '___' ? '<span class="seq-blank"></span>' : `<span>${esc(p)}</span>`).join(' ');
+          return `<div class="seq-num-row">${rendered}</div>`;
+        }).join('');
+        return `<div class="seq-num-list">${rows || '<span class="small">Nenhuma sequência adicionada.</span>'}</div>`;
+      }
+      if (q.type === 'leitura_escrita') {
+        const words = q.words || [];
+        const cols = Number(q.columns) || 2;
+        const showLine = q.showCopyLines !== false;
+        const items = words.map(w => `<div class="leitura-item"><div class="leitura-word">${esc(w||'palavra')}</div>${showLine?'<div class="leitura-line"></div>':''}</div>`).join('');
+        return `<div class="leitura-grid ${cols===1?'':'cols-'+cols}">${items}</div>`;
+      }
+      if (q.type === 'silabas') {
+        const words = q.words || [];
+        const type = q.exerciseType || 'separar';
+        const items = words.map(w => {
+          const label = type === 'contar' ? 'Nº de sílabas: ___' : type === 'completar' ? (w.answer||'').split('-').map((s,i)=>i===0?s:'___').join(' - ') : '___________________';
+          return `<div class="silaba-item"><span class="silaba-word">${esc(w.word||'PALAVRA')}</span><div class="silaba-blank" style="display:flex;align-items:flex-end;padding-bottom:2px;font-size:13px;color:#94a3b8;">${label}</div></div>`;
+        }).join('');
+        return `<div class="silabas-grid">${items||'<span class="small">Nenhuma palavra adicionada.</span>'}</div>`;
+      }
+      if (q.type === 'sequencia_imagens') {
+        const items = q.items || [];
+        const cards = items.map(item => {
+          const img = item.imageDataUrl
+            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />`
+            : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
+          const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
+          return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num">&nbsp;</div></div>`;
+        }).join('');
+        return `<div class="seq-img-grid">${cards}</div>`;
+      }
+      if (q.type === 'comparar_imagens') {
+        const img1 = q.image1DataUrl ? `<img src="${q.image1DataUrl}" alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
+        const img2 = q.image2DataUrl ? `<img src="${q.image2DataUrl}" alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
+        const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
+        if (q.showAnswerSpace === false) return grid;
+        return `${grid}${answerArea(q)}`;
+      }
+      if (q.type === 'legenda_imagens') {
+        const items = q.items || [];
+        const cards = items.map(item => {
+          const img = item.imageDataUrl
+            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />`
+            : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
+        }).join('');
+        return `<div class="legenda-grid">${cards}</div>`;
+      }
+      if (q.type === 'associacao_imagem_imagem') {
+        const left = q.leftItems || [];
+        const right = q.rightItems || [];
+        const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
+        const mkCard = (item, label) => {
+          const img = item && item.imageDataUrl
+            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />`
+            : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          return `<div class="assoc-img-card">${img}<div style="margin-top:4px;font-weight:700;">${esc(label)}</div><div class="assoc-img-blank"></div></div>`;
+        };
+        const leftCards = left.map((item,i)=>mkCard(item, String.fromCharCode(65+i))).join('');
+        const rightCards = order.map((ri,i)=>mkCard(right[ri], String(i+1))).join('');
+        return `<div class="assoc-img-section"><div class="small" style="margin-bottom:4px;">Esquerda (referência):</div><div class="assoc-img-row">${leftCards}</div><div class="small" style="margin-bottom:4px;">Direita (embaralhada — escreva a letra correspondente):</div><div class="assoc-img-row">${rightCards}</div></div>`;
+      }
       return '';
     }
 
@@ -3064,8 +3652,56 @@
       if (tipo === 'problema_matematico') {
         return { tipo: 'discursiva', num, ans: '(problema — corrija manualmente)' };
       }
-      if (tipo === 'espaco_livre') {
+      if (tipo === 'espaco_livre') { return null; }
+      if (tipo === 'tabela') {
+        if (q.answerType === 'multipla') {
+          if (q.correctOption !== null && Number.isInteger(q.correctOption)) {
+            return { tipo: 'objetivo', num, ans: String.fromCharCode(65 + q.correctOption) };
+          }
+          return { tipo: 'objetivo', num, ans: '(não marcado)' };
+        }
+        return { tipo: 'discursiva', num, ans: '(interprete a tabela — corrija manualmente)' };
+      }
+      if (tipo === 'associacao_setas') {
+        const left = q.leftItems || [];
+        const right = q.rightItems || [];
+        const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
+        const ans = left.map((l,i) => `${esc(l)} → ${esc(right[order[i]]||'?')}`).join(' | ');
+        return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
+      }
+      if (tipo === 'sequencia_numerica') {
+        const seqs = q.sequences || [];
+        const ans = seqs.map((s,i) => s.answer ? `${i+1}. ${s.answer}` : null).filter(Boolean).join(' | ');
+        return ans ? { tipo: 'objetivo', num, ans } : null;
+      }
+      if (tipo === 'leitura_escrita') {
         return null;
+      }
+      if (tipo === 'silabas') {
+        const words = q.words || [];
+        const ans = words.map(w => w.answer ? `${w.word} → ${w.answer}` : null).filter(Boolean).join(' | ');
+        return ans ? { tipo: 'objetivo', num, ans } : null;
+      }
+      if (tipo === 'sequencia_imagens') {
+        const items = q.items || [];
+        const ordered = [...items].sort((a,b)=>(a.order||0)-(b.order||0));
+        const ans = ordered.map((it,i) => `${i+1}. ${it.caption||'?'}`).join(' → ');
+        return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
+      }
+      if (tipo === 'comparar_imagens') {
+        return { tipo: 'discursiva', num, ans: '(comparação de imagens — corrija manualmente)' };
+      }
+      if (tipo === 'legenda_imagens') {
+        const items = q.items || [];
+        const ans = items.map((it,i) => it.answer ? `${i+1}. ${it.answer}` : null).filter(Boolean).join(' | ');
+        return ans ? { tipo: 'objetivo', num, ans } : null;
+      }
+      if (tipo === 'associacao_imagem_imagem') {
+        const left = q.leftItems || [];
+        const right = q.rightItems || [];
+        const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
+        const ans = left.map((l,i) => `${String.fromCharCode(65+i)} → ${i+1}`).join(' | ');
+        return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
       }
       return null;
     }

@@ -137,6 +137,42 @@
     .espaco-livre-box.tracejada { border: 1px dashed #94a3b8; }
     .espaco-livre-box.pontilhada { border: 1px dotted #94a3b8; }
     .espaco-livre-box.nenhuma { border: none; }
+    .q-tabela { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+    .q-tabela th { background: #0f172a; color: #fff; padding: 7px 10px; text-align: left; font-weight: 700; }
+    .q-tabela td { border: 1px solid #cbd5e1; padding: 7px 10px; }
+    .q-tabela tr:nth-child(even) td { background: #f8fafc; }
+    .assoc-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px 16px; align-items: center; margin-top: 8px; }
+    .assoc-left, .assoc-right { background: #f1f5f9; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+    .assoc-arrow { text-align: center; color: #94a3b8; font-size: 18px; }
+    .seq-num-list { display: grid; gap: 10px; margin-top: 8px; }
+    .seq-num-row { display: flex; align-items: center; gap: 6px; font-size: 15px; flex-wrap: wrap; }
+    .seq-blank { display: inline-block; min-width: 48px; border-bottom: 2px solid #334155; height: 22px; vertical-align: bottom; }
+    .leitura-grid { display: grid; gap: 14px; margin-top: 8px; }
+    .leitura-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .leitura-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .leitura-item { display: grid; gap: 4px; }
+    .leitura-word { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
+    .leitura-line { border-bottom: 1px solid #cbd5e1; height: 24px; }
+    .silabas-grid { display: grid; gap: 12px; margin-top: 8px; }
+    .silaba-item { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; align-items: center; font-size: 15px; }
+    .silaba-word { font-weight: 800; letter-spacing: 0.08em; }
+    .seq-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; }
+    .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; break-inside: avoid; }
+    .seq-img-card img { max-width: 100%; max-height: 90px; object-fit: contain; border-radius: 6px; }
+    .seq-img-num { width: 32px; height: 32px; border: 2px solid #94a3b8; border-radius: 6px; margin: 6px auto 0; }
+    .comparar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .comparar-img { text-align: center; }
+    .comparar-img img { max-width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px; }
+    .comparar-caption { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .legenda-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px; margin-top: 8px; }
+    .legenda-item { text-align: center; break-inside: avoid; }
+    .legenda-item img { max-width: 100%; max-height: 100px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; }
+    .legenda-line { border-bottom: 1px solid #334155; height: 24px; margin-top: 6px; }
+    .assoc-img-section { margin-top: 8px; }
+    .assoc-img-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .assoc-img-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; text-align: center; font-size: 13px; break-inside: avoid; }
+    .assoc-img-card img { max-width: 100%; max-height: 80px; object-fit: contain; border-radius: 4px; }
+    .assoc-img-blank { height: 24px; border-bottom: 2px solid #334155; margin-top: 4px; }
     .message { text-align: center; padding: 80px 20px; color: #64748b; }
     .message h1 { color: #0f172a; font-size: 22px; margin: 0 0 8px; }
     .answer-key {
@@ -457,6 +493,83 @@
         const border = q.borderStyle || 'solida';
         return `<div class="espaco-livre-box ${border}" style="height:${h}px;"></div>`;
       }
+      if (q.type === 'tabela') {
+        const headers = q.headers || [];
+        const rows = q.rows || [];
+        const thead = `<tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
+        const tbody = rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
+        const table = `<table class="q-tabela"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        if (q.answerType === 'nenhuma' || q.showAnswerSpace === false) return table;
+        return `${table}${answerArea(q)}`;
+      }
+      if (q.type === 'associacao_setas') {
+        const left = q.leftItems || []; const right = q.rightItems || [];
+        const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
+        const rows = Math.max(left.length, right.length);
+        let html = '<div class="assoc-grid">';
+        for (let i=0; i<rows; i++) {
+          const l = left[i]||''; const ri = order[i]!==undefined ? right[order[i]] : (right[i]||'');
+          html += `<div class="assoc-left">${esc(l||`Item ${i+1}`)}</div><div class="assoc-arrow">—</div><div class="assoc-right">${esc(ri||`Item ${i+1}`)}</div>`;
+        }
+        return html + '</div>';
+      }
+      if (q.type === 'sequencia_numerica') {
+        const seqs = q.sequences || [];
+        const rows = seqs.map(seq => {
+          const parts = (seq.items||'').split(',').map(s=>s.trim());
+          const rendered = parts.map(p => p==='___' ? '<span class="seq-blank"></span>' : `<span>${esc(p)}</span>`).join(' ');
+          return `<div class="seq-num-row">${rendered}</div>`;
+        }).join('');
+        return `<div class="seq-num-list">${rows}</div>`;
+      }
+      if (q.type === 'leitura_escrita') {
+        const words = q.words || []; const cols = Number(q.columns)||2; const showLine = q.showCopyLines!==false;
+        const items = words.map(w=>`<div class="leitura-item"><div class="leitura-word">${esc(w||'')}</div>${showLine?'<div class="leitura-line"></div>':''}</div>`).join('');
+        return `<div class="leitura-grid ${cols===1?'':cols===3?'cols-3':'cols-2'}">${items}</div>`;
+      }
+      if (q.type === 'silabas') {
+        const words = q.words || []; const type = q.exerciseType||'separar';
+        const items = words.map(w => {
+          const label = type==='contar' ? 'Nº de sílabas: ___' : type==='completar' ? ((w.answer||'').split('-').map((s,i)=>i===0?s:'___').join(' - ')) : '___________________';
+          return `<div class="silaba-item"><span class="silaba-word">${esc(w.word||'PALAVRA')}</span><div style="border-bottom:2px dashed #94a3b8;padding-bottom:2px;font-size:13px;color:#94a3b8;">${label}</div></div>`;
+        }).join('');
+        return `<div class="silabas-grid">${items}</div>`;
+      }
+      if (q.type === 'sequencia_imagens') {
+        const items = q.items||[];
+        const cards = items.map(item => {
+          const img = item.imageDataUrl ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
+          const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
+          return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num"></div></div>`;
+        }).join('');
+        return `<div class="seq-img-grid">${cards}</div>`;
+      }
+      if (q.type === 'comparar_imagens') {
+        const img1 = q.image1DataUrl ? `<img src="${q.image1DataUrl}" alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
+        const img2 = q.image2DataUrl ? `<img src="${q.image2DataUrl}" alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
+        const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
+        if (q.showAnswerSpace===false) return grid;
+        return `${grid}${answerArea(q)}`;
+      }
+      if (q.type === 'legenda_imagens') {
+        const items = q.items||[];
+        const cards = items.map(item => {
+          const img = item.imageDataUrl ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />` : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
+        }).join('');
+        return `<div class="legenda-grid">${cards}</div>`;
+      }
+      if (q.type === 'associacao_imagem_imagem') {
+        const left = q.leftItems||[]; const right = q.rightItems||[];
+        const order = Array.isArray(q.rightOrder)&&q.rightOrder.length===right.length ? q.rightOrder : right.map((_,i)=>i);
+        const mkCard = (item, label) => {
+          const img = item&&item.imageDataUrl ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />` : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          return `<div class="assoc-img-card">${img}<div style="margin-top:4px;font-weight:700;">${esc(label)}</div><div class="assoc-img-blank"></div></div>`;
+        };
+        const leftCards = left.map((item,i)=>mkCard(item,String.fromCharCode(65+i))).join('');
+        const rightCards = order.map((ri,i)=>mkCard(right[ri],String(i+1))).join('');
+        return `<div class="assoc-img-section"><div style="font-size:12px;color:#64748b;margin-bottom:4px;">Referência:</div><div class="assoc-img-row">${leftCards}</div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">Escreva a letra:</div><div class="assoc-img-row">${rightCards}</div></div>`;
+      }
       return '';
     }
 
@@ -513,6 +626,30 @@
       if (q.type === 'ordenacao' && Array.isArray(q.items) && q.items.length) {
         const ordered = [...q.items].sort((a, b) => (a.order || 0) - (b.order || 0));
         return ordered.map((it, i) => `${i + 1}. ${it.text || '?'}`).join(' → ');
+      }
+      if (q.type === 'associacao_setas' && Array.isArray(q.leftItems) && Array.isArray(q.rightItems)) {
+        const right = Array.isArray(q.rightOrder)
+          ? q.rightOrder.map(i => q.rightItems[i] || '?')
+          : q.rightItems;
+        return q.leftItems.map((l, i) => `${l} → ${q.rightItems[i] || '?'}`).join('; ');
+      }
+      if (q.type === 'sequencia_numerica' && Array.isArray(q.sequences)) {
+        return q.sequences.map((s, i) => `${i + 1}: ${s.answer || '?'}`).join('; ');
+      }
+      if (q.type === 'silabas' && Array.isArray(q.words)) {
+        return q.words.map(w => `${w.word}: ${w.answer || '?'}`).join('; ');
+      }
+      if (q.type === 'sequencia_imagens' && Array.isArray(q.images)) {
+        const order = Array.isArray(q.correctOrder)
+          ? q.correctOrder.map((i, pos) => `${pos + 1}→${i + 1}`).join(', ')
+          : q.images.map((_, i) => String(i + 1)).join(', ');
+        return `Ordem: ${order}`;
+      }
+      if (q.type === 'legenda_imagens' && Array.isArray(q.images)) {
+        return q.images.map((img, i) => `${i + 1}: ${img.legend || '?'}`).join('; ');
+      }
+      if (q.type === 'associacao_imagem_imagem' && Array.isArray(q.pairs)) {
+        return q.pairs.map((p, i) => `${i + 1}: ${p.word || '?'}`).join('; ');
       }
       return '';
     }

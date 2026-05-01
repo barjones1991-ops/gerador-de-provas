@@ -140,6 +140,15 @@ index.html → login.html → dashboard.html → editor.html
 | Ordenação de frases | `ordenacao` | `items[]` com `{ text, order }` (order = posição correta p/ gabarito), `points`, `hideNumber` |
 | Problema matemático | `problema_matematico` | `lines`, `calcLines` (linhas da área de cálculo), `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
 | Espaço de desenho | `espaco_livre` | `height` (altura em px), `borderStyle` (`solida`/`tracejada`/`pontilhada`/`nenhuma`), `points`, `hideNumber` |
+| Tabela / gráfico | `tabela` | `headers[]`, `rows[][]`, `answerType` (`discursiva`/`multipla`), `lines`, `answerStyle`, `options[]`, `correctOption`, `points`, `hideNumber`, `showAnswerSpace` |
+| Associação por setas | `associacao_setas` | `leftItems[]`, `rightItems[]`, `rightOrder[]` (embaralhado), `points`, `hideNumber` |
+| Sequência numérica | `sequencia_numerica` | `sequences[]` com `{ items, answer }` (usar `___` como lacuna), `points`, `hideNumber` |
+| Leitura e escrita | `leitura_escrita` | `words[]`, `columns` (1 ou 2), `showCopyLines`, `points`, `hideNumber` |
+| Sílabas / letras / sons | `silabas` | `exerciseType` (`separar`/`contar`/`classificar`/`identificar`), `words[]` com `{ word, answer }`, `points`, `hideNumber` |
+| Sequência de imagens | `sequencia_imagens` | `images[]` com `{ dataUrl, fileName }`, `correctOrder[]`, `points`, `hideNumber` |
+| Comparar duas imagens | `comparar_imagens` | `imageA` com `{ dataUrl, fileName, caption }`, `imageB` com `{ dataUrl, fileName, caption }`, `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
+| Legenda das imagens | `legenda_imagens` | `images[]` com `{ dataUrl, fileName, legend }`, `columns` (1/2/3), `points`, `hideNumber` |
+| Associe imagem a imagem | `associacao_imagem_imagem` | `pairs[]` com `{ imageDataUrl, imageFileName, word, wordDataUrl, wordFileName }`, `shuffleWords`, `wordOrder[]`, `points`, `hideNumber` |
 
 > Todos os tipos têm `hideNumber` (oculta numeração nessa questão) e `showAnswerSpace` (controla espaço de resposta, relevante para discursiva e imagem).
 > Todos os tipos têm campo opcional `bncc` (código de habilidade, ex: "EF02MA01") — exibido como badge roxo no preview e no print (oculto na impressão para alunos).
@@ -299,16 +308,16 @@ git push --set-upstream origin main
 ### Prioridade: novos tipos de questão mais usados por professores
 - [x] Questão de interpretação de texto com texto-base e perguntas vinculadas.
 - [ ] Questão de interpretação de imagem.
-- [ ] Questão de tabela/gráfico para interpretação de dados.
+- [x] Questão de tabela/gráfico para interpretação de dados.
 - [ ] Questão de caça-palavras.
 - [ ] Questão de cruzadinha.
 - [x] Questão de ordenação de frases ou etapas.
-- [ ] Questão de associação por setas.
-- [ ] Questão de completar sequência numérica.
+- [x] Questão de associação por setas.
+- [x] Questão de completar sequência numérica.
 - [x] Questão de produção textual com espaço grande de resposta.
 - [x] Questão de ditado/lista de palavras.
-- [ ] Questão de leitura e escrita para alfabetização.
-- [ ] Questão de identificação de sílabas, letras ou sons.
+- [x] Questão de leitura e escrita para alfabetização.
+- [x] Questão de identificação de sílabas, letras ou sons.
 - [x] Questão de operações matemáticas em coluna.
 - [x] Questão com problema matemático e espaço para cálculo.
 - [x] Questão de desenho ou ilustração com espaço livre.
@@ -327,11 +336,11 @@ git push --set-upstream origin main
 ### Novos tipos de questão com imagens
 - [x] Questão com imagem e múltipla escolha.
 - [x] Questão com imagem para marcar X.
-- [ ] Questão de sequência/ordenação de imagens.
+- [x] Questão de sequência/ordenação de imagens.
 - [ ] Questão para identificar partes de uma imagem com setas ou números.
-- [ ] Questão para comparar duas imagens e responder.
-- [ ] Questão de legenda: escrever uma frase ou palavra para cada imagem.
-- [ ] Questão de associação imagem-imagem.
+- [x] Questão para comparar duas imagens e responder.
+- [x] Questão de legenda: escrever uma frase ou palavra para cada imagem.
+- [x] Questão de associação imagem-imagem.
 
 ### Fluxo de coordenação pedagógica
 - [x] Criar perfil/função de coordenadora no sistema.

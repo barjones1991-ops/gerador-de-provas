@@ -22,6 +22,15 @@ const questionTypes = [
   'ordenacao',
   'problema_matematico',
   'espaco_livre',
+  'tabela',
+  'associacao_setas',
+  'sequencia_numerica',
+  'leitura_escrita',
+  'silabas',
+  'sequencia_imagens',
+  'comparar_imagens',
+  'legenda_imagens',
+  'associacao_imagem_imagem',
 ];
 
 let failures = 0;
