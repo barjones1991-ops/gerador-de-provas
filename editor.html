@@ -85,11 +85,88 @@
     .chip { background: var(--chip); border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; font-size: 12px; color: #334155; }
     .chip.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
     .chip.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+    /* Alternativas múltipla escolha com texto longo */
+    .option-item {
+      display: grid;
+      grid-template-columns: 1.6em 1fr;
+      gap: 0 4px;
+      align-items: start;
+      line-height: 1.6;
+    }
+    .option-item > span:first-child { font-weight: 700; }
+
+    /* Marcar X layouts */
     .mark-grid.two-columns {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px 18px;
     }
+    .mark-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .mark-table td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 10px;
+      line-height: 1.5;
+    }
+    .mark-table td:first-child {
+      width: 2.4em;
+      text-align: center;
+      white-space: nowrap;
+      background: #f8fafc;
+    }
+
+    /* Caixa de texto-base (interpretação de texto) */
+    .texto-base-box {
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #334155;
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 14px;
+      white-space: pre-wrap;
+    }
+    .texto-base-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    /* Operações matemáticas em coluna */
+    .math-ops-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-top: 8px;
+    }
+    .math-op-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 12px 18px 6px;
+      min-width: 90px;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      text-align: right;
+    }
+    .math-op-num { display: block; }
+    .math-op-with-sym { display: grid; grid-template-columns: auto 1fr; gap: 4px; }
+    .math-op-sym { font-weight: 900; }
+    .math-op-divider { border-top: 2.5px solid #0f172a; margin: 6px 0; }
+    .math-op-answer { height: 28px; }
+
+    /* Ditado */
+    .ditado-lines { display: grid; gap: 10px; margin-top: 8px; }
+    .ditado-line { display: grid; grid-template-columns: 1.8em 1fr; gap: 4px; align-items: end; }
+    .ditado-line-num { font-size: 12px; color: #94a3b8; text-align: right; }
+    .ditado-line-blank { border-bottom: 1px solid #cbd5e1; height: 24px; }
     .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
     .qcard.collapsed { border-style: solid; background: #f8fafc; }
     .qhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -718,6 +795,10 @@
             <button class="qtype-btn" data-type="relacione" type="button">↔<br>Relacione<br>colunas</button>
             <button class="qtype-btn" data-type="imagem" type="button">🖼️<br>Imagem</button>
             <button class="qtype-btn" data-type="relacione_imagens" type="button">🖼️↔<br>Img+<br>Palavra</button>
+            <button class="qtype-btn" data-type="texto_base" type="button">📖<br>Interpreta-<br>ção texto</button>
+            <button class="qtype-btn" data-type="matematica_coluna" type="button">🔢<br>Operações<br>matemáticas</button>
+            <button class="qtype-btn" data-type="producao_textual" type="button">📝<br>Produção<br>textual</button>
+            <button class="qtype-btn" data-type="ditado" type="button">🎵<br>Ditado/<br>palavras</button>
           </div>
           <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
@@ -971,6 +1052,10 @@
       relacione: 'Relacione as colunas',
       imagem: 'De acordo com a imagem',
       relacione_imagens: 'Relacione imagens e palavras',
+      texto_base: 'Interpretação de texto',
+      matematica_coluna: 'Operações matemáticas',
+      producao_textual: 'Produção textual',
+      ditado: 'Ditado / lista de palavras',
     };
 
     const templates = {
@@ -1055,6 +1140,48 @@
           { imageDataUrl: '', imageFileName: '', word: '' },
         ],
         wordOrder: [2, 0, 3, 1],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      texto_base: () => ({
+        type: 'texto_base',
+        text: 'Com base no texto, responda:',
+        textBase: '',
+        answerType: 'discursiva',
+        lines: 5,
+        answerStyle: 'linhas',
+        options: ['', '', '', ''],
+        correctOption: null,
+        points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
+      }),
+      matematica_coluna: () => ({
+        type: 'matematica_coluna',
+        text: 'Resolva as operações:',
+        operations: [
+          { expression: '234 + 567' },
+          { expression: '800 - 345' },
+          { expression: '12 × 4' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      producao_textual: () => ({
+        type: 'producao_textual',
+        text: 'Escreva um texto sobre o tema abaixo:',
+        titlePrompt: true,
+        lines: 18,
+        answerStyle: 'linhas',
+        points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
+      }),
+      ditado: () => ({
+        type: 'ditado',
+        text: 'Escreva as palavras ditadas:',
+        wordCount: 10,
+        wordList: '',
         points: '1,0',
         hideNumber: false,
       }),
@@ -2054,6 +2181,7 @@
             <select data-k="markLayout">
               <option value="lista" ${q.markLayout === 'lista' ? 'selected' : ''}>Lista simples</option>
               <option value="duas_colunas" ${q.markLayout === 'duas_colunas' ? 'selected' : ''}>Duas colunas</option>
+              <option value="tabela" ${q.markLayout === 'tabela' ? 'selected' : ''}>Tabela</option>
             </select>
           `;
           block.appendChild(layout);
@@ -2344,15 +2472,147 @@
           body.appendChild(block);
         }
 
+        if (q.type === 'texto_base') {
+          if (!q.answerType) q.answerType = 'discursiva';
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `
+            <div>
+              <label>Texto-base (trecho para leitura)</label>
+              <textarea data-k="textBase" rows="6" placeholder="Cole ou escreva aqui o texto que os alunos lerão antes de responder...">${esc(q.textBase || '')}</textarea>
+            </div>
+            <div class="row two">
+              <div>
+                <label>Tipo de resposta</label>
+                <select data-k="answerType">
+                  <option value="discursiva" ${q.answerType === 'discursiva' ? 'selected' : ''}>Dissertativa</option>
+                  <option value="multipla" ${q.answerType === 'multipla' ? 'selected' : ''}>Múltipla escolha</option>
+                </select>
+              </div>
+              ${q.answerType === 'discursiva' ? `
+              <div>
+                <label>Nº de linhas</label>
+                <input type="number" data-k="lines" value="${q.lines || 5}" min="2" max="15" />
+              </div>` : ''}
+            </div>
+          `;
+          if (q.answerType === 'multipla') {
+            const optBlock = document.createElement('div');
+            optBlock.innerHTML = '<label>Alternativas</label>';
+            const optBox = document.createElement('div');
+            optBox.className = 'row';
+            (q.options || ['', '', '', '']).forEach((op, j) => {
+              const row = document.createElement('div');
+              row.className = 'option-row';
+              const radio = document.createElement('input');
+              radio.type = 'radio'; radio.name = `tb-correct-${idx}`;
+              radio.checked = q.correctOption === j;
+              radio.addEventListener('change', () => { q.correctOption = j; renderPreview(); });
+              const inp = document.createElement('input');
+              inp.value = op || ''; inp.placeholder = `Alternativa ${String.fromCharCode(65+j)}`;
+              inp.addEventListener('input', () => { q.options[j] = inp.value; renderPreview(); });
+              row.appendChild(radio); row.appendChild(inp);
+              optBox.appendChild(row);
+            });
+            optBlock.appendChild(optBox);
+            block.appendChild(optBlock);
+          }
+          body.appendChild(block);
+        }
+
+        if (q.type === 'matematica_coluna') {
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = '<label>Operações (ex.: 234 + 567 | 800 - 345 | 12 × 4)</label>';
+          const opsBox = document.createElement('div');
+          opsBox.className = 'row';
+          const renderOps = () => {
+            opsBox.innerHTML = '';
+            (q.operations || []).forEach((op, j) => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;';
+              const inp = document.createElement('input');
+              inp.value = op.expression || '';
+              inp.placeholder = 'ex.: 234 + 567';
+              inp.addEventListener('input', () => { op.expression = inp.value; renderPreview(); });
+              const rmv = document.createElement('button');
+              rmv.type = 'button'; rmv.className = 'danger';
+              rmv.textContent = '✕'; rmv.style.cssText = 'padding:5px 8px; font-size:12px;';
+              rmv.disabled = (q.operations || []).length <= 1;
+              rmv.addEventListener('click', () => { q.operations.splice(j, 1); renderAll(); });
+              row.appendChild(inp); row.appendChild(rmv);
+              opsBox.appendChild(row);
+            });
+          };
+          renderOps();
+          const addOp = document.createElement('button');
+          addOp.type = 'button'; addOp.className = 'outline';
+          addOp.textContent = 'Adicionar operação';
+          addOp.addEventListener('click', () => {
+            if (!q.operations) q.operations = [];
+            q.operations.push({ expression: '' });
+            renderOps(); renderPreview();
+          });
+          block.appendChild(opsBox);
+          block.appendChild(addOp);
+          body.appendChild(block);
+        }
+
+        if (q.type === 'producao_textual') {
+          if (!q.answerStyle) q.answerStyle = 'linhas';
+          const block = document.createElement('div');
+          block.className = 'row two';
+          block.innerHTML = `
+            <div>
+              <label>Formato da resposta</label>
+              <select data-k="answerStyle">
+                <option value="linhas" ${q.answerStyle==='linhas'?'selected':''}>Linhas pautadas</option>
+                <option value="caixa" ${q.answerStyle==='caixa'?'selected':''}>Caixa de resposta</option>
+                <option value="espaco" ${q.answerStyle==='espaco'?'selected':''}>Espaço em branco</option>
+              </select>
+            </div>
+            <div>
+              <label>Nº de linhas</label>
+              <input type="number" data-k="lines" value="${q.lines||18}" min="4" max="40" />
+            </div>
+            <div>
+              <label>Linha de título</label>
+              <select data-k="titlePrompt">
+                <option value="true" ${q.titlePrompt!==false?'selected':''}>Sim — linha para título</option>
+                <option value="false" ${q.titlePrompt===false?'selected':''}>Não</option>
+              </select>
+            </div>
+          `;
+          body.appendChild(block);
+        }
+
+        if (q.type === 'ditado') {
+          const block = document.createElement('div');
+          block.className = 'row two';
+          block.innerHTML = `
+            <div>
+              <label>Número de palavras / linhas</label>
+              <input type="number" data-k="wordCount" value="${q.wordCount||10}" min="1" max="30" />
+            </div>
+            <div>
+              <label>Lista de palavras (uso do professor — não aparece na prova)</label>
+              <textarea data-k="wordList" rows="3" placeholder="Ex.: casa, bola, chuva...">${esc(q.wordList||'')}</textarea>
+            </div>
+          `;
+          body.appendChild(block);
+        }
+
         body.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
-            if (key === 'lines') {
-              q.lines = Math.max(2, Math.min(15, Number(node.value) || 5));
-            } else if (key === 'imageAnswerType') {
-              q.imageAnswerType = node.value;
+            if (key === 'lines' || key === 'wordCount') {
+              q[key] = Math.max(1, Math.min(40, Number(node.value) || (key==='lines'?5:10)));
+            } else if (key === 'imageAnswerType' || key === 'answerType') {
+              q[key] = node.value;
               renderAll();
               return;
+            } else if (key === 'titlePrompt') {
+              q.titlePrompt = node.value !== 'false';
             } else {
               q[key] = node.value;
             }
@@ -2390,12 +2650,17 @@
         }
         return answerLines(lines);
       };
-      if (q.type === 'multipla') {
-        const items = q.options.map((op, i) => {
+      if (q.type === 'multipla' || (q.type === 'texto_base' && q.answerType === 'multipla')) {
+        const opts = q.type === 'texto_base' ? (q.options || []) : q.options;
+        const items = opts.map((op, i) => {
           const letter = String.fromCharCode(65 + i);
           const label = op || `Alternativa ${letter}`;
-          return `<div><span>${letter})</span> <span>${esc(label)}</span></div>`;
+          return `<div class="option-item"><span>${letter})</span><span>${esc(label)}</span></div>`;
         }).join('');
+        if (q.type === 'texto_base') {
+          const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}</div>` : '';
+          return `${base}<div class="spacey">${items}</div>`;
+        }
         return `<div class="spacey">${items}</div>`;
       }
       if (q.type === 'discursiva') {
@@ -2412,8 +2677,12 @@
       if (q.type === 'marcarx') {
         const items = q.items.map((item, i) => {
           const text = typeof item === 'string' ? item : item.text;
-          return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+          if (q.markLayout === 'tabela') {
+            return `<tr><td>( &nbsp; )</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
+          }
+          return `<div class="option-item"><span>( )</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
         }).join('');
+        if (q.markLayout === 'tabela') return `<table class="mark-table"><tbody>${items}</tbody></table>`;
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
         return `<div class="${layoutClass}">${items}</div>`;
       }
@@ -2464,6 +2733,33 @@
           return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`;
         }).join('');
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
+      }
+      if (q.type === 'texto_base') {
+        const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}</div>` : '<div class="small">Texto-base não preenchido.</div>';
+        if (q.showAnswerSpace === false) return base;
+        return `${base}${answerArea(q)}`;
+      }
+      if (q.type === 'matematica_coluna') {
+        const ops = (q.operations || []).map((op) => {
+          const expr = String(op.expression || '').trim();
+          const match = expr.match(/^(\d[\d.,\s]*)([+\-×xX÷:/])\s*(\d[\d.,\s]*)$/);
+          if (!match) return `<div class="math-op-box"><span class="math-op-num">${esc(expr)}</span><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          const [, n1, sym, n2] = match;
+          return `<div class="math-op-box"><span class="math-op-num">${esc(n1.trim())}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2.trim())}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+        }).join('');
+        return `<div class="math-ops-grid">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
+      }
+      if (q.type === 'producao_textual') {
+        if (q.showAnswerSpace === false) return '';
+        const titleLine = q.titlePrompt ? `<div style="margin-bottom:12px;"><div class="small" style="margin-bottom:4px;">Título:</div><div class="hline"></div></div>` : '';
+        return `${titleLine}${answerArea(q)}`;
+      }
+      if (q.type === 'ditado') {
+        const count = Math.max(1, Math.min(30, Number(q.wordCount) || 10));
+        const lines = Array.from({ length: count }, (_, i) =>
+          `<div class="ditado-line"><span class="ditado-line-num">${i + 1}.</span><div class="ditado-line-blank"></div></div>`
+        ).join('');
+        return `<div class="ditado-lines">${lines}</div>`;
       }
       return '';
     }
@@ -2569,6 +2865,31 @@
       }
       if (tipo === 'discursiva' || (tipo === 'imagem' && q.imageAnswerType === 'discursiva')) {
         return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
+      }
+      if (tipo === 'texto_base') {
+        if (q.answerType === 'multipla') {
+          const opts = q.options || [];
+          if (q.correctOption !== null && q.correctOption >= 0 && q.correctOption < opts.length) {
+            const letra = String.fromCharCode(65 + q.correctOption);
+            const texto = opts[q.correctOption] ? ` — ${opts[q.correctOption]}` : '';
+            return { tipo: 'objetivo', num, ans: letra + texto };
+          }
+          return { tipo: 'objetivo', num, ans: '(não marcado)' };
+        }
+        return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
+      }
+      if (tipo === 'matematica_coluna') {
+        return { tipo: 'discursiva', num, ans: '(operações matemáticas — corrija manualmente)' };
+      }
+      if (tipo === 'producao_textual') {
+        return { tipo: 'discursiva', num, ans: '(produção textual — corrija manualmente)' };
+      }
+      if (tipo === 'ditado') {
+        if (q.wordList && q.wordList.trim()) {
+          const words = q.wordList.split('\n').map(w => w.trim()).filter(Boolean);
+          return { tipo: 'objetivo', num, ans: words.join(', ') };
+        }
+        return { tipo: 'discursiva', num, ans: '(ditado — corrija manualmente)' };
       }
       return null;
     }

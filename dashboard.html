@@ -150,6 +150,7 @@
     .card-btn.publish:hover { border-color: #16a34a; color: #16a34a; }
     .card-btn.unpublish:hover { border-color: #f59e0b; color: #92400e; }
     .card-btn.delete:hover { border-color: #dc2626; color: #dc2626; }
+    .card-btn.duplicate:hover { border-color: #7c3aed; color: #7c3aed; }
 
     /* EMPTY STATE */
     .empty {
@@ -497,6 +498,7 @@
           <div class="card-footer">
             <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
             <button class="card-btn print" onclick="printExam('${exam.id}')">PDF</button>
+            <button class="card-btn duplicate" onclick="duplicateExam('${exam.id}')">⊕ Copiar</button>
             <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${locked || review === 'enviada' || review === 'em_revisao' ? 'disabled' : ''}>Coord.</button>
             <button class="card-btn ${exam.is_published ? 'unpublish' : 'publish'}" onclick="togglePublish('${exam.id}')">${exam.is_published ? 'Rascunho' : 'Publicar'}</button>
             <button class="card-btn delete" onclick="askDelete('${exam.id}')">🗑️ Deletar</button>
@@ -544,6 +546,55 @@
 
   function printExam(id) {
     window.location.href = `print.html?id=${encodeURIComponent(id)}`;
+  }
+
+  async function duplicateExam(id) {
+    const source = exams.find(e => e.id === id);
+    if (!source) return;
+
+    const user = auth.getCurrentUser();
+    if (!user) return;
+
+    const copy = {
+      user_id: user.id,
+      title: `${source.title || 'Prova'} (cópia)`,
+      school_name: source.school_name || '',
+      subject: source.subject || '',
+      class_name: source.class_name || '',
+      teacher: source.teacher || '',
+      term: source.term || '',
+      date: source.date || '',
+      total_value: source.total_value || '',
+      instructions: source.instructions || '',
+      questions: source.questions || [],
+      logo_data_url: source.logo_data_url || null,
+      is_draft: true,
+      is_published: false,
+      review_status: 'rascunho',
+    };
+
+    try {
+      const data = await auth.authenticatedRequest(
+        '/exams',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(copy),
+        }
+      );
+      const newId = Array.isArray(data) ? data[0]?.id : data?.id;
+      showToast('Prova duplicada com sucesso!', 'success');
+      await loadExams();
+      if (newId) {
+        localStorage.setItem('editExamId', newId);
+        window.location.href = 'editor.html';
+      }
+    } catch (e) {
+      showToast('Erro ao duplicar prova: ' + e.message, 'error');
+    }
   }
 
   async function sendToReview(id) {

@@ -128,11 +128,15 @@ index.html → login.html → dashboard.html → editor.html
 | Múltipla escolha | `multipla` | `options[]` (2 a 6 alternativas), `correctOption`, `points`, `hideNumber` |
 | Discursiva | `discursiva` | `lines` (altura), `answerStyle` (`linhas`/`caixa`/`espaco`), `points`, `hideNumber`, `showAnswerSpace` |
 | Verdadeiro/Falso | `vf` | `items[]` com `{ text, answer }`, `points`, `hideNumber` |
-| Marcar X | `marcarx` | `items[]` com `{ text, checked }`, `markLayout` (`lista`/`duas_colunas`), `points`, `hideNumber` |
+| Marcar X | `marcarx` | `items[]` com `{ text, checked }`, `markLayout` (`lista`/`duas_colunas`/`tabela`), `points`, `hideNumber` |
 | Complete as lacunas | `lacunas` | `items[]` com `{ text, answer }`, `answers[]`, `points`, `hideNumber` |
 | Relacione as colunas | `relacione` | `pairs[]` com `{ left, right }`, `rightOrder[]` (embaralhado), `points`, `hideNumber` |
 | De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `imageSize` (`small`/`medium`/`large`/`full`), `imageAlign` (`left`/`center`/`right`/`lado_esquerda`/`lado_direita`), `imageCaption`, `imageAnswerType` (`discursiva`/`multipla`/`marcarx`), `lines`, `options[]`, `items[]`, `points`, `hideNumber`, `showAnswerSpace` |
 | Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com `{ imageDataUrl, imageFileName, word }`, `wordOrder[]` (embaralhado), `points`, `hideNumber` |
+| Interpretação de texto | `texto_base` | `textBase` (texto-base), `answerType` (`discursiva`/`multipla`), `lines`, `answerStyle`, `options[]`, `correctOption`, `points`, `hideNumber`, `showAnswerSpace` |
+| Operações matemáticas | `matematica_coluna` | `operations[]` com `{ expression }` (ex: "234 + 567"), `points`, `hideNumber` |
+| Produção textual | `producao_textual` | `titlePrompt` (linha de título), `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
+| Ditado / lista de palavras | `ditado` | `wordCount` (nº de linhas), `wordList` (palavras p/ gabarito, uma por linha), `points`, `hideNumber` |
 
 > Todos os tipos têm `hideNumber` (oculta numeração nessa questão) e `showAnswerSpace` (controla espaço de resposta, relevante para discursiva e imagem).
 
@@ -275,12 +279,12 @@ git push --set-upstream origin main
 
 ### Prioridade: esmeramento dos tipos atuais de questão
 - [x] Múltipla escolha: permitir 2 a 6 alternativas, marcar alternativa correta e gerar gabarito.
-- [ ] Múltipla escolha: permitir alternativas com texto longo sem quebrar o layout.
+- [x] Múltipla escolha: permitir alternativas com texto longo sem quebrar o layout.
 - [x] Discursiva: permitir pauta com linhas, caixa de resposta ou espaço em branco.
 - [x] Verdadeiro/Falso: permitir vários itens V/F dentro da mesma questão.
 - [x] Marcar X: permitir itens em lista simples com marcação de resposta correta.
 - [x] Marcar X: permitir itens em duas colunas.
-- [ ] Marcar X: permitir itens em tabela.
+- [x] Marcar X: permitir itens em tabela.
 - [x] Complete as lacunas: permitir cadastrar respostas esperadas para o gabarito.
 - [x] Complete as lacunas: permitir várias frases com lacunas na mesma questão.
 - [x] Relacione as colunas: permitir embaralhar a coluna da direita automaticamente.
@@ -289,7 +293,7 @@ git push --set-upstream origin main
 - [x] Relacione imagens e palavras: permitir adicionar/remover pares e embaralhar palavras no PDF.
 
 ### Prioridade: novos tipos de questão mais usados por professores
-- [ ] Questão de interpretação de texto com texto-base e perguntas vinculadas.
+- [x] Questão de interpretação de texto com texto-base e perguntas vinculadas.
 - [ ] Questão de interpretação de imagem.
 - [ ] Questão de tabela/gráfico para interpretação de dados.
 - [ ] Questão de caça-palavras.
@@ -297,11 +301,11 @@ git push --set-upstream origin main
 - [ ] Questão de ordenação de frases ou etapas.
 - [ ] Questão de associação por setas.
 - [ ] Questão de completar sequência numérica.
-- [ ] Questão de produção textual com espaço grande de resposta.
-- [ ] Questão de ditado/lista de palavras.
+- [x] Questão de produção textual com espaço grande de resposta.
+- [x] Questão de ditado/lista de palavras.
 - [ ] Questão de leitura e escrita para alfabetização.
 - [ ] Questão de identificação de sílabas, letras ou sons.
-- [ ] Questão de operações matemáticas em coluna.
+- [x] Questão de operações matemáticas em coluna.
 - [ ] Questão com problema matemático e espaço para cálculo.
 - [ ] Questão de desenho ou ilustração com espaço livre.
 
@@ -342,7 +346,7 @@ git push --set-upstream origin main
 - [ ] Criar permissões por papel: professor, coordenadora e administrador.
 
 ### Melhorias futuras opcionais
-- [ ] Duplicar prova inteira a partir do dashboard.
+- [x] Duplicar prova inteira a partir do dashboard.
 - [ ] Criar modelos prontos de provas por disciplina.
 - [x] Exportar prova com gabarito separado (botão "📋 Com gabarito" no editor — gera gabarito em página separada ao imprimir).
 - [ ] Adicionar campo de habilidade/BNCC por questão.

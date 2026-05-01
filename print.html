@@ -113,6 +113,18 @@
       display: block;
       margin: 0 auto 6px;
     }
+    .option-item { display: grid; grid-template-columns: 1.6em 1fr; gap: 0 4px; align-items: start; line-height: 1.6; }
+    .mark-table { width: 100%; border-collapse: collapse; }
+    .mark-table td { border: 1px solid #cbd5e1; padding: 7px 10px; }
+    .texto-base-box { border-left: 4px solid #334155; background: #f8fafc; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+    .math-ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 18px 24px; margin-top: 10px; }
+    .math-op-box { font-family: 'Courier New', monospace; font-size: 17px; text-align: right; }
+    .math-op-divider { border-top: 2px solid #334155; margin: 4px 0; }
+    .math-op-answer { height: 26px; }
+    .ditado-lines { display: grid; gap: 10px; margin-top: 8px; }
+    .ditado-line { display: flex; align-items: flex-end; gap: 10px; font-size: 14px; }
+    .ditado-line-num { color: #94a3b8; min-width: 20px; text-align: right; }
+    .ditado-line-rule { flex: 1; border-bottom: 1px solid #cbd5e1; height: 24px; }
     .message { text-align: center; padding: 80px 20px; color: #64748b; }
     .message h1 { color: #0f172a; font-size: 22px; margin: 0 0 8px; }
     .answer-key {
@@ -309,7 +321,7 @@
       if (q.type === 'multipla') {
         return `<div class="spacey">${(q.options || []).map((op, i) => {
           const letter = String.fromCharCode(65 + i);
-          return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+          return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
         }).join('')}</div>`;
       }
       if (q.type === 'discursiva') {
@@ -322,10 +334,18 @@
         return '<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>';
       }
       if (q.type === 'marcarx') {
+        const items = q.items || [];
+        if (q.markLayout === 'tabela') {
+          const rows = items.map((item, i) => {
+            const text = typeof item === 'string' ? item : item.text;
+            return `<tr><td>( &nbsp; )</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
+          }).join('');
+          return `<table class="mark-table"><tbody>${rows}</tbody></table>`;
+        }
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
-        return `<div class="${layoutClass}">${(q.items || []).map((item, i) => {
+        return `<div class="${layoutClass}">${items.map((item, i) => {
           const text = typeof item === 'string' ? item : item.text;
-          return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+          return `<div class="option-item"><span>( )</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
         }).join('')}</div>`;
       }
       if (q.type === 'lacunas') {
@@ -374,6 +394,40 @@
         }).join('');
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
+      if (q.type === 'texto_base') {
+        const textBox = q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}</div>` : '';
+        if (q.answerType === 'multipla') {
+          const opts = (q.options || []).map((op, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+          }).join('');
+          return `${textBox}<div class="spacey">${opts}</div>`;
+        }
+        return `${textBox}${answerArea(q)}`;
+      }
+      if (q.type === 'matematica_coluna') {
+        const ops = (q.operations || []).map(op => {
+          const expr = (op.expression || '').trim();
+          const m = expr.match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
+          if (m) {
+            const opSymbol = m[2].replace('x','×').replace('X','×').replace(':','÷').replace('/','÷');
+            return `<div class="math-op-box"><div>${esc(m[1].trim())}</div><div>${opSymbol} ${esc(m[3].trim())}</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          }
+          return `<div class="math-op-box"><div>${esc(expr)}</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+        }).join('');
+        return `<div class="math-ops-grid">${ops}</div>`;
+      }
+      if (q.type === 'producao_textual') {
+        const titleLine = q.titlePrompt !== false ? `<div class="hline" style="margin-bottom:6px;"></div><div style="font-size:12px;color:#64748b;margin-bottom:8px;">Título</div>` : '';
+        return `${titleLine}${answerArea(q)}`;
+      }
+      if (q.type === 'ditado') {
+        const count = Math.max(1, Math.min(30, Number(q.wordCount) || 10));
+        const lines = Array.from({ length: count }, (_, i) =>
+          `<div class="ditado-line"><span class="ditado-line-num">${i + 1}.</span><span class="ditado-line-rule"></span></div>`
+        ).join('');
+        return `<div class="ditado-lines">${lines}</div>`;
+      }
       return '';
     }
 
@@ -420,6 +474,12 @@
       }
       if (q.type === 'relacione_imagens') {
         return relacioneImagensAnswer(q);
+      }
+      if (q.type === 'texto_base' && q.answerType === 'multipla' && Number.isInteger(q.correctOption)) {
+        return String.fromCharCode(65 + q.correctOption);
+      }
+      if (q.type === 'ditado' && q.wordList && q.wordList.trim()) {
+        return q.wordList.split('\n').map(w => w.trim()).filter(Boolean).join(', ');
       }
       return '';
     }
