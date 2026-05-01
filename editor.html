@@ -1853,14 +1853,15 @@
           <input data-k="points" value="${esc(q.points)}" />
         `;
 
-        const topRow = document.createElement('div');
-        topRow.className = 'row three';
-        topRow.appendChild(enun);
-        topRow.appendChild(points);
+        body.appendChild(enun);
+
+        const metaRow = document.createElement('div');
+        metaRow.className = 'row two';
+        metaRow.appendChild(points);
         const bnccDiv = document.createElement('div');
         bnccDiv.innerHTML = `<label>Habilidade / BNCC <span class="small">(opcional)</span></label><input data-k="bncc" value="${esc(q.bncc||'')}" placeholder="Ex.: EF02MA01" />`;
-        topRow.appendChild(bnccDiv);
-        body.appendChild(topRow);
+        metaRow.appendChild(bnccDiv);
+        body.appendChild(metaRow);
 
         if (q.type === 'multipla') {
           if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', ''];
