@@ -137,8 +137,12 @@ index.html → login.html → dashboard.html → editor.html
 | Operações matemáticas | `matematica_coluna` | `operations[]` com `{ expression }` (ex: "234 + 567"), `points`, `hideNumber` |
 | Produção textual | `producao_textual` | `titlePrompt` (linha de título), `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
 | Ditado / lista de palavras | `ditado` | `wordCount` (nº de linhas), `wordList` (palavras p/ gabarito, uma por linha), `points`, `hideNumber` |
+| Ordenação de frases | `ordenacao` | `items[]` com `{ text, order }` (order = posição correta p/ gabarito), `points`, `hideNumber` |
+| Problema matemático | `problema_matematico` | `lines`, `calcLines` (linhas da área de cálculo), `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
+| Espaço de desenho | `espaco_livre` | `height` (altura em px), `borderStyle` (`solida`/`tracejada`/`pontilhada`/`nenhuma`), `points`, `hideNumber` |
 
 > Todos os tipos têm `hideNumber` (oculta numeração nessa questão) e `showAnswerSpace` (controla espaço de resposta, relevante para discursiva e imagem).
+> Todos os tipos têm campo opcional `bncc` (código de habilidade, ex: "EF02MA01") — exibido como badge roxo no preview e no print (oculto na impressão para alunos).
 
 ---
 
@@ -298,7 +302,7 @@ git push --set-upstream origin main
 - [ ] Questão de tabela/gráfico para interpretação de dados.
 - [ ] Questão de caça-palavras.
 - [ ] Questão de cruzadinha.
-- [ ] Questão de ordenação de frases ou etapas.
+- [x] Questão de ordenação de frases ou etapas.
 - [ ] Questão de associação por setas.
 - [ ] Questão de completar sequência numérica.
 - [x] Questão de produção textual com espaço grande de resposta.
@@ -306,8 +310,8 @@ git push --set-upstream origin main
 - [ ] Questão de leitura e escrita para alfabetização.
 - [ ] Questão de identificação de sílabas, letras ou sons.
 - [x] Questão de operações matemáticas em coluna.
-- [ ] Questão com problema matemático e espaço para cálculo.
-- [ ] Questão de desenho ou ilustração com espaço livre.
+- [x] Questão com problema matemático e espaço para cálculo.
+- [x] Questão de desenho ou ilustração com espaço livre.
 
 ### Banco de questões
 - [x] Criar banco de questões por série/ano, disciplina, habilidade e dificuldade.
@@ -349,5 +353,5 @@ git push --set-upstream origin main
 - [x] Duplicar prova inteira a partir do dashboard.
 - [ ] Criar modelos prontos de provas por disciplina.
 - [x] Exportar prova com gabarito separado (botão "📋 Com gabarito" no editor — gera gabarito em página separada ao imprimir).
-- [ ] Adicionar campo de habilidade/BNCC por questão.
+- [x] Adicionar campo de habilidade/BNCC por questão.
 - [ ] Tema escuro (dark mode), se fizer sentido mais adiante.

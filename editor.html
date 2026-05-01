@@ -167,6 +167,23 @@
     .ditado-line { display: grid; grid-template-columns: 1.8em 1fr; gap: 4px; align-items: end; }
     .ditado-line-num { font-size: 12px; color: #94a3b8; text-align: right; }
     .ditado-line-blank { border-bottom: 1px solid #cbd5e1; height: 24px; }
+
+    /* Ordenação */
+    .ordem-items { display: grid; gap: 8px; margin-top: 8px; }
+    .ordem-item { display: grid; grid-template-columns: 2.5em 1fr; gap: 10px; align-items: center; }
+    .ordem-num { width: 2.5em; height: 2.5em; border: 2px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #475569; }
+
+    /* Problema matemático */
+    .prob-calc-box { border: 1px dashed #94a3b8; border-radius: 8px; padding: 8px; margin-top: 8px; }
+    .prob-calc-label { font-size: 11px; color: #94a3b8; text-align: center; margin-bottom: 6px; }
+
+    /* Espaço livre */
+    .espaco-livre-box { border-radius: 8px; margin-top: 8px; }
+    .espaco-livre-box.solida { border: 1px solid #cbd5e1; }
+    .espaco-livre-box.tracejada { border: 1px dashed #94a3b8; }
+    .espaco-livre-box.pontilhada { border: 1px dotted #94a3b8; }
+    .espaco-livre-box.nenhuma { border: none; }
+
     .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
     .qcard.collapsed { border-style: solid; background: #f8fafc; }
     .qhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -233,7 +250,8 @@
     .question-block { break-inside: avoid; page-break-inside: avoid; }
     .qtitle { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
     .qtitle .n { font-size: 18px; font-weight: 900; }
-    .qtitle .p { font-size: 13px; color: #64748b; }
+    .qtitle .p { font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .bncc-badge { font-size: 11px; font-weight: 700; background: #ede9fe; color: #6d28d9; border-radius: 6px; padding: 2px 7px; letter-spacing: 0.03em; }
     .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; }
     .qpreview { margin-top: 10px; font-size: 15px; overflow: hidden; }
     .spacey { display: grid; gap: 8px; }
@@ -799,6 +817,9 @@
             <button class="qtype-btn" data-type="matematica_coluna" type="button">🔢<br>Operações<br>matemáticas</button>
             <button class="qtype-btn" data-type="producao_textual" type="button">📝<br>Produção<br>textual</button>
             <button class="qtype-btn" data-type="ditado" type="button">🎵<br>Ditado/<br>palavras</button>
+            <button class="qtype-btn" data-type="ordenacao" type="button">🔀<br>Ordenação<br>de frases</button>
+            <button class="qtype-btn" data-type="problema_matematico" type="button">🧮<br>Problema<br>matemático</button>
+            <button class="qtype-btn" data-type="espaco_livre" type="button">✏️<br>Espaço<br>desenho</button>
           </div>
           <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
@@ -1056,6 +1077,9 @@
       matematica_coluna: 'Operações matemáticas',
       producao_textual: 'Produção textual',
       ditado: 'Ditado / lista de palavras',
+      ordenacao: 'Ordenação de frases',
+      problema_matematico: 'Problema matemático',
+      espaco_livre: 'Espaço de desenho',
     };
 
     const templates = {
@@ -1182,6 +1206,36 @@
         text: 'Escreva as palavras ditadas:',
         wordCount: 10,
         wordList: '',
+        points: '1,0',
+        hideNumber: false,
+      }),
+      ordenacao: () => ({
+        type: 'ordenacao',
+        text: 'Numere as frases na ordem correta:',
+        items: [
+          { text: '', order: 1 },
+          { text: '', order: 2 },
+          { text: '', order: 3 },
+          { text: '', order: 4 },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      problema_matematico: () => ({
+        type: 'problema_matematico',
+        text: '',
+        lines: 4,
+        calcLines: 6,
+        answerStyle: 'linhas',
+        points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
+      }),
+      espaco_livre: () => ({
+        type: 'espaco_livre',
+        text: '',
+        height: 120,
+        borderStyle: 'solida',
         points: '1,0',
         hideNumber: false,
       }),
@@ -1803,9 +1857,9 @@
         topRow.className = 'row three';
         topRow.appendChild(enun);
         topRow.appendChild(points);
-        const filler = document.createElement('div');
-        filler.innerHTML = `<label>&nbsp;</label><div class="small">Tipo: ${esc(typeLabel[q.type] || q.type)}</div>`;
-        topRow.appendChild(filler);
+        const bnccDiv = document.createElement('div');
+        bnccDiv.innerHTML = `<label>Habilidade / BNCC <span class="small">(opcional)</span></label><input data-k="bncc" value="${esc(q.bncc||'')}" placeholder="Ex.: EF02MA01" />`;
+        topRow.appendChild(bnccDiv);
         body.appendChild(topRow);
 
         if (q.type === 'multipla') {
@@ -2602,11 +2656,96 @@
           body.appendChild(block);
         }
 
+        if (q.type === 'ordenacao') {
+          if (!Array.isArray(q.items) || q.items.length === 0) {
+            q.items = [{ text: '', order: 1 }, { text: '', order: 2 }, { text: '', order: 3 }, { text: '', order: 4 }];
+          }
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `<label>Frases / etapas (professor define a ordem correta)</label><div class="small">O aluno escreverá os números na ordem. A ordem que você definir aqui é o gabarito.</div>`;
+          const itemsBox = document.createElement('div');
+          const renderOrdemItems = () => {
+            itemsBox.innerHTML = '';
+            q.items.forEach((item, i) => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:grid;grid-template-columns:3em 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px;';
+              row.innerHTML = `
+                <input type="number" value="${item.order||i+1}" min="1" max="20" title="Ordem correta" style="text-align:center;" />
+                <input type="text" value="${esc(item.text||'')}" placeholder="Frase ${i+1}" />
+                <button type="button" class="icon-btn" title="Mover para cima">↑</button>
+                <button type="button" class="icon-btn danger" title="Remover">✕</button>
+              `;
+              row.querySelectorAll('input')[0].addEventListener('input', e => { item.order = Number(e.target.value)||i+1; renderPreview(); });
+              row.querySelectorAll('input')[1].addEventListener('input', e => { item.text = e.target.value; renderPreview(); });
+              row.querySelectorAll('button')[0].addEventListener('click', () => { if (i > 0) { [q.items[i-1], q.items[i]] = [q.items[i], q.items[i-1]]; renderAll(); } });
+              row.querySelectorAll('button')[1].addEventListener('click', () => { if (q.items.length > 2) { q.items.splice(i, 1); renderAll(); } });
+              itemsBox.appendChild(row);
+            });
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button'; addBtn.className = 'secondary'; addBtn.textContent = '+ Adicionar frase';
+            addBtn.addEventListener('click', () => { q.items.push({ text: '', order: q.items.length + 1 }); renderAll(); });
+            itemsBox.appendChild(addBtn);
+          };
+          renderOrdemItems();
+          block.appendChild(itemsBox);
+          body.appendChild(block);
+        }
+
+        if (q.type === 'problema_matematico') {
+          if (!q.answerStyle) q.answerStyle = 'linhas';
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+              <div>
+                <label>Linhas de resposta</label>
+                <input type="number" data-k="lines" value="${q.lines||4}" min="1" max="20" />
+              </div>
+              <div>
+                <label>Linhas de cálculo</label>
+                <input type="number" data-k="calcLines" value="${q.calcLines||6}" min="1" max="20" />
+              </div>
+              <div>
+                <label>Formato de resposta</label>
+                <select data-k="answerStyle">
+                  <option value="linhas" ${q.answerStyle==='linhas'?'selected':''}>Linhas</option>
+                  <option value="caixa" ${q.answerStyle==='caixa'?'selected':''}>Caixa</option>
+                  <option value="espaco" ${q.answerStyle==='espaco'?'selected':''}>Espaço em branco</option>
+                </select>
+              </div>
+            </div>
+          `;
+          body.appendChild(block);
+        }
+
+        if (q.type === 'espaco_livre') {
+          const block = document.createElement('div');
+          block.className = 'row two';
+          block.innerHTML = `
+            <div>
+              <label>Altura do espaço (px)</label>
+              <input type="number" data-k="height" value="${q.height||120}" min="60" max="600" step="20" />
+            </div>
+            <div>
+              <label>Borda</label>
+              <select data-k="borderStyle">
+                <option value="solida" ${q.borderStyle==='solida'?'selected':''}>Sólida</option>
+                <option value="tracejada" ${q.borderStyle==='tracejada'?'selected':''}>Tracejada</option>
+                <option value="pontilhada" ${q.borderStyle==='pontilhada'?'selected':''}>Pontilhada</option>
+                <option value="nenhuma" ${q.borderStyle==='nenhuma'?'selected':''}>Sem borda</option>
+              </select>
+            </div>
+          `;
+          body.appendChild(block);
+        }
+
         body.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
-            if (key === 'lines' || key === 'wordCount') {
-              q[key] = Math.max(1, Math.min(40, Number(node.value) || (key==='lines'?5:10)));
+            if (key === 'lines' || key === 'wordCount' || key === 'calcLines') {
+              q[key] = Math.max(1, Math.min(40, Number(node.value) || (key==='lines'?5:key==='calcLines'?6:10)));
+            } else if (key === 'height') {
+              q.height = Math.max(60, Math.min(600, Number(node.value) || 120));
             } else if (key === 'imageAnswerType' || key === 'answerType') {
               q[key] = node.value;
               renderAll();
@@ -2761,6 +2900,25 @@
         ).join('');
         return `<div class="ditado-lines">${lines}</div>`;
       }
+      if (q.type === 'ordenacao') {
+        const items = Array.isArray(q.items) ? q.items : [];
+        const shuffled = [...items].sort(() => 0);
+        return `<div class="ordem-items">${shuffled.map((item) =>
+          `<div class="ordem-item"><div class="ordem-num">&nbsp;</div><span>${esc(item.text || 'Frase não preenchida.')}</span></div>`
+        ).join('')}</div>`;
+      }
+      if (q.type === 'problema_matematico') {
+        if (q.showAnswerSpace === false) return '';
+        const calcCount = Math.max(2, Math.min(20, Number(q.calcLines) || 6));
+        const calcBox = `<div class="prob-calc-box"><div class="prob-calc-label">Área de cálculo</div>${answerLines(calcCount)}</div>`;
+        const resposta = `<div style="margin-top:10px;"><div class="small" style="margin-bottom:4px;">Resposta:</div>${answerArea(q)}</div>`;
+        return `${calcBox}${resposta}`;
+      }
+      if (q.type === 'espaco_livre') {
+        const h = Math.max(60, Math.min(600, Number(q.height) || 120));
+        const border = q.borderStyle || 'solida';
+        return `<div class="espaco-livre-box ${border}" style="height:${h}px;"></div>`;
+      }
       return '';
     }
 
@@ -2810,12 +2968,13 @@
         if (!q.hideNumber) qNum++;
         const text = q.text || 'Digite o enunciado da questão.';
         const numLabel = q.hideNumber ? '' : `<div class="n">Questão ${qNum}</div>`;
+        const bnccBadge = q.bncc ? `<span class="bncc-badge no-print">${esc(q.bncc)}</span>` : '';
         const preview = renderQuestionPreview(q);
         return `
           <div class="question-block">
             <div class="qtitle">
               ${numLabel}
-              <div class="p">${q.hideNumber ? '' : `Valor: ${esc(q.points)}`}</div>
+              <div class="p">${q.hideNumber ? '' : `Valor: ${esc(q.points)}`}${bnccBadge}</div>
             </div>
             <div class="qtext">${esc(text)}</div>
             <div class="qpreview">${preview}</div>
@@ -2890,6 +3049,20 @@
           return { tipo: 'objetivo', num, ans: words.join(', ') };
         }
         return { tipo: 'discursiva', num, ans: '(ditado — corrija manualmente)' };
+      }
+      if (tipo === 'ordenacao') {
+        if (Array.isArray(q.items) && q.items.length) {
+          const ordered = [...q.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+          const ans = ordered.map((it, i) => `${i + 1}. ${it.text || '?'}`).join(' → ');
+          return { tipo: 'objetivo', num, ans };
+        }
+        return null;
+      }
+      if (tipo === 'problema_matematico') {
+        return { tipo: 'discursiva', num, ans: '(problema — corrija manualmente)' };
+      }
+      if (tipo === 'espaco_livre') {
+        return null;
       }
       return null;
     }

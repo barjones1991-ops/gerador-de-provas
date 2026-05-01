@@ -60,7 +60,9 @@
     .question-block { break-inside: avoid; page-break-inside: avoid; }
     .qtitle { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
     .qtitle .n { font-size: 18px; font-weight: 900; }
-    .qtitle .p { font-size: 13px; color: #64748b; }
+    .qtitle .p { font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .bncc-badge { font-size: 10px; font-weight: 700; background: #ede9fe; color: #6d28d9; border-radius: 5px; padding: 2px 6px; }
+    @media print { .bncc-badge { display: none; } }
     .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; }
     .qpreview { margin-top: 10px; font-size: 15px; }
     .spacey { display: grid; gap: 8px; }
@@ -125,6 +127,16 @@
     .ditado-line { display: flex; align-items: flex-end; gap: 10px; font-size: 14px; }
     .ditado-line-num { color: #94a3b8; min-width: 20px; text-align: right; }
     .ditado-line-rule { flex: 1; border-bottom: 1px solid #cbd5e1; height: 24px; }
+    .ordem-items { display: grid; gap: 8px; margin-top: 8px; }
+    .ordem-item { display: grid; grid-template-columns: 2.5em 1fr; gap: 10px; align-items: center; }
+    .ordem-num { width: 2.5em; height: 2.5em; border: 2px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .prob-calc-box { border: 1px dashed #94a3b8; border-radius: 8px; padding: 8px; margin-top: 8px; }
+    .prob-calc-label { font-size: 11px; color: #94a3b8; text-align: center; margin-bottom: 6px; }
+    .espaco-livre-box { border-radius: 8px; margin-top: 8px; }
+    .espaco-livre-box.solida { border: 1px solid #cbd5e1; }
+    .espaco-livre-box.tracejada { border: 1px dashed #94a3b8; }
+    .espaco-livre-box.pontilhada { border: 1px dotted #94a3b8; }
+    .espaco-livre-box.nenhuma { border: none; }
     .message { text-align: center; padding: 80px 20px; color: #64748b; }
     .message h1 { color: #0f172a; font-size: 22px; margin: 0 0 8px; }
     .answer-key {
@@ -428,6 +440,23 @@
         ).join('');
         return `<div class="ditado-lines">${lines}</div>`;
       }
+      if (q.type === 'ordenacao') {
+        const items = Array.isArray(q.items) ? q.items : [];
+        return `<div class="ordem-items">${items.map((item) =>
+          `<div class="ordem-item"><div class="ordem-num">&nbsp;</div><span>${esc(item.text || 'Frase não preenchida.')}</span></div>`
+        ).join('')}</div>`;
+      }
+      if (q.type === 'problema_matematico') {
+        const calcCount = Math.max(2, Math.min(20, Number(q.calcLines) || 6));
+        const calcBox = `<div class="prob-calc-box"><div class="prob-calc-label">Área de cálculo</div>${answerLines(calcCount)}</div>`;
+        const resposta = `<div style="margin-top:10px;"><div style="font-size:12px;color:#64748b;margin-bottom:4px;">Resposta:</div>${answerArea(q)}</div>`;
+        return `${calcBox}${resposta}`;
+      }
+      if (q.type === 'espaco_livre') {
+        const h = Math.max(60, Math.min(600, Number(q.height) || 120));
+        const border = q.borderStyle || 'solida';
+        return `<div class="espaco-livre-box ${border}" style="height:${h}px;"></div>`;
+      }
       return '';
     }
 
@@ -480,6 +509,10 @@
       }
       if (q.type === 'ditado' && q.wordList && q.wordList.trim()) {
         return q.wordList.split('\n').map(w => w.trim()).filter(Boolean).join(', ');
+      }
+      if (q.type === 'ordenacao' && Array.isArray(q.items) && q.items.length) {
+        const ordered = [...q.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+        return ordered.map((it, i) => `${i + 1}. ${it.text || '?'}`).join(' → ');
       }
       return '';
     }
@@ -563,7 +596,7 @@
             <div class="question-block">
               <div class="qtitle">
                 <div class="n">Questão ${i + 1}</div>
-                <div class="p">Valor: ${esc(q.points)}</div>
+                <div class="p">Valor: ${esc(q.points)}${q.bncc ? ` <span class="bncc-badge">${esc(q.bncc)}</span>` : ''}</div>
               </div>
               <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>
               <div class="qpreview">${renderQuestionPreview(q)}</div>

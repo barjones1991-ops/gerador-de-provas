@@ -15,6 +15,13 @@ const questionTypes = [
   'relacione',
   'imagem',
   'relacione_imagens',
+  'texto_base',
+  'matematica_coluna',
+  'producao_textual',
+  'ditado',
+  'ordenacao',
+  'problema_matematico',
+  'espaco_livre',
 ];
 
 let failures = 0;
