@@ -186,7 +186,10 @@
 
     .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
     .qcard.collapsed { border-style: solid; background: #f8fafc; }
-    .qhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .qhead { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .qhead-left { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+    .qhead-left-name { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+    .qhead-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 0 0 auto; }
     .qtype { font-size: 13px; color: var(--muted); }
     .small { font-size: 12px; color: var(--muted); }
     .visually-hidden {
@@ -531,16 +534,12 @@
         grid-template-columns: 1fr;
         width: 100%;
       }
-      .qhead {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-      .qhead > div:last-child {
+      .qhead-actions {
         width: 100%;
         display: grid !important;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
-      .qhead button {
+      .qhead-actions button {
         width: 100%;
         min-height: 36px;
       }
@@ -1731,17 +1730,16 @@
 
         const head = document.createElement('div');
         head.className = 'qhead';
-        head.innerHTML = `
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span style="background:var(--btn); color:white; border-radius:8px; padding:2px 9px; font-size:13px; font-weight:800;">${idx + 1}</span>
-            <div>
-              <div style="font-weight:800; font-size:14px;">${esc(typeLabel[q.type] || q.type)}</div>
-            </div>
-          </div>
+        const headLeft = document.createElement('div');
+        headLeft.className = 'qhead-left';
+        headLeft.innerHTML = `
+          <span style="background:var(--btn); color:white; border-radius:8px; padding:2px 9px; font-size:13px; font-weight:800; flex-shrink:0;">${idx + 1}</span>
+          <span class="qhead-left-name" title="${esc(typeLabel[q.type] || q.type)}">${esc(typeLabel[q.type] || q.type)}</span>
         `;
+        head.appendChild(headLeft);
 
         const actions = document.createElement('div');
-        actions.style.cssText = 'display:flex; gap:4px; align-items:center;';
+        actions.className = 'qhead-actions';
 
         const collapseBtn = document.createElement('button');
         collapseBtn.type = 'button';
@@ -1802,22 +1800,26 @@
         hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? ' active' : '');
         hideNumBtn.title = 'Ocultar/mostrar número da questão';
         hideNumBtn.style.cssText = 'padding:5px 9px; font-size:11px;';
-        hideNumBtn.textContent = q.hideNumber ? 'Nº oculto' : 'Nº visível';
+        hideNumBtn.textContent = q.hideNumber ? 'Nº ✗' : 'Nº ✓';
         hideNumBtn.addEventListener('click', () => {
           q.hideNumber = !q.hideNumber;
+          hideNumBtn.textContent = q.hideNumber ? 'Nº ✗' : 'Nº ✓';
+          hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? '' : ' active');
           renderAll();
         });
 
-        const hasAnswerSpace = q.type === 'discursiva' || q.type === 'imagem';
+        const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'producao_textual', 'problema_matematico'].includes(q.type);
         const showSpaceBtn = document.createElement('button');
         showSpaceBtn.type = 'button';
         showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
         showSpaceBtn.title = 'Mostrar/ocultar espaço de resposta na impressão';
         showSpaceBtn.style.cssText = 'padding:5px 9px; font-size:11px;';
-        showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Resp. visível' : 'Sem resposta';
+        showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Resp. ✓' : 'Resp. ✗';
         showSpaceBtn.style.display = hasAnswerSpace ? '' : 'none';
         showSpaceBtn.addEventListener('click', () => {
           q.showAnswerSpace = !(q.showAnswerSpace !== false);
+          showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Resp. ✓' : 'Resp. ✗';
+          showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
           renderAll();
         });
 
