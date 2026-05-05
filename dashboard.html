@@ -237,6 +237,7 @@
     </div>
     <div class="avatar" id="userAvatar">P</div>
     <a class="btn-profile btn-coordination" id="coordinationLink" href="coordenacao.html">Coordenação</a>
+    <a class="btn-profile btn-coordination" id="schoolsLink" href="schools.html" style="display:none;">Escolas</a>
     <button class="btn-profile" id="profileBtn">Perfil</button>
     <button class="btn-logout" id="logoutBtn">Sair</button>
   </div>
@@ -275,7 +276,7 @@
   <div class="controls">
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="Buscar por título ou disciplina..." />
+      <input type="text" id="searchInput" placeholder="Buscar por título, disciplina ou turma..." />
     </div>
     <div class="filters">
       <button class="filter-btn active" data-filter="all">Todas</button>
@@ -284,6 +285,25 @@
     </div>
     <select class="select-control" id="subjectFilter" aria-label="Filtrar por disciplina">
       <option value="">Todas as disciplinas</option>
+    </select>
+    <select class="select-control" id="termFilter" aria-label="Filtrar por bimestre">
+      <option value="">Todos os bimestres</option>
+      <option value="1º Bimestre">1º Bimestre</option>
+      <option value="2º Bimestre">2º Bimestre</option>
+      <option value="3º Bimestre">3º Bimestre</option>
+      <option value="4º Bimestre">4º Bimestre</option>
+      <option value="1º Semestre">1º Semestre</option>
+      <option value="2º Semestre">2º Semestre</option>
+      <option value="Anual">Anual</option>
+    </select>
+    <select class="select-control" id="reviewStatusFilter" aria-label="Filtrar por status de revisão">
+      <option value="">Todos os status</option>
+      <option value="rascunho">Rascunho</option>
+      <option value="enviada">Enviada para coordenação</option>
+      <option value="em_revisao">Em revisão</option>
+      <option value="aprovada">Aprovada</option>
+      <option value="devolvida">Devolvida para ajustes</option>
+      <option value="bloqueada">Bloqueada</option>
     </select>
     <select class="select-control" id="sortSelect" aria-label="Ordenar provas">
       <option value="created_desc">Mais recentes</option>
@@ -347,6 +367,8 @@
   let currentProfile = { full_name: '', school_name: '' };
   let currentFilter = 'all';
   let currentSubject = '';
+  let currentTerm = '';
+  let currentReviewStatus = '';
   let currentSort = 'created_desc';
   let pendingDeleteId = null;
 
@@ -386,6 +408,14 @@
       currentSubject = e.target.value;
       renderExams();
     });
+    document.getElementById('termFilter').addEventListener('change', (e) => {
+      currentTerm = e.target.value;
+      renderExams();
+    });
+    document.getElementById('reviewStatusFilter').addEventListener('change', (e) => {
+      currentReviewStatus = e.target.value;
+      renderExams();
+    });
     document.getElementById('sortSelect').addEventListener('change', (e) => {
       currentSort = e.target.value;
       renderExams();
@@ -414,6 +444,8 @@
   function applyRoleActions() {
     const canCoordinate = ['coordenadora', 'admin'].includes(currentProfile.role);
     document.getElementById('coordinationLink').classList.toggle('show', canCoordinate);
+    const schoolsLink = document.getElementById('schoolsLink');
+    if (schoolsLink) schoolsLink.style.display = canCoordinate ? 'inline-flex' : 'none';
   }
 
   async function loadExams() {
@@ -440,10 +472,13 @@
     if (currentFilter === 'draft') filtered = exams.filter(e => e.is_draft);
     else if (currentFilter === 'published') filtered = exams.filter(e => e.is_published);
     if (currentSubject) filtered = filtered.filter(e => (e.subject || '') === currentSubject);
+    if (currentTerm) filtered = filtered.filter(e => (e.term || '') === currentTerm);
+    if (currentReviewStatus) filtered = filtered.filter(e => (e.review_status || 'rascunho') === currentReviewStatus);
     if (search) filtered = filtered.filter(e =>
       (e.title || '').toLowerCase().includes(search) ||
       (e.subject || '').toLowerCase().includes(search) ||
-      (e.class_name || '').toLowerCase().includes(search)
+      (e.class_name || '').toLowerCase().includes(search) ||
+      (e.teacher || '').toLowerCase().includes(search)
     );
     filtered = sortExams(filtered);
 
@@ -452,13 +487,14 @@
     document.getElementById('statDraft').textContent = exams.filter(e => e.is_draft).length;
     document.getElementById('statPublished').textContent = exams.filter(e => e.is_published).length;
 
+    const hasFilters = search || currentSubject || currentTerm || currentReviewStatus || currentFilter !== 'all';
     if (filtered.length === 0) {
       grid.innerHTML = `
           <div class="empty">
-            <div class="empty-icon">${search ? '🔍' : '📄'}</div>
-          <h2>${search || currentSubject || currentFilter !== 'all' ? 'Nenhuma prova encontrada' : 'Nenhuma prova ainda'}</h2>
-          <p>${search || currentSubject || currentFilter !== 'all' ? 'Ajuste a busca ou os filtros para ver mais provas.' : 'Crie sua primeira prova clicando no botão acima.'}</p>
-          ${!search && !currentSubject && currentFilter === 'all' ? `<button class="btn-new" onclick="newExam()">＋ Nova Prova</button>` : ''}
+            <div class="empty-icon">${hasFilters ? '🔍' : '📄'}</div>
+          <h2>${hasFilters ? 'Nenhuma prova encontrada' : 'Nenhuma prova ainda'}</h2>
+          <p>${hasFilters ? 'Ajuste a busca ou os filtros para ver mais provas.' : 'Crie sua primeira prova clicando no botão acima.'}</p>
+          ${!hasFilters ? `<button class="btn-new" onclick="newExam()">＋ Nova Prova</button>` : ''}
         </div>`;
       return;
     }

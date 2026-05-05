@@ -212,6 +212,69 @@
     .silabas-grid { display: grid; gap: 12px; margin-top: 8px; }
     .silaba-item { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; align-items: center; font-size: 15px; }
     .silaba-word { font-weight: 800; letter-spacing: 0.08em; }
+    .word-search-grid {
+      display: inline-grid;
+      gap: 2px;
+      margin: 10px 0;
+      border: 1px solid #cbd5e1;
+      padding: 6px;
+      background: #fff;
+    }
+    .word-search-cell {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #e2e8f0;
+      font-weight: 800;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .word-search-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .crossword-layout { display: grid; gap: 12px; }
+    .crossword-grid {
+      display: inline-grid;
+      gap: 2px;
+      padding: 6px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      width: max-content;
+      max-width: 100%;
+      overflow: auto;
+    }
+    .crossword-cell {
+      width: 24px;
+      height: 24px;
+      border: 1px solid #94a3b8;
+      background: #fff;
+      display: grid;
+      place-items: start;
+      position: relative;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 2px;
+    }
+    .crossword-cell.empty {
+      border-color: transparent;
+      background: transparent;
+    }
+    .crossword-clues {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 18px;
+      font-size: 13px;
+    }
+    .crossword-clues h4 {
+      margin: 0 0 6px;
+      font-size: 13px;
+    }
     .silaba-blank { border-bottom: 2px dashed #94a3b8; height: 24px; }
 
     /* Sequência de imagens */
@@ -231,6 +294,27 @@
     .legenda-item { text-align: center; }
     .legenda-item img { max-width: 100%; max-height: 100px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; }
     .legenda-line { border-bottom: 1px solid #334155; height: 24px; margin-top: 6px; }
+
+    /* Grade de imagens */
+    .grade-img-grid { display: grid; gap: 12px; margin-top: 8px; }
+    .grade-img-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grade-img-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grade-img-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grade-img-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; text-align: center; break-inside: avoid; }
+    .grade-img-card img { width: 100%; height: 110px; object-fit: contain; border-radius: 6px; display: block; }
+    .grade-img-placeholder { height: 110px; border-radius: 6px; background: #f1f5f9; color: #94a3b8; display: grid; place-items: center; font-size: 12px; }
+    .grade-img-caption { font-size: 12px; color: #334155; font-weight: 700; margin-top: 6px; }
+    .grade-img-line { border-bottom: 1px solid #334155; height: 24px; margin-top: 8px; }
+
+    /* Identificar partes da imagem */
+    .identify-image-wrap { position: relative; margin-top: 8px; display: inline-block; max-width: 100%; }
+    .identify-image-wrap img { max-width: 100%; max-height: 360px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; display: block; }
+    .identify-image-placeholder { width: min(100%, 520px); height: 260px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; color: #94a3b8; display: grid; place-items: center; }
+    .identify-marker { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #0f172a; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(15,23,42,.28); display: grid; place-items: center; font-size: 12px; font-weight: 900; transform: translate(-50%, -50%); }
+    .identify-answer-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-top: 10px; }
+    .identify-answer-item { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: end; font-size: 13px; }
+    .identify-answer-num { width: 24px; height: 24px; border-radius: 50%; background: #0f172a; color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 12px; }
+    .identify-answer-line { border-bottom: 1px solid #334155; height: 24px; }
 
     /* Associação imagem-imagem */
     .assoc-img-section { margin-top: 8px; }
@@ -709,6 +793,16 @@
       letter-spacing: 0.08em;
     }
 
+    /* Seções do painel de propriedades da questão */
+    .prop-sec {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.14em; color: #94a3b8; margin: 10px 0 0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .prop-sec::before, .prop-sec::after {
+      content: ''; flex: 1; height: 1px; background: #e2e8f0;
+    }
+
     /* Toggle de espaço de resposta / número */
     .q-toggles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .q-toggle-btn {
@@ -866,6 +960,7 @@
             <button class="qtype-btn" data-type="lacunas" type="button">___<br>Complete<br>lacunas</button>
             <button class="qtype-btn" data-type="relacione" type="button">↔<br>Relacione<br>colunas</button>
             <button class="qtype-btn" data-type="imagem" type="button">🖼️<br>Imagem</button>
+            <button class="qtype-btn" data-type="interpretacao_imagem" type="button">🖼️?<br>Interpreta-<br>ção imagem</button>
             <button class="qtype-btn" data-type="relacione_imagens" type="button">🖼️↔<br>Img+<br>Palavra</button>
             <button class="qtype-btn" data-type="texto_base" type="button">📖<br>Interpreta-<br>ção texto</button>
             <button class="qtype-btn" data-type="matematica_coluna" type="button">🔢<br>Operações<br>matemáticas</button>
@@ -883,6 +978,10 @@
             <button class="qtype-btn" data-type="comparar_imagens" type="button">🖼️🖼️<br>Comparar<br>imagens</button>
             <button class="qtype-btn" data-type="legenda_imagens" type="button">🏷️<br>Legenda<br>imagens</button>
             <button class="qtype-btn" data-type="associacao_imagem_imagem" type="button">🖼️↔🖼️<br>Img↔Img</button>
+            <button class="qtype-btn" data-type="grade_imagens" type="button">▦🖼️<br>Grade<br>imagens</button>
+            <button class="qtype-btn" data-type="identificar_imagem" type="button">①🖼️<br>Partes<br>imagem</button>
+            <button class="qtype-btn" data-type="caca_palavras" type="button">🔎<br>Caça-<br>palavras</button>
+            <button class="qtype-btn" data-type="cruzadinha" type="button">▦<br>Cruza-<br>dinha</button>
           </div>
           <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
@@ -1124,6 +1223,162 @@
         .filter(Boolean)
         .join('; ');
     }
+    function normalizePuzzleWord(word) {
+      return String(word || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z]/g, '')
+        .toUpperCase();
+    }
+    function puzzleWordsFromText(text) {
+      return String(text || '')
+        .split(/[\n,;]+/)
+        .map((word) => word.trim())
+        .filter(Boolean);
+    }
+    function buildWordSearch(words, size = 12) {
+      const cleanWords = words.map(normalizePuzzleWord).filter(Boolean);
+      const gridSize = Math.max(8, Math.min(18, Number(size) || 12));
+      const grid = Array.from({ length: gridSize }, () => Array.from({ length: gridSize }, () => ''));
+      const placements = [];
+      const directions = [
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+        { dr: 1, dc: 1 },
+      ];
+      cleanWords.forEach((word, wi) => {
+        const trimmed = word.slice(0, gridSize);
+        let placed = false;
+        for (let attempt = 0; attempt < gridSize * gridSize && !placed; attempt += 1) {
+          const dir = directions[(attempt + wi) % directions.length];
+          const row = (attempt * 3 + wi * 5) % gridSize;
+          const col = (attempt * 7 + wi * 2) % gridSize;
+          const endRow = row + dir.dr * (trimmed.length - 1);
+          const endCol = col + dir.dc * (trimmed.length - 1);
+          if (endRow >= gridSize || endCol >= gridSize) continue;
+          let fits = true;
+          for (let i = 0; i < trimmed.length; i += 1) {
+            const cell = grid[row + dir.dr * i][col + dir.dc * i];
+            if (cell && cell !== trimmed[i]) fits = false;
+          }
+          if (!fits) continue;
+          for (let i = 0; i < trimmed.length; i += 1) {
+            grid[row + dir.dr * i][col + dir.dc * i] = trimmed[i];
+          }
+          placements.push(`${word}: linha ${row + 1}, coluna ${col + 1}`);
+          placed = true;
+        }
+      });
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let r = 0; r < gridSize; r += 1) {
+        for (let c = 0; c < gridSize; c += 1) {
+          if (!grid[r][c]) grid[r][c] = letters[(r * 7 + c * 11) % letters.length];
+        }
+      }
+      return { grid, placements };
+    }
+    function renderWordSearch(q) {
+      const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
+      const built = buildWordSearch(words, q.gridSize || 12);
+      const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
+      const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
+      return `<div><div class="word-search-grid" style="grid-template-columns: repeat(${built.grid.length}, 24px);">${grid}</div><div class="word-search-list">${list}</div></div>`;
+    }
+    function buildCrossword(clues, seed = 0) {
+      const words = (Array.isArray(clues) ? clues : [])
+        .map((item, index) => ({
+          clue: item.clue || `Pista ${index + 1}`,
+          answer: normalizePuzzleWord(item.answer || ''),
+          originalIndex: index,
+        }))
+        .filter((item) => item.answer);
+      if (!words.length) return { grid: [['']], placed: [] };
+      const orderedWords = [...words].sort((a, b) => {
+        const scoreA = ((a.originalIndex + 1) * 17 + Number(seed || 0) * 31) % Math.max(1, words.length);
+        const scoreB = ((b.originalIndex + 1) * 17 + Number(seed || 0) * 31) % Math.max(1, words.length);
+        if (scoreA !== scoreB) return scoreA - scoreB;
+        return b.answer.length - a.answer.length;
+      });
+
+      const placed = [];
+      const occupied = new Map();
+      const key = (r, c) => `${r},${c}`;
+      const canPlace = (word, row, col, dir) => {
+        for (let i = 0; i < word.answer.length; i += 1) {
+          const r = row + (dir === 'V' ? i : 0);
+          const c = col + (dir === 'H' ? i : 0);
+          const cell = occupied.get(key(r, c));
+          if (cell && cell !== word.answer[i]) return false;
+        }
+        return true;
+      };
+      const putWord = (word, row, col, dir) => {
+        const number = placed.length + 1;
+        for (let i = 0; i < word.answer.length; i += 1) {
+          const r = row + (dir === 'V' ? i : 0);
+          const c = col + (dir === 'H' ? i : 0);
+          occupied.set(key(r, c), word.answer[i]);
+        }
+        placed.push({ ...word, row, col, dir, number });
+      };
+
+      putWord(orderedWords[0], 0, 0, Number(seed || 0) % 2 === 0 ? 'H' : 'V');
+      for (let wi = 1; wi < orderedWords.length; wi += 1) {
+        const word = orderedWords[wi];
+        let done = false;
+        const bases = Number(seed || 0) % 2 === 0 ? placed : [...placed].reverse();
+        for (const base of bases) {
+          for (let bi = 0; bi < base.answer.length && !done; bi += 1) {
+            for (let wiLetter = 0; wiLetter < word.answer.length && !done; wiLetter += 1) {
+              if (base.answer[bi] !== word.answer[wiLetter]) continue;
+              const dir = base.dir === 'H' ? 'V' : 'H';
+              const crossRow = base.row + (base.dir === 'V' ? bi : 0);
+              const crossCol = base.col + (base.dir === 'H' ? bi : 0);
+              const row = crossRow - (dir === 'V' ? wiLetter : 0);
+              const col = crossCol - (dir === 'H' ? wiLetter : 0);
+              if (canPlace(word, row, col, dir)) {
+                putWord(word, row, col, dir);
+                done = true;
+              }
+            }
+          }
+        }
+        if (!done) {
+          const minRow = Math.min(...placed.map((p) => p.row));
+          const maxCol = Math.max(...placed.map((p) => p.col + (p.dir === 'H' ? p.answer.length : 1)));
+          putWord(word, minRow + wi * 2, maxCol + 2, wi % 2 === 0 ? 'H' : 'V');
+        }
+      }
+
+      const rows = [...occupied.keys()].map((pos) => Number(pos.split(',')[0]));
+      const cols = [...occupied.keys()].map((pos) => Number(pos.split(',')[1]));
+      const minR = Math.min(...rows);
+      const maxR = Math.max(...rows);
+      const minC = Math.min(...cols);
+      const maxC = Math.max(...cols);
+      const grid = Array.from({ length: maxR - minR + 1 }, () => Array.from({ length: maxC - minC + 1 }, () => ''));
+      occupied.forEach((letter, pos) => {
+        const [r, c] = pos.split(',').map(Number);
+        grid[r - minR][c - minC] = letter;
+      });
+      placed.forEach((item) => {
+        item.row -= minR;
+        item.col -= minC;
+      });
+      return { grid, placed };
+    }
+    function renderCrossword(q) {
+      const built = buildCrossword(q.clues || [], q.crosswordSeed || 0);
+      const starts = new Map(built.placed.map((item) => [`${item.row},${item.col}`, item.number]));
+      const cells = built.grid.map((row, r) => row.map((letter, c) => {
+        if (!letter) return '<div class="crossword-cell empty"></div>';
+        const number = starts.get(`${r},${c}`) || '';
+        return `<div class="crossword-cell">${number}</div>`;
+      }).join('')).join('');
+      const across = built.placed.filter((item) => item.dir === 'H').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
+      const down = built.placed.filter((item) => item.dir === 'V').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
+      return `<div class="crossword-layout"><div class="crossword-grid" style="grid-template-columns: repeat(${built.grid[0].length}, 24px);">${cells}</div><div class="crossword-clues"><div><h4>Horizontais</h4>${across || '<span class="small">Nenhuma.</span>'}</div><div><h4>Verticais</h4>${down || '<span class="small">Nenhuma.</span>'}</div></div></div>`;
+    }
     const STORAGE_KEY_BASE = 'gerador-provas-state-v1';
     let activeStorageKey = STORAGE_KEY_BASE;
 
@@ -1135,6 +1390,7 @@
       lacunas: 'Complete as lacunas',
       relacione: 'Relacione as colunas',
       imagem: 'De acordo com a imagem',
+      interpretacao_imagem: 'Interpretação de imagem',
       relacione_imagens: 'Relacione imagens e palavras',
       texto_base: 'Interpretação de texto',
       matematica_coluna: 'Operações matemáticas',
@@ -1152,6 +1408,10 @@
       comparar_imagens: 'Comparar duas imagens',
       legenda_imagens: 'Legenda das imagens',
       associacao_imagem_imagem: 'Associe imagem a imagem',
+      grade_imagens: 'Grade de imagens',
+      identificar_imagem: 'Identificar partes da imagem',
+      caca_palavras: 'Caça-palavras',
+      cruzadinha: 'Cruzadinha',
     };
 
     const templates = {
@@ -1212,6 +1472,7 @@
         imageSize: 'medium',
         imageAlign: 'center',
         imageCaption: '',
+        extraImages: [],
         imageAnswerType: 'discursiva',
         lines: 5,
         answerStyle: 'linhas',
@@ -1222,6 +1483,24 @@
           { text: '', checked: false },
           { text: '', checked: false },
         ],
+        points: '1,0',
+        hideNumber: false,
+        showAnswerSpace: true,
+      }),
+      interpretacao_imagem: () => ({
+        type: 'interpretacao_imagem',
+        text: 'Observe a imagem e responda às questões:',
+        imageDataUrl: '',
+        imageFileName: '',
+        imageSize: 'large',
+        imageAlign: 'center',
+        imageCaption: '',
+        prompts: [
+          'O que está acontecendo na imagem?',
+          'Quais elementos da imagem ajudam a entender a cena?',
+        ],
+        lines: 3,
+        answerStyle: 'linhas',
         points: '1,0',
         hideNumber: false,
         showAnswerSpace: true,
@@ -1421,6 +1700,58 @@
           { imageDataUrl: null, imageFileName: '', caption: 'Mãe C' },
         ],
         rightOrder: [1, 2, 0],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      grade_imagens: () => ({
+        type: 'grade_imagens',
+        text: 'Observe as imagens e responda conforme a orientação da professora:',
+        columns: 3,
+        showCaptions: true,
+        showAnswerLines: true,
+        items: [
+          { imageDataUrl: null, imageFileName: '', caption: 'Imagem 1', answer: '' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Imagem 2', answer: '' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Imagem 3', answer: '' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Imagem 4', answer: '' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Imagem 5', answer: '' },
+          { imageDataUrl: null, imageFileName: '', caption: 'Imagem 6', answer: '' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      identificar_imagem: () => ({
+        type: 'identificar_imagem',
+        text: 'Observe a imagem e escreva o nome das partes indicadas pelos números:',
+        imageDataUrl: '',
+        imageFileName: '',
+        imageCaption: '',
+        showAnswerList: true,
+        markers: [
+          { x: 25, y: 35, label: 'Parte 1', answer: '' },
+          { x: 55, y: 45, label: 'Parte 2', answer: '' },
+          { x: 75, y: 65, label: 'Parte 3', answer: '' },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      caca_palavras: () => ({
+        type: 'caca_palavras',
+        text: 'Encontre no caça-palavras as palavras abaixo:',
+        wordsText: 'ESCOLA\nLIVRO\nPROFESSOR\nCADERNO\nALUNO',
+        gridSize: 12,
+        points: '1,0',
+        hideNumber: false,
+      }),
+      cruzadinha: () => ({
+        type: 'cruzadinha',
+        text: 'Complete a cruzadinha de acordo com as pistas:',
+        crosswordSeed: 0,
+        clues: [
+          { clue: 'Lugar onde estudamos.', answer: 'ESCOLA' },
+          { clue: 'Objeto usado para escrever.', answer: 'LAPIS' },
+          { clue: 'Pessoa que ensina.', answer: 'PROFESSOR' },
+        ],
         points: '1,0',
         hideNumber: false,
       }),
@@ -2041,15 +2372,21 @@
           <input data-k="points" value="${esc(q.points)}" />
         `;
 
-        body.appendChild(enun);
-
         const metaRow = document.createElement('div');
         metaRow.className = 'row two';
         metaRow.appendChild(points);
         const bnccDiv = document.createElement('div');
         bnccDiv.innerHTML = `<label>Habilidade / BNCC <span class="small">(opcional)</span></label><input data-k="bncc" value="${esc(q.bncc||'')}" placeholder="Ex.: EF02MA01" />`;
         metaRow.appendChild(bnccDiv);
-        body.appendChild(metaRow);
+
+        const secEnun = document.createElement('div');
+        secEnun.className = 'prop-sec'; secEnun.textContent = 'Enunciado';
+        body.appendChild(secEnun);
+        body.appendChild(enun);
+
+        const secContent = document.createElement('div');
+        secContent.className = 'prop-sec'; secContent.textContent = 'Conteúdo';
+        body.appendChild(secContent);
 
         if (q.type === 'multipla') {
           if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', ''];
@@ -2400,6 +2737,155 @@
             box.appendChild(addItem);
             block.appendChild(box);
           }
+
+          if (!Array.isArray(q.extraImages)) q.extraImages = [];
+          const extraBlock = document.createElement('div');
+          extraBlock.className = 'row';
+          const renderExtraImages = () => {
+            extraBlock.innerHTML = '<label>Imagens adicionais <span class="small">(até 2 extras)</span></label>';
+            q.extraImages.forEach((ei, ei_idx) => {
+              const eWrap = document.createElement('div');
+              eWrap.style.cssText = 'border:1px dashed #e2e8f0;border-radius:12px;padding:10px;';
+              eWrap.innerHTML = `<div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px;">Imagem extra ${ei_idx + 1}</div>`;
+              eWrap.appendChild(createImagePicker({
+                getImage: () => ({ dataUrl: ei.dataUrl || '', fileName: ei.fileName || '' }),
+                setImage: (d, f) => { q.extraImages[ei_idx].dataUrl = d; q.extraImages[ei_idx].fileName = f; renderPreview(); },
+                clearImage: () => { q.extraImages[ei_idx].dataUrl = ''; q.extraImages[ei_idx].fileName = ''; renderPreview(); },
+              }));
+              const eiLayout = document.createElement('div');
+              eiLayout.className = 'row three';
+              eiLayout.innerHTML = `
+                <div><label>Tamanho</label><select data-ei-size="${ei_idx}"><option value="small" ${ei.size==='small'?'selected':''}>Pequena</option><option value="medium" ${ei.size==='medium'||!ei.size?'selected':''}>Média</option><option value="large" ${ei.size==='large'?'selected':''}>Grande</option><option value="full" ${ei.size==='full'?'selected':''}>Total</option></select></div>
+                <div><label>Alinhamento</label><select data-ei-align="${ei_idx}"><option value="left" ${ei.align==='left'?'selected':''}>Esquerda</option><option value="center" ${ei.align==='center'||!ei.align?'selected':''}>Centro</option><option value="right" ${ei.align==='right'?'selected':''}>Direita</option></select></div>
+                <div><label>Legenda</label><input data-ei-caption="${ei_idx}" value="${esc(ei.caption||'')}" placeholder="Legenda" /></div>
+              `;
+              eiLayout.querySelectorAll('[data-ei-size]').forEach(s => s.addEventListener('change', () => { q.extraImages[ei_idx].size = s.value; renderPreview(); }));
+              eiLayout.querySelectorAll('[data-ei-align]').forEach(s => s.addEventListener('change', () => { q.extraImages[ei_idx].align = s.value; renderPreview(); }));
+              eiLayout.querySelectorAll('[data-ei-caption]').forEach(s => s.addEventListener('input', () => { q.extraImages[ei_idx].caption = s.value; renderPreview(); }));
+              eWrap.appendChild(eiLayout);
+              const rmEiBtn = document.createElement('button');
+              rmEiBtn.type = 'button'; rmEiBtn.className = 'danger'; rmEiBtn.textContent = '✕ Remover imagem extra';
+              rmEiBtn.style.cssText = 'font-size:12px;padding:6px 10px;margin-top:8px;';
+              rmEiBtn.addEventListener('click', () => { q.extraImages.splice(ei_idx, 1); renderExtraImages(); renderPreview(); });
+              eWrap.appendChild(rmEiBtn);
+              extraBlock.appendChild(eWrap);
+            });
+            if (q.extraImages.length < 2) {
+              const addEiBtn = document.createElement('button');
+              addEiBtn.type = 'button'; addEiBtn.className = 'outline';
+              addEiBtn.textContent = '＋ Adicionar imagem extra';
+              addEiBtn.style.cssText = 'font-size:12px;padding:7px 12px;';
+              addEiBtn.addEventListener('click', () => { q.extraImages.push({ dataUrl: '', fileName: '', size: 'medium', align: 'center', caption: '' }); renderExtraImages(); renderPreview(); });
+              extraBlock.appendChild(addEiBtn);
+            }
+          };
+          renderExtraImages();
+          block.appendChild(extraBlock);
+          body.appendChild(block);
+        }
+
+        if (q.type === 'interpretacao_imagem') {
+          if (!Array.isArray(q.prompts) || !q.prompts.length) q.prompts = [''];
+          if (!q.imageSize) q.imageSize = 'large';
+          if (!q.imageAlign) q.imageAlign = 'center';
+          if (typeof q.imageCaption !== 'string') q.imageCaption = '';
+          if (!q.answerStyle) q.answerStyle = 'linhas';
+          const block = document.createElement('div');
+          block.className = 'row';
+          block.innerHTML = '<label>Imagem para interpretação</label>';
+          block.appendChild(createImagePicker({
+            getImage: () => ({ dataUrl: q.imageDataUrl || '', fileName: q.imageFileName || '' }),
+            setImage: (dataUrl, fileName) => {
+              q.imageDataUrl = dataUrl;
+              q.imageFileName = fileName;
+            },
+            clearImage: () => {
+              q.imageDataUrl = '';
+              q.imageFileName = '';
+            },
+          }));
+          const imgOpts = document.createElement('div');
+          imgOpts.className = 'row three';
+          imgOpts.innerHTML = `
+            <div>
+              <label>Tamanho da imagem</label>
+              <select data-k="imageSize">
+                <option value="small" ${q.imageSize === 'small' ? 'selected' : ''}>Pequena</option>
+                <option value="medium" ${q.imageSize === 'medium' ? 'selected' : ''}>Média</option>
+                <option value="large" ${q.imageSize === 'large' ? 'selected' : ''}>Grande</option>
+                <option value="full" ${q.imageSize === 'full' ? 'selected' : ''}>Largura total</option>
+              </select>
+            </div>
+            <div>
+              <label>Alinhamento</label>
+              <select data-k="imageAlign">
+                <option value="left" ${q.imageAlign === 'left' ? 'selected' : ''}>Esquerda</option>
+                <option value="center" ${q.imageAlign === 'center' ? 'selected' : ''}>Centro</option>
+                <option value="right" ${q.imageAlign === 'right' ? 'selected' : ''}>Direita</option>
+              </select>
+            </div>
+            <div>
+              <label>Legenda</label>
+              <input data-k="imageCaption" value="${esc(q.imageCaption)}" placeholder="Ex.: Figura 1" />
+            </div>
+          `;
+          block.appendChild(imgOpts);
+
+          const ansOpts = document.createElement('div');
+          ansOpts.className = 'row two';
+          ansOpts.innerHTML = `
+            <div>
+              <label>Linhas por pergunta</label>
+              <input type="number" data-k="lines" value="${q.lines || 3}" min="1" max="12" />
+            </div>
+            <div>
+              <label>Formato da resposta</label>
+              <select data-k="answerStyle">
+                <option value="linhas" ${q.answerStyle === 'linhas' ? 'selected' : ''}>Linhas pautadas</option>
+                <option value="caixa" ${q.answerStyle === 'caixa' ? 'selected' : ''}>Caixa de resposta</option>
+                <option value="espaco" ${q.answerStyle === 'espaco' ? 'selected' : ''}>Espaço em branco</option>
+              </select>
+            </div>
+          `;
+          block.appendChild(ansOpts);
+
+          const promptsBox = document.createElement('div');
+          promptsBox.className = 'row';
+          promptsBox.innerHTML = '<label>Perguntas sobre a imagem</label>';
+          q.prompts.forEach((prompt, pi) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:6px;';
+            const input = document.createElement('input');
+            input.value = prompt || '';
+            input.placeholder = `Pergunta ${pi + 1}`;
+            input.addEventListener('input', () => {
+              q.prompts[pi] = input.value;
+              renderPreview();
+            });
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = '×';
+            remove.style.cssText = 'padding:5px 8px;font-size:12px;';
+            remove.disabled = q.prompts.length <= 1;
+            remove.addEventListener('click', () => {
+              q.prompts.splice(pi, 1);
+              renderAll();
+            });
+            row.appendChild(input);
+            row.appendChild(remove);
+            promptsBox.appendChild(row);
+          });
+          const addPrompt = document.createElement('button');
+          addPrompt.type = 'button';
+          addPrompt.className = 'secondary';
+          addPrompt.textContent = '+ Adicionar pergunta';
+          addPrompt.addEventListener('click', () => {
+            q.prompts.push('');
+            renderAll();
+          });
+          promptsBox.appendChild(addPrompt);
+          block.appendChild(promptsBox);
           body.appendChild(block);
         }
 
@@ -3097,6 +3583,80 @@
           body.appendChild(silblock);
         }
 
+        if (q.type === 'caca_palavras') {
+          if (!q.wordsText) q.wordsText = 'ESCOLA\nLIVRO\nCADERNO';
+          if (!q.gridSize) q.gridSize = 12;
+          const cpblock = document.createElement('div');
+          cpblock.className = 'row two';
+          cpblock.innerHTML = `
+            <div>
+              <label>Palavras escondidas</label>
+              <textarea data-k="wordsText" rows="6" placeholder="Uma palavra por linha">${esc(q.wordsText || '')}</textarea>
+            </div>
+            <div>
+              <label>Tamanho da grade</label>
+              <input type="number" data-k="gridSize" value="${q.gridSize || 12}" min="8" max="18" />
+              <div class="small">Use palavras curtas. A grade Ã© gerada automaticamente.</div>
+            </div>
+          `;
+          body.appendChild(cpblock);
+        }
+
+        if (q.type === 'cruzadinha') {
+          if (!Array.isArray(q.clues) || !q.clues.length) {
+            q.clues = [{ clue: '', answer: '' }, { clue: '', answer: '' }, { clue: '', answer: '' }];
+          }
+          if (!Number.isFinite(Number(q.crosswordSeed))) q.crosswordSeed = 0;
+          const crblock = document.createElement('div');
+          crblock.className = 'row';
+          crblock.innerHTML = '<label>Pistas e respostas</label><div class="small">As respostas definem a quantidade de quadrinhos e aparecem no gabarito.</div>';
+          const clueBox = document.createElement('div');
+          const renderClues = () => {
+            clueBox.innerHTML = '';
+            q.clues.forEach((item, ci) => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:grid;grid-template-columns:1fr 160px auto;gap:6px;align-items:center;margin-bottom:6px;';
+              const clue = document.createElement('input');
+              clue.value = item.clue || '';
+              clue.placeholder = `Pista ${ci + 1}`;
+              clue.addEventListener('input', () => { item.clue = clue.value; renderPreview(); });
+              const answer = document.createElement('input');
+              answer.value = item.answer || '';
+              answer.placeholder = 'Resposta';
+              answer.addEventListener('input', () => { item.answer = answer.value; renderPreview(); });
+              const rm = document.createElement('button');
+              rm.type = 'button';
+              rm.className = 'danger';
+              rm.textContent = 'Ã—';
+              rm.style.cssText = 'padding:5px 8px;font-size:12px;';
+              rm.disabled = q.clues.length <= 1;
+              rm.addEventListener('click', () => { q.clues.splice(ci, 1); renderClues(); renderPreview(); });
+              row.appendChild(clue);
+              row.appendChild(answer);
+              row.appendChild(rm);
+              clueBox.appendChild(row);
+            });
+            const add = document.createElement('button');
+            add.type = 'button';
+            add.className = 'secondary';
+            add.textContent = '+ Adicionar pista';
+            add.addEventListener('click', () => { q.clues.push({ clue: '', answer: '' }); renderClues(); renderPreview(); });
+            clueBox.appendChild(add);
+          };
+          renderClues();
+          crblock.appendChild(clueBox);
+          const reorder = document.createElement('button');
+          reorder.type = 'button';
+          reorder.className = 'outline';
+          reorder.textContent = 'Reordenar cruzadinha';
+          reorder.addEventListener('click', () => {
+            q.crosswordSeed = (Number(q.crosswordSeed) || 0) + 1;
+            renderPreview();
+          });
+          crblock.appendChild(reorder);
+          body.appendChild(crblock);
+        }
+
         if (q.type === 'sequencia_imagens') {
           if (!Array.isArray(q.items)||!q.items.length) q.items=[{imageDataUrl:null,imageFileName:'',order:1,caption:''},{imageDataUrl:null,imageFileName:'',order:2,caption:''},{imageDataUrl:null,imageFileName:'',order:3,caption:''}];
           const siblock = document.createElement('div'); siblock.className = 'row';
@@ -3191,6 +3751,178 @@
           body.appendChild(lgblock);
         }
 
+        if (q.type === 'grade_imagens') {
+          if (!Array.isArray(q.items) || !q.items.length) {
+            q.items = [
+              { imageDataUrl: null, imageFileName: '', caption: 'Imagem 1', answer: '' },
+              { imageDataUrl: null, imageFileName: '', caption: 'Imagem 2', answer: '' },
+            ];
+          }
+          if (![2, 3, 4].includes(Number(q.columns))) q.columns = 3;
+          if (typeof q.showCaptions !== 'boolean') q.showCaptions = true;
+          if (typeof q.showAnswerLines !== 'boolean') q.showAnswerLines = true;
+
+          const gblock = document.createElement('div');
+          gblock.className = 'row';
+          gblock.innerHTML = `
+            <div class="row two">
+              <div>
+                <label>Colunas da grade</label>
+                <select data-k="columns">
+                  <option value="2" ${Number(q.columns) === 2 ? 'selected' : ''}>2 colunas</option>
+                  <option value="3" ${Number(q.columns) === 3 ? 'selected' : ''}>3 colunas</option>
+                  <option value="4" ${Number(q.columns) === 4 ? 'selected' : ''}>4 colunas</option>
+                </select>
+              </div>
+              <div>
+                <label>Legendas e respostas</label>
+                <select data-k="gradeDisplayMode">
+                  <option value="captions_lines" ${q.showCaptions !== false && q.showAnswerLines !== false ? 'selected' : ''}>Legenda + linha de resposta</option>
+                  <option value="captions" ${q.showCaptions !== false && q.showAnswerLines === false ? 'selected' : ''}>Somente legenda</option>
+                  <option value="lines" ${q.showCaptions === false && q.showAnswerLines !== false ? 'selected' : ''}>Somente linha de resposta</option>
+                  <option value="images" ${q.showCaptions === false && q.showAnswerLines === false ? 'selected' : ''}>Somente imagens</option>
+                </select>
+              </div>
+            </div>
+            <label>Imagens da grade</label>
+            <div class="small">Use para nomear figuras, observar conjuntos, circular oralmente, comparar ou trabalhar vocabulário visual.</div>
+          `;
+          const gbox = document.createElement('div');
+          const renderGradeItems = () => {
+            gbox.innerHTML = '';
+            q.items.forEach((item, ii) => {
+              const card = document.createElement('div');
+              card.style.cssText = 'border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-top:8px;';
+              card.appendChild(createImagePicker({
+                getImage: () => ({ dataUrl: item.imageDataUrl || '', fileName: item.imageFileName || '' }),
+                setImage: (d, f) => { item.imageDataUrl = d; item.imageFileName = f; renderPreview(); },
+                clearImage: () => { item.imageDataUrl = null; item.imageFileName = ''; renderPreview(); },
+              }));
+              const fields = document.createElement('div');
+              fields.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-top:6px;';
+              const caption = document.createElement('input');
+              caption.value = item.caption || '';
+              caption.placeholder = `Legenda ${ii + 1}`;
+              caption.addEventListener('input', () => { item.caption = caption.value; renderPreview(); });
+              const answer = document.createElement('input');
+              answer.value = item.answer || '';
+              answer.placeholder = 'Gabarito / resposta esperada';
+              answer.addEventListener('input', () => { item.answer = answer.value; });
+              const rmBtn = document.createElement('button');
+              rmBtn.type = 'button';
+              rmBtn.className = 'danger';
+              rmBtn.textContent = '×';
+              rmBtn.style.cssText = 'padding:5px 8px;font-size:12px;';
+              rmBtn.disabled = q.items.length <= 1;
+              rmBtn.addEventListener('click', () => {
+                q.items.splice(ii, 1);
+                renderGradeItems();
+                renderPreview();
+              });
+              fields.appendChild(caption);
+              fields.appendChild(answer);
+              fields.appendChild(rmBtn);
+              card.appendChild(fields);
+              gbox.appendChild(card);
+            });
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'secondary';
+            addBtn.textContent = '+ Imagem na grade';
+            addBtn.style.marginTop = '8px';
+            addBtn.addEventListener('click', () => {
+              q.items.push({ imageDataUrl: null, imageFileName: '', caption: `Imagem ${q.items.length + 1}`, answer: '' });
+              renderGradeItems();
+              renderPreview();
+            });
+            gbox.appendChild(addBtn);
+          };
+          renderGradeItems();
+          gblock.appendChild(gbox);
+          body.appendChild(gblock);
+        }
+
+        if (q.type === 'identificar_imagem') {
+          if (!Array.isArray(q.markers) || !q.markers.length) {
+            q.markers = [{ x: 50, y: 50, label: 'Parte 1', answer: '' }];
+          }
+          if (typeof q.showAnswerList !== 'boolean') q.showAnswerList = true;
+
+          const iblock = document.createElement('div');
+          iblock.className = 'row';
+          iblock.innerHTML = `
+            <label>Imagem principal</label>
+            <div class="small">Use as posições X/Y em porcentagem para colocar cada número sobre a parte correta da imagem.</div>
+          `;
+          iblock.appendChild(createImagePicker({
+            getImage: () => ({ dataUrl: q.imageDataUrl || '', fileName: q.imageFileName || '' }),
+            setImage: (d, f) => { q.imageDataUrl = d; q.imageFileName = f; renderPreview(); },
+            clearImage: () => { q.imageDataUrl = ''; q.imageFileName = ''; renderPreview(); },
+          }));
+          const settings = document.createElement('div');
+          settings.className = 'row two';
+          settings.style.marginTop = '8px';
+          settings.innerHTML = `
+            <div>
+              <label>Legenda da imagem</label>
+              <input data-k="imageCaption" value="${esc(q.imageCaption || '')}" placeholder="Ex.: Sistema respiratório" />
+            </div>
+            <div>
+              <label>Lista de respostas</label>
+              <select data-k="showAnswerList">
+                <option value="true" ${q.showAnswerList !== false ? 'selected' : ''}>Mostrar linhas para responder</option>
+                <option value="false" ${q.showAnswerList === false ? 'selected' : ''}>Mostrar apenas números na imagem</option>
+              </select>
+            </div>
+          `;
+          iblock.appendChild(settings);
+
+          const markersBox = document.createElement('div');
+          markersBox.className = 'row';
+          const renderMarkersEditor = () => {
+            markersBox.innerHTML = '<label>Partes numeradas</label>';
+            q.markers.forEach((marker, mi) => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 72px 72px auto;gap:6px;align-items:center;margin-bottom:6px;';
+              row.innerHTML = `
+                <input type="text" value="${esc(marker.label || '')}" placeholder="Rótulo interno ${mi + 1}" />
+                <input type="text" value="${esc(marker.answer || '')}" placeholder="Gabarito / nome da parte" />
+                <input type="number" value="${Number(marker.x) || 50}" min="0" max="100" title="Posição horizontal %" />
+                <input type="number" value="${Number(marker.y) || 50}" min="0" max="100" title="Posição vertical %" />
+                <button type="button" class="danger" style="padding:5px 8px;font-size:12px;">×</button>
+              `;
+              const inputs = row.querySelectorAll('input');
+              inputs[0].addEventListener('input', () => { marker.label = inputs[0].value; renderPreview(); });
+              inputs[1].addEventListener('input', () => { marker.answer = inputs[1].value; });
+              inputs[2].addEventListener('input', () => { marker.x = Math.max(0, Math.min(100, Number(inputs[2].value) || 0)); renderPreview(); });
+              inputs[3].addEventListener('input', () => { marker.y = Math.max(0, Math.min(100, Number(inputs[3].value) || 0)); renderPreview(); });
+              const remove = row.querySelector('button');
+              remove.disabled = q.markers.length <= 1;
+              remove.addEventListener('click', () => {
+                q.markers.splice(mi, 1);
+                renderMarkersEditor();
+                renderPreview();
+              });
+              markersBox.appendChild(row);
+            });
+            const add = document.createElement('button');
+            add.type = 'button';
+            add.className = 'secondary';
+            add.textContent = '+ Parte numerada';
+            add.addEventListener('click', () => {
+              const next = q.markers.length + 1;
+              q.markers.push({ x: 50, y: 50, label: `Parte ${next}`, answer: '' });
+              renderMarkersEditor();
+              renderPreview();
+            });
+            markersBox.appendChild(add);
+          };
+          renderMarkersEditor();
+          iblock.appendChild(markersBox);
+          body.appendChild(iblock);
+        }
+
         if (q.type === 'associacao_imagem_imagem') {
           if (!Array.isArray(q.leftItems)||!q.leftItems.length) q.leftItems=[{imageDataUrl:null,imageFileName:'',caption:'A'}];
           if (!Array.isArray(q.rightItems)||!q.rightItems.length) q.rightItems=[{imageDataUrl:null,imageFileName:'',caption:'1'}];
@@ -3236,17 +3968,29 @@
           body.appendChild(aiblock);
         }
 
+        const secPontuacao = document.createElement('div');
+        secPontuacao.className = 'prop-sec'; secPontuacao.textContent = 'Pontuação e configurações';
+        body.appendChild(secPontuacao);
+        body.appendChild(metaRow);
+
         body.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
             if (key === 'lines' || key === 'wordCount' || key === 'calcLines') {
               q[key] = Math.max(1, Math.min(40, Number(node.value) || (key==='lines'?5:key==='calcLines'?6:10)));
+            } else if (key === 'gridSize') {
+              q.gridSize = Math.max(8, Math.min(18, Number(node.value) || 12));
             } else if (key === 'height') {
               q.height = Math.max(60, Math.min(600, Number(node.value) || 120));
             } else if (key === 'columns') {
               q.columns = Number(node.value) || 2;
             } else if (key === 'showCopyLines') {
               q.showCopyLines = node.value !== 'false';
+            } else if (key === 'showAnswerList') {
+              q.showAnswerList = node.value !== 'false';
+            } else if (key === 'gradeDisplayMode') {
+              q.showCaptions = node.value === 'captions_lines' || node.value === 'captions';
+              q.showAnswerLines = node.value === 'captions_lines' || node.value === 'lines';
             } else if (key === 'imageAnswerType' || key === 'answerType' || key === 'exerciseType') {
               q[key] = node.value;
               renderAll();
@@ -3342,22 +4086,39 @@
       }
       if (q.type === 'imagem') {
         const image = imageFigure(q);
+        const extraImgsHtml = Array.isArray(q.extraImages) ? q.extraImages.map((ei) => {
+          if (!ei.dataUrl) return '';
+          const eSize = ['small','medium','large','full'].includes(ei.size) ? ei.size : 'medium';
+          const eAlign = ['left','center','right'].includes(ei.align) ? ei.align : 'center';
+          const eCap = ei.caption ? `<div class="image-caption">${esc(ei.caption)}</div>` : '';
+          return `<div class="question-image ${eSize} ${eAlign}"><img src="${ei.dataUrl}" alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
+        }).join('') : '';
+        const allImages = `${image}${extraImgsHtml}`;
         if (q.imageAnswerType === 'multipla') {
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
             return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
           }).join('');
-          return `${image}<div class="spacey">${options}</div>`;
+          return `${allImages}<div class="spacey">${options}</div>`;
         }
         if (q.imageAnswerType === 'marcarx') {
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
             return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
           }).join('');
-          return `${image}<div class="spacey">${items}</div>`;
+          return `${allImages}<div class="spacey">${items}</div>`;
         }
-        if (q.showAnswerSpace === false) return `${image}`;
-        return `${image}${answerArea(q)}`;
+        if (q.showAnswerSpace === false) return `${allImages}`;
+        return `${allImages}${answerArea(q)}`;
+      }
+      if (q.type === 'interpretacao_imagem') {
+        const image = imageFigure(q);
+        const prompts = Array.isArray(q.prompts) && q.prompts.length ? q.prompts : [''];
+        const items = prompts.map((prompt, i) => {
+          const answer = q.showAnswerSpace === false ? '' : answerArea(q);
+          return `<div style="margin-top:10px;"><strong>${i + 1}.</strong> ${esc(prompt || `Pergunta ${i + 1}`)}${answer}</div>`;
+        }).join('');
+        return `${image}<div class="spacey">${items}</div>`;
       }
       if (q.type === 'relacione_imagens') {
         normalizeRelacioneImagensQuestion(q);
@@ -3468,6 +4229,12 @@
         }).join('');
         return `<div class="silabas-grid">${items||'<span class="small">Nenhuma palavra adicionada.</span>'}</div>`;
       }
+      if (q.type === 'caca_palavras') {
+        return renderWordSearch(q);
+      }
+      if (q.type === 'cruzadinha') {
+        return renderCrossword(q);
+      }
       if (q.type === 'sequencia_imagens') {
         const items = q.items || [];
         const cards = items.map(item => {
@@ -3495,6 +4262,35 @@
           return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
         }).join('');
         return `<div class="legenda-grid">${cards}</div>`;
+      }
+      if (q.type === 'grade_imagens') {
+        const items = Array.isArray(q.items) ? q.items : [];
+        const cols = [2, 3, 4].includes(Number(q.columns)) ? Number(q.columns) : 3;
+        const cards = items.map((item, i) => {
+          const img = item.imageDataUrl
+            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
+            : `<div class="grade-img-placeholder">Sem imagem</div>`;
+          const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
+          const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
+          return `<div class="grade-img-card">${img}${caption}${line}</div>`;
+        }).join('');
+        return `<div class="grade-img-grid cols-${cols}">${cards || '<span class="small">Nenhuma imagem adicionada.</span>'}</div>`;
+      }
+      if (q.type === 'identificar_imagem') {
+        const markers = Array.isArray(q.markers) && q.markers.length ? q.markers : [];
+        const markerHtml = markers.map((marker, i) => {
+          const x = Math.max(0, Math.min(100, Number(marker.x) || 50));
+          const y = Math.max(0, Math.min(100, Number(marker.y) || 50));
+          return `<span class="identify-marker" style="left:${x}%;top:${y}%;">${i + 1}</span>`;
+        }).join('');
+        const image = q.imageDataUrl
+          ? `<div class="identify-image-wrap"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
+          : `<div class="identify-image-wrap"><div class="identify-image-placeholder">Imagem não selecionada</div>${markerHtml}</div>`;
+        const caption = q.imageCaption ? `<div class="image-caption">${esc(q.imageCaption)}</div>` : '';
+        const list = q.showAnswerList === false ? '' : `<div class="identify-answer-list">${markers.map((marker, i) => `
+          <div class="identify-answer-item"><span class="identify-answer-num">${i + 1}</span><span class="identify-answer-line"></span></div>
+        `).join('')}</div>`;
+        return `${image}${caption}${list}`;
       }
       if (q.type === 'associacao_imagem_imagem') {
         const left = q.leftItems || [];
@@ -3613,7 +4409,7 @@
         const ans = relacioneImagensAnswer(q);
         return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
       }
-      if (tipo === 'discursiva' || (tipo === 'imagem' && q.imageAnswerType === 'discursiva')) {
+      if (tipo === 'discursiva' || (tipo === 'imagem' && q.imageAnswerType === 'discursiva') || tipo === 'interpretacao_imagem') {
         return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
       }
       if (tipo === 'texto_base') {
@@ -3682,6 +4478,17 @@
         const ans = words.map(w => w.answer ? `${w.word} → ${w.answer}` : null).filter(Boolean).join(' | ');
         return ans ? { tipo: 'objetivo', num, ans } : null;
       }
+      if (tipo === 'caca_palavras') {
+        const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
+        const placements = buildWordSearch(words, q.gridSize || 12).placements.join(' | ');
+        return { tipo: 'objetivo', num, ans: placements || words.join(', ') || '(sem palavras)' };
+      }
+      if (tipo === 'cruzadinha') {
+        const clues = Array.isArray(q.clues) ? q.clues : [];
+        const built = buildCrossword(clues, q.crosswordSeed || 0);
+        const ans = built.placed.map((item) => `${item.number}. ${item.answer}`).join(' | ');
+        return { tipo: 'objetivo', num, ans: ans || '(sem respostas)' };
+      }
       if (tipo === 'sequencia_imagens') {
         const items = q.items || [];
         const ordered = [...items].sort((a,b)=>(a.order||0)-(b.order||0));
@@ -3695,6 +4502,16 @@
         const items = q.items || [];
         const ans = items.map((it,i) => it.answer ? `${i+1}. ${it.answer}` : null).filter(Boolean).join(' | ');
         return ans ? { tipo: 'objetivo', num, ans } : null;
+      }
+      if (tipo === 'grade_imagens') {
+        const items = q.items || [];
+        const ans = items.map((it,i) => it.answer ? `${i+1}. ${it.answer}` : null).filter(Boolean).join(' | ');
+        return ans ? { tipo: 'objetivo', num, ans } : { tipo: 'discursiva', num, ans: '(grade de imagens — corrija manualmente)' };
+      }
+      if (tipo === 'identificar_imagem') {
+        const markers = q.markers || [];
+        const ans = markers.map((it,i) => it.answer ? `${i+1}. ${it.answer}` : null).filter(Boolean).join(' | ');
+        return ans ? { tipo: 'objetivo', num, ans } : { tipo: 'discursiva', num, ans: '(identificação de imagem — corrija manualmente)' };
       }
       if (tipo === 'associacao_imagem_imagem') {
         const left = q.leftItems || [];
@@ -4334,6 +5151,14 @@
         applyStateToInputs();
         renderAll();
         applyReviewLock();
+        const history = Array.isArray(exam.review_history) ? exam.review_history : [];
+        if (history.length) {
+          const info = document.getElementById('reviewInfo');
+          const last = history[history.length - 1];
+          const lastDate = last.date ? new Date(last.date).toLocaleDateString('pt-BR') : '';
+          const existing = info ? info.textContent : '';
+          if (info) info.innerHTML = `${existing ? existing + ' | ' : ''}📋 ${history.length} entrada${history.length > 1 ? 's' : ''} no histórico (última: ${lastDate})`;
+        }
         showToast('Prova carregada da nuvem ✓', 'ok');
       } catch (err) {
         showToast('Erro ao carregar prova da nuvem', 'err');

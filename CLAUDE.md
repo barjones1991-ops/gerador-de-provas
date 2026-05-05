@@ -132,11 +132,14 @@ index.html → login.html → dashboard.html → editor.html
 | Complete as lacunas | `lacunas` | `items[]` com `{ text, answer }`, `answers[]`, `points`, `hideNumber` |
 | Relacione as colunas | `relacione` | `pairs[]` com `{ left, right }`, `rightOrder[]` (embaralhado), `points`, `hideNumber` |
 | De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `imageSize` (`small`/`medium`/`large`/`full`), `imageAlign` (`left`/`center`/`right`/`lado_esquerda`/`lado_direita`), `imageCaption`, `imageAnswerType` (`discursiva`/`multipla`/`marcarx`), `lines`, `options[]`, `items[]`, `points`, `hideNumber`, `showAnswerSpace` |
+| Interpretação de imagem | `interpretacao_imagem` | `imageDataUrl`, `imageFileName`, `imageSize`, `imageAlign`, `imageCaption`, `prompts[]`, `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
 | Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com `{ imageDataUrl, imageFileName, word }`, `wordOrder[]` (embaralhado), `points`, `hideNumber` |
 | Interpretação de texto | `texto_base` | `textBase` (texto-base), `answerType` (`discursiva`/`multipla`), `lines`, `answerStyle`, `options[]`, `correctOption`, `points`, `hideNumber`, `showAnswerSpace` |
 | Operações matemáticas | `matematica_coluna` | `operations[]` com `{ expression }` (ex: "234 + 567"), `points`, `hideNumber` |
 | Produção textual | `producao_textual` | `titlePrompt` (linha de título), `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
 | Ditado / lista de palavras | `ditado` | `wordCount` (nº de linhas), `wordList` (palavras p/ gabarito, uma por linha), `points`, `hideNumber` |
+| Caça-palavras | `caca_palavras` | `wordsText`, `gridSize`, `points`, `hideNumber` |
+| Cruzadinha | `cruzadinha` | `clues[]` com `{ clue, answer }`, `points`, `hideNumber` |
 | Ordenação de frases | `ordenacao` | `items[]` com `{ text, order }` (order = posição correta p/ gabarito), `points`, `hideNumber` |
 | Problema matemático | `problema_matematico` | `lines`, `calcLines` (linhas da área de cálculo), `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
 | Espaço de desenho | `espaco_livre` | `height` (altura em px), `borderStyle` (`solida`/`tracejada`/`pontilhada`/`nenhuma`), `points`, `hideNumber` |
@@ -149,6 +152,8 @@ index.html → login.html → dashboard.html → editor.html
 | Comparar duas imagens | `comparar_imagens` | `imageA` com `{ dataUrl, fileName, caption }`, `imageB` com `{ dataUrl, fileName, caption }`, `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
 | Legenda das imagens | `legenda_imagens` | `images[]` com `{ dataUrl, fileName, legend }`, `columns` (1/2/3), `points`, `hideNumber` |
 | Associe imagem a imagem | `associacao_imagem_imagem` | `pairs[]` com `{ imageDataUrl, imageFileName, word, wordDataUrl, wordFileName }`, `shuffleWords`, `wordOrder[]`, `points`, `hideNumber` |
+| Grade de imagens | `grade_imagens` | `items[]` com `{ imageDataUrl, imageFileName, caption, answer }`, `columns` (2/3/4), `showCaptions`, `showAnswerLines`, `points`, `hideNumber` |
+| Identificar partes da imagem | `identificar_imagem` | `imageDataUrl`, `imageFileName`, `imageCaption`, `markers[]` com `{ x, y, label, answer }`, `showAnswerList`, `points`, `hideNumber` |
 
 > Todos os tipos têm `hideNumber` (oculta numeração nessa questão) e `showAnswerSpace` (controla espaço de resposta, relevante para discursiva e imagem).
 > Todos os tipos têm campo opcional `bncc` (código de habilidade, ex: "EF02MA01") — exibido como badge roxo no preview e no print (oculto na impressão para alunos).
@@ -259,7 +264,7 @@ git push --set-upstream origin main
 
 ### Prioridade: geração e acabamento da prova
 - [x] Revisar a experiência de criação de questões: seletor visual por botões com ícones (substituiu dropdown).
-- [ ] Criar painel de propriedades da questão selecionada, separando enunciado, mídia, alternativas, resposta esperada, pontuação e configuração de impressão.
+- [x] Criar painel de propriedades da questão selecionada, separando enunciado, mídia, alternativas, resposta esperada, pontuação e configuração de impressão.
 - [x] Permitir escolher se a questão deve aparecer com ou sem espaço para resposta (toggle por questão).
 - [x] Permitir controlar o número de linhas de resposta por questão discursiva e questão com imagem.
 - [x] Permitir definir pontuação com validação e alerta quando a soma das questões não bater com o valor total da prova.
@@ -283,10 +288,9 @@ git push --set-upstream origin main
 - [x] Permitir escolher alinhamento da imagem: esquerda, centro, direita, lado esq. do texto, lado dir. do texto.
 - [x] Permitir adicionar legenda abaixo da imagem.
 - [x] Permitir layout com imagem ao lado do enunciado (float left/right com opção no select de alinhamento).
-- [ ] Permitir remover fundo branco ou melhorar contraste da imagem quando possível.
 - [x] Permitir substituir imagem sem perder o restante da questão (botão "Substituir imagem" aparece quando há imagem).
-- [ ] Permitir inserir mais de uma imagem na mesma questão.
-- [ ] Criar layout "grade de imagens" para educação infantil e anos iniciais.
+- [x] Permitir inserir mais de uma imagem na mesma questão.
+- [x] Criar layout "grade de imagens" para educação infantil e anos iniciais.
 - [x] Validar tamanho da imagem e avisar quando ela pode deixar a prova pesada demais (indicador de KB/MB).
 - [x] Melhorar compressão automática das imagens (WebP quando suportado, JPEG 0.82 como fallback).
 
@@ -307,10 +311,10 @@ git push --set-upstream origin main
 
 ### Prioridade: novos tipos de questão mais usados por professores
 - [x] Questão de interpretação de texto com texto-base e perguntas vinculadas.
-- [ ] Questão de interpretação de imagem.
+- [x] Questão de interpretação de imagem.
 - [x] Questão de tabela/gráfico para interpretação de dados.
-- [ ] Questão de caça-palavras.
-- [ ] Questão de cruzadinha.
+- [x] Questão de caça-palavras.
+- [x] Questão de cruzadinha.
 - [x] Questão de ordenação de frases ou etapas.
 - [x] Questão de associação por setas.
 - [x] Questão de completar sequência numérica.
@@ -337,7 +341,7 @@ git push --set-upstream origin main
 - [x] Questão com imagem e múltipla escolha.
 - [x] Questão com imagem para marcar X.
 - [x] Questão de sequência/ordenação de imagens.
-- [ ] Questão para identificar partes de uma imagem com setas ou números.
+- [x] Questão para identificar partes de uma imagem com setas ou números.
 - [x] Questão para comparar duas imagens e responder.
 - [x] Questão de legenda: escrever uma frase ou palavra para cada imagem.
 - [x] Questão de associação imagem-imagem.
@@ -350,17 +354,15 @@ git push --set-upstream origin main
 - [x] Bloquear edição pelo professor depois que a prova for aprovada/bloqueada pela coordenação.
 - [x] Permitir que a coordenadora devolva a prova ao professor com observações.
 - [x] Exibir observações da devolução para o professor.
-- [ ] Registrar histórico de alterações e comentários da coordenação.
+- [x] Registrar histórico de alterações e comentários da coordenação.
 
 ### Organização escolar
-- [ ] Vincular professores a uma escola/unidade.
-- [ ] Criar turmas, séries e disciplinas cadastradas pela escola.
-- [ ] Permitir filtrar provas por professor, turma, série, disciplina, bimestre e status.
-- [ ] Criar permissões por papel: professor, coordenadora e administrador.
+- [x] Vincular professores a uma escola/unidade.
+- [x] Criar turmas, séries e disciplinas cadastradas pela escola.
+- [x] Permitir filtrar provas por professor, turma, série, disciplina, bimestre e status.
+- [x] Criar permissões por papel: professor, coordenadora e administrador.
 
 ### Melhorias futuras opcionais
 - [x] Duplicar prova inteira a partir do dashboard.
-- [ ] Criar modelos prontos de provas por disciplina.
 - [x] Exportar prova com gabarito separado (botão "📋 Com gabarito" no editor — gera gabarito em página separada ao imprimir).
 - [x] Adicionar campo de habilidade/BNCC por questão.
-- [ ] Tema escuro (dark mode), se fizer sentido mais adiante.

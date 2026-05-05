@@ -4,7 +4,7 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
-const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html'];
+const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html'];
 const jsFiles = ['config.js', 'js/auth.js'];
 const questionTypes = [
   'multipla',
@@ -14,11 +14,14 @@ const questionTypes = [
   'lacunas',
   'relacione',
   'imagem',
+  'interpretacao_imagem',
   'relacione_imagens',
   'texto_base',
   'matematica_coluna',
   'producao_textual',
   'ditado',
+  'caca_palavras',
+  'cruzadinha',
   'ordenacao',
   'problema_matematico',
   'espaco_livre',
@@ -31,6 +34,8 @@ const questionTypes = [
   'comparar_imagens',
   'legenda_imagens',
   'associacao_imagem_imagem',
+  'grade_imagens',
+  'identificar_imagem',
 ];
 
 let failures = 0;
@@ -282,6 +287,17 @@ async function main() {
     assert(editor.includes('Tipo de resposta da imagem'), 'image answer type control missing');
     assert(editor.includes('Alternativas da imagem'), 'image multiple-choice options missing');
     assert(editor.includes('Itens para marcar'), 'image mark-x items missing');
+    assert(editor.includes('Interpretação de imagem'), 'image interpretation type label missing');
+    assert(editor.includes('Perguntas sobre a imagem'), 'image interpretation prompts editor missing');
+    assert(editor.includes('+ Adicionar pergunta'), 'image interpretation add prompt action missing');
+    assert(editor.includes('Grade de imagens'), 'image grid type label missing');
+    assert(editor.includes('gradeDisplayMode'), 'image grid display mode missing');
+    assert(editor.includes('+ Imagem na grade'), 'image grid add action missing');
+    assert(editor.includes('grade-img-grid'), 'image grid preview class missing');
+    assert(editor.includes('Identificar partes da imagem'), 'identify image type label missing');
+    assert(editor.includes('+ Parte numerada'), 'identify image add marker action missing');
+    assert(editor.includes('identify-marker'), 'identify image marker class missing');
+    assert(editor.includes('showAnswerList'), 'identify image answer list setting missing');
     assert(editor.includes('imageSize'), 'image size control missing');
     assert(editor.includes('imageAlign'), 'image alignment control missing');
     assert(editor.includes('imageCaption'), 'image caption control missing');
@@ -297,6 +313,16 @@ async function main() {
     assert(editor.includes('instructionTemplate'), 'instruction template selector missing');
     assert(editor.includes('Prova padrão'), 'default instruction template missing');
     assert(editor.includes('Recuperação'), 'recovery instruction template missing');
+    assert(editor.includes('buildWordSearch'), 'word search generator missing');
+    assert(editor.includes('renderWordSearch'), 'word search renderer missing');
+    assert(editor.includes('buildCrossword'), 'crossword grid generator missing');
+    assert(editor.includes('renderCrossword'), 'crossword renderer missing');
+    assert(editor.includes('Horizontais'), 'crossword horizontal clues missing');
+    assert(editor.includes('Verticais'), 'crossword vertical clues missing');
+    assert(editor.includes('crosswordSeed'), 'crossword reorder seed missing');
+    assert(editor.includes('Reordenar cruzadinha'), 'crossword reorder button missing');
+    assert(editor.includes('caca_palavras'), 'word search type missing');
+    assert(editor.includes('cruzadinha'), 'crossword type missing');
   });
 
   await test('question bank search listener is attached after function declaration', () => {
@@ -343,10 +369,18 @@ async function main() {
     assert(print.includes('imageAnswerType'), 'print image answer type missing');
     assert(print.includes("q.type === 'imagem' && q.imageAnswerType === 'multipla'"), 'print image multiple-choice answer key missing');
     assert(print.includes("q.type === 'imagem' && q.imageAnswerType === 'marcarx'"), 'print image mark-x answer key missing');
+    assert(print.includes("q.type === 'interpretacao_imagem'"), 'print image interpretation renderer missing');
+    assert(print.includes("q.type === 'grade_imagens'"), 'print image grid renderer missing');
+    assert(print.includes('grade-img-grid'), 'print image grid class missing');
+    assert(print.includes("q.type === 'identificar_imagem'"), 'print identify image renderer missing');
+    assert(print.includes('identify-marker'), 'print identify image marker class missing');
     assert(print.includes('imageFigure'), 'print image figure helper missing');
     assert(print.includes('image-caption'), 'print image caption missing');
     assert(print.includes('relacioneImagensAnswer'), 'print image-word answer key missing');
     assert(print.includes('wordOrder'), 'print image-word order missing');
+    assert(print.includes('renderWordSearch'), 'print word search renderer missing');
+    assert(print.includes('buildCrossword'), 'print crossword grid generator missing');
+    assert(print.includes('renderCrossword'), 'print crossword renderer missing');
     assert(print.includes('STORAGE_KEY_BASE'), 'print page should use base draft key');
     assert(print.includes('${STORAGE_KEY_BASE}:${auth.getCurrentUser().id}'), 'print page should read user-scoped draft key');
   });
@@ -369,6 +403,58 @@ async function main() {
     assert(sql.includes('CREATE OR REPLACE FUNCTION public.is_coordinator_or_admin()'), 'coordinator/admin helper function missing');
     assert(sql.includes('public.is_coordinator_or_admin()'), 'coordinator/admin role policy missing');
     assert(sql.includes('DROP TRIGGER IF EXISTS on_auth_user_created'), 'trigger drop missing');
+    assert(sql.includes('review_history'), 'review_history column missing');
+    assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
+    assert(sql.includes('school_id'), 'school_id in profiles missing');
+  });
+
+  await test('editor organizes question card into labelled sections', () => {
+    const editor = read('editor.html');
+    assert(editor.includes('prop-sec'), 'prop-sec section header class missing');
+    assert(editor.includes("secEnun.textContent = 'Enunciado'"), 'Enunciado section header missing');
+    assert(editor.includes("secContent.textContent = 'Conteúdo'"), 'Conteúdo section header missing');
+    assert(editor.includes("secPontuacao.textContent = 'Pontuação e configurações'"), 'Pontuação section header missing');
+  });
+
+  await test('editor supports extra images in imagem type', () => {
+    const editor = read('editor.html');
+    assert(editor.includes('extraImages'), 'extraImages field missing in editor');
+    assert(editor.includes('Adicionar imagem extra'), 'extra image add button missing');
+    assert(editor.includes('Imagens adicionais'), 'extra images label missing');
+  });
+
+  await test('print page supports extra images in imagem type', () => {
+    const print = read('print.html');
+    assert(print.includes('extraImages'), 'extraImages field missing in print');
+    assert(print.includes('extraImgsHtml'), 'extra images HTML var missing');
+  });
+
+  await test('coordination page has review history', () => {
+    const page = read('coordenacao.html');
+    assert(page.includes('review_history'), 'review_history missing in coordination page');
+    assert(page.includes('toggleHistory'), 'history toggle function missing');
+    assert(page.includes('history-log'), 'history log CSS class missing');
+    assert(page.includes('openReturnModal'), 'return modal opener missing');
+    assert(page.includes('returnModalOverlay'), 'return modal element missing');
+  });
+
+  await test('dashboard has term and review status filters', () => {
+    const dashboard = read('dashboard.html');
+    assert(dashboard.includes('termFilter'), 'term filter missing');
+    assert(dashboard.includes('reviewStatusFilter'), 'review status filter missing');
+    assert(dashboard.includes('currentTerm'), 'currentTerm state missing');
+    assert(dashboard.includes('currentReviewStatus'), 'currentReviewStatus state missing');
+    assert(dashboard.includes('schools.html'), 'schools link missing in dashboard');
+  });
+
+  await test('schools admin page exists and is valid', () => {
+    const page = read('schools.html');
+    assert(page.includes('loadSchools'), 'loadSchools function missing');
+    assert(page.includes('addSchool'), 'addSchool function missing');
+    assert(page.includes('linkProfessor'), 'linkProfessor function missing');
+    assert(page.includes('deleteSchool'), 'deleteSchool function missing');
+    assert(page.includes('school_id'), 'school_id reference missing');
+    assert(page.includes("'coordenadora'") || page.includes('is_coordinator_or_admin'), 'role guard reference missing');
   });
 
   await test('coordination page has review actions', () => {

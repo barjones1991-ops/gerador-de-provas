@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gerenciar Escolas - Gerador de Provas</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f1f5f9; color: #0f172a; min-height: 100vh; }
+    header {
+      background: white; border-bottom: 1px solid #e2e8f0; height: 64px; padding: 0 32px;
+      display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .logo { font-size: 18px; font-weight: 900; color: #1e293b; text-decoration: none; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      padding: 9px 14px; border: 1.5px solid #e2e8f0; background: white; border-radius: 10px;
+      color: #475569; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn.primary { background: #0f172a; color: white; border-color: #0f172a; }
+    .btn.danger { background: #dc2626; color: white; border-color: #dc2626; }
+    .btn.green { background: #16a34a; color: white; border-color: #16a34a; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .main { max-width: 960px; margin: 0 auto; padding: 36px 24px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    h1 { font-size: 26px; font-weight: 900; }
+    .muted { color: #64748b; font-size: 14px; margin-top: 6px; }
+    .form-card {
+      background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 24px;
+      margin-bottom: 28px; display: grid; gap: 16px;
+    }
+    .form-card h2 { font-size: 16px; font-weight: 800; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { display: block; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-family: inherit; }
+    input:focus, select:focus { outline: none; border-color: #667eea; }
+    .schools-grid { display: grid; gap: 14px; }
+    .school-card {
+      background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .school-name { font-size: 16px; font-weight: 800; }
+    .school-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .school-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .school-actions .btn { font-size: 12px; padding: 7px 10px; }
+    .empty { text-align: center; padding: 60px 24px; color: #64748b; }
+    .empty h2 { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    .divider { font-size: 14px; font-weight: 800; color: #334155; margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 12px;
+      font-size: 14px; font-weight: 700; color: white; background: #16a34a;
+      transform: translateY(80px); opacity: 0; transition: all 0.3s; z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { background: #dc2626; }
+    .section-title { font-size: 14px; font-weight: 800; color: #334155; margin: 0 0 12px; }
+    .professor-list { display: grid; gap: 8px; }
+    .professor-row {
+      display: flex; align-items: center; gap: 10px; font-size: 14px;
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; background: white;
+    }
+    .professor-row .pname { font-weight: 700; flex: 1; }
+    .professor-row .pemail { color: #64748b; font-size: 12px; }
+    @media (max-width: 600px) {
+      .form-row { grid-template-columns: 1fr; }
+      .school-card { flex-direction: column; align-items: flex-start; }
+      .main { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <a href="dashboard.html" class="logo">🏫 Escolas</a>
+  <div class="header-actions">
+    <a class="btn" href="coordenacao.html">Coordenação</a>
+    <a class="btn" href="dashboard.html">Minhas Provas</a>
+    <button class="btn" id="logoutBtn" type="button">Sair</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1>Gerenciar Escolas</h1>
+      <p class="muted">Cadastre escolas e vincule professores. Acesso restrito à coordenação e administradores.</p>
+    </div>
+  </div>
+
+  <!-- Formulário de nova escola -->
+  <div class="form-card">
+    <h2>Nova escola</h2>
+    <div class="form-row">
+      <div>
+        <label>Nome da escola *</label>
+        <input id="schoolNameInput" type="text" placeholder="Ex.: E.M. Prof. Antônio Gomes" />
+      </div>
+      <div>
+        <label>Cidade</label>
+        <input id="schoolCityInput" type="text" placeholder="Ex.: São Paulo" />
+      </div>
+    </div>
+    <div>
+      <label>E-mail do administrador</label>
+      <input id="schoolAdminInput" type="email" placeholder="Ex.: diretor@escola.edu.br" />
+    </div>
+    <div>
+      <button class="btn primary" id="addSchoolBtn" type="button">＋ Cadastrar escola</button>
+    </div>
+  </div>
+
+  <!-- Lista de escolas -->
+  <div id="schoolsList">
+    <div class="empty"><h2>Carregando...</h2></div>
+  </div>
+
+  <!-- Vincular professor a escola -->
+  <div class="form-card" style="margin-top: 28px;">
+    <h2>Vincular professor a uma escola</h2>
+    <div class="form-row">
+      <div>
+        <label>Escola</label>
+        <select id="linkSchoolSelect">
+          <option value="">Selecione a escola</option>
+        </select>
+      </div>
+      <div>
+        <label>E-mail do professor</label>
+        <input id="linkProfEmail" type="email" placeholder="email@prof.com" />
+      </div>
+    </div>
+    <div>
+      <label>Série / Ano que leciona</label>
+      <select id="linkGradeSelect">
+        <option value="">Selecionar</option>
+        <option value="Educação Infantil">Educação Infantil</option>
+        <option value="1º ano">1º ano</option>
+        <option value="2º ano">2º ano</option>
+        <option value="3º ano">3º ano</option>
+        <option value="4º ano">4º ano</option>
+        <option value="5º ano">5º ano</option>
+        <option value="6º ano">6º ano</option>
+        <option value="7º ano">7º ano</option>
+        <option value="8º ano">8º ano</option>
+        <option value="9º ano">9º ano</option>
+        <option value="1º Ensino Médio">1º Ensino Médio</option>
+        <option value="2º Ensino Médio">2º Ensino Médio</option>
+        <option value="3º Ensino Médio">3º Ensino Médio</option>
+        <option value="Múltiplas séries">Múltiplas séries</option>
+      </select>
+    </div>
+    <div>
+      <button class="btn green" id="linkProfBtn" type="button">Vincular professor</button>
+    </div>
+    <div id="linkResult" style="font-size:13px; color:#64748b;"></div>
+  </div>
+
+  <!-- Professores cadastrados -->
+  <div class="form-card" id="professorsSection" style="display:none;">
+    <p class="section-title">Professores cadastrados no sistema</p>
+    <div id="professorsList" class="professor-list"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  let auth = null;
+  let schools = [];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    auth = initAuthManager();
+    if (!auth || !auth.isAuthenticated()) {
+      window.location.href = 'login.html';
+      return;
+    }
+    try {
+      const user = auth.getCurrentUser();
+      const data = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=role`);
+      const profile = Array.isArray(data) ? data[0] : null;
+      if (!['coordenadora', 'admin'].includes(profile?.role)) {
+        showToast('Acesso restrito à coordenação.', 'error');
+        setTimeout(() => window.location.href = 'dashboard.html', 1200);
+        return;
+      }
+    } catch (err) {
+      showToast('Erro ao verificar perfil.', 'error');
+      return;
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await auth.signOut();
+      window.location.href = 'login.html';
+    });
+    document.getElementById('addSchoolBtn').addEventListener('click', addSchool);
+    document.getElementById('linkProfBtn').addEventListener('click', linkProfessor);
+
+    await loadSchools();
+    await loadProfessors();
+  });
+
+  async function loadSchools() {
+    try {
+      const data = await auth.authenticatedRequest('/schools?order=name.asc&select=*');
+      schools = Array.isArray(data) ? data : [];
+      renderSchools();
+      updateSchoolSelects();
+    } catch (err) {
+      schools = [];
+      renderSchools();
+      showToast('Erro ao carregar escolas: ' + err.message, 'error');
+    }
+  }
+
+  function renderSchools() {
+    const el = document.getElementById('schoolsList');
+    if (!schools.length) {
+      el.innerHTML = '<div class="empty"><h2>Nenhuma escola cadastrada</h2><p>Use o formulário acima para cadastrar a primeira escola.</p></div>';
+      return;
+    }
+    el.innerHTML = `<p class="divider">Escolas cadastradas (${schools.length})</p>` + schools.map(s => `
+      <div class="school-card">
+        <div>
+          <div class="school-name">${esc(s.name)}</div>
+          <div class="school-meta">${esc(s.city || '')}${s.admin_email ? ' · ' + esc(s.admin_email) : ''}</div>
+        </div>
+        <div class="school-actions">
+          <button class="btn danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateSchoolSelects() {
+    const sel = document.getElementById('linkSchoolSelect');
+    sel.innerHTML = '<option value="">Selecione a escola</option>' + schools.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+  }
+
+  async function addSchool() {
+    const name = document.getElementById('schoolNameInput').value.trim();
+    const city = document.getElementById('schoolCityInput').value.trim();
+    const adminEmail = document.getElementById('schoolAdminInput').value.trim();
+    if (!name) { showToast('Digite o nome da escola.', 'error'); return; }
+    const btn = document.getElementById('addSchoolBtn');
+    btn.disabled = true;
+    try {
+      await auth.authenticatedRequest('/schools', {
+        method: 'POST',
+        body: JSON.stringify({ name, city: city || null, admin_email: adminEmail || null }),
+      });
+      document.getElementById('schoolNameInput').value = '';
+      document.getElementById('schoolCityInput').value = '';
+      document.getElementById('schoolAdminInput').value = '';
+      showToast('Escola cadastrada com sucesso!');
+      await loadSchools();
+    } catch (err) {
+      showToast('Erro ao cadastrar escola: ' + err.message, 'error');
+    }
+    btn.disabled = false;
+  }
+
+  async function deleteSchool(id) {
+    if (!confirm('Excluir esta escola? Os professores vinculados perderão a associação.')) return;
+    try {
+      await auth.authenticatedRequest(`/schools?id=eq.${id}`, { method: 'DELETE' });
+      showToast('Escola excluída.');
+      await loadSchools();
+    } catch (err) {
+      showToast('Erro ao excluir escola: ' + err.message, 'error');
+    }
+  }
+
+  async function loadProfessors() {
+    try {
+      const data = await auth.authenticatedRequest('/profiles?role=eq.professor&select=id,full_name,email,school_grade,school_id&order=full_name.asc');
+      const profs = Array.isArray(data) ? data : [];
+      const section = document.getElementById('professorsSection');
+      const list = document.getElementById('professorsList');
+      if (!profs.length) { section.style.display = 'none'; return; }
+      section.style.display = '';
+      list.innerHTML = profs.map(p => `
+        <div class="professor-row">
+          <div>
+            <div class="pname">${esc(p.full_name || '—')}</div>
+            <div class="pemail">${esc(p.email || '')} ${p.school_grade ? '· ' + esc(p.school_grade) : ''}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch {}
+  }
+
+  async function linkProfessor() {
+    const schoolId = document.getElementById('linkSchoolSelect').value;
+    const email = document.getElementById('linkProfEmail').value.trim();
+    const grade = document.getElementById('linkGradeSelect').value;
+    if (!email) { showToast('Digite o e-mail do professor.', 'error'); return; }
+    const btn = document.getElementById('linkProfBtn');
+    btn.disabled = true;
+    const resultEl = document.getElementById('linkResult');
+    resultEl.textContent = 'Buscando professor...';
+    try {
+      const profData = await auth.authenticatedRequest(`/profiles?email=eq.${encodeURIComponent(email)}&select=id,full_name,email`);
+      const prof = Array.isArray(profData) ? profData[0] : null;
+      if (!prof) { resultEl.textContent = 'Professor não encontrado com este e-mail.'; btn.disabled = false; return; }
+      const update = {};
+      if (schoolId) update.school_id = schoolId;
+      if (grade) update.school_grade = grade;
+      await auth.authenticatedRequest(`/profiles?id=eq.${prof.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(update),
+      });
+      resultEl.textContent = `Professor "${prof.full_name || prof.email}" vinculado com sucesso.`;
+      showToast('Professor vinculado!');
+      document.getElementById('linkProfEmail').value = '';
+      await loadProfessors();
+    } catch (err) {
+      resultEl.textContent = 'Erro: ' + err.message;
+      showToast('Erro ao vincular professor.', 'error');
+    }
+    btn.disabled = false;
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

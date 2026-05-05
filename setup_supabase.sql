@@ -157,7 +157,33 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- 5. Definir usuÃ¡rio coordenador inicial
+-- 5. Histórico de revisões nas provas
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS review_history JSONB DEFAULT '[]';
+
+-- 6. Tabela de escolas (para organização escolar)
+CREATE TABLE IF NOT EXISTS schools (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  city TEXT,
+  admin_email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE schools ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Escolas: ver" ON schools;
+CREATE POLICY "Escolas: ver" ON schools
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Escolas: admin gerencia" ON schools;
+CREATE POLICY "Escolas: admin gerencia" ON schools
+  FOR ALL USING (public.is_coordinator_or_admin());
+
+-- 7. Vincular professores à escola e série
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES schools(id);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS school_grade TEXT;
+
+-- 8. Definir usuário coordenador inicial
 UPDATE profiles
 SET role = 'coordenadora'
 WHERE email = 'yesley@msn.com';

@@ -64,6 +64,28 @@
     }
     .toast.show { transform: translateY(0); opacity: 1; }
     .toast.error { background: #dc2626; }
+    /* Histórico */
+    .history-toggle { background: none; border: none; color: #667eea; font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; }
+    .history-log { display: none; margin-top: 8px; border-left: 3px solid #e2e8f0; padding-left: 10px; }
+    .history-log.open { display: block; }
+    .history-entry { font-size: 12px; color: #475569; margin-bottom: 6px; line-height: 1.5; }
+    .history-entry .he-date { color: #94a3b8; font-size: 11px; }
+    .history-entry .he-action { font-weight: 700; color: #0f172a; }
+    /* Modal de devolução */
+    .return-modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+      display: none; place-items: center; z-index: 80; padding: 16px;
+    }
+    .return-modal-overlay.show { display: grid; }
+    .return-modal {
+      background: #fff; border-radius: 18px; padding: 24px;
+      width: min(480px, 100%); box-shadow: 0 24px 80px rgba(15,23,42,0.28);
+      display: grid; gap: 14px;
+    }
+    .return-modal h3 { font-size: 18px; font-weight: 900; margin: 0; }
+    .return-modal p { font-size: 14px; color: #64748b; margin: 0; }
+    .return-modal textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical; }
+    .return-modal-btns { display: flex; gap: 10px; }
     @media (max-width: 640px) {
       header { padding: 0 16px; height: auto; min-height: 64px; gap: 12px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
       .header-actions, .controls { width: 100%; display: grid; grid-template-columns: 1fr; }
@@ -107,6 +129,19 @@
   </div>
 </main>
 
+<!-- Modal de devolução com observações -->
+<div class="return-modal-overlay" id="returnModalOverlay">
+  <div class="return-modal">
+    <h3>Devolver prova ao professor</h3>
+    <p>Escreva as observações e orientações para o professor corrigir a prova:</p>
+    <textarea id="returnNotesInput" placeholder="Ex.: Revisar o enunciado da questão 3. Adicionar mais alternativas na questão 5..."></textarea>
+    <div class="return-modal-btns">
+      <button class="btn" type="button" onclick="closeReturnModal()">Cancelar</button>
+      <button class="btn warn" type="button" id="confirmReturnBtn">Devolver prova</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
@@ -115,12 +150,20 @@
   let auth = null;
   let reviews = [];
   let profile = null;
+  let pendingReturnId = null;
   const reviewLabels = {
     enviada: 'Enviada',
     em_revisao: 'Em revisão',
     aprovada: 'Aprovada',
     devolvida: 'Devolvida',
     bloqueada: 'Bloqueada',
+  };
+  const actionLabels = {
+    aprovada: 'Prova aprovada',
+    devolvida: 'Prova devolvida para ajustes',
+    bloqueada: 'Prova bloqueada',
+    em_revisao: 'Iniciou revisão',
+    enviada: 'Enviada para coordenação',
   };
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -191,6 +234,21 @@
       const statusLabel = reviewLabels[exam.review_status] || exam.review_status || 'Rascunho';
       const updated = exam.updated_at ? new Date(exam.updated_at).toLocaleDateString('pt-BR') : '—';
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
+      const history = Array.isArray(exam.review_history) ? exam.review_history : [];
+      const historyHtml = history.length ? `
+        <div style="margin-top:4px;">
+          <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">📋 Histórico (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
+          <div class="history-log" id="history-${exam.id}">
+            ${[...history].reverse().map(h => `
+              <div class="history-entry">
+                <span class="he-action">${esc(actionLabels[h.action] || h.action)}</span>
+                ${h.notes ? `<br><span style="color:#78350f;">"${esc(h.notes)}"</span>` : ''}
+                <br><span class="he-date">${h.reviewer || ''} — ${h.date ? new Date(h.date).toLocaleString('pt-BR') : '—'}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
       return `
         <div class="exam-card">
           <span class="badge ${esc(exam.review_status)}">${esc(statusLabel)}</span>
@@ -203,11 +261,12 @@
             <div class="meta-row"><span>Atualizada</span><strong>${updated}</strong></div>
           </div>
           ${exam.review_notes ? `<div class="review-note"><strong>Observação registrada</strong>${esc(exam.review_notes)}</div>` : ''}
+          ${historyHtml}
           <div class="actions">
             <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">Corrigir</button>
             <button class="btn" type="button" onclick="openPrint('${exam.id}')">PDF</button>
             <button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>
-            <button class="btn warn" type="button" onclick="returnExam('${exam.id}')">Devolver</button>
+            <button class="btn warn" type="button" onclick="openReturnModal('${exam.id}')">Devolver</button>
             <button class="btn danger" type="button" onclick="blockExam('${exam.id}')">Bloquear</button>
           </div>
         </div>
@@ -224,6 +283,36 @@
     window.location.href = `print.html?id=${encodeURIComponent(id)}`;
   }
 
+  function toggleHistory(id) {
+    const el = document.getElementById('history-' + id);
+    if (el) el.classList.toggle('open');
+  }
+
+  function openReturnModal(id) {
+    pendingReturnId = id;
+    document.getElementById('returnNotesInput').value = '';
+    document.getElementById('returnModalOverlay').classList.add('show');
+  }
+
+  function closeReturnModal() {
+    pendingReturnId = null;
+    document.getElementById('returnModalOverlay').classList.remove('show');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('confirmReturnBtn').addEventListener('click', async () => {
+      const notes = document.getElementById('returnNotesInput').value.trim();
+      closeReturnModal();
+      if (pendingReturnId) {
+        await updateReviewStatus(pendingReturnId, 'devolvida', { review_notes: notes, locked_at: null }, 'Prova devolvida ao professor.');
+        pendingReturnId = null;
+      }
+    });
+    document.getElementById('returnModalOverlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('returnModalOverlay')) closeReturnModal();
+    });
+  });
+
   async function approveExam(id) {
     await updateReviewStatus(id, 'aprovada', { locked_at: new Date().toISOString() }, 'Prova aprovada.');
   }
@@ -232,22 +321,30 @@
     await updateReviewStatus(id, 'bloqueada', { locked_at: new Date().toISOString() }, 'Prova bloqueada.');
   }
 
-  async function returnExam(id) {
-    const notes = window.prompt('Observações para o professor:', '');
-    if (notes === null) return;
-    await updateReviewStatus(id, 'devolvida', { review_notes: notes, locked_at: null }, 'Prova devolvida ao professor.');
-  }
+  function returnExam(id) { openReturnModal(id); }
 
   async function updateReviewStatus(id, status, extra, message) {
     const exam = reviews.find((item) => item.id === id);
     if (!exam) return;
 
+    const now = new Date().toISOString();
+    const user = auth.getCurrentUser();
+    const historyEntry = {
+      action: status,
+      reviewer: profile?.full_name || user.email || 'Coordenação',
+      date: now,
+      notes: extra.review_notes || '',
+    };
+    const currentHistory = Array.isArray(exam.review_history) ? exam.review_history : [];
+    const newHistory = [...currentHistory, historyEntry];
+
     const previous = { ...exam };
     Object.assign(exam, {
       review_status: status,
-      reviewed_by: auth.getCurrentUser().id,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      reviewed_by: user.id,
+      reviewed_at: now,
+      updated_at: now,
+      review_history: newHistory,
       ...extra,
     });
     renderReviews();
@@ -257,9 +354,10 @@
         method: 'PATCH',
         body: JSON.stringify({
           review_status: status,
-          reviewed_by: auth.getCurrentUser().id,
-          reviewed_at: exam.reviewed_at,
-          updated_at: exam.updated_at,
+          reviewed_by: user.id,
+          reviewed_at: now,
+          updated_at: now,
+          review_history: newHistory,
           ...extra,
         }),
       });

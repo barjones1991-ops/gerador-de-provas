@@ -156,6 +156,31 @@
     .silabas-grid { display: grid; gap: 12px; margin-top: 8px; }
     .silaba-item { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; align-items: center; font-size: 15px; }
     .silaba-word { font-weight: 800; letter-spacing: 0.08em; }
+    .word-search-grid {
+      display: inline-grid;
+      gap: 2px;
+      margin: 10px 0;
+      border: 1px solid #cbd5e1;
+      padding: 6px;
+      background: #fff;
+    }
+    .word-search-cell {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #e2e8f0;
+      font-weight: 800;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .word-search-list { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+    .crossword-layout { display: grid; gap: 12px; }
+    .crossword-grid { display: inline-grid; gap: 2px; padding: 6px; border: 1px solid #cbd5e1; background: #f8fafc; width: max-content; max-width: 100%; overflow: auto; }
+    .crossword-cell { width: 24px; height: 24px; border: 1px solid #94a3b8; background: #fff; display: grid; place-items: start; position: relative; font-size: 9px; font-weight: 800; padding: 1px 2px; }
+    .crossword-cell.empty { border-color: transparent; background: transparent; }
+    .crossword-clues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; font-size: 13px; }
+    .crossword-clues h4 { margin: 0 0 6px; font-size: 13px; }
     .seq-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; }
     .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; break-inside: avoid; }
     .seq-img-card img { max-width: 100%; max-height: 90px; object-fit: contain; border-radius: 6px; }
@@ -168,6 +193,23 @@
     .legenda-item { text-align: center; break-inside: avoid; }
     .legenda-item img { max-width: 100%; max-height: 100px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; }
     .legenda-line { border-bottom: 1px solid #334155; height: 24px; margin-top: 6px; }
+    .grade-img-grid { display: grid; gap: 12px; margin-top: 8px; }
+    .grade-img-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grade-img-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grade-img-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grade-img-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; text-align: center; break-inside: avoid; }
+    .grade-img-card img { width: 100%; height: 110px; object-fit: contain; border-radius: 6px; display: block; }
+    .grade-img-placeholder { height: 110px; border-radius: 6px; background: #f1f5f9; color: #94a3b8; display: grid; place-items: center; font-size: 12px; }
+    .grade-img-caption { font-size: 12px; color: #334155; font-weight: 700; margin-top: 6px; }
+    .grade-img-line { border-bottom: 1px solid #334155; height: 24px; margin-top: 8px; }
+    .identify-image-wrap { position: relative; margin-top: 8px; display: inline-block; max-width: 100%; }
+    .identify-image-wrap img { max-width: 100%; max-height: 360px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; display: block; }
+    .identify-image-placeholder { width: min(100%, 520px); height: 260px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; color: #94a3b8; display: grid; place-items: center; }
+    .identify-marker { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #0f172a; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(15,23,42,.28); display: grid; place-items: center; font-size: 12px; font-weight: 900; transform: translate(-50%, -50%); }
+    .identify-answer-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-top: 10px; }
+    .identify-answer-item { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: end; font-size: 13px; }
+    .identify-answer-num { width: 24px; height: 24px; border-radius: 50%; background: #0f172a; color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 12px; }
+    .identify-answer-line { border-bottom: 1px solid #334155; height: 24px; }
     .assoc-img-section { margin-top: 8px; }
     .assoc-img-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 10px; }
     .assoc-img-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; text-align: center; font-size: 13px; break-inside: avoid; }
@@ -335,6 +377,136 @@
         .filter(Boolean)
         .join('; ');
     }
+    function normalizePuzzleWord(word) {
+      return String(word || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]/g, '').toUpperCase();
+    }
+    function puzzleWordsFromText(text) {
+      return String(text || '').split(/[\n,;]+/).map((word) => word.trim()).filter(Boolean);
+    }
+    function buildWordSearch(words, size = 12) {
+      const cleanWords = words.map(normalizePuzzleWord).filter(Boolean);
+      const gridSize = Math.max(8, Math.min(18, Number(size) || 12));
+      const grid = Array.from({ length: gridSize }, () => Array.from({ length: gridSize }, () => ''));
+      const placements = [];
+      const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }];
+      cleanWords.forEach((word, wi) => {
+        const trimmed = word.slice(0, gridSize);
+        let placed = false;
+        for (let attempt = 0; attempt < gridSize * gridSize && !placed; attempt += 1) {
+          const dir = directions[(attempt + wi) % directions.length];
+          const row = (attempt * 3 + wi * 5) % gridSize;
+          const col = (attempt * 7 + wi * 2) % gridSize;
+          const endRow = row + dir.dr * (trimmed.length - 1);
+          const endCol = col + dir.dc * (trimmed.length - 1);
+          if (endRow >= gridSize || endCol >= gridSize) continue;
+          let fits = true;
+          for (let i = 0; i < trimmed.length; i += 1) {
+            const cell = grid[row + dir.dr * i][col + dir.dc * i];
+            if (cell && cell !== trimmed[i]) fits = false;
+          }
+          if (!fits) continue;
+          for (let i = 0; i < trimmed.length; i += 1) grid[row + dir.dr * i][col + dir.dc * i] = trimmed[i];
+          placements.push(`${word}: linha ${row + 1}, coluna ${col + 1}`);
+          placed = true;
+        }
+      });
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let r = 0; r < gridSize; r += 1) {
+        for (let c = 0; c < gridSize; c += 1) if (!grid[r][c]) grid[r][c] = letters[(r * 7 + c * 11) % letters.length];
+      }
+      return { grid, placements };
+    }
+    function renderWordSearch(q) {
+      const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
+      const built = buildWordSearch(words, q.gridSize || 12);
+      const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
+      const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
+      return `<div><div class="word-search-grid" style="grid-template-columns: repeat(${built.grid.length}, 24px);">${grid}</div><div class="word-search-list">${list}</div></div>`;
+    }
+    function buildCrossword(clues, seed = 0) {
+      const words = (Array.isArray(clues) ? clues : []).map((item, index) => ({
+        clue: item.clue || `Pista ${index + 1}`,
+        answer: normalizePuzzleWord(item.answer || ''),
+        originalIndex: index,
+      })).filter((item) => item.answer);
+      if (!words.length) return { grid: [['']], placed: [] };
+      const orderedWords = [...words].sort((a, b) => {
+        const scoreA = ((a.originalIndex + 1) * 17 + Number(seed || 0) * 31) % Math.max(1, words.length);
+        const scoreB = ((b.originalIndex + 1) * 17 + Number(seed || 0) * 31) % Math.max(1, words.length);
+        if (scoreA !== scoreB) return scoreA - scoreB;
+        return b.answer.length - a.answer.length;
+      });
+      const placed = [];
+      const occupied = new Map();
+      const key = (r, c) => `${r},${c}`;
+      const canPlace = (word, row, col, dir) => {
+        for (let i = 0; i < word.answer.length; i += 1) {
+          const r = row + (dir === 'V' ? i : 0);
+          const c = col + (dir === 'H' ? i : 0);
+          const cell = occupied.get(key(r, c));
+          if (cell && cell !== word.answer[i]) return false;
+        }
+        return true;
+      };
+      const putWord = (word, row, col, dir) => {
+        const number = placed.length + 1;
+        for (let i = 0; i < word.answer.length; i += 1) {
+          const r = row + (dir === 'V' ? i : 0);
+          const c = col + (dir === 'H' ? i : 0);
+          occupied.set(key(r, c), word.answer[i]);
+        }
+        placed.push({ ...word, row, col, dir, number });
+      };
+      putWord(orderedWords[0], 0, 0, Number(seed || 0) % 2 === 0 ? 'H' : 'V');
+      for (let wi = 1; wi < orderedWords.length; wi += 1) {
+        const word = orderedWords[wi];
+        let done = false;
+        const bases = Number(seed || 0) % 2 === 0 ? placed : [...placed].reverse();
+        for (const base of bases) {
+          for (let bi = 0; bi < base.answer.length && !done; bi += 1) {
+            for (let wiLetter = 0; wiLetter < word.answer.length && !done; wiLetter += 1) {
+              if (base.answer[bi] !== word.answer[wiLetter]) continue;
+              const dir = base.dir === 'H' ? 'V' : 'H';
+              const crossRow = base.row + (base.dir === 'V' ? bi : 0);
+              const crossCol = base.col + (base.dir === 'H' ? bi : 0);
+              const row = crossRow - (dir === 'V' ? wiLetter : 0);
+              const col = crossCol - (dir === 'H' ? wiLetter : 0);
+              if (canPlace(word, row, col, dir)) {
+                putWord(word, row, col, dir);
+                done = true;
+              }
+            }
+          }
+        }
+        if (!done) {
+          const minRow = Math.min(...placed.map((p) => p.row));
+          const maxCol = Math.max(...placed.map((p) => p.col + (p.dir === 'H' ? p.answer.length : 1)));
+          putWord(word, minRow + wi * 2, maxCol + 2, wi % 2 === 0 ? 'H' : 'V');
+        }
+      }
+      const rows = [...occupied.keys()].map((pos) => Number(pos.split(',')[0]));
+      const cols = [...occupied.keys()].map((pos) => Number(pos.split(',')[1]));
+      const minR = Math.min(...rows), maxR = Math.max(...rows), minC = Math.min(...cols), maxC = Math.max(...cols);
+      const grid = Array.from({ length: maxR - minR + 1 }, () => Array.from({ length: maxC - minC + 1 }, () => ''));
+      occupied.forEach((letter, pos) => {
+        const [r, c] = pos.split(',').map(Number);
+        grid[r - minR][c - minC] = letter;
+      });
+      placed.forEach((item) => { item.row -= minR; item.col -= minC; });
+      return { grid, placed };
+    }
+    function renderCrossword(q) {
+      const built = buildCrossword(q.clues || [], q.crosswordSeed || 0);
+      const starts = new Map(built.placed.map((item) => [`${item.row},${item.col}`, item.number]));
+      const cells = built.grid.map((row, r) => row.map((letter, c) => {
+        if (!letter) return '<div class="crossword-cell empty"></div>';
+        const number = starts.get(`${r},${c}`) || '';
+        return `<div class="crossword-cell">${number}</div>`;
+      }).join('')).join('');
+      const across = built.placed.filter((item) => item.dir === 'H').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
+      const down = built.placed.filter((item) => item.dir === 'V').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
+      return `<div class="crossword-layout"><div class="crossword-grid" style="grid-template-columns: repeat(${built.grid[0].length}, 24px);">${cells}</div><div class="crossword-clues"><div><h4>Horizontais</h4>${across || '<span class="small">Nenhuma.</span>'}</div><div><h4>Verticais</h4>${down || '<span class="small">Nenhuma.</span>'}</div></div></div>`;
+    }
 
     function parsePtNumber(s) {
       const n = Number(String(s || '').trim().replace('.', '').replace(',', '.'));
@@ -411,21 +583,39 @@
       }
       if (q.type === 'imagem') {
         const image = imageFigure(q);
+        const extraImgsHtml = Array.isArray(q.extraImages) ? q.extraImages.map((ei) => {
+          if (!ei.dataUrl) return '';
+          const eSize = ['small','medium','large','full'].includes(ei.size) ? ei.size : 'medium';
+          const eAlign = ['left','center','right'].includes(ei.align) ? ei.align : 'center';
+          const eCap = ei.caption ? `<div class="image-caption">${esc(ei.caption)}</div>` : '';
+          return `<div class="question-image ${eSize} ${eAlign}"><img src="${ei.dataUrl}" alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
+        }).join('') : '';
+        const allImages = `${image}${extraImgsHtml}`;
         if (q.imageAnswerType === 'multipla') {
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
             return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
           }).join('');
-          return `${image}<div class="spacey">${options}</div>`;
+          return `${allImages}<div class="spacey">${options}</div>`;
         }
         if (q.imageAnswerType === 'marcarx') {
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
             return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
           }).join('');
-          return `${image}<div class="spacey">${items}</div>`;
+          return `${allImages}<div class="spacey">${items}</div>`;
         }
-        return `${image}${answerArea(q)}`;
+        if (q.showAnswerSpace === false) return `${allImages}`;
+        return `${allImages}${answerArea(q)}`;
+      }
+      if (q.type === 'interpretacao_imagem') {
+        const image = imageFigure(q);
+        const prompts = Array.isArray(q.prompts) && q.prompts.length ? q.prompts : [''];
+        const items = prompts.map((prompt, i) => {
+          const answer = q.showAnswerSpace === false ? '' : answerArea(q);
+          return `<div style="margin-top:10px;"><strong>${i + 1}.</strong> ${esc(prompt || `Pergunta ${i + 1}`)}${answer}</div>`;
+        }).join('');
+        return `${image}<div class="spacey">${items}</div>`;
       }
       if (q.type === 'relacione_imagens') {
         normalizeRelacioneImagensQuestion(q);
@@ -535,6 +725,12 @@
         }).join('');
         return `<div class="silabas-grid">${items}</div>`;
       }
+      if (q.type === 'caca_palavras') {
+        return renderWordSearch(q);
+      }
+      if (q.type === 'cruzadinha') {
+        return renderCrossword(q);
+      }
       if (q.type === 'sequencia_imagens') {
         const items = q.items||[];
         const cards = items.map(item => {
@@ -558,6 +754,35 @@
           return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
         }).join('');
         return `<div class="legenda-grid">${cards}</div>`;
+      }
+      if (q.type === 'grade_imagens') {
+        const items = Array.isArray(q.items) ? q.items : [];
+        const cols = [2, 3, 4].includes(Number(q.columns)) ? Number(q.columns) : 3;
+        const cards = items.map((item, i) => {
+          const img = item.imageDataUrl
+            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
+            : `<div class="grade-img-placeholder">Sem imagem</div>`;
+          const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
+          const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
+          return `<div class="grade-img-card">${img}${caption}${line}</div>`;
+        }).join('');
+        return `<div class="grade-img-grid cols-${cols}">${cards}</div>`;
+      }
+      if (q.type === 'identificar_imagem') {
+        const markers = Array.isArray(q.markers) && q.markers.length ? q.markers : [];
+        const markerHtml = markers.map((marker, i) => {
+          const x = Math.max(0, Math.min(100, Number(marker.x) || 50));
+          const y = Math.max(0, Math.min(100, Number(marker.y) || 50));
+          return `<span class="identify-marker" style="left:${x}%;top:${y}%;">${i + 1}</span>`;
+        }).join('');
+        const image = q.imageDataUrl
+          ? `<div class="identify-image-wrap"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
+          : `<div class="identify-image-wrap"><div class="identify-image-placeholder">Imagem não selecionada</div>${markerHtml}</div>`;
+        const caption = q.imageCaption ? `<div class="image-caption">${esc(q.imageCaption)}</div>` : '';
+        const list = q.showAnswerList === false ? '' : `<div class="identify-answer-list">${markers.map((marker, i) => `
+          <div class="identify-answer-item"><span class="identify-answer-num">${i + 1}</span><span class="identify-answer-line"></span></div>
+        `).join('')}</div>`;
+        return `${image}${caption}${list}`;
       }
       if (q.type === 'associacao_imagem_imagem') {
         const left = q.leftItems||[]; const right = q.rightItems||[];
@@ -614,6 +839,9 @@
           .filter(Boolean)
           .join(', ');
       }
+      if (q.type === 'interpretacao_imagem') {
+        return '(interpretação de imagem — corrija manualmente)';
+      }
       if (q.type === 'relacione_imagens') {
         return relacioneImagensAnswer(q);
       }
@@ -639,6 +867,14 @@
       if (q.type === 'silabas' && Array.isArray(q.words)) {
         return q.words.map(w => `${w.word}: ${w.answer || '?'}`).join('; ');
       }
+      if (q.type === 'caca_palavras') {
+        const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
+        const placements = buildWordSearch(words, q.gridSize || 12).placements.join(' | ');
+        return placements || words.join(', ');
+      }
+      if (q.type === 'cruzadinha' && Array.isArray(q.clues)) {
+        return buildCrossword(q.clues, q.crosswordSeed || 0).placed.map((item) => `${item.number}. ${item.answer}`).join('; ');
+      }
       if (q.type === 'sequencia_imagens' && Array.isArray(q.images)) {
         const order = Array.isArray(q.correctOrder)
           ? q.correctOrder.map((i, pos) => `${pos + 1}→${i + 1}`).join(', ')
@@ -647,6 +883,18 @@
       }
       if (q.type === 'legenda_imagens' && Array.isArray(q.images)) {
         return q.images.map((img, i) => `${i + 1}: ${img.legend || '?'}`).join('; ');
+      }
+      if (q.type === 'grade_imagens' && Array.isArray(q.items)) {
+        const answers = q.items
+          .map((item, i) => item.answer ? `${i + 1}: ${item.answer}` : '')
+          .filter(Boolean);
+        return answers.length ? answers.join('; ') : '(grade de imagens - corrija manualmente)';
+      }
+      if (q.type === 'identificar_imagem' && Array.isArray(q.markers)) {
+        const answers = q.markers
+          .map((item, i) => item.answer ? `${i + 1}: ${item.answer}` : '')
+          .filter(Boolean);
+        return answers.length ? answers.join('; ') : '(identificação de imagem - corrija manualmente)';
       }
       if (q.type === 'associacao_imagem_imagem' && Array.isArray(q.pairs)) {
         return q.pairs.map((p, i) => `${i + 1}: ${p.word || '?'}`).join('; ');
