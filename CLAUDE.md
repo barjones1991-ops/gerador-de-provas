@@ -375,14 +375,9 @@ git push --set-upstream origin main
 
 ### 🔴 Crítico — banco de dados / segurança
 
-- [ ] **RLS profiles: coordenadora não consegue editar perfil de professores.**
+- [x] **RLS profiles: coordenadora não consegue editar perfil de professores.**
   A policy `"Perfil próprio: editar"` usa `USING (auth.uid() = id)`, bloqueando qualquer PATCH feito pela coordenadora em `schools.html > linkProfessor()`.
-  Solução: adicionar em `setup_supabase.sql`:
-  ```sql
-  DROP POLICY IF EXISTS "Coordenadora edita professores" ON profiles;
-  CREATE POLICY "Coordenadora edita professores" ON profiles
-    FOR UPDATE USING (public.is_coordinator_or_admin());
-  ```
+  Corrigido: adicionada policy `"Coordenadora edita professores"` em `setup_supabase.sql`.
 
 ### 🟠 Alta prioridade — gestão de escolas (`schools.html`)
 

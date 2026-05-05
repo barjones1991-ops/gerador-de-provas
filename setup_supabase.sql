@@ -40,6 +40,10 @@ DROP POLICY IF EXISTS "Perfil próprio: editar" ON profiles;
 CREATE POLICY "Perfil próprio: editar" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Coordenadora edita professores" ON profiles;
+CREATE POLICY "Coordenadora edita professores" ON profiles
+  FOR UPDATE USING (public.is_coordinator_or_admin());
+
 -- 2. Tabela de provas
 CREATE TABLE IF NOT EXISTS exams (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
