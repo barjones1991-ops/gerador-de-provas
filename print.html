@@ -256,7 +256,7 @@
       .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
       .questions { display: block; }
       .question-block { margin: 0 0 20px; }
-      .pv-header, .info-grid, .student-grid, .instructions, .chipbar, .question-block { break-inside: avoid; page-break-inside: avoid; }
+      .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
       @page { size: A4 portrait; margin: 10mm 12mm 12mm; }
     }
   </style>
@@ -970,11 +970,6 @@
         <div class="instructions">
           <div class="h">Instruções</div>
           <div class="nowrap">${esc(exam.instructions || '')}</div>
-        </div>
-        <div class="chipbar">
-          <div class="chip">${questions.length} questões</div>
-          <div class="chip">Soma configurada: ${formatPt1(sum)} pontos</div>
-          <div class="chip">Pronto para impressão</div>
         </div>
         <div class="questions">
           ${questions.map((q, i) => `
