@@ -517,6 +517,27 @@
       return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',');
     }
 
+    const _buildHeaderHtml = (q) => {
+      const _imgOnly = ['imagem','interpretacao_imagem','relacione_imagens','associacao_imagem_imagem','sequencia_imagens','comparar_imagens','legenda_imagens','grade_imagens','identificar_imagem'];
+      if (_imgOnly.includes(q.type)||!q.headerImage) return '';
+      const hi=q.headerImage;
+      if (hi.mode==='one'&&hi.dataUrl) {
+        const sz=['small','medium','large','full'].includes(hi.size)?hi.size:'medium';
+        const al=['left','center','right','lado_esquerda','lado_direita'].includes(hi.align)?hi.align:'center';
+        const cap=hi.caption?`<div class="image-caption">${esc(hi.caption)}</div>`:'';
+        return `<div class="question-image ${sz} ${al}"><img src="${hi.dataUrl}" alt="" />${cap}</div>`;
+      }
+      if (hi.mode==='grade'&&Array.isArray(hi.items)&&hi.items.some(i=>i.dataUrl)) {
+        const cols=Math.max(2,Math.min(4,Number(hi.columns)||2));
+        const cells=hi.items.map(item=>{
+          const cap=item.caption?`<div class="image-caption">${esc(item.caption)}</div>`:'';
+          return item.dataUrl?`<div><img src="${item.dataUrl}" style="width:100%;border-radius:6px;" alt=""/>${cap}</div>`:`<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;" class="small">—</div>`;
+        }).join('');
+        return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:10px;">${cells}</div>`;
+      }
+      return '';
+    };
+
     function renderQuestionPreview(q) {
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => '<div class="hline"></div>').join('')}</div>`;
       const imageFigure = (question) => {
@@ -539,10 +560,17 @@
         return answerLines(lines);
       };
       if (q.type === 'multipla') {
-        return `<div class="spacey">${(q.options || []).map((op, i) => {
+        const hasOptImgs = q.headerImage?.mode === 'alternativas' && Array.isArray(q.optionImages);
+        const opts = (q.options || []).map((op, i) => {
           const letter = String.fromCharCode(65 + i);
-          return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
-        }).join('')}</div>`;
+          const optImg = hasOptImgs && q.optionImages[i]?.dataUrl
+            ? `<div><img src="${q.optionImages[i].dataUrl}" style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
+            : '';
+          return optImg
+            ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(op || `Alternativa ${letter}`)}</span></div></div>`
+            : `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+        }).join('');
+        return `<div class="spacey">${opts}</div>`;
       }
       if (q.type === 'discursiva') {
         return answerArea(q);
@@ -980,7 +1008,7 @@
                 <div class="p">Valor: ${esc(q.points)}${q.bncc ? ` <span class="bncc-badge">${esc(q.bncc)}</span>` : ''}</div>
               </div>
               <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>
-              <div class="qpreview">${renderQuestionPreview(q)}</div>
+              <div class="qpreview">${_buildHeaderHtml(q) + renderQuestionPreview(q)}</div>
             </div>
           `).join('')}
         </div>
