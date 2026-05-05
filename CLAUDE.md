@@ -395,17 +395,17 @@ git push --set-upstream origin main
 ### 🟡 Média prioridade — editor (`editor.html`)
 
 - [ ] **Sem fallback de edição manual para escola/professor/logo**: quando o editor preenche escola, professor e logo automaticamente do perfil, o professor não tem como corrigir valores errados. Se o perfil tiver dado desatualizado, a prova sai com dado errado sem o professor perceber.
-- [ ] **Logo ausente quando escola não tem logo cadastrada**: o preview mostra placeholder "Logo da escola". O professor não tem como fazer upload de uma logo avulsa — a funcionalidade de upload foi removida do editor. Solução: mostrar botão de upload apenas quando não há logo na escola.
+- [x] **Logo ausente quando escola não tem logo cadastrada**: barra de info mostra link "＋ Adicionar logo" que abre file picker e carrega a logo apenas para aquela prova.
 - [ ] **Campo disciplina em branco para professores novos**: se o professor não tem `disciplines` no perfil e não está vinculado a escola, o select usa a lista padrão — mas ao salvar, `state.school.subject` pode ficar vazio se o usuário não selecionar nada.
 
 ### 🟡 Média prioridade — coordenação (`coordenacao.html`)
 
 - [x] **Não há acesso a schools.html a partir da coordenação**: adicionado botão "Escolas" no header de `coordenacao.html`.
-- [ ] **Filtro de provas por professor/escola ausente**: o painel lista todas as provas enviadas, mas não tem filtro por nome do professor ou escola. Com muitos professores, fica difícil localizar provas.
+- [x] **Filtro de provas por professor/escola ausente**: adicionado select de professor em `coordenacao.html`, populado dinamicamente com os professores das provas carregadas.
 
 ### 🟡 Média prioridade — dashboard do professor (`dashboard.html`)
 
-- [ ] **Filtro por disciplina não cruza com o select do editor**: o filtro de disciplina no dashboard é texto livre digitado. Se o professor selecionou "Língua Portuguesa" no editor mas o filtro pede "Português", a prova não aparece.
+- [x] **Filtro por disciplina não cruza com o select do editor**: `renderSubjectOptions()` agora usa a mesma lista padrão do editor (`STANDARD_DISCIPLINES`) mesclada com disciplinas reais dos exames. Garante compatibilidade com provas antigas e novas.
 
 ### 🟢 Baixa prioridade — refinamentos gerais
 

@@ -5064,8 +5064,31 @@
           const parts = [];
           if (state.school.teacher && state.school.teacher !== defaultSchool.teacher) parts.push(state.school.teacher);
           if (state.school.schoolName && state.school.schoolName !== defaultSchool.schoolName) parts.push(state.school.schoolName);
-          if (state.logoDataUrl) parts.push('Logo carregada da escola');
-          if (parts.length) infoEl.textContent = '✓ ' + parts.join(' · ');
+          if (state.logoDataUrl) {
+            parts.push('Logo carregada da escola');
+          } else {
+            // Sem logo na escola: oferece upload avulso para esta prova
+            parts.push('<label style="cursor:pointer;color:#667eea;font-weight:700;">＋ Adicionar logo <input id="logoUploadFallback" type="file" accept="image/*" style="display:none;" /></label>');
+          }
+          infoEl.innerHTML = parts.length ? '✓ ' + parts.join(' · ') : '';
+          const fallbackInput = document.getElementById('logoUploadFallback');
+          if (fallbackInput) {
+            fallbackInput.addEventListener('change', (e) => {
+              const file = e.target.files && e.target.files[0];
+              if (!file || !file.type.startsWith('image/')) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                state.logoDataUrl = String(reader.result || '');
+                infoEl.innerHTML = '✓ ' + [
+                  state.school.teacher !== defaultSchool.teacher ? state.school.teacher : '',
+                  state.school.schoolName !== defaultSchool.schoolName ? state.school.schoolName : '',
+                  'Logo carregada',
+                ].filter(Boolean).join(' · ');
+                renderPreview();
+              };
+              reader.readAsDataURL(file);
+            });
+          }
         }
 
         applyStateToInputs();

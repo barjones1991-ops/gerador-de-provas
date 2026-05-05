@@ -564,14 +564,22 @@
     }).join('');
   }
 
+  const STANDARD_DISCIPLINES = [
+    'Língua Portuguesa','Matemática','Ciências','História','Geografia',
+    'Arte','Educação Física','Inglês','Espanhol','Filosofia','Sociologia',
+    'Física','Química','Biologia','Religião','Tecnologia','Música',
+  ];
+
   function renderSubjectOptions() {
     const select = document.getElementById('subjectFilter');
-    const subjects = [...new Set(exams.map(e => e.subject).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    const selected = subjects.includes(currentSubject) ? currentSubject : '';
+    // Combina lista padrão com disciplinas reais dos exames (para retrocompatibilidade)
+    const fromExams = exams.map(e => e.subject).filter(Boolean);
+    const combined = [...new Set([...STANDARD_DISCIPLINES, ...fromExams])]
+      .filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const selected = combined.includes(currentSubject) ? currentSubject : '';
     currentSubject = selected;
-    select.innerHTML = '<option value="">Todas as disciplinas</option>' + subjects
-      .map(subject => `<option value="${esc(subject)}"${subject === selected ? ' selected' : ''}>${esc(subject)}</option>`)
+    select.innerHTML = '<option value="">Todas as disciplinas</option>' + combined
+      .map(s => `<option value="${esc(s)}"${s === selected ? ' selected' : ''}>${esc(s)}</option>`)
       .join('');
   }
 

@@ -114,7 +114,10 @@
   </div>
 
   <div class="controls">
-    <input id="searchInput" type="text" placeholder="Buscar por título, professor, turma..." />
+    <input id="searchInput" type="text" placeholder="Buscar por título, turma, escola..." />
+    <select id="profFilter">
+      <option value="">Todos os professores</option>
+    </select>
     <select id="statusFilter">
       <option value="">Todos os status</option>
       <option value="enviada">Enviadas</option>
@@ -195,6 +198,7 @@
     });
     document.getElementById('reloadBtn').addEventListener('click', loadReviews);
     document.getElementById('searchInput').addEventListener('input', renderReviews);
+    document.getElementById('profFilter').addEventListener('change', renderReviews);
     document.getElementById('statusFilter').addEventListener('change', renderReviews);
 
     await loadReviews();
@@ -206,6 +210,7 @@
         '/exams?review_status=in.(enviada,em_revisao,aprovada,devolvida,bloqueada)&order=updated_at.desc&select=*'
       );
       reviews = Array.isArray(data) ? data : [];
+      renderProfFilter();
       renderReviews();
     } catch (err) {
       reviews = [];
@@ -214,15 +219,25 @@
     }
   }
 
+  function renderProfFilter() {
+    const sel = document.getElementById('profFilter');
+    const teachers = [...new Set(reviews.map(r => r.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Todos os professores</option>' +
+      teachers.map(t => `<option value="${esc(t)}"${t === current ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  }
+
   function renderReviews() {
     const grid = document.getElementById('reviewsGrid');
     const search = document.getElementById('searchInput').value.toLowerCase();
     const status = document.getElementById('statusFilter').value;
+    const prof = document.getElementById('profFilter').value;
 
     let filtered = reviews;
     if (status) filtered = filtered.filter((exam) => exam.review_status === status);
+    if (prof) filtered = filtered.filter((exam) => exam.teacher === prof);
     if (search) filtered = filtered.filter((exam) =>
-      [exam.title, exam.teacher, exam.subject, exam.class_name, exam.school_name]
+      [exam.title, exam.subject, exam.class_name, exam.school_name]
         .some((value) => String(value || '').toLowerCase().includes(search))
     );
 
