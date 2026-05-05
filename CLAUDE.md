@@ -366,3 +366,55 @@ git push --set-upstream origin main
 - [x] Duplicar prova inteira a partir do dashboard.
 - [x] Exportar prova com gabarito separado (botão "📋 Com gabarito" no editor — gera gabarito em página separada ao imprimir).
 - [x] Adicionar campo de habilidade/BNCC por questão.
+
+---
+
+## Gaps e Refinamentos Pendentes
+
+> Levantados em varredura do sistema em 04/05/2026. Ordenados por impacto.
+
+### 🔴 Crítico — banco de dados / segurança
+
+- [ ] **RLS profiles: coordenadora não consegue editar perfil de professores.**
+  A policy `"Perfil próprio: editar"` usa `USING (auth.uid() = id)`, bloqueando qualquer PATCH feito pela coordenadora em `schools.html > linkProfessor()`.
+  Solução: adicionar em `setup_supabase.sql`:
+  ```sql
+  DROP POLICY IF EXISTS "Coordenadora edita professores" ON profiles;
+  CREATE POLICY "Coordenadora edita professores" ON profiles
+    FOR UPDATE USING (public.is_coordinator_or_admin());
+  ```
+
+### 🟠 Alta prioridade — gestão de escolas (`schools.html`)
+
+- [ ] **Editar escola existente**: não há como alterar nome, cidade, e-mail do administrador ou logo de uma escola já cadastrada. Só é possível excluir e recadastrar.
+- [ ] **Substituir logo de escola existente**: o upload de logo só funciona no momento do cadastro. Após criar a escola, não há botão para trocar a imagem.
+- [ ] **Desvincular professor de escola**: a lista de professores é somente leitura. Não há botão "Desvincular" para remover o vínculo de um professor com uma escola.
+- [ ] **Editar vínculo existente de professor**: se a coordenadora vinculou um professor com série ou disciplinas erradas, não há como corrigir — só seria possível reenviar o formulário, mas ele sobrescreve o vínculo completo (sem feedback de que já estava vinculado).
+
+### 🟠 Alta prioridade — perfil do professor (`dashboard.html`)
+
+- [ ] **Modal de perfil incompleto**: o modal só permite editar nome (`full_name`) e escola (`school_name` em texto livre). Não mostra nem permite editar: escola vinculada (`school_id`), série que leciona (`school_grade`) e disciplinas (`disciplines`).
+- [ ] **Professor não vê sua escola vinculada**: se a coordenadora vinculou o professor a uma escola via `schools.html`, o professor não tem onde visualizar essa informação no dashboard.
+- [ ] **Professor não consegue informar sua série/ano**: o campo `school_grade` só é preenchível pela coordenadora. O professor não tem forma de se auto-cadastrar nesse dado.
+
+### 🟡 Média prioridade — editor (`editor.html`)
+
+- [ ] **Sem fallback de edição manual para escola/professor/logo**: quando o editor preenche escola, professor e logo automaticamente do perfil, o professor não tem como corrigir valores errados. Se o perfil tiver dado desatualizado, a prova sai com dado errado sem o professor perceber.
+- [ ] **Logo ausente quando escola não tem logo cadastrada**: o preview mostra placeholder "Logo da escola". O professor não tem como fazer upload de uma logo avulsa — a funcionalidade de upload foi removida do editor. Solução: mostrar botão de upload apenas quando não há logo na escola.
+- [ ] **Campo disciplina em branco para professores novos**: se o professor não tem `disciplines` no perfil e não está vinculado a escola, o select usa a lista padrão — mas ao salvar, `state.school.subject` pode ficar vazio se o usuário não selecionar nada.
+
+### 🟡 Média prioridade — coordenação (`coordenacao.html`)
+
+- [ ] **Não há acesso a schools.html a partir da coordenação**: o menu da coordenação não tem link para "Escolas". A coordenadora precisaria digitar a URL manualmente.
+- [ ] **Filtro de provas por professor/escola ausente**: o painel lista todas as provas enviadas, mas não tem filtro por nome do professor ou escola. Com muitos professores, fica difícil localizar provas.
+
+### 🟡 Média prioridade — dashboard do professor (`dashboard.html`)
+
+- [ ] **Filtro por disciplina não cruza com o select do editor**: o filtro de disciplina no dashboard é texto livre digitado. Se o professor selecionou "Língua Portuguesa" no editor mas o filtro pede "Português", a prova não aparece.
+
+### 🟢 Baixa prioridade — refinamentos gerais
+
+- [ ] **Página `schools.html` não é linkada no header do dashboard para coordenadores**: o link `#schoolsLink` existe no HTML mas pode não estar aparecendo dependendo da leitura do papel (`applyRoleActions`). Verificar se o link aparece corretamente para `coordenadora` e `admin`.
+- [ ] **Coluna `school_name` em `profiles` vs `school_id`**: o perfil tem dois campos de escola — `school_name` (texto livre, editável no dashboard) e `school_id` (UUID, vinculado pela coordenação). O editor usa `school_id` quando disponível, mas cai em `school_name` quando não tem. Isso cria inconsistência: professor pode ter escola diferente no campo texto e no campo ID.
+- [ ] **`review_status` de prova não aparece no card do dashboard com cor/ícone**: o status existe e é filtrado, mas visualmente o card não destaca claramente o status atual (ex: badge colorido "Devolvida", "Aprovada"). Só aparece como texto no botão de ação.
+- [ ] **Impressão (`print.html`) não tem fallback de logo**: se `exam.logo_data_url` estiver vazio, o espaço de logo some silenciosamente. Verificar se o placeholder aparece ou se o layout quebra.
