@@ -740,28 +740,8 @@
       }
     }
 
-    /* Seletor visual de tipo de questão */
-    .qtype-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;
-      margin-top: 4px;
-    }
-    .qtype-btn {
-      background: #f1f5f9;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 7px 3px;
-      font-size: 10px;
-      font-weight: 600;
-      color: #334155;
-      cursor: pointer;
-      text-align: center;
-      line-height: 1.4;
-      transition: all 0.15s;
-    }
-    .qtype-btn:hover { background: #e2e8f0; border-color: #cbd5e1; }
-    .qtype-btn.selected { background: #0f172a; color: #fff; border-color: #0f172a; }
+    /* Seletor de tipo de questão */
+    #qtypeSelect { width: 100%; }
 
     /* Gabarito */
     .gabarito-page { margin-top: 36px; border-top: 3px dashed #94a3b8; padding-top: 20px; }
@@ -928,37 +908,49 @@
 
         <div>
           <label>Nova questão</label>
-          <div class="qtype-grid" id="qtypeGrid">
-            <button class="qtype-btn selected" data-type="multipla" type="button">🔘<br>Múltipla<br>escolha</button>
-            <button class="qtype-btn" data-type="discursiva" type="button">✏️<br>Discursiva</button>
-            <button class="qtype-btn" data-type="vf" type="button">V/F<br>Verdadeiro<br>ou Falso</button>
-            <button class="qtype-btn" data-type="marcarx" type="button">☑<br>Marcar X</button>
-            <button class="qtype-btn" data-type="lacunas" type="button">___<br>Complete<br>lacunas</button>
-            <button class="qtype-btn" data-type="relacione" type="button">↔<br>Relacione<br>colunas</button>
-            <button class="qtype-btn" data-type="imagem" type="button">🖼️<br>Imagem</button>
-            <button class="qtype-btn" data-type="interpretacao_imagem" type="button">🖼️?<br>Interpreta-<br>ção imagem</button>
-            <button class="qtype-btn" data-type="relacione_imagens" type="button">🖼️↔<br>Img+<br>Palavra</button>
-            <button class="qtype-btn" data-type="texto_base" type="button">📖<br>Interpreta-<br>ção texto</button>
-            <button class="qtype-btn" data-type="matematica_coluna" type="button">🔢<br>Operações<br>matemáticas</button>
-            <button class="qtype-btn" data-type="producao_textual" type="button">📝<br>Produção<br>textual</button>
-            <button class="qtype-btn" data-type="ditado" type="button">🎵<br>Ditado/<br>palavras</button>
-            <button class="qtype-btn" data-type="ordenacao" type="button">🔀<br>Ordenação<br>de frases</button>
-            <button class="qtype-btn" data-type="problema_matematico" type="button">🧮<br>Problema<br>matemático</button>
-            <button class="qtype-btn" data-type="espaco_livre" type="button">✏️<br>Espaço<br>desenho</button>
-            <button class="qtype-btn" data-type="tabela" type="button">📊<br>Tabela</button>
-            <button class="qtype-btn" data-type="associacao_setas" type="button">↔️<br>Assoc.<br>setas</button>
-            <button class="qtype-btn" data-type="sequencia_numerica" type="button">🔢<br>Sequência<br>numérica</button>
-            <button class="qtype-btn" data-type="leitura_escrita" type="button">📖<br>Leitura<br>e escrita</button>
-            <button class="qtype-btn" data-type="silabas" type="button">🔤<br>Sílabas<br>/letras</button>
-            <button class="qtype-btn" data-type="sequencia_imagens" type="button">🖼️🔢<br>Sequência<br>imagens</button>
-            <button class="qtype-btn" data-type="comparar_imagens" type="button">🖼️🖼️<br>Comparar<br>imagens</button>
-            <button class="qtype-btn" data-type="legenda_imagens" type="button">🏷️<br>Legenda<br>imagens</button>
-            <button class="qtype-btn" data-type="associacao_imagem_imagem" type="button">🖼️↔🖼️<br>Img↔Img</button>
-            <button class="qtype-btn" data-type="grade_imagens" type="button">▦🖼️<br>Grade<br>imagens</button>
-            <button class="qtype-btn" data-type="identificar_imagem" type="button">①🖼️<br>Partes<br>imagem</button>
-            <button class="qtype-btn" data-type="caca_palavras" type="button">🔎<br>Caça-<br>palavras</button>
-            <button class="qtype-btn" data-type="cruzadinha" type="button">▦<br>Cruza-<br>dinha</button>
-          </div>
+          <select id="qtypeSelect">
+            <optgroup label="— Objetivas —">
+              <option value="multipla">Múltipla escolha</option>
+              <option value="vf">Verdadeiro ou Falso</option>
+              <option value="marcarx">Marcar X</option>
+              <option value="lacunas">Complete as lacunas</option>
+              <option value="relacione">Relacione as colunas</option>
+              <option value="associacao_setas">Associação por setas</option>
+              <option value="ordenacao">Ordenação de frases</option>
+              <option value="sequencia_numerica">Sequência numérica</option>
+            </optgroup>
+            <optgroup label="— Discursivas —">
+              <option value="discursiva">Discursiva</option>
+              <option value="producao_textual">Produção textual</option>
+              <option value="problema_matematico">Problema matemático</option>
+            </optgroup>
+            <optgroup label="— Com imagem —">
+              <option value="imagem">De acordo com a imagem</option>
+              <option value="interpretacao_imagem">Interpretação de imagem</option>
+              <option value="relacione_imagens">Relacione imagens e palavras</option>
+              <option value="associacao_imagem_imagem">Associe imagem a imagem</option>
+              <option value="sequencia_imagens">Sequência de imagens</option>
+              <option value="comparar_imagens">Comparar duas imagens</option>
+              <option value="legenda_imagens">Legenda das imagens</option>
+              <option value="grade_imagens">Grade de imagens</option>
+              <option value="identificar_imagem">Identificar partes da imagem</option>
+            </optgroup>
+            <optgroup label="— Texto e leitura —">
+              <option value="texto_base">Interpretação de texto</option>
+              <option value="leitura_escrita">Leitura e escrita</option>
+              <option value="silabas">Sílabas / letras / sons</option>
+              <option value="ditado">Ditado / lista de palavras</option>
+            </optgroup>
+            <optgroup label="— Matemática —">
+              <option value="matematica_coluna">Operações matemáticas</option>
+            </optgroup>
+            <optgroup label="— Dados e jogos —">
+              <option value="tabela">Tabela / gráfico</option>
+              <option value="caca_palavras">Caça-palavras</option>
+              <option value="cruzadinha">Cruzadinha</option>
+              <option value="espaco_livre">Espaço de desenho</option>
+            </optgroup>
+          </select>
           <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
 
@@ -4697,14 +4689,10 @@
     }
 
 
-    // Seletor visual de tipo de questão
+    // Seletor de tipo de questão
     let selectedQType = 'multipla';
-    document.querySelectorAll('#qtypeGrid .qtype-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#qtypeGrid .qtype-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        selectedQType = btn.dataset.type;
-      });
+    document.getElementById('qtypeSelect').addEventListener('change', (e) => {
+      selectedQType = e.target.value;
     });
 
     el('addQuestion').addEventListener('click', () => {
