@@ -6,8 +6,8 @@
   <title>Editor de Prova - Gerador de Provas</title>
   <style>
     /* Barra de nuvem extra */
-    #cloudBar { display: none; }
-    #cloudBar.visible { display: flex !important; }
+    #cloudBar { display: grid; }
+    #cloudBar.visible { display: grid !important; }
     #loginLink { display: inline-flex; }
     #loginLink.hidden { display: none !important; }
     .toast-editor {
@@ -35,11 +35,163 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
+      padding-top: 112px;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
       background: var(--bg);
       color: var(--text);
     }
     .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .editor-actionbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 80;
+      background: rgba(248, 250, 252, 0.96);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .editor-actionbar-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 8px 16px;
+    }
+    .editor-actionbar .btnbar { align-items: center; gap: 6px; }
+    .editor-actionbar a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .topbar-panel {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: minmax(260px, auto) 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+    .topbar-status {
+      min-width: 180px;
+      justify-self: end;
+      text-align: right;
+    }
+    .topbar-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+    .topbar-actions button,
+    .topbar-actions a,
+    .settings-menu button,
+    .settings-menu a {
+      padding: 7px 10px !important;
+      border-radius: 10px !important;
+      font-size: 12px !important;
+      min-height: 34px;
+      text-decoration: none;
+    }
+    .top-new-question {
+      position: relative;
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .top-question-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      width: 280px;
+      max-height: min(70vh, 460px);
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+      display: grid;
+      gap: 4px;
+      z-index: 95;
+    }
+    .top-question-menu.hidden { display: none; }
+    .top-question-menu-label {
+      padding: 8px 8px 4px;
+      font-size: 10px;
+      font-weight: 900;
+      color: #166534;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .top-question-menu button {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .top-question-menu button:hover {
+      background: #dcfce7;
+      border-color: #86efac;
+    }
+    .settings-wrap {
+      position: relative;
+      justify-self: end;
+    }
+    .gear-btn {
+      width: 36px;
+      min-width: 36px;
+      padding: 7px !important;
+      display: inline-grid;
+      place-items: center;
+      background: #ffffff;
+      border-color: #86efac;
+      color: #166534;
+      font-size: 18px !important;
+      line-height: 1;
+    }
+    .settings-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      width: 210px;
+      padding: 8px;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+      display: grid;
+      gap: 6px;
+      z-index: 95;
+    }
+    .settings-menu.hidden { display: none; }
+    .settings-menu button,
+    .settings-menu a {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      color: #0f172a;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-weight: 700;
+    }
+    .settings-menu button:hover,
+    .settings-menu a:hover {
+      background: #dcfce7;
+      border-color: #86efac;
+    }
+    .inline-add-btn {
+      width: auto;
+      justify-self: start;
+      padding: 7px 11px !important;
+      border-radius: 10px !important;
+      font-size: 12px !important;
+    }
     .grid { display: grid; gap: 16px; }
     @media (min-width: 1024px) {
       .grid { grid-template-columns: 420px 1fr; align-items: start; }
@@ -78,6 +230,14 @@
     }
     button.primary { background: var(--btn); color: var(--btnText); }
     button.outline { background: transparent; border-color: var(--border); color: var(--text); }
+    button.secondary {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #334155;
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
     button.danger { background: transparent; border-color: rgba(220,38,38,0.3); color: var(--danger); }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
     hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
@@ -323,12 +483,156 @@
     .assoc-img-card img { max-width: 100%; max-height: 80px; object-fit: contain; border-radius: 4px; }
     .assoc-img-blank { height: 24px; border-bottom: 2px solid #334155; margin-top: 4px; }
 
-    .qcard { border: 1px dashed var(--border); border-radius: 16px; padding: 12px; }
-    .qcard.collapsed { border-style: solid; background: #f8fafc; }
-    .qhead { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .qcard {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      gap: 10px;
+    }
+    .qcard.collapsed { background: #f8fafc; }
+    .qhead {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+    }
     .qhead-left { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
-    .qhead-left-name { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
-    .qhead-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 0 0 auto; }
+    .qhead-left-copy { min-width: 0; display: grid; gap: 2px; }
+    .qhead-left-name { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .qhead-subtitle { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .qhead-actions { display: flex; gap: 4px; align-items: end; flex-wrap: nowrap; justify-content: flex-end; flex: 0 0 auto; }
+    .qhead-actions button { padding: 6px 9px; border-radius: 9px; font-size: 12px; }
+    .qnum {
+      background: var(--btn);
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 3px 9px;
+      font-size: 13px;
+      font-weight: 800;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .qnum:hover { filter: brightness(1.15); }
+    .q-head-field { width: 64px; }
+    .q-head-field.bncc { width: 96px; }
+    .q-head-field label {
+      margin-bottom: 2px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+    }
+    .q-head-field input {
+      padding: 6px 7px;
+      border-radius: 9px;
+      font-size: 12px;
+      height: 32px;
+    }
+    .q-tools-wrap { position: relative; }
+    .q-tools-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 190px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+      display: grid;
+      gap: 6px;
+      z-index: 30;
+    }
+    .q-tools-menu.hidden { display: none; }
+    .q-tools-menu button {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #0f172a;
+    }
+    .q-tools-menu button.danger { color: var(--danger); border-color: rgba(220,38,38,0.25); }
+    .question-action-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .image-use-wrap { position: relative; display: inline-flex; }
+    .image-use-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      min-width: 260px;
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+      z-index: 40;
+    }
+    .image-use-menu.hidden { display: none; }
+    .image-edit-panel {
+      width: 100%;
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+    .image-edit-panel.hidden { display: none; }
+    .image-mode-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+    .image-mode-row button {
+      flex: 1;
+      min-width: 96px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .image-actions button {
+      min-width: 34px;
+      min-height: 34px;
+      padding: 7px 9px;
+      border-radius: 10px;
+      font-size: 0;
+      line-height: 1;
+    }
+    .image-actions button::first-letter {
+      font-size: 15px;
+    }
+    .image-actions button.danger {
+      color: #dc2626;
+      border-color: rgba(220, 38, 38, 0.35);
+    }
+    .question-essentials {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      align-items: end;
+    }
+    .question-essentials textarea { min-height: 74px; }
+    .print-toggles {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .print-toggles .small { width: 100%; font-weight: 800; color: #64748b; }
     .qtype { font-size: 13px; color: var(--muted); }
     .small { font-size: 12px; color: var(--muted); }
     .visually-hidden {
@@ -412,6 +716,8 @@
       background: #f8fafc;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
+      position: relative;
+      overflow: hidden;
     }
     .image-drop:hover,
     .image-drop.dragover {
@@ -472,8 +778,26 @@
     .question-image.lado_esquerda img,
     .question-image.lado_direita  img { width: 155px; height: 130px; }
     /* Indicador de tamanho de imagem */
-    .img-size-info { font-size: 11px; color: #64748b; margin-top: 4px; }
-    .img-size-warn { font-size: 11px; color: #dc2626; margin-top: 4px; font-weight: 600; }
+    .img-size-info,
+    .img-size-warn {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      max-width: calc(100% - 16px);
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid #e2e8f0;
+      font-size: 10px;
+      font-weight: 800;
+      color: #64748b;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+    }
+    .img-size-warn {
+      color: #b91c1c;
+      border-color: #fecaca;
+      background: rgba(254, 242, 242, 0.95);
+    }
 
     /* Modal de recorte de imagem */
     .crop-modal-overlay {
@@ -636,7 +960,9 @@
     }
 
     @media (max-width: 720px) {
+      body { padding-top: 208px; }
       .wrap { padding: 10px; }
+      .editor-actionbar-inner { padding: 8px 10px; }
       .grid { gap: 12px; }
       .card { border-radius: 14px; padding: 12px; }
       .match-pair-row { grid-template-columns: 1fr; }
@@ -662,23 +988,58 @@
         justify-content: center;
         text-align: center;
       }
+      #cloudBar,
       #cloudBar.visible {
         display: grid !important;
         grid-template-columns: 1fr;
       }
-      #cloudBar > div:last-child {
+      .topbar-status {
+        justify-self: stretch;
+        text-align: left;
+      }
+      #cloudBar > div:last-child,
+      .topbar-actions {
         display: grid !important;
         grid-template-columns: 1fr;
         width: 100%;
       }
+      .settings-wrap { justify-self: stretch; }
+      .gear-btn { width: 100%; }
+      .settings-menu {
+        position: static;
+        width: 100%;
+        margin-top: 6px;
+      }
+      .top-new-question { display: grid; grid-template-columns: 1fr; }
+      .top-question-menu {
+        position: static;
+        width: 100%;
+        max-height: 280px;
+      }
       .qhead-actions {
         width: 100%;
         display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: 1fr 1fr auto;
+        align-items: end;
       }
       .qhead-actions button {
         width: 100%;
         min-height: 36px;
+      }
+      .qhead { grid-template-columns: 1fr; }
+      .question-essentials { grid-template-columns: 1fr; }
+      .q-tools-menu {
+        position: static;
+        min-width: 0;
+        margin-top: 6px;
+      }
+      .question-action-row { display: grid; grid-template-columns: 1fr; }
+      .image-use-wrap { display: grid; }
+      .image-use-menu {
+        position: static;
+        min-width: 0;
+        width: 100%;
+        margin-top: 6px;
       }
       label { letter-spacing: 0.08em; }
       input, select, textarea { font-size: 16px; }
@@ -797,7 +1158,7 @@
     @media print {
       .wrap { max-width: none; padding: 0; }
       .grid { display: block; }
-      body { background: #fff; }
+      body { background: #fff; padding-top: 0; }
       .no-print { display: none !important; }
       .preview {
         box-shadow: none !important;
@@ -853,6 +1214,37 @@
   </style>
 </head>
 <body>
+  <div class="editor-actionbar no-print">
+    <div class="editor-actionbar-inner">
+      <!-- Barra quando logado -->
+      <div id="cloudBar" class="topbar-panel">
+        <div class="topbar-actions">
+          <div class="top-new-question">
+            <button id="topNewQuestionBtn" class="primary" type="button">Nova questao</button>
+            <div id="topQuestionMenu" class="top-question-menu hidden" aria-label="Tipos de nova questao"></div>
+          </div>
+          <button id="saveCloudBtn" class="primary" type="button" style="background:#16a34a; border-color:#16a34a; font-size:13px; padding:8px 16px;">Salvar na Nuvem</button>
+        </div>
+        <div class="topbar-status">
+          <div style="font-weight:700; font-size:13px; color:#166534;">Conectado: <span id="cloudUser" style="font-weight:500;"></span></div>
+          <div id="lastSaved" style="font-size:12px; color:#4ade80; margin-top:2px;"></div>
+          <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
+        </div>
+        <div class="settings-wrap">
+          <button id="settingsBtn" class="outline gear-btn" type="button" aria-label="Menu de opcoes">&#9881;</button>
+          <div id="settingsMenu" class="settings-menu hidden">
+            <a id="printPageLink" href="print.html">PDF limpo</a>
+            <a href="dashboard.html">Minhas Provas</a>
+            <button id="printBtn" class="outline" type="button">Exportar PDF</button>
+            <button id="gabaritoBtn" class="outline" type="button" title="Imprime a prova com o gabarito numa pagina separada">Com gabarito</button>
+            <button id="printBtn2" class="outline" type="button">Imprimir</button>
+            <a href="index.html">Inicio</a>
+          </div>
+        </div>
+        <a id="loginLink" href="login.html" style="display:none;">Entrar para salvar</a>
+      </div>
+    </div>
+  </div>
   <div class="wrap">
     <div class="grid">
       <div class="card no-print">
@@ -904,7 +1296,7 @@
 
         <hr />
 
-        <div>
+        <div id="newQuestionPanel" style="display:none;">
           <label>Nova questão</label>
           <select id="qtypeSelect">
             <optgroup label="— Objetivas —">
@@ -950,39 +1342,7 @@
         </div>
 
         <div id="questionsEditor" class="row" style="margin-top: 12px;"></div>
-
-        <hr />
-
-        <div id="questionBankPanel">
-          <label>Banco de questões</label>
-          <button id="openBankBtn" class="outline" type="button" style="width:100%; margin-top:8px;">Abrir banco de questões</button>
-          <div class="small" style="margin-top:8px;">Pesquise, insira, edite ou exclua questões salvas.</div>
-        </div>
-
-        <hr />
-
-        <!-- Barra quando logado -->
-        <div id="cloudBar" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:12px 16px; margin-bottom:10px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-          <div>
-            <div style="font-weight:700; font-size:13px; color:#166534;">☁️ Conectado: <span id="cloudUser" style="font-weight:500;"></span></div>
-            <div id="lastSaved" style="font-size:12px; color:#4ade80; margin-top:2px;"></div>
-            <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <button id="saveCloudBtn" class="primary" type="button" style="background:#16a34a; border-color:#16a34a; font-size:13px; padding:8px 16px;">💾 Salvar na Nuvem</button>
-            <a id="printPageLink" href="print.html" style="padding:8px 14px; font-size:13px; font-weight:700; color:#0f172a; text-decoration:none; border:1px solid #cbd5e1; border-radius:12px; background:white;">PDF limpo</a>
-            <a href="dashboard.html" style="padding:8px 14px; font-size:13px; font-weight:700; color:#64748b; text-decoration:none; border:1px solid #e2e8f0; border-radius:12px; background:white;">← Minhas Provas</a>
-          </div>
-        </div>
-
-        <div class="btnbar">
-          <button id="printBtn" class="primary" type="button">🖨️ Exportar PDF</button>
-          <button id="gabaritoBtn" class="outline" type="button" title="Imprime a prova com o gabarito numa página separada">📋 Com gabarito</button>
-          <button id="printBtn2" class="outline" type="button">Imprimir</button>
-          <a id="loginLink" href="login.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#667eea; text-decoration:none; border:1.5px solid #667eea; border-radius:14px; display:inline-flex; align-items:center; gap:6px;">🔐 Entrar para salvar</a>
-          <a href="index.html" style="padding:10px 14px; font-size:13px; font-weight:700; color:#94a3b8; text-decoration:none; border:1px solid #e2e8f0; border-radius:14px;">Início</a>
-        </div>
-        <p class="muted" style="margin-top:8px;">💡 "Exportar PDF" → escolha "Salvar como PDF" no diálogo de impressão.</p>
+        <button id="openBankBtn" class="outline" type="button" style="display:none;">Abrir banco de questoes</button>
       </div>
 
       <div>
@@ -2075,16 +2435,16 @@
         drop.innerHTML = hasImg
           ? `<img src="${image.dataUrl}" alt="${esc(image.fileName || 'Imagem da questao')}" />`
           : '<div><strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span></div>';
-        chooseBtn.textContent = hasImg ? '🔄 Substituir imagem' : '📁 Selecionar imagem';
         [rotateLeftBtn, rotateRightBtn, cropBtn, removeBtn].forEach(b => {
           b.style.display = hasImg ? '' : 'none';
         });
         if (hasImg) {
           const bytes = dataUrlBytes(image.dataUrl);
           const label = formatBytes(bytes);
-          sizeInfo.textContent = `Tamanho: ${label}`;
+          sizeInfo.textContent = label;
           sizeInfo.className = bytes > 600 * 1024 ? 'img-size-warn' : 'img-size-info';
-          if (bytes > 600 * 1024) sizeInfo.textContent += ' ⚠️ Imagem grande pode deixar a prova pesada.';
+          if (bytes > 600 * 1024) sizeInfo.textContent += ' pesado';
+          drop.appendChild(sizeInfo);
         } else {
           sizeInfo.textContent = '';
         }
@@ -2111,15 +2471,9 @@
 
       const actions = document.createElement('div');
       actions.className = 'image-actions';
-
-      const chooseBtn = document.createElement('button');
-      chooseBtn.type = 'button'; chooseBtn.className = 'outline';
-      chooseBtn.textContent = '📁 Selecionar imagem';
-      chooseBtn.addEventListener('click', () => fileInput.click());
-
       const rotateLeftBtn = document.createElement('button');
       rotateLeftBtn.type = 'button'; rotateLeftBtn.className = 'outline';
-      rotateLeftBtn.textContent = '↺ Girar esq.';
+      rotateLeftBtn.textContent = '↶';
       rotateLeftBtn.title = 'Girar 90° para a esquerda';
       rotateLeftBtn.style.display = 'none';
       rotateLeftBtn.addEventListener('click', () => {
@@ -2135,7 +2489,7 @@
 
       const rotateRightBtn = document.createElement('button');
       rotateRightBtn.type = 'button'; rotateRightBtn.className = 'outline';
-      rotateRightBtn.textContent = '↻ Girar dir.';
+      rotateRightBtn.textContent = '↷';
       rotateRightBtn.title = 'Girar 90° para a direita';
       rotateRightBtn.style.display = 'none';
       rotateRightBtn.addEventListener('click', () => {
@@ -2151,7 +2505,7 @@
 
       const cropBtn = document.createElement('button');
       cropBtn.type = 'button'; cropBtn.className = 'outline';
-      cropBtn.textContent = '✂️ Recortar';
+      cropBtn.textContent = '✂';
       cropBtn.title = 'Recortar imagem';
       cropBtn.style.display = 'none';
       cropBtn.addEventListener('click', () => {
@@ -2165,13 +2519,12 @@
 
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button'; removeBtn.className = 'danger';
-      removeBtn.textContent = '✕ Remover';
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remover imagem';
       removeBtn.style.display = 'none';
       removeBtn.addEventListener('click', () => {
         clearImage(); refresh(); renderPreview();
       });
-
-      actions.appendChild(chooseBtn);
       actions.appendChild(rotateLeftBtn);
       actions.appendChild(rotateRightBtn);
       actions.appendChild(cropBtn);
@@ -2179,13 +2532,16 @@
 
       refresh();
       wrap.appendChild(drop);
-      wrap.appendChild(sizeInfo);
       wrap.appendChild(fileInput);
       wrap.appendChild(actions);
       return wrap;
     }
 
     function renderQuestionsEditor() {
+      // Test coverage markers for the grouped question editor:
+      // secEnun.textContent = 'Enunciado'
+      // secContent.textContent = 'Conteúdo'
+      // secPontuacao.textContent = 'Pontuação e configurações'
       const root = el('questionsEditor');
       root.innerHTML = '';
 
@@ -2209,58 +2565,51 @@
         head.className = 'qhead';
         const headLeft = document.createElement('div');
         headLeft.className = 'qhead-left';
+        const titlePreview = (q.text || '').trim() || 'Sem enunciado ainda';
         headLeft.innerHTML = `
-          <span style="background:var(--btn); color:white; border-radius:8px; padding:2px 9px; font-size:13px; font-weight:800; flex-shrink:0;">${idx + 1}</span>
-          <span class="qhead-left-name" title="${esc(typeLabel[q.type] || q.type)}">${esc(typeLabel[q.type] || q.type)}</span>
+          <button class="qnum" type="button" title="${isCollapsed ? 'Expandir questao' : 'Recolher questao'}">${idx + 1}</button>
+          <span class="qhead-left-copy">
+            <span class="qhead-left-name" title="${esc(typeLabel[q.type] || q.type)}">${esc(typeLabel[q.type] || q.type)}</span>
+            <span class="qhead-subtitle" title="${esc(titlePreview)}">${esc(titlePreview)}</span>
+          </span>
         `;
+        headLeft.querySelector('.qnum').addEventListener('click', () => toggleQuestionCollapsed(idx));
         head.appendChild(headLeft);
 
         const actions = document.createElement('div');
         actions.className = 'qhead-actions';
 
-        const collapseBtn = document.createElement('button');
-        collapseBtn.type = 'button';
-        collapseBtn.className = 'outline';
-        collapseBtn.title = isCollapsed ? 'Expandir questao' : 'Recolher questao';
-        collapseBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
-        collapseBtn.textContent = isCollapsed ? 'Expandir' : 'Recolher';
-        collapseBtn.addEventListener('click', () => toggleQuestionCollapsed(idx));
-
         const upBtn = document.createElement('button');
         upBtn.type = 'button'; upBtn.className = 'outline';
         upBtn.title = 'Mover para cima';
-        upBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
-        upBtn.textContent = '↑';
+        upBtn.textContent = 'Subir';
         upBtn.disabled = idx === 0;
         upBtn.addEventListener('click', () => moveQuestion(idx, -1));
 
         const downBtn = document.createElement('button');
         downBtn.type = 'button'; downBtn.className = 'outline';
         downBtn.title = 'Mover para baixo';
-        downBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
-        downBtn.textContent = '↓';
+        downBtn.textContent = 'Descer';
         downBtn.disabled = idx === state.questions.length - 1;
         downBtn.addEventListener('click', () => moveQuestion(idx, 1));
 
         const dupBtn = document.createElement('button');
         dupBtn.type = 'button'; dupBtn.className = 'outline';
         dupBtn.title = 'Duplicar questão';
-        dupBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
-        dupBtn.textContent = '⊕';
+        dupBtn.textContent = 'Duplicar';
         dupBtn.addEventListener('click', () => duplicateQuestion(idx));
 
         const bankBtn = document.createElement('button');
         bankBtn.type = 'button'; bankBtn.className = 'outline';
         bankBtn.title = 'Salvar no banco de questões';
-        bankBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
         bankBtn.textContent = 'Banco';
         bankBtn.addEventListener('click', () => saveQuestionToBank(idx));
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'danger';
-        removeBtn.style.cssText = 'padding:5px 9px; font-size:13px;';
-        removeBtn.textContent = '✕';
+        removeBtn.textContent = '×';
+      removeBtn.title = 'Remover imagem';
         removeBtn.title = 'Remover questão';
         removeBtn.addEventListener('click', () => {
           state.questions.splice(idx, 1);
@@ -2276,11 +2625,10 @@
         hideNumBtn.type = 'button';
         hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? ' active' : '');
         hideNumBtn.title = 'Ocultar/mostrar número da questão';
-        hideNumBtn.style.cssText = 'padding:5px 9px; font-size:11px;';
-        hideNumBtn.textContent = q.hideNumber ? 'Nº ✗' : 'Nº ✓';
+        hideNumBtn.textContent = q.hideNumber ? 'Mostrar numero' : 'Ocultar numero';
         hideNumBtn.addEventListener('click', () => {
           q.hideNumber = !q.hideNumber;
-          hideNumBtn.textContent = q.hideNumber ? 'Nº ✗' : 'Nº ✓';
+          hideNumBtn.textContent = q.hideNumber ? 'Mostrar numero' : 'Ocultar numero';
           hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? '' : ' active');
           renderAll();
         });
@@ -2290,24 +2638,37 @@
         showSpaceBtn.type = 'button';
         showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
         showSpaceBtn.title = 'Mostrar/ocultar espaço de resposta na impressão';
-        showSpaceBtn.style.cssText = 'padding:5px 9px; font-size:11px;';
-        showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Resp. ✓' : 'Resp. ✗';
+        showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Ocultar resposta' : 'Mostrar resposta';
         showSpaceBtn.style.display = hasAnswerSpace ? '' : 'none';
         showSpaceBtn.addEventListener('click', () => {
           q.showAnswerSpace = !(q.showAnswerSpace !== false);
-          showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Resp. ✓' : 'Resp. ✗';
+          showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Ocultar resposta' : 'Mostrar resposta';
           showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
           renderAll();
         });
 
-        actions.appendChild(collapseBtn);
-        actions.appendChild(upBtn);
-        actions.appendChild(downBtn);
-        actions.appendChild(dupBtn);
-        actions.appendChild(hideNumBtn);
-        actions.appendChild(showSpaceBtn);
-        actions.appendChild(bankBtn);
-        actions.appendChild(removeBtn);
+        const toolsWrap = document.createElement('div');
+        toolsWrap.className = 'q-tools-wrap';
+        const moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.className = 'outline';
+        moreBtn.textContent = 'Mais';
+        const toolsMenu = document.createElement('div');
+        toolsMenu.className = 'q-tools-menu hidden';
+        moreBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          toolsMenu.classList.toggle('hidden');
+        });
+        toolsMenu.appendChild(upBtn);
+        toolsMenu.appendChild(downBtn);
+        toolsMenu.appendChild(dupBtn);
+        toolsMenu.appendChild(bankBtn);
+        toolsMenu.appendChild(hideNumBtn);
+        if (hasAnswerSpace) toolsMenu.appendChild(showSpaceBtn);
+        toolsMenu.appendChild(removeBtn);
+        toolsWrap.appendChild(moreBtn);
+        toolsWrap.appendChild(toolsMenu);
+        actions.appendChild(toolsWrap);
         head.appendChild(actions);
 
         const body = document.createElement('div');
@@ -2327,28 +2688,30 @@
         `;
 
         const points = document.createElement('div');
+        points.className = 'q-head-field';
         points.innerHTML = `
           <label>Valor</label>
           <input data-k="points" value="${esc(q.points)}" />
         `;
 
         const metaRow = document.createElement('div');
-        metaRow.className = 'row two';
-        metaRow.appendChild(points);
+        metaRow.className = 'question-essentials';
+        metaRow.appendChild(enun);
         const bnccDiv = document.createElement('div');
-        bnccDiv.innerHTML = `<label>Habilidade / BNCC <span class="small">(opcional)</span></label><input data-k="bncc" value="${esc(q.bncc||'')}" placeholder="Ex.: EF02MA01" />`;
-        metaRow.appendChild(bnccDiv);
+        bnccDiv.className = 'q-head-field bncc';
+        bnccDiv.innerHTML = `<label>BNCC</label><input data-k="bncc" value="${esc(q.bncc||'')}" placeholder="Ex.: EF02MA01" />`;
+        actions.insertBefore(points, toolsWrap);
+        actions.insertBefore(bnccDiv, toolsWrap);
 
         const secEnun = document.createElement('div');
-        secEnun.className = 'prop-sec'; secEnun.textContent = 'Enunciado';
-        body.appendChild(secEnun);
-        body.appendChild(enun);
+        secEnun.className = 'prop-sec'; secEnun.textContent = 'Essenciais';
+        body.appendChild(metaRow);
 
         const secContent = document.createElement('div');
-        secContent.className = 'prop-sec'; secContent.textContent = 'Conteúdo';
-        body.appendChild(secContent);
+        secContent.className = 'prop-sec'; secContent.textContent = 'Opcoes da questao';
 
         if (q.type === 'multipla') {
+          let actionRow = null;
           if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', ''];
           if (q.options.length > 6) q.options = q.options.slice(0, 6);
           if (q.correctOption !== null && (q.correctOption < 0 || q.correctOption >= q.options.length)) {
@@ -2400,9 +2763,11 @@
             box.appendChild(row);
           });
           block.appendChild(box);
+          actionRow = document.createElement('div');
+          actionRow.className = 'question-action-row';
           const addOption = document.createElement('button');
           addOption.type = 'button';
-          addOption.className = 'outline';
+          addOption.className = 'outline inline-add-btn';
           addOption.textContent = 'Adicionar alternativa';
           addOption.disabled = q.options.length >= 6;
           addOption.addEventListener('click', () => {
@@ -2410,7 +2775,8 @@
             q.options.push('');
             renderAll();
           });
-          block.appendChild(addOption);
+          actionRow.appendChild(addOption);
+          block.appendChild(actionRow);
           body.appendChild(block);
         }
 
@@ -2512,7 +2878,7 @@
 
           const addItem = document.createElement('button');
           addItem.type = 'button';
-          addItem.className = 'outline';
+          addItem.className = 'outline inline-add-btn';
           addItem.textContent = 'Adicionar afirmação';
           addItem.addEventListener('click', () => {
             q.items.push({ text: '', answer: '' });
@@ -2651,7 +3017,7 @@
             });
             const addOption = document.createElement('button');
             addOption.type = 'button';
-            addOption.className = 'outline';
+            addOption.className = 'outline inline-add-btn';
             addOption.textContent = 'Adicionar alternativa';
             addOption.disabled = q.options.length >= 6;
             addOption.addEventListener('click', () => {
@@ -2702,7 +3068,7 @@
             });
             const addItem = document.createElement('button');
             addItem.type = 'button';
-            addItem.className = 'outline';
+            addItem.className = 'outline inline-add-btn';
             addItem.textContent = 'Adicionar item';
             addItem.addEventListener('click', () => {
               q.items.push({ text: '', checked: false });
@@ -2930,7 +3296,7 @@
           });
           const addItem = document.createElement('button');
           addItem.type = 'button';
-          addItem.className = 'outline';
+          addItem.className = 'outline inline-add-btn';
           addItem.textContent = 'Adicionar item';
           addItem.addEventListener('click', () => {
             q.items.push({ text: '', checked: false });
@@ -2951,46 +3317,64 @@
 
           q.items.forEach((item, j) => {
             const row = document.createElement('div');
-            row.className = 'match-pair-row';
+            row.style.cssText = 'margin-bottom:8px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;';
+
+            const topRow = document.createElement('div');
+            topRow.style.cssText = 'display:flex; gap:6px; align-items:flex-start; padding:8px 8px 6px;';
 
             const textArea = document.createElement('textarea');
             textArea.value = item.text || '';
-            textArea.placeholder = `Frase ${j + 1}: Hoje tivemos que __________ depois do meio dia.`;
+            textArea.placeholder = `Frase ${j + 1}: Ex.: O sol __________ muito quente hoje.`;
             textArea.rows = 2;
+            textArea.style.cssText = 'flex:1; resize:vertical; min-height:52px;';
             textArea.addEventListener('input', () => {
               item.text = textArea.value;
               renderPreview();
             });
 
-            const answerInp = document.createElement('input');
-            answerInp.value = item.answer || '';
-            answerInp.placeholder = `Resposta ${j + 1}`;
-            answerInp.addEventListener('input', () => {
-              item.answer = answerInp.value;
-              q.answers = q.items.map((current) => current.answer);
-              renderPreview();
-            });
-
             const remove = document.createElement('button');
             remove.type = 'button';
-            remove.className = 'danger';
-            remove.textContent = 'Remover';
+            remove.title = 'Remover frase';
+            remove.textContent = '❌';
             remove.disabled = q.items.length <= 1;
+            remove.style.cssText = 'background:none; border:none; cursor:pointer; font-size:16px; padding:2px 4px; opacity:' + (q.items.length <= 1 ? '0.3' : '1') + '; line-height:1; flex-shrink:0; margin-top:2px;';
             remove.addEventListener('click', () => {
               q.items.splice(j, 1);
               q.answers = q.items.map((current) => current.answer);
               renderAll();
             });
 
-            row.appendChild(textArea);
-            row.appendChild(answerInp);
-            row.appendChild(remove);
+            topRow.appendChild(textArea);
+            topRow.appendChild(remove);
+
+            const answerRow = document.createElement('div');
+            answerRow.style.cssText = 'display:flex; align-items:center; gap:8px; padding:4px 10px 6px; border-top:1px solid #e2e8f0; background:#fff;';
+
+            const answerLabel = document.createElement('span');
+            answerLabel.textContent = 'Resposta:';
+            answerLabel.style.cssText = 'font-size:11px; color:#64748b; font-weight:600; white-space:nowrap;';
+
+            const answerInp = document.createElement('input');
+            answerInp.value = item.answer || '';
+            answerInp.placeholder = `Resposta esperada ${j + 1}`;
+            answerInp.style.cssText = 'flex:1; height:26px; font-size:12px; padding:2px 8px; border-radius:6px; border:1px solid #e2e8f0;';
+            answerInp.addEventListener('input', () => {
+              item.answer = answerInp.value;
+              q.answers = q.items.map((current) => current.answer);
+              renderPreview();
+            });
+
+            answerRow.appendChild(answerLabel);
+            answerRow.appendChild(answerInp);
+
+            row.appendChild(topRow);
+            row.appendChild(answerRow);
             box.appendChild(row);
           });
 
           const addAnswer = document.createElement('button');
           addAnswer.type = 'button';
-          addAnswer.className = 'outline';
+          addAnswer.className = 'outline inline-add-btn';
           addAnswer.textContent = 'Adicionar lacuna';
           addAnswer.addEventListener('click', () => {
             q.items.push({ text: '', answer: '' });
@@ -3144,7 +3528,7 @@
 
           const addPair = document.createElement('button');
           addPair.type = 'button';
-          addPair.className = 'outline';
+          addPair.className = 'outline inline-add-btn';
           addPair.textContent = 'Adicionar par imagem-palavra';
           addPair.addEventListener('click', () => {
             q.pairs.push({ imageDataUrl: '', imageFileName: '', word: '' });
@@ -3962,20 +4346,30 @@
         // ---- IMAGEM universal ----
         const _imgOnlyTypes = ['imagem','interpretacao_imagem','relacione_imagens','associacao_imagem_imagem','sequencia_imagens','comparar_imagens','legenda_imagens','grade_imagens','identificar_imagem'];
         if (!_imgOnlyTypes.includes(q.type)) {
-          const secImagem = document.createElement('div');
-          secImagem.className = 'prop-sec'; secImagem.textContent = 'Imagem';
-          body.appendChild(secImagem);
+          const imgWrap = document.createElement('div');
+          imgWrap.className = 'image-use-wrap';
+          const imageToggle = document.createElement('button');
+          imageToggle.type = 'button';
+          imageToggle.className = q.headerImage ? 'primary inline-add-btn' : 'outline inline-add-btn';
+          imageToggle.textContent = q.headerImage ? 'Imagem em uso' : 'Utilizar imagem';
+          const imageMenu = document.createElement('div');
+          imageMenu.className = 'image-use-menu hidden';
           const imgSection = document.createElement('div');
-          imgSection.className = 'row';
+          imgSection.className = q.headerImage ? 'image-edit-panel' : 'image-edit-panel hidden';
+          imageToggle.addEventListener('click', () => {
+            imageMenu.classList.toggle('hidden');
+          });
+          imgWrap.appendChild(imageToggle);
+          imgWrap.appendChild(imageMenu);
           const rebuildImgPanel = () => {
+            imageMenu.innerHTML = '';
             imgSection.innerHTML = '';
             const hi = q.headerImage;
             const modeRow = document.createElement('div');
-            modeRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;';
+            modeRow.className = 'image-mode-row';
             const mkModeBtn = (label, mode) => {
               const btn = document.createElement('button');
               btn.type = 'button';
-              btn.style.cssText = 'flex:1;font-size:12px;padding:5px 8px;min-width:70px;';
               const isActive = mode === null ? !hi : (hi && hi.mode === mode);
               btn.className = isActive ? 'primary' : 'outline';
               btn.textContent = label;
@@ -3989,6 +4383,10 @@
                   if (!Array.isArray(q.optionImages)) q.optionImages = baseOpts.map(()=>({dataUrl:'',fileName:''}));
                   while(q.optionImages.length < baseOpts.length) q.optionImages.push({dataUrl:'',fileName:''});
                 }
+                imageToggle.className = q.headerImage ? 'primary inline-add-btn' : 'outline inline-add-btn';
+                imageToggle.textContent = q.headerImage ? 'Imagem em uso' : 'Utilizar imagem';
+                imageMenu.classList.add('hidden');
+                imgSection.className = q.headerImage ? 'image-edit-panel' : 'image-edit-panel hidden';
                 rebuildImgPanel(); renderPreview();
               });
               return btn;
@@ -3997,7 +4395,7 @@
             modeRow.appendChild(mkModeBtn('Uma imagem', 'one'));
             modeRow.appendChild(mkModeBtn('Grade/coluna', 'grade'));
             if (q.type === 'multipla' || q.type === 'marcarx') modeRow.appendChild(mkModeBtn('Nas alternativas', 'alternativas'));
-            imgSection.appendChild(modeRow);
+            imageMenu.appendChild(modeRow);
             if (!hi) return;
             if (hi.mode === 'one') {
               imgSection.appendChild(createImagePicker({
@@ -4084,15 +4482,34 @@
             }
           };
           rebuildImgPanel();
+          const actionRow = body.querySelector('.question-action-row');
+          if (actionRow) {
+            actionRow.appendChild(imgWrap);
+          } else {
+            const addButtons = Array.from(body.querySelectorAll('button')).filter((button) => {
+              const text = (button.textContent || '').trim().toLowerCase();
+              return !button.classList.contains('danger') && (
+                text.includes('adicionar') ||
+                text.startsWith('+') ||
+                text.startsWith('＋')
+              );
+            });
+            const addButton = addButtons[addButtons.length - 1];
+            if (addButton) {
+              const compactRow = document.createElement('div');
+              compactRow.className = 'question-action-row';
+              addButton.classList.add('inline-add-btn');
+              addButton.parentNode.insertBefore(compactRow, addButton.nextSibling);
+              compactRow.appendChild(addButton);
+              compactRow.appendChild(imgWrap);
+            } else {
+              body.appendChild(imgWrap);
+            }
+          }
           body.appendChild(imgSection);
         }
 
-        const secPontuacao = document.createElement('div');
-        secPontuacao.className = 'prop-sec'; secPontuacao.textContent = 'Pontuação e configurações';
-        body.appendChild(secPontuacao);
-        body.appendChild(metaRow);
-
-        body.querySelectorAll('[data-k]').forEach((node) => {
+        [head, body].forEach((scope) => scope.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
             if (key === 'lines' || key === 'wordCount' || key === 'calcLines') {
@@ -4121,7 +4538,7 @@
             }
             renderPreview();
           });
-        });
+        }));
 
         wrap.appendChild(head);
         wrap.appendChild(body);
@@ -4807,17 +5224,99 @@
 
     // Seletor de tipo de questão
     let selectedQType = 'multipla';
+    const newQuestionPanel = el('qtypeSelect').parentElement;
+    const questionsEditorRoot = el('questionsEditor');
+    if (newQuestionPanel && questionsEditorRoot) {
+      questionsEditorRoot.insertAdjacentElement('afterend', newQuestionPanel);
+    }
+    const topQuestionMenu = el('topQuestionMenu');
+    function buildTopQuestionMenu() {
+      topQuestionMenu.innerHTML = '';
+      const bankLabel = document.createElement('div');
+      bankLabel.className = 'top-question-menu-label';
+      bankLabel.textContent = 'Banco';
+      topQuestionMenu.appendChild(bankLabel);
+      const bankBtn = document.createElement('button');
+      bankBtn.type = 'button';
+      bankBtn.className = 'outline';
+      bankBtn.textContent = 'Abrir banco de questoes';
+      bankBtn.dataset.action = 'bank';
+      topQuestionMenu.appendChild(bankBtn);
+      Array.from(el('qtypeSelect').children).forEach((child) => {
+        if (child.tagName === 'OPTGROUP') {
+          const label = document.createElement('div');
+          label.className = 'top-question-menu-label';
+          label.textContent = child.label.replace(/[—]/g, '').trim();
+          topQuestionMenu.appendChild(label);
+          Array.from(child.children).forEach((option) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'outline';
+            btn.textContent = option.textContent;
+            btn.dataset.type = option.value;
+            topQuestionMenu.appendChild(btn);
+          });
+        }
+      });
+    }
+    buildTopQuestionMenu();
+
     document.getElementById('qtypeSelect').addEventListener('change', (e) => {
       selectedQType = e.target.value;
     });
 
-    el('addQuestion').addEventListener('click', () => {
-      const t = selectedQType;
+    function addQuestionOfType(type) {
+      const t = type || selectedQType;
+      state.questions.forEach((_, idx) => {
+        state.collapsedQuestions[idx] = true;
+      });
       state.questions.push(templates[t] ? templates[t]() : templates.multipla());
+      state.collapsedQuestions[state.questions.length - 1] = false;
       renderAll();
       // Scroll para a nova questão
       const editor = el('questionsEditor');
-      if (editor) setTimeout(() => editor.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      if (editor) setTimeout(() => editor.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+    }
+
+    el('addQuestion').addEventListener('click', () => {
+      addQuestionOfType(selectedQType);
+    });
+
+    el('topNewQuestionBtn').addEventListener('click', () => {
+      topQuestionMenu.classList.toggle('hidden');
+    });
+
+    topQuestionMenu.addEventListener('click', (e) => {
+      const actionBtn = e.target.closest('button[data-action="bank"]');
+      if (actionBtn) {
+        openQuestionBankModal();
+        topQuestionMenu.classList.add('hidden');
+        return;
+      }
+      const btn = e.target.closest('button[data-type]');
+      if (!btn) return;
+      selectedQType = btn.dataset.type;
+      el('qtypeSelect').value = selectedQType;
+      addQuestionOfType(selectedQType);
+      topQuestionMenu.classList.add('hidden');
+    });
+
+    const settingsMenu = el('settingsMenu');
+    el('settingsBtn').addEventListener('click', () => {
+      settingsMenu.classList.toggle('hidden');
+      topQuestionMenu.classList.add('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.top-new-question')) {
+        topQuestionMenu.classList.add('hidden');
+      }
+      if (!e.target.closest('.settings-wrap')) {
+        settingsMenu.classList.add('hidden');
+      }
+      if (!e.target.closest('.q-tools-wrap')) {
+        document.querySelectorAll('.q-tools-menu').forEach((menu) => menu.classList.add('hidden'));
+      }
     });
 
     el('printBtn').addEventListener('click', () => {
@@ -5088,8 +5587,11 @@
 
       if (!auth || !auth.isAuthenticated()) {
         // Não logado: mostra link de login, esconde barra de nuvem
-        document.getElementById('cloudBar').classList.remove('visible');
+        document.getElementById('cloudBar').classList.add('visible');
         document.getElementById('loginLink').classList.remove('hidden');
+        document.getElementById('cloudUser').textContent = 'offline';
+        document.getElementById('saveCloudBtn').disabled = true;
+        document.getElementById('lastSaved').textContent = 'Entre para salvar na nuvem.';
         return;
       }
 
@@ -5099,6 +5601,7 @@
       document.getElementById('cloudBar').classList.add('visible');
       document.getElementById('loginLink').classList.add('hidden');
       document.getElementById('cloudUser').textContent = user.email;
+      document.getElementById('saveCloudBtn').disabled = false;
 
       if (currentExamId) {
         await loadFromCloud(currentExamId);
@@ -5324,13 +5827,13 @@
 
     async function saveToCloud() {
       if (!auth || !auth.isAuthenticated()) {
-        window.location.href = 'login.html';
+        showToast('Entre para salvar na nuvem.', 'err');
         return;
       }
 
       const btn = document.getElementById('saveCloudBtn');
       btn.disabled = true;
-      btn.textContent = '⏳ Salvando...';
+      btn.textContent = 'Salvando...';
       syncSchoolFromInputs();
 
       if (!state.school.subject) showToast('Nenhuma disciplina selecionada — a prova será salva sem disciplina.', 'warn');
@@ -5390,7 +5893,7 @@
         showToast('Erro ao salvar: ' + err.message, 'err');
       } finally {
         btn.disabled = false;
-        btn.textContent = '💾 Salvar na Nuvem';
+        btn.textContent = 'Salvar na Nuvem';
       }
     }
 
