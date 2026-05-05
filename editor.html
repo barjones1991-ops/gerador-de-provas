@@ -1392,7 +1392,7 @@
 
     const templates = {
       multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0', hideNumber: false }),
-      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', points: '1,0', hideNumber: false, showAnswerSpace: true }),
+      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', expectedAnswer: '', points: '1,0', hideNumber: false, showAnswerSpace: true }),
       vf: () => ({
         type: 'vf',
         text: 'Marque V para verdadeiro e F para falso.',
@@ -1511,10 +1511,11 @@
         type: 'matematica_coluna',
         text: 'Resolva as operações:',
         operations: [
-          { expression: '234 + 567' },
-          { expression: '800 - 345' },
-          { expression: '12 × 4' },
+          { num1: '234', op: '+', num2: '567', result: '' },
+          { num1: '800', op: '-', num2: '345', result: '' },
+          { num1: '12', op: '×', num2: '4', result: '' },
         ],
+        columns: 3,
         points: '1,0',
         hideNumber: false,
       }),
@@ -2456,6 +2457,13 @@
             </div>
           `;
           body.appendChild(block);
+          const gabBlock = document.createElement('div');
+          gabBlock.className = 'row';
+          gabBlock.innerHTML = `
+            <label>Gabarito / resposta esperada <span style="font-weight:400;color:#94a3b8;">(uso do professor — não aparece na prova)</span></label>
+            <textarea data-k="expectedAnswer" rows="2" placeholder="Descreva os critérios ou a resposta esperada para o gabarito...">${esc(q.expectedAnswer || '')}</textarea>
+          `;
+          body.appendChild(gabBlock);
         }
 
         if (q.type === 'vf') {
@@ -3233,36 +3241,81 @@
         }
 
         if (q.type === 'matematica_coluna') {
+          if (!q.columns) q.columns = 3;
+          // Migrar formato antigo { expression } para { num1, op, num2, result }
+          (q.operations || []).forEach(op => {
+            if (!op.num1 && !op.num2 && op.expression) {
+              const m = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
+              if (m) { op.num1 = m[1].trim(); op.op = m[2].replace(/[xX]/, '×').replace('/', '÷').replace(':', '÷'); op.num2 = m[3].trim(); }
+              else { op.num1 = op.expression; op.op = '+'; op.num2 = ''; }
+              op.result = '';
+              delete op.expression;
+            }
+          });
+
+          const colBlock = document.createElement('div');
+          colBlock.className = 'row';
+          colBlock.innerHTML = `
+            <label>Colunas por linha</label>
+            <select data-k="columns">
+              <option value="2" ${q.columns==2?'selected':''}>2 por linha</option>
+              <option value="3" ${q.columns==3?'selected':''}>3 por linha</option>
+              <option value="4" ${q.columns==4?'selected':''}>4 por linha</option>
+            </select>`;
+          body.appendChild(colBlock);
+
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = '<label>Operações (ex.: 234 + 567 | 800 - 345 | 12 × 4)</label>';
+          block.innerHTML = '<label>Operações <span style="font-weight:400;color:#94a3b8;">— preencha o resultado para gerar gabarito</span></label>';
           const opsBox = document.createElement('div');
           opsBox.className = 'row';
           const renderOps = () => {
             opsBox.innerHTML = '';
             (q.operations || []).forEach((op, j) => {
               const row = document.createElement('div');
-              row.style.cssText = 'display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;';
-              const inp = document.createElement('input');
-              inp.value = op.expression || '';
-              inp.placeholder = 'ex.: 234 + 567';
-              inp.addEventListener('input', () => { op.expression = inp.value; renderPreview(); });
+              row.style.cssText = 'display:grid;grid-template-columns:1fr 60px 1fr 20px 80px auto;gap:6px;align-items:center;margin-bottom:6px;';
+              const n1 = document.createElement('input'); n1.value = op.num1 || ''; n1.placeholder = 'Número 1';
+              n1.addEventListener('input', () => { op.num1 = n1.value; renderPreview(); });
+              const opSel = document.createElement('select');
+              opSel.style.cssText = 'text-align:center;font-size:16px;font-weight:900;padding:4px;';
+              ['+', '-', '×', '÷'].forEach(sym => {
+                const o = document.createElement('option'); o.value = sym; o.textContent = sym;
+                if ((op.op || '+') === sym) o.selected = true;
+                opSel.appendChild(o);
+              });
+              opSel.addEventListener('change', () => { op.op = opSel.value; renderPreview(); });
+              const n2 = document.createElement('input'); n2.value = op.num2 || ''; n2.placeholder = 'Número 2';
+              n2.addEventListener('input', () => { op.num2 = n2.value; renderPreview(); });
+              const eq = document.createElement('span'); eq.textContent = '='; eq.style.cssText = 'text-align:center;font-weight:900;font-size:16px;';
+              const res = document.createElement('input'); res.value = op.result || ''; res.placeholder = 'Resultado';
+              res.style.cssText = 'background:#f0fdf4;border-color:#bbf7d0;';
+              res.addEventListener('input', () => { op.result = res.value; });
+              // Auto-calculate
+              const tryCalc = () => {
+                if (op.result) return;
+                const a = parseFloat(String(op.num1||'').replace(',','.')), b = parseFloat(String(op.num2||'').replace(',','.'));
+                if (isNaN(a)||isNaN(b)) return;
+                let r;
+                if (op.op==='+') r=a+b; else if (op.op==='-') r=a-b; else if (op.op==='×') r=a*b; else if (op.op==='÷'&&b) r=a/b;
+                if (r!=null) { const s=Number.isInteger(r)?String(r):r.toFixed(2).replace('.',','); op.result=s; res.value=s; }
+              };
+              n2.addEventListener('blur', tryCalc); opSel.addEventListener('change', tryCalc);
               const rmv = document.createElement('button');
-              rmv.type = 'button'; rmv.className = 'danger';
-              rmv.textContent = '✕'; rmv.style.cssText = 'padding:5px 8px; font-size:12px;';
-              rmv.disabled = (q.operations || []).length <= 1;
+              rmv.type = 'button'; rmv.className = 'danger'; rmv.textContent = '✕';
+              rmv.style.cssText = 'padding:5px 8px;font-size:12px;';
+              rmv.disabled = (q.operations||[]).length <= 1;
               rmv.addEventListener('click', () => { q.operations.splice(j, 1); renderAll(); });
-              row.appendChild(inp); row.appendChild(rmv);
+              row.appendChild(n1); row.appendChild(opSel); row.appendChild(n2); row.appendChild(eq); row.appendChild(res); row.appendChild(rmv);
               opsBox.appendChild(row);
             });
           };
           renderOps();
           const addOp = document.createElement('button');
           addOp.type = 'button'; addOp.className = 'outline';
-          addOp.textContent = 'Adicionar operação';
+          addOp.textContent = '＋ Adicionar operação';
           addOp.addEventListener('click', () => {
             if (!q.operations) q.operations = [];
-            q.operations.push({ expression: '' });
+            q.operations.push({ num1: '', op: '+', num2: '', result: '' });
             renderOps(); renderPreview();
           });
           block.appendChild(opsBox);
@@ -4124,14 +4177,17 @@
         return `${base}${answerArea(q)}`;
       }
       if (q.type === 'matematica_coluna') {
+        const cols = Math.max(2, Math.min(4, Number(q.columns) || 3));
         const ops = (q.operations || []).map((op) => {
-          const expr = String(op.expression || '').trim();
-          const match = expr.match(/^(\d[\d.,\s]*)([+\-×xX÷:/])\s*(\d[\d.,\s]*)$/);
-          if (!match) return `<div class="math-op-box"><span class="math-op-num">${esc(expr)}</span><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
-          const [, n1, sym, n2] = match;
-          return `<div class="math-op-box"><span class="math-op-num">${esc(n1.trim())}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2.trim())}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
+          if ((!n1 && !n2) && op.expression) {
+            const m = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
+            if (m) { n1 = m[1].trim(); sym = m[2]; n2 = m[3].trim(); } else { n1 = op.expression; n2 = ''; }
+          }
+          if (!n1 && !n2) return `<div class="math-op-box"><span class="small">—</span></div>`;
+          return `<div class="math-op-box"><span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
         }).join('');
-        return `<div class="math-ops-grid">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
+        return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
       }
       if (q.type === 'producao_textual') {
         if (q.showAnswerSpace === false) return '';
@@ -4393,7 +4449,8 @@
         return { tipo: 'objetivo', num, ans: ans || '(incompleto)' };
       }
       if (tipo === 'discursiva' || (tipo === 'imagem' && q.imageAnswerType === 'discursiva') || tipo === 'interpretacao_imagem') {
-        return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
+        const ans = q.expectedAnswer && q.expectedAnswer.trim() ? q.expectedAnswer.trim() : '(corrija manualmente)';
+        return { tipo: 'discursiva', num, ans };
       }
       if (tipo === 'texto_base') {
         if (q.answerType === 'multipla') {
@@ -4408,7 +4465,18 @@
         return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
       }
       if (tipo === 'matematica_coluna') {
-        return { tipo: 'discursiva', num, ans: '(operações matemáticas — corrija manualmente)' };
+        const ops = q.operations || [];
+        const results = ops.map((op, i) => {
+          if (op.result && op.result.trim()) return `${i+1}. ${op.result.trim()}`;
+          const a = parseFloat(String(op.num1||op.expression||'').replace(',','.')), b = parseFloat(String(op.num2||'').replace(',','.'));
+          const operator = op.op || '+';
+          if (!isNaN(a) && !isNaN(b)) {
+            let r; if (operator==='+') r=a+b; else if (operator==='-') r=a-b; else if (operator==='×'||operator==='x') r=a*b; else if ((operator==='÷'||operator==='/')&&b) r=a/b;
+            if (r!=null) return `${i+1}. ${Number.isInteger(r)?r:r.toFixed(2).replace('.',',')}`;
+          }
+          return `${i+1}. ?`;
+        }).join(' | ');
+        return { tipo: 'objetivo', num, ans: results || '(operações — sem resultado)' };
       }
       if (tipo === 'producao_textual') {
         return { tipo: 'discursiva', num, ans: '(produção textual — corrija manualmente)' };
@@ -4528,7 +4596,9 @@
         : '<div class="small">Nenhuma questão objetiva com gabarito definido.</div>';
 
       const discursivoHTML = discursivos.length
-        ? `<div class="gabarito-discursiva">📝 Questões dissertativas (${discursivos.map(it => `Q${it.num}`).join(', ')}): corrija manualmente conforme critérios.</div>`
+        ? `<div class="gabarito-discursiva">📝 Questões dissertativas:<br>${discursivos.map(it =>
+            `<span style="display:block;margin-top:4px;"><strong>Q${it.num}:</strong> ${esc(it.ans)}</span>`
+          ).join('')}</div>`
         : '';
 
       sec.innerHTML = `

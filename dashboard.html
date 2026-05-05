@@ -65,7 +65,10 @@
     .stat-card {
       background: white; border: 1px solid #e2e8f0; border-radius: 14px;
       padding: 16px 20px; display: flex; align-items: center; gap: 14px;
+      cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
     }
+    .stat-card:hover { border-color: #667eea; box-shadow: 0 0 0 2px #667eea22; }
+    .stat-card.active-filter { border-color: #667eea; background: #f5f3ff; }
     .stat-icon { font-size: 28px; }
     .stat-label { font-size: 12px; color: #64748b; font-weight: 500; }
     .stat-value { font-size: 22px; font-weight: 900; color: #0f172a; }
@@ -260,21 +263,21 @@
   </div>
 
   <div class="stats">
-    <div class="stat-card">
+    <div class="stat-card" data-filter="all" title="Ver todas as provas">
       <div class="stat-icon">📄</div>
       <div>
         <div class="stat-label">Total de provas</div>
         <div class="stat-value" id="statTotal">—</div>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" data-filter="draft" title="Ver rascunhos">
       <div class="stat-icon">✏️</div>
       <div>
         <div class="stat-label">Rascunhos</div>
         <div class="stat-value" id="statDraft">—</div>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" data-filter="published" title="Ver publicadas">
       <div class="stat-icon">✅</div>
       <div>
         <div class="stat-label">Publicadas</div>
@@ -323,6 +326,7 @@
     </select>
   </div>
 
+  <div id="showingInfo" style="font-size:13px;color:#64748b;margin-bottom:10px;min-height:18px;"></div>
   <div class="grid" id="examsGrid">
     <div class="skeleton"></div>
     <div class="skeleton"></div>
@@ -472,6 +476,18 @@
         renderExams();
       });
     });
+    document.querySelectorAll('.stat-card[data-filter]').forEach(card => {
+      card.addEventListener('click', () => {
+        const f = card.dataset.filter;
+        currentFilter = f;
+        currentSubject = ''; currentTerm = ''; currentReviewStatus = '';
+        document.getElementById('subjectFilter').value = '';
+        document.getElementById('termFilter').value = '';
+        document.getElementById('reviewStatusFilter').value = '';
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+        renderExams();
+      });
+    });
   });
 
   function extrairNome(email) {
@@ -531,7 +547,15 @@
     document.getElementById('statDraft').textContent = exams.filter(e => e.is_draft).length;
     document.getElementById('statPublished').textContent = exams.filter(e => e.is_published).length;
 
+    // Highlight stat card ativo
+    document.querySelectorAll('.stat-card').forEach(c => {
+      c.classList.toggle('active-filter', c.dataset.filter === currentFilter);
+    });
+
     const hasFilters = search || currentSubject || currentTerm || currentReviewStatus || currentFilter !== 'all';
+    const info = document.getElementById('showingInfo');
+    if (info) info.textContent = hasFilters && filtered.length !== exams.length ? `Mostrando ${filtered.length} de ${exams.length} prova${exams.length !== 1 ? 's' : ''} — filtros ativos` : '';
+
     if (filtered.length === 0) {
       grid.innerHTML = `
           <div class="empty">

@@ -644,16 +644,17 @@
         return `${textBox}${answerArea(q)}`;
       }
       if (q.type === 'matematica_coluna') {
+        const cols = Math.max(2, Math.min(4, Number(q.columns) || 3));
         const ops = (q.operations || []).map(op => {
-          const expr = (op.expression || '').trim();
-          const m = expr.match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
-          if (m) {
-            const opSymbol = m[2].replace('x','×').replace('X','×').replace(':','÷').replace('/','÷');
-            return `<div class="math-op-box"><div>${esc(m[1].trim())}</div><div>${opSymbol} ${esc(m[3].trim())}</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
+          if ((!n1 && !n2) && op.expression) {
+            const m2 = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
+            if (m2) { n1=m2[1].trim(); sym=m2[2].replace(/[xX]/,'×').replace('/','÷').replace(':','÷'); n2=m2[3].trim(); } else { n1=op.expression; n2=''; }
           }
-          return `<div class="math-op-box"><div>${esc(expr)}</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          if (!n1 && !n2) return `<div class="math-op-box"><div>—</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          return `<div class="math-op-box"><div class="math-op-num">${esc(n1||'')}</div><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
         }).join('');
-        return `<div class="math-ops-grid">${ops}</div>`;
+        return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops}</div>`;
       }
       if (q.type === 'producao_textual') {
         const titleLine = q.titlePrompt !== false ? `<div class="hline" style="margin-bottom:6px;"></div><div style="font-size:12px;color:#64748b;margin-bottom:8px;">Título</div>` : '';
