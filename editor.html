@@ -2865,6 +2865,7 @@
             const row = document.createElement('div');
             row.style.cssText = 'margin-bottom:8px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;';
 
+            // ── Linha superior: marcador + texto + ❌ ──
             const topRow = document.createElement('div');
             topRow.style.cssText = 'display:flex; gap:6px; align-items:flex-start; padding:8px 8px 6px;';
 
@@ -2874,7 +2875,7 @@
 
             const inp = document.createElement('input');
             inp.value = item.text || '';
-            inp.placeholder = `Texto do item ${labelFor(j)}`;
+            inp.placeholder = `Texto do item ${labelFor(j)} (opcional se tiver imagem)`;
             inp.style.cssText = 'flex:1;';
             inp.addEventListener('input', () => { item.text = inp.value; renderPreview(); });
 
@@ -2890,6 +2891,71 @@
             topRow.appendChild(inp);
             topRow.appendChild(removeBtn);
 
+            // ── Linha de imagem ──
+            const imgRow = document.createElement('div');
+            imgRow.style.cssText = 'display:flex; align-items:center; gap:8px; padding:4px 10px 5px; border-top:1px solid #e2e8f0; background:#fff;';
+
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
+
+            const imgBtn = document.createElement('button');
+            imgBtn.type = 'button';
+            imgBtn.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:6px; border:1px dashed #94a3b8; background:#f1f5f9; color:#475569; cursor:pointer; white-space:nowrap;';
+            imgBtn.textContent = item.imageDataUrl ? '🖼️ Substituir' : '📷 Adicionar imagem';
+            imgBtn.addEventListener('click', () => fileInput.click());
+
+            const thumb = document.createElement('img');
+            thumb.style.cssText = 'height:40px; width:auto; border-radius:6px; border:1px solid #e2e8f0; display:' + (item.imageDataUrl ? 'block' : 'none') + ';';
+            if (item.imageDataUrl) thumb.src = item.imageDataUrl;
+
+            const sizeWrap = document.createElement('div');
+            sizeWrap.style.display = item.imageDataUrl ? 'flex' : 'none';
+            sizeWrap.style.cssText += ' align-items:center; gap:4px;';
+            const sizeLbl = document.createElement('span');
+            sizeLbl.textContent = 'Tam:';
+            sizeLbl.style.cssText = 'font-size:11px; color:#64748b;';
+            const sizeSelect = document.createElement('select');
+            sizeSelect.style.cssText = 'height:26px; font-size:11px; border-radius:6px; border:1px solid #e2e8f0; padding:0 4px;';
+            [['small','Pequena'],['medium','Média'],['large','Grande']].forEach(([v,l]) => {
+              const o = document.createElement('option'); o.value = v; o.textContent = l;
+              if ((item.imageSize || 'small') === v) o.selected = true;
+              sizeSelect.appendChild(o);
+            });
+            sizeSelect.addEventListener('change', () => { item.imageSize = sizeSelect.value; renderPreview(); });
+            sizeWrap.appendChild(sizeLbl); sizeWrap.appendChild(sizeSelect);
+
+            const rmImgBtn = document.createElement('button');
+            rmImgBtn.type = 'button';
+            rmImgBtn.title = 'Remover imagem';
+            rmImgBtn.textContent = '✕';
+            rmImgBtn.style.cssText = 'background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; font-weight:700; padding:2px 4px; display:' + (item.imageDataUrl ? 'block' : 'none') + ';';
+            rmImgBtn.addEventListener('click', () => {
+              item.imageDataUrl = ''; item.imageFileName = '';
+              thumb.style.display = 'none'; thumb.src = '';
+              sizeWrap.style.display = 'none'; rmImgBtn.style.display = 'none';
+              imgBtn.textContent = '📷 Adicionar imagem';
+              renderPreview();
+            });
+
+            fileInput.addEventListener('change', () => {
+              if (!fileInput.files[0]) return;
+              readImageFile(fileInput.files[0], (dataUrl, fileName) => {
+                item.imageDataUrl = dataUrl; item.imageFileName = fileName;
+                if (!item.imageSize) item.imageSize = 'small';
+                thumb.src = dataUrl; thumb.style.display = 'block';
+                sizeWrap.style.display = 'flex'; rmImgBtn.style.display = 'block';
+                imgBtn.textContent = '🖼️ Substituir';
+                renderPreview();
+              });
+            });
+
+            imgRow.appendChild(fileInput);
+            imgRow.appendChild(imgBtn);
+            imgRow.appendChild(thumb);
+            imgRow.appendChild(sizeWrap);
+            imgRow.appendChild(rmImgBtn);
+
+            // ── Linha inferior: nº de linhas ──
             const botRow = document.createElement('div');
             botRow.style.cssText = 'display:flex; align-items:center; gap:8px; padding:4px 10px 6px; border-top:1px solid #e2e8f0; background:#fff;';
             const linesLbl = document.createElement('span');
@@ -2908,6 +2974,7 @@
             botRow.appendChild(linesNote);
 
             row.appendChild(topRow);
+            row.appendChild(imgRow);
             row.appendChild(botRow);
             sbox.appendChild(row);
           });
@@ -4732,15 +4799,20 @@
         const items = Array.isArray(q.items) ? q.items : [];
         const below = q.answerPosition === 'below';
         const labelFor = (i) => q.labelStyle === 'numbers' ? `${i + 1}.` : `${String.fromCharCode(97 + i)})`;
+        const imgH = { small: '70px', medium: '110px', large: '160px' };
         return items.map((item, i) => {
           const label = `<strong>${labelFor(i)}</strong>`;
-          const text = esc(item.text || `Item ${labelFor(i)}`);
+          const text = item.text ? `<span>${esc(item.text)}</span>` : '';
+          const imgSrc = item.imageDataUrl;
+          const h = imgH[item.imageSize || 'small'];
+          const imgTag = imgSrc ? `<img src="${imgSrc}" style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
             const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
-            return `<div style="margin-bottom:14px;">${label} ${text}${linesHtml}</div>`;
+            return `<div style="margin-bottom:14px;">${label} ${imgTag}${text}${linesHtml}</div>`;
           }
-          return `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">${label} <span>${text}</span><span style="flex:1;border-bottom:1px solid #94a3b8;min-width:80px;">&nbsp;</span></div>`;
+          // inline: [label] [img?] [text?] [line]
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">${label}${imgTag}${text}<span style="flex:1;border-bottom:1px solid #94a3b8;min-width:60px;">&nbsp;</span></div>`;
         }).join('');
       }
       if (q.type === 'vf') {

@@ -581,15 +581,19 @@
         const items = Array.isArray(q.items) ? q.items : [];
         const below = q.answerPosition === 'below';
         const labelFor = (i) => q.labelStyle === 'numbers' ? `${i + 1}.` : `${String.fromCharCode(97 + i)})`;
+        const imgH = { small: '70px', medium: '110px', large: '160px' };
         return items.map((item, i) => {
           const label = `<strong>${labelFor(i)}</strong>`;
-          const text = esc(item.text || `Item ${labelFor(i)}`);
+          const text = item.text ? `<span>${esc(item.text)}</span>` : '';
+          const imgSrc = item.imageDataUrl;
+          const h = imgH[item.imageSize || 'small'];
+          const imgTag = imgSrc ? `<img src="${imgSrc}" style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
             const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
-            return `<div style="margin-bottom:14px;">${label} ${text}${linesHtml}</div>`;
+            return `<div style="margin-bottom:14px;">${label} ${imgTag}${text}${linesHtml}</div>`;
           }
-          return `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">${label} <span>${text}</span><span style="flex:1;border-bottom:1px solid #94a3b8;min-width:80px;">&nbsp;</span></div>`;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">${label}${imgTag}${text}<span style="flex:1;border-bottom:1px solid #94a3b8;min-width:60px;">&nbsp;</span></div>`;
         }).join('');
       }
       if (q.type === 'vf') {
