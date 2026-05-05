@@ -22,6 +22,7 @@
     .btn.primary { background: #0f172a; color: white; border-color: #0f172a; }
     .btn.danger { background: #dc2626; color: white; border-color: #dc2626; }
     .btn.green { background: #16a34a; color: white; border-color: #16a34a; }
+    .btn.sm { font-size: 11px; padding: 5px 9px; }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .main { max-width: 960px; margin: 0 auto; padding: 36px 24px; }
     .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
@@ -39,12 +40,26 @@
     .schools-grid { display: grid; gap: 14px; }
     .school-card {
       background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
     }
+    .school-card-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .school-logo-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: contain; border: 1px solid #e2e8f0; flex-shrink: 0; background: #f8fafc; }
+    .school-logo-placeholder { width: 44px; height: 44px; border-radius: 8px; border: 1px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .school-info { flex: 1; min-width: 0; }
     .school-name { font-size: 16px; font-weight: 800; }
     .school-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
     .school-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .school-actions .btn { font-size: 12px; padding: 7px 10px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #ede9fe; color: #6d28d9; border-radius: 20px;
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+    }
+    .tag .rm { cursor: pointer; font-size: 13px; line-height: 1; color: #a78bfa; }
+    .tag .rm:hover { color: #dc2626; }
+    .disc-edit { margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 12px; display: none; }
+    .disc-edit.open { display: block; }
+    .disc-add-row { display: flex; gap: 8px; margin-top: 8px; }
+    .disc-add-row input { flex: 1; }
     .empty { text-align: center; padding: 60px 24px; color: #64748b; }
     .empty h2 { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
     .divider { font-size: 14px; font-weight: 800; color: #334155; margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
@@ -63,10 +78,20 @@
       border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; background: white;
     }
     .professor-row .pname { font-weight: 700; flex: 1; }
-    .professor-row .pemail { color: #64748b; font-size: 12px; }
+    .professor-row .pmeta { color: #64748b; font-size: 12px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+    .logo-preview { width: 60px; height: 60px; border-radius: 10px; object-fit: contain; border: 1px solid #e2e8f0; background: #f8fafc; margin-top: 8px; display: none; }
+    .disc-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .disc-check-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 20px;
+      font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer;
+    }
+    .disc-check-label input[type=checkbox] { width: auto; accent-color: #6d28d9; }
+    .disc-check-label:has(input:checked) { background: #ede9fe; border-color: #a78bfa; color: #6d28d9; }
     @media (max-width: 600px) {
       .form-row { grid-template-columns: 1fr; }
-      .school-card { flex-direction: column; align-items: flex-start; }
+      .school-card-top { flex-wrap: wrap; }
       .main { padding: 20px 16px; }
     }
   </style>
@@ -85,7 +110,7 @@
   <div class="topbar">
     <div>
       <h1>Gerenciar Escolas</h1>
-      <p class="muted">Cadastre escolas e vincule professores. Acesso restrito à coordenação e administradores.</p>
+      <p class="muted">Cadastre escolas, gerencie disciplinas e vincule professores.</p>
     </div>
   </div>
 
@@ -105,6 +130,24 @@
     <div>
       <label>E-mail do administrador</label>
       <input id="schoolAdminInput" type="email" placeholder="Ex.: diretor@escola.edu.br" />
+    </div>
+    <div>
+      <label>Logo da escola</label>
+      <input id="logoFileInput" type="file" accept="image/*" class="visually-hidden" />
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button class="btn sm" type="button" id="pickLogoBtn">Selecionar imagem</button>
+        <button class="btn sm danger" type="button" id="clearLogoBtn" style="display:none;">Remover</button>
+      </div>
+      <img id="logoPreview" class="logo-preview" alt="Logo" />
+    </div>
+    <div>
+      <label>Disciplinas oferecidas</label>
+      <div id="newSchoolTags" class="tags"></div>
+      <div class="disc-add-row">
+        <input id="newDiscInput" type="text" placeholder="Ex.: Português, Matemática..." />
+        <button class="btn sm primary" type="button" id="addDiscBtn">Adicionar</button>
+      </div>
+      <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Adicione as disciplinas que esta escola oferece. Professores poderão ser vinculados a elas.</div>
     </div>
     <div>
       <button class="btn primary" id="addSchoolBtn" type="button">＋ Cadastrar escola</button>
@@ -151,6 +194,10 @@
         <option value="Múltiplas séries">Múltiplas séries</option>
       </select>
     </div>
+    <div id="linkDisciplinesSection" style="display:none;">
+      <label>Disciplinas que leciona</label>
+      <div id="linkDisciplinesCheckboxes" class="disc-checkboxes"></div>
+    </div>
     <div>
       <button class="btn green" id="linkProfBtn" type="button">Vincular professor</button>
     </div>
@@ -171,6 +218,8 @@
 <script>
   let auth = null;
   let schools = [];
+  let newSchoolDisciplines = [];
+  let newSchoolLogoDataUrl = '';
 
   document.addEventListener('DOMContentLoaded', async () => {
     auth = initAuthManager();
@@ -198,10 +247,58 @@
     });
     document.getElementById('addSchoolBtn').addEventListener('click', addSchool);
     document.getElementById('linkProfBtn').addEventListener('click', linkProfessor);
+    document.getElementById('linkSchoolSelect').addEventListener('change', onLinkSchoolChange);
+
+    // Logo upload
+    document.getElementById('pickLogoBtn').addEventListener('click', () => document.getElementById('logoFileInput').click());
+    document.getElementById('logoFileInput').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        newSchoolLogoDataUrl = String(reader.result || '');
+        const prev = document.getElementById('logoPreview');
+        prev.src = newSchoolLogoDataUrl;
+        prev.style.display = 'block';
+        document.getElementById('clearLogoBtn').style.display = '';
+      };
+      reader.readAsDataURL(file);
+    });
+    document.getElementById('clearLogoBtn').addEventListener('click', () => {
+      newSchoolLogoDataUrl = '';
+      document.getElementById('logoFileInput').value = '';
+      document.getElementById('logoPreview').style.display = 'none';
+      document.getElementById('clearLogoBtn').style.display = 'none';
+    });
+
+    // Discipline add for new school
+    document.getElementById('addDiscBtn').addEventListener('click', addNewSchoolDisc);
+    document.getElementById('newDiscInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addNewSchoolDisc(); } });
 
     await loadSchools();
     await loadProfessors();
   });
+
+  function addNewSchoolDisc() {
+    const inp = document.getElementById('newDiscInput');
+    const val = inp.value.trim();
+    if (!val || newSchoolDisciplines.includes(val)) { inp.value = ''; return; }
+    newSchoolDisciplines.push(val);
+    inp.value = '';
+    renderNewSchoolTags();
+  }
+
+  function renderNewSchoolTags() {
+    const el = document.getElementById('newSchoolTags');
+    el.innerHTML = newSchoolDisciplines.map((d, i) => `
+      <span class="tag">${esc(d)} <span class="rm" onclick="removeNewDisc(${i})">×</span></span>
+    `).join('');
+  }
+
+  function removeNewDisc(i) {
+    newSchoolDisciplines.splice(i, 1);
+    renderNewSchoolTags();
+  }
 
   async function loadSchools() {
     try {
@@ -222,22 +319,102 @@
       el.innerHTML = '<div class="empty"><h2>Nenhuma escola cadastrada</h2><p>Use o formulário acima para cadastrar a primeira escola.</p></div>';
       return;
     }
-    el.innerHTML = `<p class="divider">Escolas cadastradas (${schools.length})</p>` + schools.map(s => `
-      <div class="school-card">
-        <div>
-          <div class="school-name">${esc(s.name)}</div>
-          <div class="school-meta">${esc(s.city || '')}${s.admin_email ? ' · ' + esc(s.admin_email) : ''}</div>
-        </div>
-        <div class="school-actions">
-          <button class="btn danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>
-        </div>
-      </div>
-    `).join('');
+    el.innerHTML = `<p class="divider">Escolas cadastradas (${schools.length})</p><div class="schools-grid">` +
+      schools.map(s => {
+        const discs = Array.isArray(s.disciplines) ? s.disciplines : [];
+        const logoHtml = s.logo_data_url
+          ? `<img class="school-logo-thumb" src="${esc(s.logo_data_url)}" alt="Logo" />`
+          : `<div class="school-logo-placeholder">🏫</div>`;
+        const discTags = discs.map(d => `<span class="tag">${esc(d)}</span>`).join('');
+        return `
+        <div class="school-card" id="sc-${s.id}">
+          <div class="school-card-top">
+            ${logoHtml}
+            <div class="school-info">
+              <div class="school-name">${esc(s.name)}</div>
+              <div class="school-meta">${esc(s.city || '')}${s.admin_email ? ' · ' + esc(s.admin_email) : ''}</div>
+              ${discTags ? `<div class="tags" style="margin-top:6px;">${discTags}</div>` : ''}
+            </div>
+            <div class="school-actions">
+              <button class="btn sm" type="button" onclick="toggleDiscEdit('${s.id}')">Disciplinas</button>
+              <button class="btn sm danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>
+            </div>
+          </div>
+          <div class="disc-edit" id="de-${s.id}">
+            <label style="margin-bottom:8px;">Gerenciar disciplinas</label>
+            <div id="dt-${s.id}" class="tags">${discs.map((d, i) => `<span class="tag">${esc(d)} <span class="rm" onclick="removeSchoolDisc('${s.id}',${i})">×</span></span>`).join('')}</div>
+            <div class="disc-add-row">
+              <input id="di-${s.id}" type="text" placeholder="Nova disciplina..." />
+              <button class="btn sm primary" type="button" onclick="addSchoolDisc('${s.id}')">Adicionar</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  function toggleDiscEdit(id) {
+    const el = document.getElementById(`de-${id}`);
+    if (el) el.classList.toggle('open');
+  }
+
+  function getSchool(id) { return schools.find(s => s.id === id); }
+
+  function removeSchoolDisc(schoolId, idx) {
+    const s = getSchool(schoolId);
+    if (!s) return;
+    const discs = Array.isArray(s.disciplines) ? [...s.disciplines] : [];
+    discs.splice(idx, 1);
+    saveSchoolDisciplines(schoolId, discs);
+  }
+
+  function addSchoolDisc(schoolId) {
+    const inp = document.getElementById(`di-${schoolId}`);
+    const val = inp ? inp.value.trim() : '';
+    if (!val) return;
+    const s = getSchool(schoolId);
+    if (!s) return;
+    const discs = Array.isArray(s.disciplines) ? [...s.disciplines] : [];
+    if (!discs.includes(val)) discs.push(val);
+    inp.value = '';
+    saveSchoolDisciplines(schoolId, discs);
+  }
+
+  async function saveSchoolDisciplines(schoolId, discs) {
+    try {
+      await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ disciplines: discs }),
+      });
+      showToast('Disciplinas atualizadas!');
+      await loadSchools();
+      // Re-open the edit panel after re-render
+      const el = document.getElementById(`de-${schoolId}`);
+      if (el) el.classList.add('open');
+    } catch (err) {
+      showToast('Erro ao salvar disciplinas: ' + err.message, 'error');
+    }
   }
 
   function updateSchoolSelects() {
     const sel = document.getElementById('linkSchoolSelect');
-    sel.innerHTML = '<option value="">Selecione a escola</option>' + schools.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    sel.innerHTML = '<option value="">Selecione a escola</option>' +
+      schools.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+  }
+
+  function onLinkSchoolChange() {
+    const schoolId = document.getElementById('linkSchoolSelect').value;
+    const section = document.getElementById('linkDisciplinesSection');
+    const box = document.getElementById('linkDisciplinesCheckboxes');
+    if (!schoolId) { section.style.display = 'none'; box.innerHTML = ''; return; }
+    const s = getSchool(schoolId);
+    const discs = s && Array.isArray(s.disciplines) ? s.disciplines : [];
+    if (!discs.length) { section.style.display = 'none'; box.innerHTML = ''; return; }
+    section.style.display = '';
+    box.innerHTML = discs.map(d => `
+      <label class="disc-check-label">
+        <input type="checkbox" value="${esc(d)}" /> ${esc(d)}
+      </label>
+    `).join('');
   }
 
   async function addSchool() {
@@ -250,11 +427,23 @@
     try {
       await auth.authenticatedRequest('/schools', {
         method: 'POST',
-        body: JSON.stringify({ name, city: city || null, admin_email: adminEmail || null }),
+        body: JSON.stringify({
+          name,
+          city: city || null,
+          admin_email: adminEmail || null,
+          logo_data_url: newSchoolLogoDataUrl || null,
+          disciplines: newSchoolDisciplines.length ? newSchoolDisciplines : [],
+        }),
       });
       document.getElementById('schoolNameInput').value = '';
       document.getElementById('schoolCityInput').value = '';
       document.getElementById('schoolAdminInput').value = '';
+      document.getElementById('logoPreview').style.display = 'none';
+      document.getElementById('clearLogoBtn').style.display = 'none';
+      document.getElementById('logoFileInput').value = '';
+      newSchoolLogoDataUrl = '';
+      newSchoolDisciplines = [];
+      renderNewSchoolTags();
       showToast('Escola cadastrada com sucesso!');
       await loadSchools();
     } catch (err) {
@@ -276,20 +465,24 @@
 
   async function loadProfessors() {
     try {
-      const data = await auth.authenticatedRequest('/profiles?role=eq.professor&select=id,full_name,email,school_grade,school_id&order=full_name.asc');
+      const data = await auth.authenticatedRequest('/profiles?role=eq.professor&select=id,full_name,email,school_grade,school_id,disciplines&order=full_name.asc');
       const profs = Array.isArray(data) ? data : [];
       const section = document.getElementById('professorsSection');
       const list = document.getElementById('professorsList');
       if (!profs.length) { section.style.display = 'none'; return; }
       section.style.display = '';
-      list.innerHTML = profs.map(p => `
+      list.innerHTML = profs.map(p => {
+        const school = schools.find(s => s.id === p.school_id);
+        const discs = Array.isArray(p.disciplines) ? p.disciplines : [];
+        return `
         <div class="professor-row">
-          <div>
+          <div style="flex:1;">
             <div class="pname">${esc(p.full_name || '—')}</div>
-            <div class="pemail">${esc(p.email || '')} ${p.school_grade ? '· ' + esc(p.school_grade) : ''}</div>
+            <div class="pmeta">${esc(p.email || '')}${p.school_grade ? ' · ' + esc(p.school_grade) : ''}${school ? ' · ' + esc(school.name) : ''}</div>
+            ${discs.length ? `<div class="tags" style="margin-top:6px;">${discs.map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>` : ''}
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     } catch {}
   }
 
@@ -297,6 +490,7 @@
     const schoolId = document.getElementById('linkSchoolSelect').value;
     const email = document.getElementById('linkProfEmail').value.trim();
     const grade = document.getElementById('linkGradeSelect').value;
+    const checkedDiscs = Array.from(document.querySelectorAll('#linkDisciplinesCheckboxes input:checked')).map(cb => cb.value);
     if (!email) { showToast('Digite o e-mail do professor.', 'error'); return; }
     const btn = document.getElementById('linkProfBtn');
     btn.disabled = true;
@@ -309,6 +503,7 @@
       const update = {};
       if (schoolId) update.school_id = schoolId;
       if (grade) update.school_grade = grade;
+      if (checkedDiscs.length) update.disciplines = checkedDiscs;
       await auth.authenticatedRequest(`/profiles?id=eq.${prof.id}`, {
         method: 'PATCH',
         body: JSON.stringify(update),
@@ -316,6 +511,8 @@
       resultEl.textContent = `Professor "${prof.full_name || prof.email}" vinculado com sucesso.`;
       showToast('Professor vinculado!');
       document.getElementById('linkProfEmail').value = '';
+      document.getElementById('linkDisciplinesSection').style.display = 'none';
+      document.getElementById('linkDisciplinesCheckboxes').innerHTML = '';
       await loadProfessors();
     } catch (err) {
       resultEl.textContent = 'Erro: ' + err.message;

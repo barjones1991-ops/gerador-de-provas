@@ -182,6 +182,11 @@ CREATE POLICY "Escolas: admin gerencia" ON schools
 -- 7. Vincular professores à escola e série
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES schools(id);
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS school_grade TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS disciplines JSONB DEFAULT '[]';
+
+-- 8. Colunas de logo e disciplinas na tabela de escolas
+ALTER TABLE schools ADD COLUMN IF NOT EXISTS logo_data_url TEXT;
+ALTER TABLE schools ADD COLUMN IF NOT EXISTS disciplines JSONB DEFAULT '[]';
 
 -- 8. Definir usuário coordenador inicial
 UPDATE profiles

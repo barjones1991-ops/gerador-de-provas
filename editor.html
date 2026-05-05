@@ -879,11 +879,8 @@
     <div class="grid">
       <div class="card no-print">
         <h2 class="title">Editor da prova</h2>
+        <div id="profileInfo" class="small" style="color:#64748b; margin-bottom:8px; min-height:18px;"></div>
         <div class="row">
-          <div>
-            <label>Nome da escola</label>
-            <input id="schoolName" value="Nome da Escola" />
-          </div>
           <div>
             <label>Título da avaliação</label>
             <input id="examTitle" value="Avaliação Bimestral" />
@@ -891,11 +888,9 @@
           <div class="row two">
             <div>
               <label>Disciplina</label>
-              <input id="subject" value="Disciplina" />
-            </div>
-            <div>
-              <label>Professor(a)</label>
-              <input id="teacher" value="Professor(a)" />
+              <select id="subject">
+                <option value="">Selecionar disciplina</option>
+              </select>
             </div>
             <div>
               <label>Turma</label>
@@ -926,25 +921,6 @@
             </select>
             <textarea id="instructions">Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.</textarea>
             <div class="small">Dica: quebre linhas para aparecer no impresso.</div>
-          </div>
-          <div>
-            <label>Logo da escola</label>
-            <input id="logoInput" class="visually-hidden" type="file" accept="image/*" />
-            <div class="btnbar" style="margin-top: 8px;">
-              <button id="pickLogoBtn" class="primary" type="button">Selecionar imagem</button>
-              <button id="clearLogoBtn" class="outline" type="button">Remover logo</button>
-            </div>
-            <div id="logoFileName" class="small" style="margin-top: 8px;">Nenhuma imagem selecionada.</div>
-            <div class="small">Envie uma imagem para aparecer no cabeçalho e no PDF exportado.</div>
-          </div>
-          <div>
-            <label>Modelo de cabeçalho</label>
-            <div class="btnbar" style="margin-top:4px;">
-              <button id="saveHeaderTplBtn" class="outline" type="button" style="font-size:12px; padding:7px 12px;">💾 Salvar modelo</button>
-              <button id="loadHeaderTplBtn" class="outline" type="button" style="font-size:12px; padding:7px 12px;">📂 Carregar modelo</button>
-              <button id="clearHeaderTplBtn" class="outline" type="button" style="font-size:12px; padding:7px 12px; color:#dc2626;">✕ Apagar modelo</button>
-            </div>
-            <div id="headerTplStatus" class="small" style="margin-top:5px; color:#64748b;"></div>
           </div>
         </div>
 
@@ -1842,23 +1818,30 @@
     }
 
     function applyStateToInputs() {
-      el('schoolName').value = state.school.schoolName || '';
       el('examTitle').value = state.school.examTitle || '';
-      el('subject').value = state.school.subject || '';
-      el('teacher').value = state.school.teacher || '';
       el('className').value = state.school.className || '';
       el('term').value = state.school.term || '';
       el('date').value = state.school.date || '';
       el('totalValue').value = state.school.totalValue || '';
       el('instructions').value = state.school.instructions || '';
-      el('logoFileName').textContent = state.logoFileName || (state.logoDataUrl ? 'Logo carregada automaticamente.' : 'Nenhuma imagem selecionada.');
+      // subject: select the saved value if it exists as an option
+      const subj = el('subject');
+      if (state.school.subject) {
+        const opt = Array.from(subj.options).find(o => o.value === state.school.subject);
+        if (opt) subj.value = state.school.subject;
+        else if (state.school.subject) {
+          const extra = document.createElement('option');
+          extra.value = state.school.subject;
+          extra.textContent = state.school.subject;
+          subj.appendChild(extra);
+          subj.value = state.school.subject;
+        }
+      }
     }
 
     function syncSchoolFromInputs() {
-      state.school.schoolName = el('schoolName').value;
       state.school.examTitle = el('examTitle').value;
       state.school.subject = el('subject').value;
-      state.school.teacher = el('teacher').value;
       state.school.className = el('className').value;
       state.school.term = el('term').value;
       state.school.date = el('date').value;
@@ -4622,12 +4605,16 @@
     }
 
     function wireSchoolInputs() {
-      const ids = ['schoolName','examTitle','subject','teacher','className','term','date','totalValue','instructions'];
+      const ids = ['examTitle','className','term','date','totalValue','instructions'];
       ids.forEach((id) => {
         el(id).addEventListener('input', () => {
           syncSchoolFromInputs();
           renderPreview();
         });
+      });
+      el('subject').addEventListener('change', () => {
+        syncSchoolFromInputs();
+        renderPreview();
       });
       el('instructionTemplate').addEventListener('change', (event) => {
         const value = event.target.value;
@@ -4639,41 +4626,6 @@
       });
     }
 
-    function wireLogoInput() {
-      el('pickLogoBtn').addEventListener('click', () => {
-        el('logoInput').click();
-      });
-
-      el('logoInput').addEventListener('change', (event) => {
-        const file = event.target.files && event.target.files[0];
-        if (!file) return;
-        if (!file.type.startsWith('image/')) {
-          window.alert('Selecione um arquivo de imagem valido.');
-          event.target.value = '';
-          state.logoFileName = '';
-          el('logoFileName').textContent = 'Nenhuma imagem selecionada.';
-          return;
-        }
-
-        state.logoFileName = file.name;
-        el('logoFileName').textContent = file.name;
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          state.logoDataUrl = String(reader.result || '');
-          renderPreview();
-        };
-        reader.readAsDataURL(file);
-      });
-
-      el('clearLogoBtn').addEventListener('click', () => {
-        state.logoDataUrl = '';
-        state.logoFileName = '';
-        el('logoInput').value = '';
-        el('logoFileName').textContent = 'Nenhuma imagem selecionada.';
-        renderPreview();
-      });
-    }
 
     // Seletor visual de tipo de questão
     let selectedQType = 'multipla';
@@ -4715,55 +4667,10 @@
       setTimeout(() => { sec.style.display = 'none'; sec.dataset.show = 'false'; }, 500);
     });
 
-    // Modelos de cabeçalho
-    const HEADER_TPL_KEY = 'gerador-provas-header-tpl';
-    el('saveHeaderTplBtn').addEventListener('click', () => {
-      syncSchoolFromInputs();
-      const tpl = {
-        schoolName: state.school.schoolName,
-        teacher: state.school.teacher,
-        subject: state.school.subject,
-        className: state.school.className,
-        term: state.school.term,
-        totalValue: state.school.totalValue,
-        instructions: state.school.instructions,
-        logoDataUrl: state.logoDataUrl,
-        logoFileName: state.logoFileName,
-      };
-      localStorage.setItem(HEADER_TPL_KEY, JSON.stringify(tpl));
-      el('headerTplStatus').textContent = '✓ Modelo salvo com sucesso.';
-      setTimeout(() => { el('headerTplStatus').textContent = ''; }, 3000);
-    });
-    el('loadHeaderTplBtn').addEventListener('click', () => {
-      const raw = localStorage.getItem(HEADER_TPL_KEY);
-      if (!raw) { el('headerTplStatus').textContent = 'Nenhum modelo salvo ainda.'; return; }
-      try {
-        const tpl = JSON.parse(raw);
-        if (tpl.schoolName !== undefined) { state.school.schoolName = tpl.schoolName; el('schoolName').value = tpl.schoolName; }
-        if (tpl.teacher !== undefined) { state.school.teacher = tpl.teacher; el('teacher').value = tpl.teacher; }
-        if (tpl.subject !== undefined) { state.school.subject = tpl.subject; el('subject').value = tpl.subject; }
-        if (tpl.className !== undefined) { state.school.className = tpl.className; el('className').value = tpl.className; }
-        if (tpl.term !== undefined) { state.school.term = tpl.term; el('term').value = tpl.term; }
-        if (tpl.totalValue !== undefined) { state.school.totalValue = tpl.totalValue; el('totalValue').value = tpl.totalValue; }
-        if (tpl.instructions !== undefined) { state.school.instructions = tpl.instructions; el('instructions').value = tpl.instructions; }
-        if (tpl.logoDataUrl) { state.logoDataUrl = tpl.logoDataUrl; state.logoFileName = tpl.logoFileName || ''; el('logoFileName').textContent = tpl.logoFileName || 'Imagem carregada.'; }
-        renderPreview();
-        el('headerTplStatus').textContent = '✓ Modelo carregado.';
-        setTimeout(() => { el('headerTplStatus').textContent = ''; }, 3000);
-      } catch (e) {
-        el('headerTplStatus').textContent = 'Erro ao carregar modelo.';
-      }
-    });
-    el('clearHeaderTplBtn').addEventListener('click', () => {
-      localStorage.removeItem(HEADER_TPL_KEY);
-      el('headerTplStatus').textContent = 'Modelo apagado.';
-      setTimeout(() => { el('headerTplStatus').textContent = ''; }, 2000);
-    });
 
     loadSavedState();
     applyStateToInputs();
     wireSchoolInputs();
-    wireLogoInput();
     renderAll();
   </script>
 
@@ -5021,6 +4928,7 @@
 
       if (currentExamId) {
         await loadFromCloud(currentExamId);
+        await applyProfileDefaults();
       } else {
         await applyProfileDefaults();
       }
@@ -5096,18 +5004,69 @@
       renderAll();
     }
 
+    const STANDARD_DISCIPLINES = [
+      'Língua Portuguesa','Matemática','Ciências','História','Geografia',
+      'Arte','Educação Física','Inglês','Espanhol','Filosofia','Sociologia',
+      'Física','Química','Biologia','Religião','Tecnologia','Música',
+    ];
+
     async function applyProfileDefaults() {
       try {
         const user = auth.getCurrentUser();
-        const data = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name`);
+        const data = await auth.authenticatedRequest(
+          `/profiles?id=eq.${user.id}&select=full_name,school_name,school_id,disciplines`
+        );
         const profile = Array.isArray(data) ? data[0] : null;
         if (!profile) return;
 
         const shouldUseSchool = !state.school.schoolName || state.school.schoolName === defaultSchool.schoolName;
         const shouldUseTeacher = !state.school.teacher || state.school.teacher === defaultSchool.teacher;
 
-        if (shouldUseSchool && profile.school_name) state.school.schoolName = profile.school_name;
+        // Auto-fill teacher from profile
         if (shouldUseTeacher && profile.full_name) state.school.teacher = profile.full_name;
+
+        let disciplines = Array.isArray(profile.disciplines) && profile.disciplines.length
+          ? profile.disciplines : null;
+
+        // Fetch school for name, logo, and disciplines fallback
+        if (profile.school_id) {
+          try {
+            const sd = await auth.authenticatedRequest(
+              `/schools?id=eq.${profile.school_id}&select=name,logo_data_url,disciplines`
+            );
+            const school = Array.isArray(sd) ? sd[0] : null;
+            if (school) {
+              if (shouldUseSchool && school.name) state.school.schoolName = school.name;
+              if (!state.logoDataUrl && school.logo_data_url) state.logoDataUrl = school.logo_data_url;
+              if (!disciplines && Array.isArray(school.disciplines) && school.disciplines.length) {
+                disciplines = school.disciplines;
+              }
+            }
+          } catch { /* escola opcional */ }
+        } else if (shouldUseSchool && profile.school_name) {
+          state.school.schoolName = profile.school_name;
+        }
+
+        // Populate subject select
+        const list = disciplines || STANDARD_DISCIPLINES;
+        const subj = el('subject');
+        const currentVal = state.school.subject || '';
+        subj.innerHTML = '<option value="">Selecionar disciplina</option>' +
+          list.map(d => `<option value="${esc(d)}"${d === currentVal ? ' selected' : ''}>${esc(d)}</option>`).join('');
+        // If saved value not in list, add it
+        if (currentVal && !list.includes(currentVal)) {
+          subj.innerHTML += `<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>`;
+        }
+
+        // Show profile info bar
+        const infoEl = document.getElementById('profileInfo');
+        if (infoEl) {
+          const parts = [];
+          if (state.school.teacher && state.school.teacher !== defaultSchool.teacher) parts.push(state.school.teacher);
+          if (state.school.schoolName && state.school.schoolName !== defaultSchool.schoolName) parts.push(state.school.schoolName);
+          if (state.logoDataUrl) parts.push('Logo carregada da escola');
+          if (parts.length) infoEl.textContent = '✓ ' + parts.join(' · ');
+        }
 
         applyStateToInputs();
         renderAll();
