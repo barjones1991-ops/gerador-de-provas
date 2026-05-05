@@ -5070,7 +5070,8 @@
             // Sem logo na escola: oferece upload avulso para esta prova
             parts.push('<label style="cursor:pointer;color:#667eea;font-weight:700;">＋ Adicionar logo <input id="logoUploadFallback" type="file" accept="image/*" style="display:none;" /></label>');
           }
-          infoEl.innerHTML = parts.length ? '✓ ' + parts.join(' · ') : '';
+          parts.push('<a href="dashboard.html" style="color:#94a3b8;font-weight:600;font-size:11px;">Dados incorretos? Atualize seu perfil</a>');
+          infoEl.innerHTML = '✓ ' + parts.join(' · ');
           const fallbackInput = document.getElementById('logoUploadFallback');
           if (fallbackInput) {
             fallbackInput.addEventListener('change', (e) => {
@@ -5157,6 +5158,8 @@
       btn.disabled = true;
       btn.textContent = '⏳ Salvando...';
       syncSchoolFromInputs();
+
+      if (!state.school.subject) showToast('Nenhuma disciplina selecionada — a prova será salva sem disciplina.', 'warn');
 
       const payload = {
         title: state.school.examTitle || 'Sem título',

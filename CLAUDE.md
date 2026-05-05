@@ -390,13 +390,13 @@ git push --set-upstream origin main
 
 - [x] **Modal de perfil incompleto**: modal mostra escola vinculada (nome), série e disciplinas — todos read-only (definidos pela coordenação). Só o nome é editável pelo professor.
 - [x] **Professor não vê sua escola vinculada**: modal de perfil busca o nome da escola via school_id e exibe para o professor.
-- [ ] **Professor não consegue informar sua série/ano**: o campo `school_grade` só é preenchível pela coordenadora. O professor não tem forma de se auto-cadastrar nesse dado.
+- [x] **Professor não consegue informar sua série/ano**: modal de perfil no dashboard ganhou select de série/ano editável pelo próprio professor.
 
 ### 🟡 Média prioridade — editor (`editor.html`)
 
-- [ ] **Sem fallback de edição manual para escola/professor/logo**: quando o editor preenche escola, professor e logo automaticamente do perfil, o professor não tem como corrigir valores errados. Se o perfil tiver dado desatualizado, a prova sai com dado errado sem o professor perceber.
+- [x] **Sem fallback de edição manual para escola/professor/logo**: barra de info do editor exibe link "Dados incorretos? Atualize seu perfil" apontando para o dashboard.
 - [x] **Logo ausente quando escola não tem logo cadastrada**: barra de info mostra link "＋ Adicionar logo" que abre file picker e carrega a logo apenas para aquela prova.
-- [ ] **Campo disciplina em branco para professores novos**: se o professor não tem `disciplines` no perfil e não está vinculado a escola, o select usa a lista padrão — mas ao salvar, `state.school.subject` pode ficar vazio se o usuário não selecionar nada.
+- [x] **Campo disciplina em branco para professores novos**: se o professor não tem `disciplines` no perfil e não está vinculado a escola, o select usa a lista padrão — mas ao salvar, `state.school.subject` pode ficar vazio se o usuário não selecionar nada. Corrigido: toast de aviso ao salvar sem disciplina selecionada.
 
 ### 🟡 Média prioridade — coordenação (`coordenacao.html`)
 
@@ -409,7 +409,7 @@ git push --set-upstream origin main
 
 ### 🟢 Baixa prioridade — refinamentos gerais
 
-- [ ] **Página `schools.html` não é linkada no header do dashboard para coordenadores**: o link `#schoolsLink` existe no HTML mas pode não estar aparecendo dependendo da leitura do papel (`applyRoleActions`). Verificar se o link aparece corretamente para `coordenadora` e `admin`.
-- [ ] **Coluna `school_name` em `profiles` vs `school_id`**: o perfil tem dois campos de escola — `school_name` (texto livre, editável no dashboard) e `school_id` (UUID, vinculado pela coordenação). O editor usa `school_id` quando disponível, mas cai em `school_name` quando não tem. Isso cria inconsistência: professor pode ter escola diferente no campo texto e no campo ID.
-- [ ] **`review_status` de prova não aparece no card do dashboard com cor/ícone**: o status existe e é filtrado, mas visualmente o card não destaca claramente o status atual (ex: badge colorido "Devolvida", "Aprovada"). Só aparece como texto no botão de ação.
-- [ ] **Impressão (`print.html`) não tem fallback de logo**: se `exam.logo_data_url` estiver vazio, o espaço de logo some silenciosamente. Verificar se o placeholder aparece ou se o layout quebra.
+- [x] **Página `schools.html` não é linkada no header do dashboard para coordenadores**: o link `#schoolsLink` existe no HTML; o fetch de papel foi separado em dois (básico + estendido) para garantir que `applyRoleActions()` sempre rode mesmo sem as colunas opcionais.
+- [x] **Coluna `school_name` em `profiles` vs `school_id`**: `saveProfile()` usa PATCH e, quando `school_id` existe, sincroniza `school_name` buscando o nome real na API de escolas. Inconsistência eliminada.
+- [x] **`review_status` de prova não aparece no card do dashboard com cor/ícone**: adicionadas classes `.badge-draft/.badge-sent/.badge-review/.badge-approved/.badge-returned/.badge-locked` com cores distintas; `badgeMap` atualizado em `renderExams()`.
+- [x] **Impressão (`print.html`) não tem fallback de logo**: substituído silêncio por `<div class="logo">` estilizado com borda tracejada e texto "Logo" quando `logo_data_url` estiver vazio.

@@ -117,10 +117,13 @@
       padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
       letter-spacing: 0.04em;
     }
-    .badge-draft { background: #fef3c7; color: #92400e; }
-    .badge-published { background: #dcfce7; color: #166534; }
-    .badge-review { background: #dbeafe; color: #1d4ed8; }
-    .badge-locked { background: #e2e8f0; color: #475569; }
+    .badge-draft    { background: #f1f5f9; color: #64748b; }
+    .badge-published{ background: #dcfce7; color: #166534; }
+    .badge-sent     { background: #dbeafe; color: #1d4ed8; }
+    .badge-review   { background: #ede9fe; color: #6d28d9; }
+    .badge-approved { background: #dcfce7; color: #15803d; }
+    .badge-returned { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-locked   { background: #e2e8f0; color: #475569; }
     .card-title { font-size: 16px; font-weight: 800; color: #0f172a; margin: 20px 0 12px; padding-right: 70px; line-height: 1.3; }
     .card-meta { display: grid; gap: 6px; margin-bottom: 16px; }
     .meta-row { display: flex; justify-content: space-between; font-size: 13px; }
@@ -332,13 +335,33 @@
   <div class="modal" style="max-width:440px;">
     <div class="modal-icon">👤</div>
     <h3>Meu perfil</h3>
-    <p>Edite seu nome. Os demais dados são definidos pela coordenação.</p>
+    <p>Edite seu nome e série. Escola e disciplinas são definidas pela coordenação.</p>
     <div class="modal-form">
       <div>
         <label>Nome completo</label>
         <input id="profileNameInput" type="text" placeholder="Seu nome" />
       </div>
-      <div class="profile-sec-label" style="margin-top:8px;">Dados vinculados pela coordenação</div>
+      <div>
+        <label>Série / Ano que leciona</label>
+        <select id="profileGradeInput" style="width:100%;padding:11px 12px;border:1.5px solid #e2e8f0;border-radius:11px;font-size:14px;font-family:inherit;">
+          <option value="">Não informado</option>
+          <option value="Educação Infantil">Educação Infantil</option>
+          <option value="1º ano">1º ano</option>
+          <option value="2º ano">2º ano</option>
+          <option value="3º ano">3º ano</option>
+          <option value="4º ano">4º ano</option>
+          <option value="5º ano">5º ano</option>
+          <option value="6º ano">6º ano</option>
+          <option value="7º ano">7º ano</option>
+          <option value="8º ano">8º ano</option>
+          <option value="9º ano">9º ano</option>
+          <option value="1º Ensino Médio">1º Ensino Médio</option>
+          <option value="2º Ensino Médio">2º Ensino Médio</option>
+          <option value="3º Ensino Médio">3º Ensino Médio</option>
+          <option value="Múltiplas séries">Múltiplas séries</option>
+        </select>
+      </div>
+      <div class="profile-sec-label" style="margin-top:4px;">Dados vinculados pela coordenação</div>
       <div id="profileSchoolBlock" class="profile-info-block">
         <div class="pib-label">Escola</div>
         <div id="profileSchoolValue" class="pib-empty">Não vinculado</div>
@@ -355,7 +378,7 @@
     </div>
     <div class="modal-btns">
       <button onclick="closeProfileModal()">Fechar</button>
-      <button class="danger" id="saveProfileBtn" style="background:#667eea; border-color:#667eea;">Salvar nome</button>
+      <button class="danger" id="saveProfileBtn" style="background:#667eea; border-color:#667eea;">Salvar</button>
     </div>
   </div>
 </div>
@@ -533,9 +556,12 @@
         publicada: 'Publicada',
       };
       const label = reviewLabels[review] || (exam.is_published ? 'Publicada' : 'Rascunho');
-      const badgeClass = ['aprovada', 'bloqueada'].includes(review)
-        ? 'badge-locked'
-        : (['enviada', 'em_revisao', 'devolvida'].includes(review) ? 'badge-review' : (exam.is_published ? 'badge-published' : 'badge-draft'));
+      const badgeMap = {
+        rascunho: 'badge-draft', publicada: 'badge-published',
+        enviada: 'badge-sent', em_revisao: 'badge-review',
+        aprovada: 'badge-approved', devolvida: 'badge-returned', bloqueada: 'badge-locked',
+      };
+      const badgeClass = badgeMap[review] || (exam.is_published ? 'badge-published' : 'badge-draft');
       const locked = ['aprovada', 'bloqueada'].includes(review);
       const date = exam.created_at ? new Date(exam.created_at).toLocaleDateString('pt-BR') : '—';
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
@@ -698,6 +724,7 @@
 
   async function openProfileModal() {
     document.getElementById('profileNameInput').value = currentProfile.full_name || '';
+    document.getElementById('profileGradeInput').value = currentProfile.school_grade || '';
 
     // Escola vinculada
     let schoolName = '';
@@ -741,24 +768,31 @@
     const btn = document.getElementById('saveProfileBtn');
     const user = auth.getCurrentUser();
     const fullName = document.getElementById('profileNameInput').value.trim();
-    const schoolName = document.getElementById('profileSchoolInput').value.trim();
+    const grade = document.getElementById('profileGradeInput').value;
+
+    // Se vinculado a escola, usa o nome real da escola (não texto livre)
+    let schoolName = currentProfile.school_name || '';
+    if (currentProfile.school_id) {
+      try {
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name`);
+        if (Array.isArray(sd) && sd[0]) schoolName = sd[0].name;
+      } catch {}
+    }
 
     btn.disabled = true;
     btn.textContent = 'Salvando...';
 
     try {
-      await auth.authenticatedRequest('/profiles?on_conflict=id', {
-        method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
+      await auth.authenticatedRequest(`/profiles?id=eq.${user.id}`, {
+        method: 'PATCH',
         body: JSON.stringify({
-          id: user.id,
-          email: user.email,
           full_name: fullName,
           school_name: schoolName,
+          school_grade: grade || null,
         }),
       });
 
-      currentProfile = { ...currentProfile, full_name: fullName, school_name: schoolName };
+      currentProfile = { ...currentProfile, full_name: fullName, school_name: schoolName, school_grade: grade };
       applyProfileToHeader();
       closeProfileModal();
       showToast('Perfil atualizado.', 'success');

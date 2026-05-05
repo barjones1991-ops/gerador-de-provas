@@ -943,7 +943,7 @@
       const sum = questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
       const logo = exam.logo_data_url
         ? `<div class="logo has-image"><img src="${exam.logo_data_url}" alt="Logo da escola" /></div>`
-        : '<div class="logo">Logo da escola</div>';
+        : '<div class="logo" style="display:flex;align-items:center;justify-content:center;font-size:11px;color:#cbd5e1;border:1px dashed #e2e8f0;border-radius:8px;">Logo</div>';
 
       document.title = `${exam.title || 'Prova'} - Impressão`;
       document.getElementById('root').innerHTML = `
