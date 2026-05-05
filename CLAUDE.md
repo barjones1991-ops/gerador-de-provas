@@ -400,7 +400,7 @@ git push --set-upstream origin main
 
 ### 🟡 Média prioridade — coordenação (`coordenacao.html`)
 
-- [ ] **Não há acesso a schools.html a partir da coordenação**: o menu da coordenação não tem link para "Escolas". A coordenadora precisaria digitar a URL manualmente.
+- [x] **Não há acesso a schools.html a partir da coordenação**: adicionado botão "Escolas" no header de `coordenacao.html`.
 - [ ] **Filtro de provas por professor/escola ausente**: o painel lista todas as provas enviadas, mas não tem filtro por nome do professor ou escola. Com muitos professores, fica difícil localizar provas.
 
 ### 🟡 Média prioridade — dashboard do professor (`dashboard.html`)
