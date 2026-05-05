@@ -919,7 +919,6 @@
             </optgroup>
             <optgroup label="— Discursivas —">
               <option value="discursiva">Discursiva</option>
-              <option value="producao_textual">Produção textual</option>
               <option value="problema_matematico">Problema matemático</option>
             </optgroup>
             <optgroup label="— Com imagem (especializadas) —">
@@ -1358,7 +1357,6 @@
       relacione_imagens: 'Relacione imagens e palavras',
       texto_base: 'Interpretação de texto',
       matematica_coluna: 'Operações matemáticas',
-      producao_textual: 'Produção textual',
       ditado: 'Ditado / lista de palavras',
       ordenacao: 'Ordenação de frases',
       problema_matematico: 'Problema matemático',
@@ -1380,7 +1378,7 @@
 
     const templates = {
       multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0', hideNumber: false }),
-      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', expectedAnswer: '', points: '1,0', hideNumber: false, showAnswerSpace: true }),
+      discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', titlePrompt: false, expectedAnswer: '', points: '1,0', hideNumber: false, showAnswerSpace: true }),
       vf: () => ({
         type: 'vf',
         text: 'Marque V para verdadeiro e F para falso.',
@@ -1506,16 +1504,6 @@
         columns: 3,
         points: '1,0',
         hideNumber: false,
-      }),
-      producao_textual: () => ({
-        type: 'producao_textual',
-        text: 'Escreva um texto sobre o tema abaixo:',
-        titlePrompt: true,
-        lines: 18,
-        answerStyle: 'linhas',
-        points: '1,0',
-        hideNumber: false,
-        showAnswerSpace: true,
       }),
       ditado: () => ({
         type: 'ditado',
@@ -1793,7 +1781,7 @@
             state.logoFileName = saved.logoFileName;
           }
           if (Array.isArray(saved.questions) && saved.questions.length > 0) {
-            state.questions = saved.questions;
+            state.questions = saved.questions.map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
           }
           if (saved.collapsedQuestions && typeof saved.collapsedQuestions === 'object') {
             state.collapsedQuestions = saved.collapsedQuestions;
@@ -2297,7 +2285,7 @@
           renderAll();
         });
 
-        const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'producao_textual', 'problema_matematico', 'tabela', 'comparar_imagens'].includes(q.type);
+        const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'problema_matematico', 'tabela', 'comparar_imagens'].includes(q.type);
         const showSpaceBtn = document.createElement('button');
         showSpaceBtn.type = 'button';
         showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
@@ -2436,12 +2424,19 @@
               <select data-k="answerStyle">
                 <option value="linhas" ${q.answerStyle === 'linhas' ? 'selected' : ''}>Linhas pautadas</option>
                 <option value="caixa" ${q.answerStyle === 'caixa' ? 'selected' : ''}>Caixa de resposta</option>
-                <option value="espaco" ${q.answerStyle === 'espaco' ? 'selected' : ''}>Espaco em branco</option>
+                <option value="espaco" ${q.answerStyle === 'espaco' ? 'selected' : ''}>Espaço em branco</option>
               </select>
             </div>
             <div>
-              <label>Altura da resposta</label>
-              <input data-k="lines" type="number" min="2" max="15" value="${esc(q.lines)}" />
+              <label>Nº de linhas</label>
+              <input data-k="lines" type="number" min="2" max="40" value="${esc(q.lines)}" />
+            </div>
+            <div>
+              <label>Linha de título</label>
+              <select data-k="titlePrompt">
+                <option value="false" ${!q.titlePrompt ? 'selected' : ''}>Não</option>
+                <option value="true" ${q.titlePrompt ? 'selected' : ''}>Sim — exibir linha de título</option>
+              </select>
             </div>
           `;
           body.appendChild(block);
@@ -3308,34 +3303,6 @@
           });
           block.appendChild(opsBox);
           block.appendChild(addOp);
-          body.appendChild(block);
-        }
-
-        if (q.type === 'producao_textual') {
-          if (!q.answerStyle) q.answerStyle = 'linhas';
-          const block = document.createElement('div');
-          block.className = 'row two';
-          block.innerHTML = `
-            <div>
-              <label>Formato da resposta</label>
-              <select data-k="answerStyle">
-                <option value="linhas" ${q.answerStyle==='linhas'?'selected':''}>Linhas pautadas</option>
-                <option value="caixa" ${q.answerStyle==='caixa'?'selected':''}>Caixa de resposta</option>
-                <option value="espaco" ${q.answerStyle==='espaco'?'selected':''}>Espaço em branco</option>
-              </select>
-            </div>
-            <div>
-              <label>Nº de linhas</label>
-              <input type="number" data-k="lines" value="${q.lines||18}" min="4" max="40" />
-            </div>
-            <div>
-              <label>Linha de título</label>
-              <select data-k="titlePrompt">
-                <option value="true" ${q.titlePrompt!==false?'selected':''}>Sim — linha para título</option>
-                <option value="false" ${q.titlePrompt===false?'selected':''}>Não</option>
-              </select>
-            </div>
-          `;
           body.appendChild(block);
         }
 
@@ -4233,7 +4200,8 @@
       }
       if (q.type === 'discursiva') {
         if (q.showAnswerSpace === false) return '';
-        return answerArea(q);
+        const titleLine = q.titlePrompt ? `<div style="margin-bottom:12px;"><div class="small" style="margin-bottom:4px;">Título:</div><div class="hline"></div></div>` : '';
+        return `${titleLine}${answerArea(q)}`;
       }
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
@@ -4336,11 +4304,6 @@
           return `<div class="math-op-box"><span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
         }).join('');
         return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
-      }
-      if (q.type === 'producao_textual') {
-        if (q.showAnswerSpace === false) return '';
-        const titleLine = q.titlePrompt ? `<div style="margin-bottom:12px;"><div class="small" style="margin-bottom:4px;">Título:</div><div class="hline"></div></div>` : '';
-        return `${titleLine}${answerArea(q)}`;
       }
       if (q.type === 'ditado') {
         const count = Math.max(1, Math.min(30, Number(q.wordCount) || 10));
@@ -4625,9 +4588,6 @@
           return `${i+1}. ?`;
         }).join(' | ');
         return { tipo: 'objetivo', num, ans: results || '(operações — sem resultado)' };
-      }
-      if (tipo === 'producao_textual') {
-        return { tipo: 'discursiva', num, ans: '(produção textual — corrija manualmente)' };
       }
       if (tipo === 'ditado') {
         if (q.wordList && q.wordList.trim()) {
@@ -5339,7 +5299,7 @@
           instructions: exam.instructions || defaultSchool.instructions,
         };
         if (Array.isArray(exam.questions) && exam.questions.length > 0) {
-          state.questions = exam.questions;
+          state.questions = exam.questions.map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
         }
         currentReviewStatus = exam.review_status || 'rascunho';
         currentReviewNotes = exam.review_notes || '';

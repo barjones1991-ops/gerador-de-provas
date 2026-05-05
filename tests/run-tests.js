@@ -18,7 +18,6 @@ const questionTypes = [
   'relacione_imagens',
   'texto_base',
   'matematica_coluna',
-  'producao_textual',
   'ditado',
   'caca_palavras',
   'cruzadinha',
