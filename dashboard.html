@@ -399,15 +399,19 @@
     const user = auth.getCurrentUser();
     document.getElementById('userEmail').textContent = user.email;
 
-    // Carregar nome do perfil
+    // Fetch básico: papel e nome — links de menu dependem disso
     try {
-      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,school_id,school_grade,disciplines,role`);
-      currentProfile = Array.isArray(profile) && profile[0] ? profile[0] : currentProfile;
-      applyProfileToHeader();
-      applyRoleActions();
-    } catch {
-      applyProfileToHeader();
-    }
+      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,role`);
+      currentProfile = { ...currentProfile, ...(Array.isArray(profile) && profile[0] ? profile[0] : {}) };
+    } catch {}
+    applyProfileToHeader();
+    applyRoleActions();
+
+    // Fetch estendido: colunas opcionais (falha silenciosa se migration não foi rodada)
+    try {
+      const ext = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=school_id,school_grade,disciplines`);
+      if (Array.isArray(ext) && ext[0]) currentProfile = { ...currentProfile, ...ext[0] };
+    } catch {}
 
     await loadExams();
 
