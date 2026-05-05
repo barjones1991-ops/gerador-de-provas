@@ -1311,6 +1311,7 @@
             </optgroup>
             <optgroup label="— Discursivas —">
               <option value="discursiva">Discursiva</option>
+              <option value="subitens">Questão com subitens (a, b, c...)</option>
               <option value="problema_matematico">Problema matemático</option>
             </optgroup>
             <optgroup label="— Com imagem (especializadas) —">
@@ -1734,6 +1735,7 @@
       identificar_imagem: 'Identificar partes da imagem',
       caca_palavras: 'Caça-palavras',
       cruzadinha: 'Cruzadinha',
+      subitens: 'Questão com subitens',
     };
 
     const templates = {
@@ -1759,6 +1761,19 @@
           { text: '', checked: false },
           { text: '', checked: false },
           { text: '', checked: false },
+        ],
+        points: '1,0',
+        hideNumber: false,
+      }),
+      subitens: () => ({
+        type: 'subitens',
+        text: '',
+        labelStyle: 'letters',
+        answerPosition: 'inline',
+        items: [
+          { text: '', lines: 1 },
+          { text: '', lines: 1 },
+          { text: '', lines: 1 },
         ],
         points: '1,0',
         hideNumber: false,
@@ -2813,6 +2828,99 @@
             <textarea data-k="expectedAnswer" rows="2" placeholder="Descreva os critérios ou a resposta esperada para o gabarito...">${esc(q.expectedAnswer || '')}</textarea>
           `;
           body.appendChild(gabBlock);
+        }
+
+        if (q.type === 'subitens') {
+          if (!Array.isArray(q.items) || q.items.length === 0) {
+            q.items = [{ text: '', lines: 1 }, { text: '', lines: 1 }, { text: '', lines: 1 }];
+          }
+          const cfgBlock = document.createElement('div');
+          cfgBlock.className = 'row two';
+          cfgBlock.innerHTML = `
+            <div>
+              <label>Estilo dos marcadores</label>
+              <select data-k="labelStyle">
+                <option value="letters" ${q.labelStyle !== 'numbers' ? 'selected' : ''}>a), b), c)...</option>
+                <option value="numbers" ${q.labelStyle === 'numbers' ? 'selected' : ''}>1., 2., 3....</option>
+              </select>
+            </div>
+            <div>
+              <label>Posição da resposta</label>
+              <select data-k="answerPosition">
+                <option value="inline" ${q.answerPosition !== 'below' ? 'selected' : ''}>Linha ao lado do texto</option>
+                <option value="below" ${q.answerPosition === 'below' ? 'selected' : ''}>Linha(s) abaixo do texto</option>
+              </select>
+            </div>
+          `;
+          body.appendChild(cfgBlock);
+
+          const sblock = document.createElement('div');
+          sblock.className = 'row';
+          sblock.innerHTML = `<label>Subitens</label>`;
+          const sbox = document.createElement('div');
+          sbox.className = 'row';
+
+          const labelFor = (i) => q.labelStyle === 'numbers' ? `${i + 1}.` : `${String.fromCharCode(97 + i)})`;
+          q.items.forEach((item, j) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'margin-bottom:8px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;';
+
+            const topRow = document.createElement('div');
+            topRow.style.cssText = 'display:flex; gap:6px; align-items:flex-start; padding:8px 8px 6px;';
+
+            const lbl = document.createElement('span');
+            lbl.textContent = labelFor(j);
+            lbl.style.cssText = 'font-weight:700; color:#334155; font-size:13px; white-space:nowrap; margin-top:8px;';
+
+            const inp = document.createElement('input');
+            inp.value = item.text || '';
+            inp.placeholder = `Texto do item ${labelFor(j)}`;
+            inp.style.cssText = 'flex:1;';
+            inp.addEventListener('input', () => { item.text = inp.value; renderPreview(); });
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.title = 'Remover item';
+            removeBtn.textContent = '❌';
+            removeBtn.disabled = q.items.length <= 1;
+            removeBtn.style.cssText = 'background:none; border:none; cursor:pointer; font-size:16px; padding:2px 4px; opacity:' + (q.items.length <= 1 ? '0.3' : '1') + '; line-height:1; flex-shrink:0; margin-top:4px;';
+            removeBtn.addEventListener('click', () => { q.items.splice(j, 1); renderAll(); });
+
+            topRow.appendChild(lbl);
+            topRow.appendChild(inp);
+            topRow.appendChild(removeBtn);
+
+            const botRow = document.createElement('div');
+            botRow.style.cssText = 'display:flex; align-items:center; gap:8px; padding:4px 10px 6px; border-top:1px solid #e2e8f0; background:#fff;';
+            const linesLbl = document.createElement('span');
+            linesLbl.textContent = 'Linhas de resposta:';
+            linesLbl.style.cssText = 'font-size:11px; color:#64748b; font-weight:600; white-space:nowrap;';
+            const linesInp = document.createElement('input');
+            linesInp.type = 'number'; linesInp.min = '1'; linesInp.max = '5';
+            linesInp.value = item.lines || 1;
+            linesInp.style.cssText = 'width:60px; height:26px; font-size:12px; padding:2px 8px; border-radius:6px; border:1px solid #e2e8f0;';
+            linesInp.addEventListener('input', () => { item.lines = Math.max(1, Math.min(5, Number(linesInp.value) || 1)); renderPreview(); });
+            const linesNote = document.createElement('span');
+            linesNote.style.cssText = 'font-size:11px; color:#94a3b8;';
+            linesNote.textContent = q.answerPosition !== 'below' ? '(ignorado no estilo "ao lado")' : '';
+            botRow.appendChild(linesLbl);
+            botRow.appendChild(linesInp);
+            botRow.appendChild(linesNote);
+
+            row.appendChild(topRow);
+            row.appendChild(botRow);
+            sbox.appendChild(row);
+          });
+
+          const addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.className = 'outline inline-add-btn';
+          addBtn.textContent = 'Adicionar item';
+          addBtn.addEventListener('click', () => { q.items.push({ text: '', lines: 1 }); renderAll(); });
+
+          sblock.appendChild(sbox);
+          sblock.appendChild(addBtn);
+          body.appendChild(sblock);
         }
 
         if (q.type === 'vf') {
@@ -4620,6 +4728,21 @@
         const titleLine = q.titlePrompt ? `<div style="margin-bottom:12px;"><div class="small" style="margin-bottom:4px;">Título:</div><div class="hline"></div></div>` : '';
         return `${titleLine}${answerArea(q)}`;
       }
+      if (q.type === 'subitens') {
+        const items = Array.isArray(q.items) ? q.items : [];
+        const below = q.answerPosition === 'below';
+        const labelFor = (i) => q.labelStyle === 'numbers' ? `${i + 1}.` : `${String.fromCharCode(97 + i)})`;
+        return items.map((item, i) => {
+          const label = `<strong>${labelFor(i)}</strong>`;
+          const text = esc(item.text || `Item ${labelFor(i)}`);
+          if (below) {
+            const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
+            const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
+            return `<div style="margin-bottom:14px;">${label} ${text}${linesHtml}</div>`;
+          }
+          return `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">${label} <span>${text}</span><span style="flex:1;border-bottom:1px solid #94a3b8;min-width:80px;">&nbsp;</span></div>`;
+        }).join('');
+      }
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
           const items = q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}</div>`).join('');
@@ -5005,6 +5128,9 @@
           return `${i+1}. ?`;
         }).join(' | ');
         return { tipo: 'objetivo', num, ans: results || '(operações — sem resultado)' };
+      }
+      if (tipo === 'subitens') {
+        return { tipo: 'discursiva', num, ans: '(subitens — corrija manualmente)' };
       }
       if (tipo === 'ditado') {
         if (q.wordList && q.wordList.trim()) {

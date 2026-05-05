@@ -35,6 +35,7 @@ const questionTypes = [
   'associacao_imagem_imagem',
   'grade_imagens',
   'identificar_imagem',
+  'subitens',
 ];
 
 let failures = 0;
