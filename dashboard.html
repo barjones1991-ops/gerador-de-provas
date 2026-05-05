@@ -203,6 +203,13 @@
       font-size: 14px; outline: none; font-family: inherit;
     }
     .modal-form input:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+    .profile-info-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; text-align: left; }
+    .profile-info-block .pib-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .profile-info-block .pib-value { font-size: 13px; font-weight: 600; color: #334155; }
+    .profile-info-block .pib-empty { font-size: 13px; color: #94a3b8; font-style: italic; }
+    .profile-sec-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; margin-top: 4px; }
+    .profile-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+    .profile-tag { background: #ede9fe; color: #6d28d9; border-radius: 20px; font-size: 11px; font-weight: 700; padding: 3px 10px; }
     .modal-btns { display: flex; gap: 10px; }
     .modal-btns button {
       flex: 1; padding: 12px; border-radius: 10px;
@@ -322,23 +329,33 @@
 
 <!-- Modal de perfil -->
 <div class="modal-overlay" id="profileModal">
-  <div class="modal">
+  <div class="modal" style="max-width:440px;">
     <div class="modal-icon">👤</div>
-    <h3>Editar perfil</h3>
-    <p>Esses dados ajudam a preencher suas provas com mais rapidez.</p>
+    <h3>Meu perfil</h3>
+    <p>Edite seu nome. Os demais dados são definidos pela coordenação.</p>
     <div class="modal-form">
       <div>
         <label>Nome completo</label>
         <input id="profileNameInput" type="text" placeholder="Seu nome" />
       </div>
-      <div>
-        <label>Nome da escola</label>
-        <input id="profileSchoolInput" type="text" placeholder="Nome da escola" />
+      <div class="profile-sec-label" style="margin-top:8px;">Dados vinculados pela coordenação</div>
+      <div id="profileSchoolBlock" class="profile-info-block">
+        <div class="pib-label">Escola</div>
+        <div id="profileSchoolValue" class="pib-empty">Não vinculado</div>
+      </div>
+      <div id="profileGradeBlock" class="profile-info-block">
+        <div class="pib-label">Série / Ano</div>
+        <div id="profileGradeValue" class="pib-empty">Não informado</div>
+      </div>
+      <div id="profileDisciplinesBlock" class="profile-info-block">
+        <div class="pib-label">Disciplinas</div>
+        <div id="profileDisciplinesTags" class="profile-tags"></div>
+        <div id="profileDisciplinesEmpty" class="pib-empty">Não informado</div>
       </div>
     </div>
     <div class="modal-btns">
-      <button onclick="closeProfileModal()">Cancelar</button>
-      <button class="danger" id="saveProfileBtn" style="background:#667eea; border-color:#667eea;">Salvar</button>
+      <button onclick="closeProfileModal()">Fechar</button>
+      <button class="danger" id="saveProfileBtn" style="background:#667eea; border-color:#667eea;">Salvar nome</button>
     </div>
   </div>
 </div>
@@ -364,7 +381,7 @@
 <script>
   let auth = null;
   let exams = [];
-  let currentProfile = { full_name: '', school_name: '' };
+  let currentProfile = { full_name: '', school_name: '', school_id: null, school_grade: '', disciplines: [] };
   let currentFilter = 'all';
   let currentSubject = '';
   let currentTerm = '';
@@ -384,7 +401,7 @@
 
     // Carregar nome do perfil
     try {
-      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,role`);
+      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,school_id,school_grade,disciplines,role`);
       currentProfile = Array.isArray(profile) && profile[0] ? profile[0] : currentProfile;
       applyProfileToHeader();
       applyRoleActions();
@@ -667,9 +684,40 @@
     }
   }
 
-  function openProfileModal() {
+  async function openProfileModal() {
     document.getElementById('profileNameInput').value = currentProfile.full_name || '';
-    document.getElementById('profileSchoolInput').value = currentProfile.school_name || '';
+
+    // Escola vinculada
+    let schoolName = '';
+    if (currentProfile.school_id) {
+      try {
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name`);
+        schoolName = (Array.isArray(sd) && sd[0]) ? sd[0].name : '';
+      } catch {}
+    }
+    const schoolEl = document.getElementById('profileSchoolValue');
+    if (schoolName) { schoolEl.textContent = schoolName; schoolEl.className = 'pib-value'; }
+    else { schoolEl.textContent = 'Não vinculado'; schoolEl.className = 'pib-empty'; }
+
+    // Série
+    const gradeEl = document.getElementById('profileGradeValue');
+    if (currentProfile.school_grade) { gradeEl.textContent = currentProfile.school_grade; gradeEl.className = 'pib-value'; }
+    else { gradeEl.textContent = 'Não informado'; gradeEl.className = 'pib-empty'; }
+
+    // Disciplinas
+    const discs = Array.isArray(currentProfile.disciplines) ? currentProfile.disciplines : [];
+    const tagsEl = document.getElementById('profileDisciplinesTags');
+    const emptyEl = document.getElementById('profileDisciplinesEmpty');
+    if (discs.length) {
+      tagsEl.innerHTML = discs.map(d => `<span class="profile-tag">${esc(d)}</span>`).join('');
+      tagsEl.style.display = '';
+      emptyEl.style.display = 'none';
+    } else {
+      tagsEl.innerHTML = '';
+      tagsEl.style.display = 'none';
+      emptyEl.style.display = '';
+    }
+
     document.getElementById('profileModal').classList.add('show');
   }
 
@@ -698,7 +746,7 @@
         }),
       });
 
-      currentProfile = { full_name: fullName, school_name: schoolName };
+      currentProfile = { ...currentProfile, full_name: fullName, school_name: schoolName };
       applyProfileToHeader();
       closeProfileModal();
       showToast('Perfil atualizado.', 'success');

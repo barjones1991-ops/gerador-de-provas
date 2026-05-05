@@ -381,15 +381,15 @@ git push --set-upstream origin main
 
 ### 🟠 Alta prioridade — gestão de escolas (`schools.html`)
 
-- [ ] **Editar escola existente**: não há como alterar nome, cidade, e-mail do administrador ou logo de uma escola já cadastrada. Só é possível excluir e recadastrar.
-- [ ] **Substituir logo de escola existente**: o upload de logo só funciona no momento do cadastro. Após criar a escola, não há botão para trocar a imagem.
-- [ ] **Desvincular professor de escola**: a lista de professores é somente leitura. Não há botão "Desvincular" para remover o vínculo de um professor com uma escola.
-- [ ] **Editar vínculo existente de professor**: se a coordenadora vinculou um professor com série ou disciplinas erradas, não há como corrigir — só seria possível reenviar o formulário, mas ele sobrescreve o vínculo completo (sem feedback de que já estava vinculado).
+- [x] **Editar escola existente**: botão "Editar" abre painel inline com nome, cidade, e-mail e logo.
+- [x] **Substituir logo de escola existente**: painel de edição permite trocar ou remover a logo.
+- [x] **Desvincular professor de escola**: botão "Desvincular" remove school_id, school_grade e disciplines do professor.
+- [x] **Editar vínculo existente de professor**: botão "Editar" abre painel com select de série e checkboxes de disciplinas da escola.
 
 ### 🟠 Alta prioridade — perfil do professor (`dashboard.html`)
 
-- [ ] **Modal de perfil incompleto**: o modal só permite editar nome (`full_name`) e escola (`school_name` em texto livre). Não mostra nem permite editar: escola vinculada (`school_id`), série que leciona (`school_grade`) e disciplinas (`disciplines`).
-- [ ] **Professor não vê sua escola vinculada**: se a coordenadora vinculou o professor a uma escola via `schools.html`, o professor não tem onde visualizar essa informação no dashboard.
+- [x] **Modal de perfil incompleto**: modal mostra escola vinculada (nome), série e disciplinas — todos read-only (definidos pela coordenação). Só o nome é editável pelo professor.
+- [x] **Professor não vê sua escola vinculada**: modal de perfil busca o nome da escola via school_id e exibe para o professor.
 - [ ] **Professor não consegue informar sua série/ano**: o campo `school_grade` só é preenchível pela coordenadora. O professor não tem forma de se auto-cadastrar nesse dado.
 
 ### 🟡 Média prioridade — editor (`editor.html`)

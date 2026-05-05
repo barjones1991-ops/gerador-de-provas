@@ -89,6 +89,13 @@
     }
     .disc-check-label input[type=checkbox] { width: auto; accent-color: #6d28d9; }
     .disc-check-label:has(input:checked) { background: #ede9fe; border-color: #a78bfa; color: #6d28d9; }
+    .school-edit { margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 14px; display: none; }
+    .school-edit.open { display: block; }
+    .school-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .school-edit-actions { display: flex; gap: 8px; }
+    .prof-edit { margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 10px; display: none; }
+    .prof-edit.open { display: block; }
+    .prof-actions { display: flex; gap: 6px; flex-shrink: 0; }
     @media (max-width: 600px) {
       .form-row { grid-template-columns: 1fr; }
       .school-card-top { flex-wrap: wrap; }
@@ -336,20 +343,94 @@
               ${discTags ? `<div class="tags" style="margin-top:6px;">${discTags}</div>` : ''}
             </div>
             <div class="school-actions">
+              <button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Editar</button>
               <button class="btn sm" type="button" onclick="toggleDiscEdit('${s.id}')">Disciplinas</button>
               <button class="btn sm danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>
             </div>
           </div>
+
+          <!-- Editar dados da escola -->
+          <div class="school-edit" id="se-${s.id}">
+            <label style="margin-bottom:8px;">Editar escola</label>
+            <div class="school-edit-grid">
+              <div><label>Nome *</label><input id="se-name-${s.id}" type="text" value="${esc(s.name)}" /></div>
+              <div><label>Cidade</label><input id="se-city-${s.id}" type="text" value="${esc(s.city || '')}" /></div>
+              <div><label>E-mail admin</label><input id="se-email-${s.id}" type="email" value="${esc(s.admin_email || '')}" /></div>
+              <div>
+                <label>Logo</label>
+                <input id="se-logo-file-${s.id}" type="file" accept="image/*" class="visually-hidden" onchange="onSchoolLogoChange('${s.id}')" />
+                <div style="display:flex;gap:6px;margin-top:4px;">
+                  <button class="btn sm" type="button" onclick="document.getElementById('se-logo-file-${s.id}').click()">
+                    ${s.logo_data_url ? 'Trocar logo' : 'Adicionar logo'}
+                  </button>
+                  ${s.logo_data_url ? `<button class="btn sm danger" type="button" onclick="clearSchoolLogo('${s.id}')">Remover</button>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="school-edit-actions">
+              <button class="btn sm primary" type="button" onclick="saveSchoolEdit('${s.id}')">Salvar</button>
+              <button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Cancelar</button>
+            </div>
+          </div>
+
+          <!-- Gerenciar disciplinas -->
           <div class="disc-edit" id="de-${s.id}">
-            <label style="margin-bottom:8px;">Gerenciar disciplinas</label>
+            <label style="margin-bottom:8px;">Disciplinas da escola</label>
             <div id="dt-${s.id}" class="tags">${discs.map((d, i) => `<span class="tag">${esc(d)} <span class="rm" onclick="removeSchoolDisc('${s.id}',${i})">×</span></span>`).join('')}</div>
             <div class="disc-add-row">
-              <input id="di-${s.id}" type="text" placeholder="Nova disciplina..." />
+              <input id="di-${s.id}" type="text" placeholder="Nova disciplina..." onkeydown="if(event.key==='Enter'){event.preventDefault();addSchoolDisc('${s.id}')}" />
               <button class="btn sm primary" type="button" onclick="addSchoolDisc('${s.id}')">Adicionar</button>
             </div>
           </div>
         </div>`;
       }).join('') + '</div>';
+
+    // Restaurar logos temporárias em edição (state local)
+    Object.keys(pendingLogos).forEach(id => {
+      const img = document.getElementById(`se-logo-preview-${id}`);
+      if (img) { img.src = pendingLogos[id]; img.style.display = 'block'; }
+    });
+  }
+
+  const pendingLogos = {}; // schoolId → dataUrl temporária
+
+  function toggleSchoolEdit(id) {
+    const el = document.getElementById(`se-${id}`);
+    if (el) el.classList.toggle('open');
+  }
+
+  function onSchoolLogoChange(schoolId) {
+    const inp = document.getElementById(`se-logo-file-${schoolId}`);
+    const file = inp && inp.files && inp.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => { pendingLogos[schoolId] = String(reader.result || ''); };
+    reader.readAsDataURL(file);
+  }
+
+  function clearSchoolLogo(schoolId) {
+    pendingLogos[schoolId] = null; // null = remover
+    saveSchoolEdit(schoolId);
+  }
+
+  async function saveSchoolEdit(schoolId) {
+    const name = (document.getElementById(`se-name-${schoolId}`)?.value || '').trim();
+    const city = (document.getElementById(`se-city-${schoolId}`)?.value || '').trim();
+    const email = (document.getElementById(`se-email-${schoolId}`)?.value || '').trim();
+    if (!name) { showToast('O nome da escola é obrigatório.', 'error'); return; }
+    const payload = { name, city: city || null, admin_email: email || null };
+    if (schoolId in pendingLogos) payload.logo_data_url = pendingLogos[schoolId]; // null remove, string troca
+    try {
+      await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      delete pendingLogos[schoolId];
+      showToast('Escola atualizada!');
+      await loadSchools();
+    } catch (err) {
+      showToast('Erro ao salvar: ' + err.message, 'error');
+    }
   }
 
   function toggleDiscEdit(id) {
@@ -474,16 +555,79 @@
       list.innerHTML = profs.map(p => {
         const school = schools.find(s => s.id === p.school_id);
         const discs = Array.isArray(p.disciplines) ? p.disciplines : [];
+        const schoolDiscs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
+        const discCheckboxes = schoolDiscs.map(d =>
+          `<label class="disc-check-label"><input type="checkbox" value="${esc(d)}" ${discs.includes(d) ? 'checked' : ''} />${esc(d)}</label>`
+        ).join('');
         return `
-        <div class="professor-row">
-          <div style="flex:1;">
-            <div class="pname">${esc(p.full_name || '—')}</div>
-            <div class="pmeta">${esc(p.email || '')}${p.school_grade ? ' · ' + esc(p.school_grade) : ''}${school ? ' · ' + esc(school.name) : ''}</div>
-            ${discs.length ? `<div class="tags" style="margin-top:6px;">${discs.map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>` : ''}
+        <div class="professor-row" style="flex-direction:column; align-items:stretch;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;">
+              <div class="pname">${esc(p.full_name || '—')}</div>
+              <div class="pmeta">${esc(p.email || '')}${p.school_grade ? ' · ' + esc(p.school_grade) : ''}${school ? ' · ' + esc(school.name) : ' · Sem escola'}</div>
+              ${discs.length ? `<div class="tags" style="margin-top:6px;">${discs.map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>` : ''}
+            </div>
+            <div class="prof-actions">
+              <button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Editar</button>
+              ${p.school_id ? `<button class="btn sm danger" type="button" onclick="unlinkProfessor('${p.id}')">Desvincular</button>` : ''}
+            </div>
+          </div>
+          <div class="prof-edit" id="pe-${p.id}">
+            <div style="margin-bottom:8px;">
+              <label>Série / Ano</label>
+              <select id="pe-grade-${p.id}">
+                <option value="">Selecionar</option>
+                ${['Educação Infantil','1º ano','2º ano','3º ano','4º ano','5º ano','6º ano','7º ano','8º ano','9º ano','1º Ensino Médio','2º Ensino Médio','3º Ensino Médio','Múltiplas séries']
+                  .map(g => `<option value="${g}"${p.school_grade === g ? ' selected' : ''}>${g}</option>`).join('')}
+              </select>
+            </div>
+            ${schoolDiscs.length ? `
+            <div style="margin-bottom:10px;">
+              <label>Disciplinas</label>
+              <div id="pe-discs-${p.id}" class="disc-checkboxes" style="margin-top:6px;">${discCheckboxes}</div>
+            </div>` : ''}
+            <div style="display:flex;gap:8px;">
+              <button class="btn sm primary" type="button" onclick="saveProfEdit('${p.id}')">Salvar</button>
+              <button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Cancelar</button>
+            </div>
           </div>
         </div>`;
       }).join('');
     } catch {}
+  }
+
+  function toggleProfEdit(profId) {
+    const el = document.getElementById(`pe-${profId}`);
+    if (el) el.classList.toggle('open');
+  }
+
+  async function saveProfEdit(profId) {
+    const grade = document.getElementById(`pe-grade-${profId}`)?.value || '';
+    const checked = Array.from(document.querySelectorAll(`#pe-discs-${profId} input:checked`)).map(cb => cb.value);
+    try {
+      await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ school_grade: grade || null, disciplines: checked }),
+      });
+      showToast('Vínculo atualizado!');
+      await loadProfessors();
+    } catch (err) {
+      showToast('Erro ao salvar: ' + err.message, 'error');
+    }
+  }
+
+  async function unlinkProfessor(profId) {
+    if (!confirm('Desvincular este professor da escola? Ele perderá a associação de escola, série e disciplinas.')) return;
+    try {
+      await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ school_id: null, school_grade: null, disciplines: [] }),
+      });
+      showToast('Professor desvinculado.');
+      await loadProfessors();
+    } catch (err) {
+      showToast('Erro ao desvincular: ' + err.message, 'error');
+    }
   }
 
   async function linkProfessor() {
