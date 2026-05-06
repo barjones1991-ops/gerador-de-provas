@@ -36,6 +36,7 @@ const questionTypes = [
   'grade_imagens',
   'identificar_imagem',
   'subitens',
+  'expressao_matematica',
 ];
 
 let failures = 0;

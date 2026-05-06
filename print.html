@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -129,6 +131,16 @@
     .math-op-divider { border-top: 2px solid #334155; margin: 4px 0; }
     .math-op-answer { height: 32px; border-bottom: 1.5px dashed #94a3b8; margin-bottom: 4px; }
     .math-op-calc-space { margin-top: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; height: 52px; background: repeating-linear-gradient(transparent, transparent 17px, #e2e8f0 17px, #e2e8f0 18px); }
+    .math-op-carry { height: 18px; margin-bottom: 2px; }
+    .math-op-answer-boxes { display: flex; justify-content: flex-end; gap: 3px; padding: 4px 0 2px; }
+    .digit-box { width: 26px; height: 32px; border: 1.5px solid #334155; border-radius: 2px; display: inline-block; }
+    .fs-large .digit-box { width: 34px; height: 40px; }
+    .math-op-box.estilo-minimo { border: none; border-radius: 0; background: transparent; padding: 8px 0 4px; }
+    .expr-grid { display: grid; gap: 14px; margin-top: 10px; }
+    .expr-item { border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 16px 10px; background: #fff; }
+    .expr-item.estilo-minimo { border: none; border-radius: 0; border-bottom: 1px solid #cbd5e1; padding: 8px 0; }
+    .expr-math { font-size: 20px; margin-bottom: 10px; overflow-x: auto; }
+    .expr-math.fs-large { font-size: 26px; }
     .ditado-lines { display: grid; gap: 10px; margin-top: 8px; }
     .ditado-line { display: flex; align-items: flex-end; gap: 10px; font-size: 14px; }
     .ditado-line-num { color: #94a3b8; min-width: 20px; text-align: right; }
@@ -700,17 +712,48 @@
       if (q.type === 'matematica_coluna') {
         const cols = Math.max(1, Math.min(4, Number(q.columns) || 3));
         const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
+        const boxClass = `math-op-box${fsClass}${q.boxStyle==='minimo'?' estilo-minimo':''}`;
         const calcSpace = q.showCalcSpace ? '<div class="math-op-calc-space"></div>' : '';
+        const carryRow = q.showCarry ? '<div class="math-op-carry"></div>' : '';
+        const answerArea = (op) => {
+          if (q.answerStyle === 'boxes') {
+            const n = op.result ? String(op.result).replace(/[^0-9]/g,'').length||(q.answerBoxes||4) : (q.answerBoxes||4);
+            return `<div class="math-op-answer-boxes">${Array.from({length:Math.min(8,Math.max(1,n))},()=>'<span class="digit-box"></span>').join('')}</div>`;
+          }
+          return '<div class="math-op-answer"></div>';
+        };
         const ops = (q.operations || []).map(op => {
           let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
           if ((!n1 && !n2) && op.expression) {
             const m2 = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
             if (m2) { n1=m2[1].trim(); sym=m2[2].replace(/[xX]/,'×').replace('/','÷').replace(':','÷'); n2=m2[3].trim(); } else { n1=op.expression; n2=''; }
           }
-          if (!n1 && !n2) return `<div class="math-op-box${fsClass}"><div>—</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
-          return `<div class="math-op-box${fsClass}"><div class="math-op-num">${esc(n1||'')}</div><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div>${calcSpace}</div>`;
+          if (!n1 && !n2) return `<div class="${boxClass}"><div>—</div><div class="math-op-divider"></div>${answerArea(op)}</div>`;
+          return `<div class="${boxClass}">${carryRow}<div class="math-op-num">${esc(n1||'')}</div><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div>${answerArea(op)}${calcSpace}</div>`;
         }).join('');
         return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops}</div>`;
+      }
+      if (q.type === 'expressao_matematica') {
+        const tryKatex = (latex) => {
+          if (!latex) return '<span style="color:#94a3b8">∅</span>';
+          if (typeof katex === 'undefined') return `<code>${esc(latex)}</code>`;
+          try { return katex.renderToString(latex, { throwOnError: false, displayMode: false }); }
+          catch(e) { return `<code>${esc(latex)}</code>`; }
+        };
+        const cols = Math.max(1, Math.min(4, Number(q.columns) || 2));
+        const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
+        const itemClass = `expr-item${q.boxStyle==='minimo'?' estilo-minimo':''}`;
+        const ansArea = () => {
+          if (q.answerStyle === 'boxes') {
+            const n = q.answerBoxes || 3;
+            return `<div class="math-op-answer-boxes">${Array.from({length:Math.min(8,Math.max(1,n))},()=>'<span class="digit-box"></span>').join('')}</div>`;
+          }
+          return '<div class="hline"></div>';
+        };
+        const items = (q.expressions || []).map(expr =>
+          `<div class="${itemClass}"><div class="expr-math${fsClass}">${tryKatex(expr.latex)}</div>${ansArea()}</div>`
+        ).join('');
+        return `<div class="expr-grid" style="grid-template-columns:repeat(${cols},1fr)">${items}</div>`;
       }
       if (q.type === 'ditado') {
         const count = Math.max(1, Math.min(30, Number(q.wordCount) || 10));

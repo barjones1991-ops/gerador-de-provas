@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
     /* Barra de nuvem extra */
     #cloudBar { display: grid; }
@@ -324,6 +326,17 @@
     .math-op-divider { border-top: 2.5px solid #0f172a; margin: 6px 0; }
     .math-op-answer { height: 34px; border-bottom: 1.5px dashed #94a3b8; margin-bottom: 4px; }
     .math-op-calc-space { margin-top: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; height: 52px; background: repeating-linear-gradient(transparent, transparent 17px, #e2e8f0 17px, #e2e8f0 18px); }
+    .math-op-carry { height: 18px; margin-bottom: 2px; }
+    .math-op-answer-boxes { display: flex; justify-content: flex-end; gap: 3px; padding: 4px 0 2px; }
+    .digit-box { width: 26px; height: 32px; border: 1.5px solid #334155; border-radius: 2px; display: inline-block; }
+    .fs-large .digit-box { width: 34px; height: 40px; }
+    .math-op-box.estilo-minimo { border: none; border-radius: 0; background: transparent; padding: 8px 0 4px; }
+    /* Expressão matemática (KaTeX) */
+    .expr-grid { display: grid; gap: 14px; margin-top: 10px; }
+    .expr-item { border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 16px 10px; background: #fff; }
+    .expr-item.estilo-minimo { border: none; border-radius: 0; border-bottom: 1px solid #cbd5e1; padding: 8px 0; }
+    .expr-math { font-size: 20px; margin-bottom: 10px; overflow-x: auto; }
+    .expr-math.fs-large { font-size: 26px; }
 
     /* Ditado */
     .ditado-lines { display: grid; gap: 10px; margin-top: 8px; }
@@ -1333,7 +1346,8 @@
               <option value="ditado">Ditado / lista de palavras</option>
             </optgroup>
             <optgroup label="— Matemática —">
-              <option value="matematica_coluna">Operações matemáticas</option>
+              <option value="matematica_coluna">Operações matemáticas (conta armada)</option>
+              <option value="expressao_matematica">Expressão matemática (fração, raiz, potência…)</option>
             </optgroup>
             <optgroup label="— Dados e jogos —">
               <option value="tabela">Tabela / gráfico</option>
@@ -1721,6 +1735,7 @@
       relacione_imagens: 'Relacione imagens e palavras',
       texto_base: 'Interpretação de texto',
       matematica_coluna: 'Operações matemáticas',
+      expressao_matematica: 'Expressão matemática',
       ditado: 'Ditado / lista de palavras',
       ordenacao: 'Ordenação de frases',
       problema_matematico: 'Problema matemático',
@@ -1881,7 +1896,27 @@
         ],
         columns: 3,
         fontSize: 'normal',
+        boxStyle: 'completo',
+        answerStyle: 'linha',
+        answerBoxes: 4,
+        showCarry: false,
         showCalcSpace: false,
+        points: '1,0',
+        hideNumber: false,
+      }),
+      expressao_matematica: () => ({
+        type: 'expressao_matematica',
+        text: 'Resolva:',
+        expressions: [
+          { latex: '\\frac{1}{2} + \\frac{1}{4} =', answer: '' },
+          { latex: '3^2 + 4^2 =', answer: '' },
+          { latex: '\\sqrt{25} =', answer: '' },
+        ],
+        columns: 2,
+        fontSize: 'normal',
+        boxStyle: 'completo',
+        answerStyle: 'linha',
+        answerBoxes: 3,
         points: '1,0',
         hideNumber: false,
       }),
@@ -3801,6 +3836,10 @@
             }
           });
 
+          if (!q.boxStyle) q.boxStyle = 'completo';
+          if (!q.answerStyle) q.answerStyle = 'linha';
+          if (!q.answerBoxes) q.answerBoxes = 4;
+
           const cfgBlock = document.createElement('div');
           cfgBlock.className = 'row two';
           cfgBlock.innerHTML = `
@@ -3818,6 +3857,32 @@
               <select data-k="fontSize">
                 <option value="normal" ${q.fontSize!=='large'?'selected':''}>Normal</option>
                 <option value="large" ${q.fontSize==='large'?'selected':''}>Grande (anos iniciais)</option>
+              </select>
+            </div>
+            <div>
+              <label>Estilo da caixa</label>
+              <select data-k="boxStyle">
+                <option value="completo" ${q.boxStyle!=='minimo'?'selected':''}>Com moldura arredondada</option>
+                <option value="minimo" ${q.boxStyle==='minimo'?'selected':''}>Só o traço (minimalista)</option>
+              </select>
+            </div>
+            <div>
+              <label>Espaço de resposta</label>
+              <select data-k="answerStyle">
+                <option value="linha" ${q.answerStyle!=='boxes'?'selected':''}>Linha tracejada</option>
+                <option value="boxes" ${q.answerStyle==='boxes'?'selected':''}>Quadradinhos por dígito</option>
+              </select>
+            </div>
+            <div>
+              <label>Quadradinhos padrão</label>
+              <input data-k="answerBoxes" type="number" min="1" max="8" value="${q.answerBoxes||4}" />
+              <div class="small" style="margin-top:2px;">Quando o resultado não está preenchido</div>
+            </div>
+            <div>
+              <label>Espaço de reserva (vai 1)</label>
+              <select data-k="showCarry">
+                <option value="false" ${!q.showCarry?'selected':''}>Não mostrar</option>
+                <option value="true" ${q.showCarry?'selected':''}>Mostrar linha de reserva</option>
               </select>
             </div>
             <div>
@@ -3914,6 +3979,165 @@
           block.appendChild(opsBox);
           block.appendChild(addOp);
           body.appendChild(block);
+        }
+
+        if (q.type === 'expressao_matematica') {
+          if (!Array.isArray(q.expressions) || q.expressions.length === 0) {
+            q.expressions = [{ latex: '', answer: '' }];
+          }
+          if (!q.boxStyle) q.boxStyle = 'completo';
+          if (!q.answerStyle) q.answerStyle = 'linha';
+          if (!q.answerBoxes) q.answerBoxes = 3;
+
+          const cfgE = document.createElement('div');
+          cfgE.className = 'row two';
+          cfgE.innerHTML = `
+            <div>
+              <label>Colunas por linha</label>
+              <select data-k="columns">
+                <option value="1" ${q.columns==1?'selected':''}>1 por linha</option>
+                <option value="2" ${q.columns==2?'selected':''}>2 por linha</option>
+                <option value="3" ${q.columns==3?'selected':''}>3 por linha</option>
+                <option value="4" ${q.columns==4?'selected':''}>4 por linha</option>
+              </select>
+            </div>
+            <div>
+              <label>Tamanho</label>
+              <select data-k="fontSize">
+                <option value="normal" ${q.fontSize!=='large'?'selected':''}>Normal</option>
+                <option value="large" ${q.fontSize==='large'?'selected':''}>Grande</option>
+              </select>
+            </div>
+            <div>
+              <label>Estilo da caixa</label>
+              <select data-k="boxStyle">
+                <option value="completo" ${q.boxStyle!=='minimo'?'selected':''}>Com moldura</option>
+                <option value="minimo" ${q.boxStyle==='minimo'?'selected':''}>Só traço</option>
+              </select>
+            </div>
+            <div>
+              <label>Espaço de resposta</label>
+              <select data-k="answerStyle">
+                <option value="linha" ${q.answerStyle!=='boxes'?'selected':''}>Linha</option>
+                <option value="boxes" ${q.answerStyle==='boxes'?'selected':''}>Quadradinhos</option>
+              </select>
+            </div>
+            <div>
+              <label>Nº de quadradinhos</label>
+              <input data-k="answerBoxes" type="number" min="1" max="8" value="${q.answerBoxes||3}" />
+            </div>
+          `;
+          body.appendChild(cfgE);
+
+          // Toolbar KaTeX
+          const tbWrap = document.createElement('div');
+          tbWrap.style.cssText = 'margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px;';
+          const toolbar = [
+            { label: 'a/b', ins: '\\frac{}{} ', tip: 'Fração' },
+            { label: '√', ins: '\\sqrt{} ', tip: 'Raiz quadrada' },
+            { label: 'aⁿ', ins: '^{} ', tip: 'Potência' },
+            { label: '×', ins: '\\times ', tip: 'Multiplicação' },
+            { label: '÷', ins: '\\div ', tip: 'Divisão' },
+            { label: '±', ins: '\\pm ', tip: 'Mais ou menos' },
+            { label: '≠', ins: '\\neq ', tip: 'Diferente' },
+            { label: '≤', ins: '\\leq ', tip: 'Menor ou igual' },
+            { label: '≥', ins: '\\geq ', tip: 'Maior ou igual' },
+            { label: '(  )', ins: '\\left( \\right) ', tip: 'Parênteses' },
+            { label: '|x|', ins: '\\left| \\right| ', tip: 'Módulo' },
+          ];
+          toolbar.forEach(t => {
+            const btn = document.createElement('button');
+            btn.type = 'button'; btn.title = t.tip; btn.textContent = t.label;
+            btn.style.cssText = 'font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-family:monospace;';
+            btn.dataset.ins = t.ins;
+            tbWrap.appendChild(btn);
+          });
+
+          const exprBlock = document.createElement('div');
+          exprBlock.className = 'row';
+          exprBlock.innerHTML = '<label>Expressões <span style="font-weight:400;color:#94a3b8;">— use LaTeX: \\frac{1}{2}, \\sqrt{4}, 3^2</span></label>';
+          exprBlock.appendChild(tbWrap);
+
+          const exprBox = document.createElement('div');
+          exprBox.className = 'row';
+
+          const tryKatexPreview = (latex) => {
+            if (!latex) return '<span style="color:#94a3b8;font-size:13px;">pré-visualização aqui</span>';
+            if (typeof katex === 'undefined') return `<code>${latex}</code>`;
+            try { return katex.renderToString(latex, { throwOnError: false, displayMode: false }); }
+            catch(e) { return `<span style="color:#ef4444;font-size:12px;">${esc(String(e).slice(0,60))}</span>`; }
+          };
+
+          const renderExprs = () => {
+            exprBox.innerHTML = '';
+            q.expressions.forEach((expr, j) => {
+              const card = document.createElement('div');
+              card.style.cssText = 'margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc;';
+
+              // Linha de input + preview
+              const top = document.createElement('div');
+              top.style.cssText = 'display:flex;gap:6px;align-items:flex-start;padding:8px 10px 6px;';
+
+              const inp = document.createElement('input');
+              inp.value = expr.latex || '';
+              inp.placeholder = 'Ex.: \\frac{1}{2} + \\frac{1}{4} =';
+              inp.style.cssText = 'flex:1;font-family:monospace;font-size:13px;';
+
+              const rmv = document.createElement('button');
+              rmv.type = 'button'; rmv.textContent = '❌'; rmv.disabled = q.expressions.length <= 1;
+              rmv.style.cssText = 'background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(q.expressions.length<=1?'0.3':'1');
+              rmv.addEventListener('click', () => { q.expressions.splice(j,1); renderAll(); });
+
+              const preview = document.createElement('div');
+              preview.style.cssText = 'padding:6px 10px 8px;background:#fff;border-top:1px solid #e2e8f0;font-size:20px;min-height:40px;';
+              preview.innerHTML = tryKatexPreview(expr.latex);
+
+              const updatePrev = () => {
+                expr.latex = inp.value;
+                preview.innerHTML = tryKatexPreview(inp.value);
+                renderPreview();
+              };
+              inp.addEventListener('input', updatePrev);
+
+              // Conectar toolbar ao input ativo
+              inp.addEventListener('focus', () => {
+                tbWrap.querySelectorAll('button[data-ins]').forEach(btn => {
+                  btn.onclick = () => {
+                    const s = inp.selectionStart, e2 = inp.selectionEnd;
+                    const v = inp.value;
+                    inp.value = v.slice(0,s) + btn.dataset.ins + v.slice(e2);
+                    inp.selectionStart = inp.selectionEnd = s + btn.dataset.ins.length;
+                    inp.focus();
+                    updatePrev();
+                  };
+                });
+              });
+
+              const gabRow = document.createElement('div');
+              gabRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 10px 6px;background:#fff;border-top:1px solid #e2e8f0;';
+              const gabLbl = document.createElement('span');
+              gabLbl.textContent = '= Gabarito:'; gabLbl.style.cssText = 'font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
+              const gabInp = document.createElement('input');
+              gabInp.value = expr.answer || ''; gabInp.placeholder = 'resposta esperada';
+              gabInp.style.cssText = 'flex:1;background:#f0fdf4;border-color:#86efac;';
+              gabInp.addEventListener('input', () => { expr.answer = gabInp.value; });
+              gabRow.appendChild(gabLbl); gabRow.appendChild(gabInp);
+
+              top.appendChild(inp); top.appendChild(rmv);
+              card.appendChild(top); card.appendChild(preview); card.appendChild(gabRow);
+              exprBox.appendChild(card);
+            });
+          };
+          renderExprs();
+
+          const addExpr = document.createElement('button');
+          addExpr.type = 'button'; addExpr.className = 'outline inline-add-btn';
+          addExpr.textContent = '＋ Adicionar expressão';
+          addExpr.addEventListener('click', () => { q.expressions.push({ latex: '', answer: '' }); renderExprs(); renderPreview(); });
+
+          exprBlock.appendChild(exprBox);
+          exprBlock.appendChild(addExpr);
+          body.appendChild(exprBlock);
         }
 
         if (q.type === 'ditado') {
@@ -4958,17 +5182,48 @@
       if (q.type === 'matematica_coluna') {
         const cols = Math.max(1, Math.min(4, Number(q.columns) || 3));
         const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
+        const boxClass = `math-op-box${fsClass}${q.boxStyle === 'minimo' ? ' estilo-minimo' : ''}`;
         const calcSpace = q.showCalcSpace ? '<div class="math-op-calc-space"></div>' : '';
+        const carryRow = q.showCarry ? '<div class="math-op-carry"></div>' : '';
+        const answerArea = (op) => {
+          if (q.answerStyle === 'boxes') {
+            const n = op.result ? String(op.result).replace(/[^0-9]/g,'').length || (q.answerBoxes||4) : (q.answerBoxes||4);
+            return `<div class="math-op-answer-boxes">${Array.from({length:Math.min(8,Math.max(1,n))},()=>'<span class="digit-box"></span>').join('')}</div>`;
+          }
+          return '<div class="math-op-answer"></div>';
+        };
         const ops = (q.operations || []).map((op) => {
           let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
           if ((!n1 && !n2) && op.expression) {
             const m = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
             if (m) { n1=m[1].trim(); sym=m[2]; n2=m[3].trim(); } else { n1=op.expression; n2=''; }
           }
-          if (!n1 && !n2) return `<div class="math-op-box${fsClass}"><span class="small">—</span></div>`;
-          return `<div class="math-op-box${fsClass}"><span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div>${calcSpace}</div>`;
+          if (!n1 && !n2) return `<div class="${boxClass}"><span class="small">—</span></div>`;
+          return `<div class="${boxClass}">${carryRow}<span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div>${answerArea(op)}${calcSpace}</div>`;
         }).join('');
         return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
+      }
+      if (q.type === 'expressao_matematica') {
+        const tryKatex = (latex) => {
+          if (!latex) return '<span style="color:#94a3b8">∅</span>';
+          if (typeof katex === 'undefined') return `<code style="font-size:16px">${esc(latex)}</code>`;
+          try { return katex.renderToString(latex, { throwOnError: false, displayMode: false }); }
+          catch(e) { return `<code style="font-size:16px">${esc(latex)}</code>`; }
+        };
+        const cols = Math.max(1, Math.min(4, Number(q.columns) || 2));
+        const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
+        const itemClass = `expr-item${q.boxStyle === 'minimo' ? ' estilo-minimo' : ''}`;
+        const ansArea = (expr) => {
+          if (q.answerStyle === 'boxes') {
+            const n = q.answerBoxes || 3;
+            return `<div class="math-op-answer-boxes">${Array.from({length:Math.min(8,Math.max(1,n))},()=>'<span class="digit-box"></span>').join('')}</div>`;
+          }
+          return '<div class="hline"></div>';
+        };
+        const items = (q.expressions || []).map(expr =>
+          `<div class="${itemClass}"><div class="expr-math${fsClass}">${tryKatex(expr.latex)}</div>${ansArea(expr)}</div>`
+        ).join('');
+        return `<div class="expr-grid" style="grid-template-columns:repeat(${cols},1fr)">${items || '<span class="small">Nenhuma expressão.</span>'}</div>`;
       }
       if (q.type === 'ditado') {
         const count = Math.max(1, Math.min(30, Number(q.wordCount) || 10));
@@ -5256,6 +5511,11 @@
       }
       if (tipo === 'subitens') {
         return { tipo: 'discursiva', num, ans: '(subitens — corrija manualmente)' };
+      }
+      if (tipo === 'expressao_matematica') {
+        const exprs = q.expressions || [];
+        const ans = exprs.map((e, i) => `${i+1}. ${e.answer || '?'}`).join(' | ');
+        return { tipo: 'objetivo', num, ans: ans || '(sem gabarito)' };
       }
       if (tipo === 'ditado') {
         if (q.wordList && q.wordList.trim()) {
