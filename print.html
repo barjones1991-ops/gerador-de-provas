@@ -120,10 +120,15 @@
     .mark-table { width: 100%; border-collapse: collapse; }
     .mark-table td { border: 1px solid #cbd5e1; padding: 7px 10px; }
     .texto-base-box { border-left: 4px solid #334155; background: #f8fafc; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
-    .math-ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 18px 24px; margin-top: 10px; }
-    .math-op-box { font-family: 'Courier New', monospace; font-size: 17px; text-align: right; }
+    .math-ops-grid { display: grid; gap: 20px 28px; margin-top: 10px; align-items: start; }
+    .math-op-box { font-family: 'Courier New', monospace; font-size: 17px; text-align: right; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 14px 6px; background: #fff; }
+    .math-op-box.fs-large { font-size: 22px; padding: 12px 18px 8px; }
+    .math-op-num { display: block; }
+    .math-op-with-sym { display: grid; grid-template-columns: auto 1fr; gap: 4px; }
+    .math-op-sym { font-weight: 900; }
     .math-op-divider { border-top: 2px solid #334155; margin: 4px 0; }
-    .math-op-answer { height: 26px; }
+    .math-op-answer { height: 32px; border-bottom: 1.5px dashed #94a3b8; margin-bottom: 4px; }
+    .math-op-calc-space { margin-top: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; height: 52px; background: repeating-linear-gradient(transparent, transparent 17px, #e2e8f0 17px, #e2e8f0 18px); }
     .ditado-lines { display: grid; gap: 10px; margin-top: 8px; }
     .ditado-line { display: flex; align-items: flex-end; gap: 10px; font-size: 14px; }
     .ditado-line-num { color: #94a3b8; min-width: 20px; text-align: right; }
@@ -693,15 +698,17 @@
         return `${textBox}${answerArea(q)}`;
       }
       if (q.type === 'matematica_coluna') {
-        const cols = Math.max(2, Math.min(4, Number(q.columns) || 3));
+        const cols = Math.max(1, Math.min(4, Number(q.columns) || 3));
+        const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
+        const calcSpace = q.showCalcSpace ? '<div class="math-op-calc-space"></div>' : '';
         const ops = (q.operations || []).map(op => {
           let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
           if ((!n1 && !n2) && op.expression) {
             const m2 = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
             if (m2) { n1=m2[1].trim(); sym=m2[2].replace(/[xX]/,'×').replace('/','÷').replace(':','÷'); n2=m2[3].trim(); } else { n1=op.expression; n2=''; }
           }
-          if (!n1 && !n2) return `<div class="math-op-box"><div>—</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
-          return `<div class="math-op-box"><div class="math-op-num">${esc(n1||'')}</div><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          if (!n1 && !n2) return `<div class="math-op-box${fsClass}"><div>—</div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          return `<div class="math-op-box${fsClass}"><div class="math-op-num">${esc(n1||'')}</div><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div>${calcSpace}</div>`;
         }).join('');
         return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops}</div>`;
       }

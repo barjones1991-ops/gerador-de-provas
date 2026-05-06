@@ -302,25 +302,28 @@
 
     /* Operações matemáticas em coluna */
     .math-ops-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      margin-top: 8px;
+      display: grid;
+      gap: 20px 28px;
+      margin-top: 10px;
+      align-items: start;
     }
     .math-op-box {
-      border: 1px solid #cbd5e1;
+      border: 1.5px solid #cbd5e1;
       border-radius: 10px;
-      padding: 12px 18px 6px;
-      min-width: 90px;
+      padding: 12px 16px 8px;
+      min-width: 100px;
       font-family: 'Courier New', monospace;
       font-size: 18px;
       text-align: right;
+      background: #fff;
     }
+    .math-op-box.fs-large { font-size: 24px; padding: 14px 20px 10px; }
     .math-op-num { display: block; }
     .math-op-with-sym { display: grid; grid-template-columns: auto 1fr; gap: 4px; }
     .math-op-sym { font-weight: 900; }
     .math-op-divider { border-top: 2.5px solid #0f172a; margin: 6px 0; }
-    .math-op-answer { height: 28px; }
+    .math-op-answer { height: 34px; border-bottom: 1.5px dashed #94a3b8; margin-bottom: 4px; }
+    .math-op-calc-space { margin-top: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; height: 52px; background: repeating-linear-gradient(transparent, transparent 17px, #e2e8f0 17px, #e2e8f0 18px); }
 
     /* Ditado */
     .ditado-lines { display: grid; gap: 10px; margin-top: 8px; }
@@ -1877,6 +1880,8 @@
           { num1: '12', op: '×', num2: '4', result: '' },
         ],
         columns: 3,
+        fontSize: 'normal',
+        showCalcSpace: false,
         points: '1,0',
         hideNumber: false,
       }),
@@ -3784,6 +3789,7 @@
 
         if (q.type === 'matematica_coluna') {
           if (!q.columns) q.columns = 3;
+          if (!q.fontSize) q.fontSize = 'normal';
           // Migrar formato antigo { expression } para { num1, op, num2, result }
           (q.operations || []).forEach(op => {
             if (!op.num1 && !op.num2 && op.expression) {
@@ -3795,69 +3801,114 @@
             }
           });
 
-          const colBlock = document.createElement('div');
-          colBlock.className = 'row';
-          colBlock.innerHTML = `
-            <label>Colunas por linha</label>
-            <select data-k="columns">
-              <option value="2" ${q.columns==2?'selected':''}>2 por linha</option>
-              <option value="3" ${q.columns==3?'selected':''}>3 por linha</option>
-              <option value="4" ${q.columns==4?'selected':''}>4 por linha</option>
-            </select>`;
-          body.appendChild(colBlock);
+          const cfgBlock = document.createElement('div');
+          cfgBlock.className = 'row two';
+          cfgBlock.innerHTML = `
+            <div>
+              <label>Colunas por linha</label>
+              <select data-k="columns">
+                <option value="1" ${q.columns==1?'selected':''}>1 por linha</option>
+                <option value="2" ${q.columns==2?'selected':''}>2 por linha</option>
+                <option value="3" ${q.columns==3?'selected':''}>3 por linha</option>
+                <option value="4" ${q.columns==4?'selected':''}>4 por linha</option>
+              </select>
+            </div>
+            <div>
+              <label>Tamanho dos números</label>
+              <select data-k="fontSize">
+                <option value="normal" ${q.fontSize!=='large'?'selected':''}>Normal</option>
+                <option value="large" ${q.fontSize==='large'?'selected':''}>Grande (anos iniciais)</option>
+              </select>
+            </div>
+            <div>
+              <label>Espaço de cálculo (rascunho)</label>
+              <select data-k="showCalcSpace">
+                <option value="false" ${!q.showCalcSpace?'selected':''}>Não mostrar</option>
+                <option value="true" ${q.showCalcSpace?'selected':''}>Mostrar abaixo de cada conta</option>
+              </select>
+            </div>
+          `;
+          body.appendChild(cfgBlock);
 
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = '<label>Operações <span style="font-weight:400;color:#94a3b8;">— preencha o resultado para gerar gabarito</span></label>';
+          block.innerHTML = '<label>Operações <span style="font-weight:400;color:#94a3b8;">— o resultado é só para o gabarito, não aparece na prova</span></label>';
           const opsBox = document.createElement('div');
           opsBox.className = 'row';
+
+          const tryCalc = (op, resInput) => {
+            if (op.result) return;
+            const a = parseFloat(String(op.num1||'').replace(',','.')), b = parseFloat(String(op.num2||'').replace(',','.'));
+            if (isNaN(a)||isNaN(b)) return;
+            let r;
+            if (op.op==='+') r=a+b; else if (op.op==='-') r=a-b; else if (op.op==='×') r=a*b; else if (op.op==='÷'&&b) r=a/b;
+            if (r!=null) { const s=Number.isInteger(r)?String(r):r.toFixed(2).replace('.',','); op.result=s; resInput.value=s; }
+          };
+
           const renderOps = () => {
             opsBox.innerHTML = '';
             (q.operations || []).forEach((op, j) => {
-              const row = document.createElement('div');
-              row.style.cssText = 'display:grid;grid-template-columns:1fr 60px 1fr 20px 80px auto;gap:6px;align-items:center;margin-bottom:6px;';
-              const n1 = document.createElement('input'); n1.value = op.num1 || ''; n1.placeholder = 'Número 1';
-              n1.addEventListener('input', () => { op.num1 = n1.value; renderPreview(); });
+              const card = document.createElement('div');
+              card.style.cssText = 'margin-bottom:8px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;';
+
+              // Num1 + ❌
+              const r1 = document.createElement('div');
+              r1.style.cssText = 'display:flex; align-items:center; gap:6px; padding:8px 10px 4px;';
+              const numLbl = document.createElement('span');
+              numLbl.textContent = 'N1'; numLbl.style.cssText = 'font-size:11px;color:#94a3b8;font-weight:600;width:22px;';
+              const n1 = document.createElement('input'); n1.value = op.num1||''; n1.placeholder = '0';
+              n1.style.cssText = 'flex:1; text-align:right; font-family:monospace; font-size:16px; font-weight:700;';
+              n1.addEventListener('input', () => { op.num1=n1.value; renderPreview(); });
+              const rmv = document.createElement('button');
+              rmv.type='button'; rmv.textContent='❌'; rmv.disabled=(q.operations||[]).length<=1;
+              rmv.style.cssText='background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+((q.operations||[]).length<=1?'0.3':'1');
+              rmv.addEventListener('click', () => { q.operations.splice(j,1); renderAll(); });
+              r1.appendChild(numLbl); r1.appendChild(n1); r1.appendChild(rmv);
+
+              // Op + Num2
+              const r2 = document.createElement('div');
+              r2.style.cssText = 'display:flex; align-items:center; gap:6px; padding:0 10px 6px;';
               const opSel = document.createElement('select');
-              opSel.style.cssText = 'text-align:center;font-size:16px;font-weight:900;padding:4px;';
-              ['+', '-', '×', '÷'].forEach(sym => {
-                const o = document.createElement('option'); o.value = sym; o.textContent = sym;
-                if ((op.op || '+') === sym) o.selected = true;
+              opSel.style.cssText = 'width:44px; text-align:center; font-size:18px; font-weight:900; padding:2px; border-radius:6px;';
+              ['+','-','×','÷'].forEach(sym => {
+                const o=document.createElement('option'); o.value=sym; o.textContent=sym;
+                if ((op.op||'+')===sym) o.selected=true;
                 opSel.appendChild(o);
               });
-              opSel.addEventListener('change', () => { op.op = opSel.value; renderPreview(); });
-              const n2 = document.createElement('input'); n2.value = op.num2 || ''; n2.placeholder = 'Número 2';
-              n2.addEventListener('input', () => { op.num2 = n2.value; renderPreview(); });
-              const eq = document.createElement('span'); eq.textContent = '='; eq.style.cssText = 'text-align:center;font-weight:900;font-size:16px;';
-              const res = document.createElement('input'); res.value = op.result || ''; res.placeholder = 'Resultado';
-              res.style.cssText = 'background:#f0fdf4;border-color:#bbf7d0;';
-              res.addEventListener('input', () => { op.result = res.value; });
-              // Auto-calculate
-              const tryCalc = () => {
-                if (op.result) return;
-                const a = parseFloat(String(op.num1||'').replace(',','.')), b = parseFloat(String(op.num2||'').replace(',','.'));
-                if (isNaN(a)||isNaN(b)) return;
-                let r;
-                if (op.op==='+') r=a+b; else if (op.op==='-') r=a-b; else if (op.op==='×') r=a*b; else if (op.op==='÷'&&b) r=a/b;
-                if (r!=null) { const s=Number.isInteger(r)?String(r):r.toFixed(2).replace('.',','); op.result=s; res.value=s; }
-              };
-              n2.addEventListener('blur', tryCalc); opSel.addEventListener('change', tryCalc);
-              const rmv = document.createElement('button');
-              rmv.type = 'button'; rmv.className = 'danger'; rmv.textContent = '✕';
-              rmv.style.cssText = 'padding:5px 8px;font-size:12px;';
-              rmv.disabled = (q.operations||[]).length <= 1;
-              rmv.addEventListener('click', () => { q.operations.splice(j, 1); renderAll(); });
-              row.appendChild(n1); row.appendChild(opSel); row.appendChild(n2); row.appendChild(eq); row.appendChild(res); row.appendChild(rmv);
-              opsBox.appendChild(row);
+              const n2 = document.createElement('input'); n2.value=op.num2||''; n2.placeholder='0';
+              n2.style.cssText='flex:1; text-align:right; font-family:monospace; font-size:16px; font-weight:700;';
+              n2.addEventListener('input', () => { op.num2=n2.value; renderPreview(); });
+              opSel.addEventListener('change', () => { op.op=opSel.value; renderPreview(); tryCalc(op,res); });
+              r2.appendChild(opSel); r2.appendChild(n2);
+
+              // Divider visual
+              const divLine = document.createElement('div');
+              divLine.style.cssText = 'border-top:2px solid #334155; margin:0 10px;';
+
+              // Resultado
+              const r3 = document.createElement('div');
+              r3.style.cssText = 'display:flex; align-items:center; gap:6px; padding:5px 10px 8px; background:#fff; border-top:1px solid #e2e8f0;';
+              const resLbl = document.createElement('span');
+              resLbl.textContent = '= Gabarito:'; resLbl.style.cssText='font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
+              const res = document.createElement('input'); res.value=op.result||''; res.placeholder='auto';
+              res.style.cssText='flex:1;text-align:right;font-family:monospace;background:#f0fdf4;border-color:#86efac;';
+              res.addEventListener('input', () => { op.result=res.value; });
+              n1.addEventListener('blur', () => tryCalc(op,res));
+              n2.addEventListener('blur', () => tryCalc(op,res));
+              r3.appendChild(resLbl); r3.appendChild(res);
+
+              card.appendChild(r1); card.appendChild(r2); card.appendChild(divLine); card.appendChild(r3);
+              opsBox.appendChild(card);
             });
           };
           renderOps();
+
           const addOp = document.createElement('button');
-          addOp.type = 'button'; addOp.className = 'outline';
-          addOp.textContent = '＋ Adicionar operação';
+          addOp.type='button'; addOp.className='outline inline-add-btn';
+          addOp.textContent='＋ Adicionar operação';
           addOp.addEventListener('click', () => {
-            if (!q.operations) q.operations = [];
-            q.operations.push({ num1: '', op: '+', num2: '', result: '' });
+            if (!q.operations) q.operations=[];
+            q.operations.push({ num1:'', op:'+', num2:'', result:'' });
             renderOps(); renderPreview();
           });
           block.appendChild(opsBox);
@@ -4905,15 +4956,17 @@
         return `${base}${answerArea(q)}`;
       }
       if (q.type === 'matematica_coluna') {
-        const cols = Math.max(2, Math.min(4, Number(q.columns) || 3));
+        const cols = Math.max(1, Math.min(4, Number(q.columns) || 3));
+        const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
+        const calcSpace = q.showCalcSpace ? '<div class="math-op-calc-space"></div>' : '';
         const ops = (q.operations || []).map((op) => {
           let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
           if ((!n1 && !n2) && op.expression) {
             const m = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
-            if (m) { n1 = m[1].trim(); sym = m[2]; n2 = m[3].trim(); } else { n1 = op.expression; n2 = ''; }
+            if (m) { n1=m[1].trim(); sym=m[2]; n2=m[3].trim(); } else { n1=op.expression; n2=''; }
           }
-          if (!n1 && !n2) return `<div class="math-op-box"><span class="small">—</span></div>`;
-          return `<div class="math-op-box"><span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div></div>`;
+          if (!n1 && !n2) return `<div class="math-op-box${fsClass}"><span class="small">—</span></div>`;
+          return `<div class="math-op-box${fsClass}"><span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div><div class="math-op-answer"></div>${calcSpace}</div>`;
         }).join('');
         return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
       }
