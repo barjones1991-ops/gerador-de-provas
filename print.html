@@ -1091,8 +1091,8 @@
       const id = new URLSearchParams(window.location.search).get('id');
       if (!id) {
         const auth = initAuthManager();
-        const userKey = auth?.isAuthenticated() ? `${STORAGE_KEY_BASE}:${auth.getCurrentUser().id}` : STORAGE_KEY_BASE;
-        const raw = localStorage.getItem(userKey) || localStorage.getItem(STORAGE_KEY_BASE);
+        const userKey = auth?.isAuthenticated() ? `${STORAGE_KEY_BASE}:${auth.getCurrentUser().id}` : '';
+        const raw = userKey ? localStorage.getItem(userKey) : null;
         if (!raw) {
           showMessage('Nenhuma prova local encontrada', 'Abra uma prova no editor ou escolha uma prova salva no dashboard.');
           return;

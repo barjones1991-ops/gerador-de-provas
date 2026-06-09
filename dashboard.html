@@ -651,6 +651,10 @@
 
   function newExam() {
     localStorage.removeItem('editExamId');
+    const user = auth?.getCurrentUser?.();
+    if (user?.id) {
+      localStorage.removeItem(`gerador-provas-state-v1:${user.id}`);
+    }
     window.location.href = 'editor.html';
   }
 

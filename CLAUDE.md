@@ -1,415 +1,195 @@
-# GERADOR DE PROVAS — Guia do Projeto
+# GERADOR DE PROVAS - Guia Operacional
 
-## Visão Geral
-Plataforma web para professores criarem, salvarem e exportarem provas escolares em PDF.
-Desenvolvida em HTML/CSS/JS puro (sem frameworks), com backend no Supabase.
+## Objetivo do Projeto
 
-**Site ao vivo:** https://barjones1991-ops.github.io/gerador-de-provas/
-**Repositório:** https://github.com/barjones1991-ops/gerador-de-provas
+Plataforma web para professores criarem, salvarem, revisarem e imprimirem provas escolares.
 
----
+- Frontend em HTML, CSS e JavaScript puro.
+- Backend, autenticação e banco de dados via Supabase.
+- Sem framework, sem build step e sem SDK do Supabase.
+- Hospedagem prevista no GitHub Pages.
 
-## Stack Técnica
-- **Frontend:** HTML + CSS + JavaScript puro (sem React, sem Vue, sem build)
-- **Backend/Auth/DB:** Supabase (REST API via fetch, sem SDK)
-- **Hospedagem:** GitHub Pages (gratuito)
-- **Autenticação:** Supabase Auth (email + senha)
-- **Banco de dados:** PostgreSQL via Supabase
+Links:
 
----
+- Site: https://barjones1991-ops.github.io/gerador-de-provas/
+- Repositório: https://github.com/barjones1991-ops/gerador-de-provas
 
-## Estrutura de Arquivos
+## Estado Atual
 
-```
-GERADOR DE PROVAS/
-├── index.html                    # Página inicial / landing page
-├── login.html                    # Login e cadastro (abas Entrar/Criar conta)
-├── dashboard.html                # Lista de provas do usuário logado
-├── editor.html                   # Editor visual de provas (funciona offline tb)
-├── coordenacao.html              # Painel da coordenadora para revisar provas
-├── print.html                    # Página limpa de impressão/PDF
-├── config.js                     # Credenciais Supabase + expõe window.CONFIG
-├── js/
-│   └── auth.js                   # Classe AuthManager (login, signup, requests)
-├── tests/
-│   └── run-tests.js              # Testes automáticos (npm test)
-├── setup.html                    # Página auxiliar de setup (legada)
-├── teste-conexao.html            # Página de diagnóstico de conexão Supabase (legada)
-├── setup_supabase.sql            # SQL para criar tabelas no Supabase
-├── package.json                  # Só define script "npm test"
-├── CLAUDE.md                     # Este arquivo
-├── GUIA_SETUP.md                 # Guia de configuração inicial do projeto
-├── INSTRUÇÕES_CONFIGURE_AGORA.md # Instruções rápidas de configuração
-├── TESTE_AGORA.md                # Checklist de testes manuais
-└── .gitignore                    # Ignora arquivos desnecessários
-```
+O projeto já tem a base principal implementada:
 
----
+- Login, cadastro, recuperação de senha e sessão local.
+- Dashboard do professor.
+- Editor visual de provas.
+- Impressão/PDF com e sem gabarito.
+- Banco de questões.
+- Fluxo de coordenação pedagógica.
+- Gestão de escolas, vínculo de professores, séries e disciplinas.
+- Testes automatizados em `tests/run-tests.js`.
 
-## Credenciais Supabase (config.js)
-- **Project URL:** https://birtgmrtaryfjogegimn.supabase.co
-- **Anon Key:** configurada em config.js
-- **Projeto:** birtgmrtaryfjogegimn
+Este arquivo não deve virar histórico de tudo que já foi feito. Use-o como mapa rápido para próximas sessões.
 
-> `config.js` expõe `window.CONFIG` para que `auth.js` funcione no browser.
-> `const CONFIG` sozinho NÃO cria `window.CONFIG` — o `window.CONFIG = CONFIG` ao final do arquivo é essencial.
+## Como Retomar uma Sessão
 
----
+Antes de alterar qualquer coisa:
 
-## Tabelas no Supabase
-
-### `profiles`
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| id | UUID (PK) | Referência auth.users |
-| email | TEXT | Email do professor |
-| full_name | TEXT | Nome completo |
-| school_name | TEXT | Nome da escola |
-| role | TEXT | Papel do usuário (`professor`, `coordenadora`, `admin`) |
-| created_at | TIMESTAMPTZ | Data de cadastro |
-
-### `exams`
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| id | UUID (PK) | Gerado automaticamente |
-| user_id | UUID (FK) | Referência auth.users |
-| title | TEXT | Título da prova |
-| school_name | TEXT | Nome da escola |
-| subject | TEXT | Disciplina |
-| class_name | TEXT | Turma |
-| teacher | TEXT | Nome do professor |
-| term | TEXT | Bimestre/Etapa |
-| date | TEXT | Data da prova |
-| total_value | TEXT | Valor total (ex: "10,0") |
-| instructions | TEXT | Instruções da prova |
-| questions | JSONB | Array de questões |
-| logo_data_url | TEXT | Logo da escola em base64 |
-| is_draft | BOOLEAN | Se é rascunho |
-| is_published | BOOLEAN | Se está publicada |
-| review_status | TEXT | Status de revisão pedagógica |
-| review_notes | TEXT | Observações da coordenação |
-| reviewed_by | UUID | Usuário que revisou |
-| reviewed_at | TIMESTAMPTZ | Data da revisão |
-| locked_at | TIMESTAMPTZ | Data de bloqueio/aprovação |
-| created_at | TIMESTAMPTZ | Data de criação |
-| updated_at | TIMESTAMPTZ | Última atualização |
-
-> RLS (Row Level Security) ativado — cada usuário só acessa suas próprias provas.
-> Trigger `on_auth_user_created` cria perfil automaticamente ao cadastrar.
-
----
-
-## Fluxo do Usuário
-```
-index.html → login.html → dashboard.html → editor.html
-                                ↑                ↓
-                          (volta com          salva na
-                          lista de           nuvem via
-                          provas)           Supabase API)
-```
-
-### Fluxo de autenticação
-1. `login.html` usa `AuthManager.signIn()` ou `signUp()`
-2. Sessão salva em `localStorage` (chave: `supabase.auth.token`)
-3. Páginas protegidas verificam `auth.isAuthenticated()` e redirecionam
-4. Logout limpa o localStorage
-
-### Fluxo do editor
-1. `localStorage.getItem('editExamId')` → se existir, carrega prova da nuvem
-2. Se não existir, abre editor em branco
-3. "💾 Salvar na Nuvem" → POST (nova) ou PATCH (existente) em `/rest/v1/exams`
-4. Dashboard → "Nova Prova" → `localStorage.removeItem('editExamId')` antes de redirecionar
-
----
-
-## Tipos de Questão no Editor
-| Tipo | Chave | Campos extras |
-|---|---|---|
-| Múltipla escolha | `multipla` | `options[]` (2 a 6 alternativas), `correctOption`, `points`, `hideNumber` |
-| Discursiva | `discursiva` | `lines` (altura), `answerStyle` (`linhas`/`caixa`/`espaco`), `points`, `hideNumber`, `showAnswerSpace` |
-| Verdadeiro/Falso | `vf` | `items[]` com `{ text, answer }`, `points`, `hideNumber` |
-| Marcar X | `marcarx` | `items[]` com `{ text, checked }`, `markLayout` (`lista`/`duas_colunas`/`tabela`), `points`, `hideNumber` |
-| Complete as lacunas | `lacunas` | `items[]` com `{ text, answer }`, `answers[]`, `points`, `hideNumber` |
-| Relacione as colunas | `relacione` | `pairs[]` com `{ left, right }`, `rightOrder[]` (embaralhado), `points`, `hideNumber` |
-| De acordo com a imagem | `imagem` | `imageDataUrl`, `imageFileName`, `imageSize` (`small`/`medium`/`large`/`full`), `imageAlign` (`left`/`center`/`right`/`lado_esquerda`/`lado_direita`), `imageCaption`, `imageAnswerType` (`discursiva`/`multipla`/`marcarx`), `lines`, `options[]`, `items[]`, `points`, `hideNumber`, `showAnswerSpace` |
-| Interpretação de imagem | `interpretacao_imagem` | `imageDataUrl`, `imageFileName`, `imageSize`, `imageAlign`, `imageCaption`, `prompts[]`, `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
-| Relacione imagens e palavras | `relacione_imagens` | `pairs[]` com `{ imageDataUrl, imageFileName, word }`, `wordOrder[]` (embaralhado), `points`, `hideNumber` |
-| Interpretação de texto | `texto_base` | `textBase` (texto-base), `answerType` (`discursiva`/`multipla`), `lines`, `answerStyle`, `options[]`, `correctOption`, `points`, `hideNumber`, `showAnswerSpace` |
-| Operações matemáticas | `matematica_coluna` | `operations[]` com `{ expression }` (ex: "234 + 567"), `points`, `hideNumber` |
-| Produção textual | `producao_textual` | `titlePrompt` (linha de título), `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
-| Ditado / lista de palavras | `ditado` | `wordCount` (nº de linhas), `wordList` (palavras p/ gabarito, uma por linha), `points`, `hideNumber` |
-| Caça-palavras | `caca_palavras` | `wordsText`, `gridSize`, `points`, `hideNumber` |
-| Cruzadinha | `cruzadinha` | `clues[]` com `{ clue, answer }`, `points`, `hideNumber` |
-| Ordenação de frases | `ordenacao` | `items[]` com `{ text, order }` (order = posição correta p/ gabarito), `points`, `hideNumber` |
-| Problema matemático | `problema_matematico` | `lines`, `calcLines` (linhas da área de cálculo), `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
-| Espaço de desenho | `espaco_livre` | `height` (altura em px), `borderStyle` (`solida`/`tracejada`/`pontilhada`/`nenhuma`), `points`, `hideNumber` |
-| Tabela / gráfico | `tabela` | `headers[]`, `rows[][]`, `answerType` (`discursiva`/`multipla`), `lines`, `answerStyle`, `options[]`, `correctOption`, `points`, `hideNumber`, `showAnswerSpace` |
-| Associação por setas | `associacao_setas` | `leftItems[]`, `rightItems[]`, `rightOrder[]` (embaralhado), `points`, `hideNumber` |
-| Sequência numérica | `sequencia_numerica` | `sequences[]` com `{ items, answer }` (usar `___` como lacuna), `points`, `hideNumber` |
-| Leitura e escrita | `leitura_escrita` | `words[]`, `columns` (1 ou 2), `showCopyLines`, `points`, `hideNumber` |
-| Sílabas / letras / sons | `silabas` | `exerciseType` (`separar`/`contar`/`classificar`/`identificar`), `words[]` com `{ word, answer }`, `points`, `hideNumber` |
-| Sequência de imagens | `sequencia_imagens` | `images[]` com `{ dataUrl, fileName }`, `correctOrder[]`, `points`, `hideNumber` |
-| Comparar duas imagens | `comparar_imagens` | `imageA` com `{ dataUrl, fileName, caption }`, `imageB` com `{ dataUrl, fileName, caption }`, `lines`, `answerStyle`, `points`, `hideNumber`, `showAnswerSpace` |
-| Legenda das imagens | `legenda_imagens` | `images[]` com `{ dataUrl, fileName, legend }`, `columns` (1/2/3), `points`, `hideNumber` |
-| Associe imagem a imagem | `associacao_imagem_imagem` | `pairs[]` com `{ imageDataUrl, imageFileName, word, wordDataUrl, wordFileName }`, `shuffleWords`, `wordOrder[]`, `points`, `hideNumber` |
-| Grade de imagens | `grade_imagens` | `items[]` com `{ imageDataUrl, imageFileName, caption, answer }`, `columns` (2/3/4), `showCaptions`, `showAnswerLines`, `points`, `hideNumber` |
-| Identificar partes da imagem | `identificar_imagem` | `imageDataUrl`, `imageFileName`, `imageCaption`, `markers[]` com `{ x, y, label, answer }`, `showAnswerList`, `points`, `hideNumber` |
-
-> Todos os tipos têm `hideNumber` (oculta numeração nessa questão) e `showAnswerSpace` (controla espaço de resposta, relevante para discursiva e imagem).
-> Todos os tipos têm campo opcional `bncc` (código de habilidade, ex: "EF02MA01") — exibido como badge roxo no preview e no print (oculto na impressão para alunos).
-
----
-
-## Git — Workflow Completo
-
-### Configuração (já feita)
 ```bash
-# Remoto já configurado aponta para:
-# https://github.com/barjones1991-ops/gerador-de-provas.git
+git status --short --branch
+npm test
+```
+
+Para conferir o remoto:
+
+```bash
 git remote -v
+git fetch --dry-run --verbose origin
 ```
 
-### Publicar alterações no site (usar sempre)
+Para publicar:
+
 ```bash
-cd "c:\Users\yesle\Desktop\GERADOR DE PROVAS"
 git add -A
-git commit -m "descrição do que foi alterado"
+git commit -m "descrição objetiva da alteração"
 git push
 ```
 
-### Ver o que mudou antes de publicar
+Regra de publicação: sempre verificar se a alteração também exige atualização no Supabase. Se envolver tabelas, colunas, policies RLS, Auth, triggers, roles, storage ou payloads salvos no banco, atualizar `setup_supabase.sql`, aplicar no SQL Editor do Supabase e testar Auth/REST antes de considerar a entrega concluída.
+
+## Arquivos Principais
+
+- `index.html`: entrada pública.
+- `login.html`: login, cadastro e recuperação de senha.
+- `dashboard.html`: lista de provas, filtros, perfil e ações do professor.
+- `editor.html`: editor principal de provas e banco de questões.
+- `print.html`: renderização limpa para impressão/PDF.
+- `coordenacao.html`: revisão, aprovação, devolução e bloqueio de provas.
+- `schools.html`: gestão de escolas e vínculos.
+- `config.js`: configuração do Supabase e exposição de `window.CONFIG`.
+- `js/auth.js`: `AuthManager`, sessão, login e requisições autenticadas.
+- `setup_supabase.sql`: schema, policies RLS, triggers e tabelas do Supabase.
+- `tests/run-tests.js`: fonte rápida de contratos esperados pelo app.
+
+## Supabase
+
+Projeto configurado:
+
+- Project URL: `https://birtgmrtaryfjogegimn.supabase.co`
+- Project ref: `birtgmrtaryfjogegimn`
+- Anon key: configurada em `config.js`
+
+Observação importante: o projeto pode ficar pausado por inatividade no plano gratuito. Se a URL não resolver DNS ou Auth/REST não responderem, verificar primeiro no dashboard da Supabase se o projeto precisa ser restaurado.
+
+Teste rápido depois de restaurar:
+
 ```bash
-git status          # arquivos modificados
-git diff            # ver as mudanças em detalhe
-git log --oneline   # histórico de commits
+# No navegador ou via terminal:
+https://birtgmrtaryfjogegimn.supabase.co/auth/v1/settings
 ```
 
-### Rodar testes automáticos antes de publicar
+Se for necessário recriar o backend, executar `setup_supabase.sql` no SQL Editor do Supabase e atualizar `config.js` com a nova URL e anon key.
+
+## Contratos Que Não Devem Quebrar
+
+- `config.js` precisa definir `window.CONFIG`; `const CONFIG` sozinho não basta no navegador.
+- Redirects devem ser relativos, como `dashboard.html`, por causa do GitHub Pages em subpasta.
+- A sessão fica em `localStorage` na chave `supabase.auth.token`.
+- O rascunho local do editor deve existir apenas para prova nova ainda não salva e usuário logado: `gerador-provas-state-v1:<userId>`.
+- Ao criar nova prova, limpar `editExamId` e o rascunho local daquele usuário antes de abrir o editor.
+- Depois que uma prova nova é salva na nuvem, apagar o rascunho local para ela não voltar ao clicar em "Nova Prova".
+- Ao editar prova existente, não enviar `user_id`; isso evita trocar o dono quando a coordenação salva ajustes.
+- `DELETE` no Supabase pode retornar `204` sem corpo; `AuthManager.authenticatedRequest()` deve aceitar resposta vazia.
+- Provas `aprovada` ou `bloqueada` não devem ser editáveis pelo professor.
+- Questões do banco são privadas por padrão (`is_public: false`).
+- Imagens ficam como data URL; cuidar de tamanho, compressão e peso da prova.
+
+## Banco de Dados Esperado
+
+As tabelas principais estão descritas e criadas em `setup_supabase.sql`:
+
+- `profiles`: professor, coordenadora/admin, escola, série e disciplinas.
+- `exams`: dados da prova, questões JSONB, status de revisão, histórico e bloqueios.
+- `question_bank`: questões reutilizáveis privadas ou públicas.
+- `schools`: escolas, logo e disciplinas.
+
+O SQL também define:
+
+- RLS nas tabelas principais.
+- Policies idempotentes com `DROP POLICY IF EXISTS`.
+- Funções auxiliares `current_user_role()` e `is_coordinator_or_admin()`.
+- Trigger `on_auth_user_created` para criar perfil ao cadastrar usuário.
+
+## Tipos de Questão
+
+A lista completa e verificável fica em `tests/run-tests.js` na constante `questionTypes`.
+
+Ao adicionar ou alterar um tipo de questão, revisar todos estes pontos:
+
+- Opção/entrada no editor.
+- Estado padrão e normalizadores.
+- Renderização no preview.
+- Renderização em `print.html`.
+- Gabarito, quando aplicável.
+- Salvamento/carregamento em `exams.questions`.
+- Compatibilidade com banco de questões.
+- Teste correspondente em `tests/run-tests.js`.
+
+## Fluxos Principais
+
+Autenticação:
+
+1. `login.html` chama `AuthManager.signIn()` ou `signUp()`.
+2. `AuthManager` salva sessão no localStorage.
+3. Páginas protegidas validam autenticação.
+4. Logout remove a sessão.
+
+Professor:
+
+1. Entra no dashboard.
+2. Cria ou edita prova no editor.
+3. Salva na nuvem.
+4. Envia para coordenação quando necessário.
+5. Imprime prova ou prova com gabarito.
+
+Coordenação:
+
+1. Abre `coordenacao.html`.
+2. Revisa provas enviadas.
+3. Pode editar ajustes sem trocar o dono original.
+4. Aprova, devolve com observação ou bloqueia.
+5. Histórico fica em `review_history`.
+
+Escolas:
+
+1. Coordenação/admin usa `schools.html`.
+2. Cadastra escola, logo e disciplinas.
+3. Vincula professores a escola, série e disciplinas.
+4. Dashboard e editor refletem esses dados.
+
+## Testes
+
+Rodar sempre antes de publicar:
+
 ```bash
 npm test
 ```
 
-> Os testes verificam sintaxe dos scripts, links internos, IDs duplicados, configuração Supabase, AuthManager, tipos de questão, página de impressão, SQL do Supabase e carregamento HTTP das páginas principais.
+Os testes verificam:
 
-### Se der erro no push
-```bash
-git push --set-upstream origin main
-```
+- Existência dos arquivos principais.
+- Sintaxe dos scripts inline e JS.
+- IDs duplicados.
+- Links e scripts locais.
+- Configuração do Supabase.
+- `AuthManager`.
+- Tipos de questão no editor e impressão.
+- Banco de questões.
+- Fluxo de coordenação.
+- SQL do Supabase.
+- Servidor HTTP local retornando 200 nas páginas públicas.
 
-> Após o push, o GitHub Pages atualiza o site em ~1 minuto automaticamente.
+## Pendências Reais / Próximos Cuidados
 
----
-
-## Problemas Conhecidos / Cuidados
-
-1. **Supabase pausa projetos inativos** no plano gratuito após ~1 semana sem acesso.
-   - Solução: acessar o site pelo menos 1x/semana, ou upgrade para plano Pro ($25/mês).
-
-2. **`window.CONFIG`** deve ser definido explicitamente em `config.js` — `const` no topo não cria propriedade no `window`.
-
-3. **Caminhos de redirect** devem ser **relativos** (`dashboard.html`) e não absolutos (`/dashboard.html`), pois o GitHub Pages serve em subpasta (`/gerador-de-provas/`).
-
-4. **`editExamId` no localStorage** — sempre usar `localStorage.removeItem('editExamId')` ao criar nova prova, para não abrir a prova errada no editor.
-
-5. **DELETE no Supabase** retorna 204 (sem body) — o `authenticatedRequest` em `auth.js` lida com isso via `response.text()`.
-
-6. **Rascunho local do editor** deve ser separado por usuário logado (`gerador-provas-state-v1:<userId>`), para uma prova preenchida por um usuário não aparecer quando outro usuário entra no mesmo navegador.
-
-7. **Coordenação editando prova** não pode alterar `user_id` da prova. Ao salvar uma prova existente, o editor nunca envia `user_id`; esse campo só é enviado na criação de prova nova.
-
-8. **Modelo de cabeçalho** salvo no localStorage com chave `gerador-provas-header-tpl`. Inclui nome da escola, professor, disciplina, turma, bimestre, valor total, instruções e logo em base64.
-
-9. **Questões do banco salvas como privadas por padrão** (`is_public: false`). O professor pode torná-las públicas pelo botão "Tornar pública" no modal do banco de questões. Questões públicas aparecem para todos os professores na busca do banco.
-
----
-
-## O que Já Foi Feito
-- [x] Estrutura HTML completa (index, login, dashboard, editor)
-- [x] Autenticação email/senha via Supabase Auth
-- [x] Cadastro com criação de perfil automática (trigger SQL)
-- [x] Editor visual com 8 tipos de questão (multipla, discursiva, vf, marcarx, lacunas, relacione, imagem, relacione_imagens)
-- [x] Prévia em tempo real da prova
-- [x] Exportar/Imprimir em PDF
-- [x] Upload de logo da escola
-- [x] Salvar/editar/deletar provas na nuvem
-- [x] Dashboard com estatísticas, busca e filtros
-- [x] Modal de confirmação de exclusão
-- [x] Toast notifications (sem alerts do browser)
-- [x] Mover questões (↑↓) e duplicar questão (⊕)
-- [x] Estado vazio no editor e no dashboard
-- [x] Erros de autenticação traduzidos para português
-- [x] Marcar prova como "Publicada" ou voltar para rascunho no dashboard
-- [x] Recuperação de senha pelo login
-- [x] Editar perfil do professor (nome, escola)
-- [x] Ordenar e filtrar provas por data/disciplina
-- [x] Preencher escola/professor no editor a partir do perfil
-- [x] Contador de questões visível no dashboard card
-- [x] Página de impressão dedicada (sem painel de edição)
-- [x] Mobile: layout do editor em tela pequena
-- [x] Questões com imagem por upload/arrastar arquivo
-- [x] Questão "De acordo com a imagem, responda"
-- [x] Questão "Relacione imagens e palavras"
-- [x] Testes automáticos com `npm test`
-- [x] Rascunho local do editor separado por usuário logado
-- [x] Base do fluxo de coordenação: enviar prova para revisão
-- [x] Base de papéis: professor, coordenadora e admin
-- [x] Bloqueio de edição para prova aprovada/bloqueada
-- [x] Painel da coordenação para revisar, aprovar, devolver e bloquear provas
-- [x] Coordenadora pode corrigir prova sem alterar o dono original
-- [x] Professor visualiza devolutiva da coordenação no dashboard e editor
-- [x] Git configurado e conectado ao GitHub
-- [x] Deploy no GitHub Pages
-
-## O que Ainda Pode Melhorar
-
-### Prioridade: geração e acabamento da prova
-- [x] Revisar a experiência de criação de questões: seletor visual por botões com ícones (substituiu dropdown).
-- [x] Criar painel de propriedades da questão selecionada, separando enunciado, mídia, alternativas, resposta esperada, pontuação e configuração de impressão.
-- [x] Permitir escolher se a questão deve aparecer com ou sem espaço para resposta (toggle por questão).
-- [x] Permitir controlar o número de linhas de resposta por questão discursiva e questão com imagem.
-- [x] Permitir definir pontuação com validação e alerta quando a soma das questões não bater com o valor total da prova.
-- [x] Permitir duplicar, mover, remover e recolher/expandir questões com melhor organização visual no editor.
-- [x] Criar numeração automática refinada: opção de ocultar número por questão; numeração automática pula questões ocultas.
-- [x] Adicionar pré-visualização por página A4, com indicação visual de quebras de página antes de imprimir.
-- [x] Evitar que uma questão seja cortada entre duas páginas (CSS break-inside: avoid em todos os blocos).
-- [x] Criar modo "somente prova" e modo "prova com gabarito" para exportação (botão "Com gabarito").
-- [x] Criar gabarito separado para múltipla escolha.
-- [x] Criar gabarito separado para verdadeiro/falso.
-- [x] Criar gabarito separado para marcar X.
-- [x] Criar gabarito separado para relacionar colunas.
-- [x] Criar gabarito separado para demais questões objetivas (lacunas, imagem, relacione imagens).
-- [x] Permitir salvar modelos de cabeçalho por escola/professor (salvar/carregar/apagar no localStorage).
-- [x] Criar modelos de instruções reutilizáveis por tipo de avaliação.
-
-### Prioridade: imagens nas questões
-- [x] Permitir recortar imagem enviada antes de inserir na questão (modal canvas com drag-to-select).
-- [x] Permitir girar imagem para esquerda/direita (botões ↺ e ↻ no picker de imagem).
-- [x] Permitir redimensionar imagem no editor com tamanhos: pequena, média, grande e largura total.
-- [x] Permitir escolher alinhamento da imagem: esquerda, centro, direita, lado esq. do texto, lado dir. do texto.
-- [x] Permitir adicionar legenda abaixo da imagem.
-- [x] Permitir layout com imagem ao lado do enunciado (float left/right com opção no select de alinhamento).
-- [x] Permitir substituir imagem sem perder o restante da questão (botão "Substituir imagem" aparece quando há imagem).
-- [x] Permitir inserir mais de uma imagem na mesma questão.
-- [x] Criar layout "grade de imagens" para educação infantil e anos iniciais.
-- [x] Validar tamanho da imagem e avisar quando ela pode deixar a prova pesada demais (indicador de KB/MB).
-- [x] Melhorar compressão automática das imagens (WebP quando suportado, JPEG 0.82 como fallback).
-
-### Prioridade: esmeramento dos tipos atuais de questão
-- [x] Múltipla escolha: permitir 2 a 6 alternativas, marcar alternativa correta e gerar gabarito.
-- [x] Múltipla escolha: permitir alternativas com texto longo sem quebrar o layout.
-- [x] Discursiva: permitir pauta com linhas, caixa de resposta ou espaço em branco.
-- [x] Verdadeiro/Falso: permitir vários itens V/F dentro da mesma questão.
-- [x] Marcar X: permitir itens em lista simples com marcação de resposta correta.
-- [x] Marcar X: permitir itens em duas colunas.
-- [x] Marcar X: permitir itens em tabela.
-- [x] Complete as lacunas: permitir cadastrar respostas esperadas para o gabarito.
-- [x] Complete as lacunas: permitir várias frases com lacunas na mesma questão.
-- [x] Relacione as colunas: permitir embaralhar a coluna da direita automaticamente.
-- [x] Relacione as colunas: permitir mais pares, adicionar/remover linhas e equilibrar colunas.
-- [x] Questão com imagem: permitir resposta discursiva, múltipla escolha ou marcar X usando a mesma imagem.
-- [x] Relacione imagens e palavras: permitir adicionar/remover pares e embaralhar palavras no PDF.
-
-### Prioridade: novos tipos de questão mais usados por professores
-- [x] Questão de interpretação de texto com texto-base e perguntas vinculadas.
-- [x] Questão de interpretação de imagem.
-- [x] Questão de tabela/gráfico para interpretação de dados.
-- [x] Questão de caça-palavras.
-- [x] Questão de cruzadinha.
-- [x] Questão de ordenação de frases ou etapas.
-- [x] Questão de associação por setas.
-- [x] Questão de completar sequência numérica.
-- [x] Questão de produção textual com espaço grande de resposta.
-- [x] Questão de ditado/lista de palavras.
-- [x] Questão de leitura e escrita para alfabetização.
-- [x] Questão de identificação de sílabas, letras ou sons.
-- [x] Questão de operações matemáticas em coluna.
-- [x] Questão com problema matemático e espaço para cálculo.
-- [x] Questão de desenho ou ilustração com espaço livre.
-
-### Banco de questões
-- [x] Criar banco de questões por série/ano, disciplina, habilidade e dificuldade.
-- [x] Permitir pesquisar questões por palavra-chave, série, habilidade e nível de dificuldade.
-- [x] Permitir selecionar questões do banco e inserir direto na prova em edição.
-- [x] Salvar questões criadas pelo professor no banco para reutilização futura.
-- [x] Exibir banco de questões em janela própria.
-- [x] Identificar questões criadas pelo professor e questões públicas.
-- [x] Permitir alterar/excluir apenas questões criadas pelo professor.
-- [x] Marcar questões como públicas da escola ou privadas do professor.
-- [x] Permitir banco de questões com imagens anexadas.
-
-### Novos tipos de questão com imagens
-- [x] Questão com imagem e múltipla escolha.
-- [x] Questão com imagem para marcar X.
-- [x] Questão de sequência/ordenação de imagens.
-- [x] Questão para identificar partes de uma imagem com setas ou números.
-- [x] Questão para comparar duas imagens e responder.
-- [x] Questão de legenda: escrever uma frase ou palavra para cada imagem.
-- [x] Questão de associação imagem-imagem.
-
-### Fluxo de coordenação pedagógica
-- [x] Criar perfil/função de coordenadora no sistema.
-- [x] Criar painel da coordenadora com acesso às provas publicadas pelos professores.
-- [x] Permitir que a coordenadora visualize, revise, corrija e salve ajustes na prova publicada.
-- [x] Criar status de revisão: rascunho, enviada para coordenação, em revisão, aprovada, devolvida para ajustes e bloqueada.
-- [x] Bloquear edição pelo professor depois que a prova for aprovada/bloqueada pela coordenação.
-- [x] Permitir que a coordenadora devolva a prova ao professor com observações.
-- [x] Exibir observações da devolução para o professor.
-- [x] Registrar histórico de alterações e comentários da coordenação.
-
-### Organização escolar
-- [x] Vincular professores a uma escola/unidade.
-- [x] Criar turmas, séries e disciplinas cadastradas pela escola.
-- [x] Permitir filtrar provas por professor, turma, série, disciplina, bimestre e status.
-- [x] Criar permissões por papel: professor, coordenadora e administrador.
-
-### Melhorias futuras opcionais
-- [x] Duplicar prova inteira a partir do dashboard.
-- [x] Exportar prova com gabarito separado (botão "📋 Com gabarito" no editor — gera gabarito em página separada ao imprimir).
-- [x] Adicionar campo de habilidade/BNCC por questão.
-
----
-
-## Gaps e Refinamentos Pendentes
-
-> Levantados em varredura do sistema em 04/05/2026. Ordenados por impacto.
-
-### 🔴 Crítico — banco de dados / segurança
-
-- [x] **RLS profiles: coordenadora não consegue editar perfil de professores.**
-  A policy `"Perfil próprio: editar"` usa `USING (auth.uid() = id)`, bloqueando qualquer PATCH feito pela coordenadora em `schools.html > linkProfessor()`.
-  Corrigido: adicionada policy `"Coordenadora edita professores"` em `setup_supabase.sql`.
-
-### 🟠 Alta prioridade — gestão de escolas (`schools.html`)
-
-- [x] **Editar escola existente**: botão "Editar" abre painel inline com nome, cidade, e-mail e logo.
-- [x] **Substituir logo de escola existente**: painel de edição permite trocar ou remover a logo.
-- [x] **Desvincular professor de escola**: botão "Desvincular" remove school_id, school_grade e disciplines do professor.
-- [x] **Editar vínculo existente de professor**: botão "Editar" abre painel com select de série e checkboxes de disciplinas da escola.
-
-### 🟠 Alta prioridade — perfil do professor (`dashboard.html`)
-
-- [x] **Modal de perfil incompleto**: modal mostra escola vinculada (nome), série e disciplinas — todos read-only (definidos pela coordenação). Só o nome é editável pelo professor.
-- [x] **Professor não vê sua escola vinculada**: modal de perfil busca o nome da escola via school_id e exibe para o professor.
-- [x] **Professor não consegue informar sua série/ano**: modal de perfil no dashboard ganhou select de série/ano editável pelo próprio professor.
-
-### 🟡 Média prioridade — editor (`editor.html`)
-
-- [x] **Sem fallback de edição manual para escola/professor/logo**: barra de info do editor exibe link "Dados incorretos? Atualize seu perfil" apontando para o dashboard.
-- [x] **Logo ausente quando escola não tem logo cadastrada**: barra de info mostra link "＋ Adicionar logo" que abre file picker e carrega a logo apenas para aquela prova.
-- [x] **Campo disciplina em branco para professores novos**: se o professor não tem `disciplines` no perfil e não está vinculado a escola, o select usa a lista padrão — mas ao salvar, `state.school.subject` pode ficar vazio se o usuário não selecionar nada. Corrigido: toast de aviso ao salvar sem disciplina selecionada.
-
-### 🟡 Média prioridade — coordenação (`coordenacao.html`)
-
-- [x] **Não há acesso a schools.html a partir da coordenação**: adicionado botão "Escolas" no header de `coordenacao.html`.
-- [x] **Filtro de provas por professor/escola ausente**: adicionado select de professor em `coordenacao.html`, populado dinamicamente com os professores das provas carregadas.
-
-### 🟡 Média prioridade — dashboard do professor (`dashboard.html`)
-
-- [x] **Filtro por disciplina não cruza com o select do editor**: `renderSubjectOptions()` agora usa a mesma lista padrão do editor (`STANDARD_DISCIPLINES`) mesclada com disciplinas reais dos exames. Garante compatibilidade com provas antigas e novas.
-
-### 🟢 Baixa prioridade — refinamentos gerais
-
-- [x] **Página `schools.html` não é linkada no header do dashboard para coordenadores**: o link `#schoolsLink` existe no HTML; o fetch de papel foi separado em dois (básico + estendido) para garantir que `applyRoleActions()` sempre rode mesmo sem as colunas opcionais.
-- [x] **Coluna `school_name` em `profiles` vs `school_id`**: `saveProfile()` usa PATCH e, quando `school_id` existe, sincroniza `school_name` buscando o nome real na API de escolas. Inconsistência eliminada.
-- [x] **`review_status` de prova não aparece no card do dashboard com cor/ícone**: adicionadas classes `.badge-draft/.badge-sent/.badge-review/.badge-approved/.badge-returned/.badge-locked` com cores distintas; `badgeMap` atualizado em `renderExams()`.
-- [x] **Impressão (`print.html`) não tem fallback de logo**: substituído silêncio por `<div class="logo">` estilizado com borda tracejada e texto "Logo" quando `logo_data_url` estiver vazio.
+- Confirmar se o projeto Supabase foi restaurado após pausa por inatividade.
+- Considerar mover credenciais para um fluxo menos manual; hoje a anon key pública fica em `config.js`.
+- Revisar textos com mojibake em alguns arquivos se aparecerem quebrados no navegador.
+- Evitar transformar `CLAUDE.md` em checklist histórico; melhorias concluídas devem sair daqui e ficar no git/testes.

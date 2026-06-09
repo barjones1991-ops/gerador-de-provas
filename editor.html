@@ -1722,6 +1722,7 @@
     }
     const STORAGE_KEY_BASE = 'gerador-provas-state-v1';
     let activeStorageKey = STORAGE_KEY_BASE;
+    let localDraftAutosaveEnabled = false;
 
     const typeLabel = {
       multipla: 'Múltipla escolha',
@@ -2167,6 +2168,7 @@
     }
 
     function saveState() {
+      if (!localDraftAutosaveEnabled || activeStorageKey === STORAGE_KEY_BASE) return;
       try {
         localStorage.setItem(activeStorageKey, JSON.stringify({
           school: state.school,
@@ -5852,7 +5854,6 @@
     });
 
 
-    loadSavedState();
     applyStateToInputs();
     wireSchoolInputs();
     renderAll();
@@ -6182,6 +6183,7 @@
 
     function useUserDraftStorage(userId) {
       activeStorageKey = `${STORAGE_KEY_BASE}:${userId}`;
+      localDraftAutosaveEnabled = !currentExamId;
       if (currentExamId) return;
 
       const hasUserDraft = loadSavedState(activeStorageKey);
@@ -6389,6 +6391,8 @@
             currentExamId = data[0].id;
             currentExamOwnerId = auth.getCurrentUser().id;
             localStorage.setItem('editExamId', currentExamId);
+            localStorage.removeItem(activeStorageKey);
+            localDraftAutosaveEnabled = false;
             updatePrintPageLink();
           }
         }

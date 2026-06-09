@@ -259,6 +259,8 @@ async function main() {
     assert(editor.includes('readImageFile'), 'image upload helper missing');
     assert(editor.includes('STORAGE_KEY_BASE'), 'base draft storage key missing');
     assert(editor.includes('useUserDraftStorage'), 'user-scoped draft storage missing');
+    assert(editor.includes('localDraftAutosaveEnabled'), 'draft autosave gate missing');
+    assert(!editor.includes('\n    loadSavedState();'), 'editor should not load anonymous browser draft on startup');
     assert(editor.includes('resetStateToDefault'), 'draft reset helper missing');
     assert(editor.includes('applyReviewLock'), 'review lock helper missing');
     assert(editor.includes("['aprovada', 'bloqueada']"), 'approved/blocked lock statuses missing');
@@ -446,6 +448,15 @@ async function main() {
     assert(dashboard.includes('currentTerm'), 'currentTerm state missing');
     assert(dashboard.includes('currentReviewStatus'), 'currentReviewStatus state missing');
     assert(dashboard.includes('schools.html'), 'schools link missing in dashboard');
+    assert(dashboard.includes('localStorage.removeItem(`gerador-provas-state-v1:${user.id}`)'), 'new exam should clear current user local draft');
+  });
+
+  await test('saved and anonymous drafts do not reopen as new exams', () => {
+    const editor = read('editor.html');
+    const print = read('print.html');
+    assert(editor.includes('localStorage.removeItem(activeStorageKey)'), 'cloud save should remove local draft');
+    assert(editor.includes('localDraftAutosaveEnabled = false'), 'cloud save should disable local draft autosave');
+    assert(print.includes('const raw = userKey ? localStorage.getItem(userKey) : null;'), 'print should not fall back to anonymous draft');
   });
 
   await test('schools admin page exists and is valid', () => {
