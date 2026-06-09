@@ -464,6 +464,20 @@ async function main() {
     assert(!dashboard.includes('school_grade: grade'), 'teacher profile save should not update coordination-owned school_grade');
   });
 
+  await test('editor uses professor profile classes and keeps student date printable', () => {
+    const editor = read('editor.html');
+    const print = read('print.html');
+    assert(editor.includes('<select id="className">'), 'class field should be a select in the editor');
+    assert(editor.includes('school_grade,disciplines'), 'editor profile query should fetch teacher grade/classes');
+    assert(editor.includes('function normalizeClassList'), 'editor should normalize one or many profile classes');
+    assert(editor.includes('function setClassOptions'), 'editor should populate class options');
+    assert(editor.includes('if (unique.length === 1 && !current) state.school.className = unique[0];'), 'single class should be selected automatically');
+    assert(!editor.includes('id="date"'), 'date should not be editable in the editor form');
+    assert(editor.includes("el('pvDate').textContent = state.school.date ? state.school.date : '____/____/______';"), 'editor preview should keep student date placeholder');
+    assert(print.includes("exam.date || '____/____/______'"), 'print page should keep student date placeholder');
+    assert(editor.indexOf('<label>Valor total</label>') > editor.indexOf('<label>Bimestre/Etapa</label>'), 'total value should remain in the metadata editor after term');
+  });
+
   await test('saved and anonymous drafts do not reopen as new exams', () => {
     const editor = read('editor.html');
     const dashboard = read('dashboard.html');

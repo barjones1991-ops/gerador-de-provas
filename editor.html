@@ -1280,15 +1280,13 @@
             </div>
             <div>
               <label>Turma</label>
-              <input id="className" value="Turma" />
+              <select id="className">
+                <option value="">Selecionar turma</option>
+              </select>
             </div>
             <div>
               <label>Bimestre/Etapa</label>
               <input id="term" value="1º Bimestre" />
-            </div>
-            <div>
-              <label>Data</label>
-              <input id="date" value="" placeholder="dd/mm/aaaa" />
             </div>
             <div>
               <label>Valor total</label>
@@ -2153,6 +2151,7 @@
 
     const state = {
       school: { ...defaultSchool },
+      availableClasses: [],
       logoDataUrl: '',
       logoFileName: '',
       questions: defaultQuestions.map((q) => ({ ...q })),
@@ -2161,6 +2160,7 @@
 
     function resetStateToDefault() {
       state.school = { ...defaultSchool };
+      state.availableClasses = [];
       state.logoDataUrl = '';
       state.logoFileName = '';
       state.questions = defaultQuestions.map((q) => JSON.parse(JSON.stringify(q)));
@@ -2172,6 +2172,7 @@
       try {
         localStorage.setItem(activeStorageKey, JSON.stringify({
           school: state.school,
+          availableClasses: state.availableClasses,
           logoDataUrl: state.logoDataUrl,
           logoFileName: state.logoFileName,
           questions: state.questions,
@@ -2190,6 +2191,9 @@
         if (saved && typeof saved === 'object') {
           if (saved.school && typeof saved.school === 'object') {
             state.school = { ...defaultSchool, ...saved.school };
+          }
+          if (Array.isArray(saved.availableClasses)) {
+            state.availableClasses = saved.availableClasses;
           }
           if (typeof saved.logoDataUrl === 'string') {
             state.logoDataUrl = saved.logoDataUrl;
@@ -2213,9 +2217,8 @@
 
     function applyStateToInputs() {
       el('examTitle').value = state.school.examTitle || '';
-      el('className').value = state.school.className || '';
+      setClassOptions(state.availableClasses || [], state.school.className || '');
       el('term').value = state.school.term || '';
-      el('date').value = state.school.date || '';
       el('totalValue').value = state.school.totalValue || '';
       el('instructions').value = state.school.instructions || '';
       // subject: select the saved value if it exists as an option
@@ -2233,12 +2236,32 @@
       }
     }
 
+    function normalizeClassList(value) {
+      if (Array.isArray(value)) return value.map(String).map(v => v.trim()).filter(Boolean);
+      if (value && typeof value === 'object') return Object.values(value).map(String).map(v => v.trim()).filter(Boolean);
+      return String(value || '')
+        .split(/[,;|/]+/)
+        .map(v => v.trim())
+        .filter(Boolean);
+    }
+
+    function setClassOptions(classes, currentValue = '') {
+      const select = el('className');
+      const unique = [...new Set(normalizeClassList(classes))];
+      const current = currentValue && currentValue !== defaultSchool.className ? currentValue : '';
+      if (current && !unique.includes(current)) unique.push(current);
+      select.innerHTML = '<option value="">Selecionar turma</option>' +
+        unique.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      if (unique.length === 1 && !current) state.school.className = unique[0];
+      select.value = state.school.className && unique.includes(state.school.className) ? state.school.className : '';
+    }
+
     function syncSchoolFromInputs() {
       state.school.examTitle = el('examTitle').value;
       state.school.subject = el('subject').value;
       state.school.className = el('className').value;
       state.school.term = el('term').value;
-      state.school.date = el('date').value;
+      state.school.date = '';
       state.school.totalValue = el('totalValue').value;
       state.school.instructions = el('instructions').value;
     }
@@ -5713,17 +5736,17 @@
     }
 
     function wireSchoolInputs() {
-      const ids = ['examTitle','className','term','date','totalValue','instructions'];
+      const ids = ['examTitle','term','totalValue','instructions'];
       ids.forEach((id) => {
         el(id).addEventListener('input', () => {
           syncSchoolFromInputs();
           renderPreview();
         });
       });
-      el('subject').addEventListener('change', () => {
+      ['subject','className'].forEach((id) => el(id).addEventListener('change', () => {
         syncSchoolFromInputs();
         renderPreview();
-      });
+      }));
       el('instructionTemplate').addEventListener('change', (event) => {
         const value = event.target.value;
         if (!value || !instructionTemplates[value]) return;
@@ -6224,7 +6247,7 @@
       try {
         const user = auth.getCurrentUser();
         const data = await auth.authenticatedRequest(
-          `/profiles?id=eq.${user.id}&select=full_name,school_name,school_id,disciplines`
+          `/profiles?id=eq.${user.id}&select=full_name,school_name,school_id,school_grade,disciplines`
         );
         const profile = Array.isArray(data) ? data[0] : null;
         if (!profile) return;
@@ -6234,6 +6257,15 @@
 
         // Auto-fill teacher from profile
         if (shouldUseTeacher && profile.full_name) state.school.teacher = profile.full_name;
+
+        const profileClasses = normalizeClassList(profile.school_grade);
+        if (profileClasses.length) {
+          state.availableClasses = profileClasses;
+          const shouldUseClass = !state.school.className || state.school.className === defaultSchool.className;
+          if (shouldUseClass || (profileClasses.length === 1 && !profileClasses.includes(state.school.className))) {
+            state.school.className = profileClasses[0];
+          }
+        }
 
         let disciplines = Array.isArray(profile.disciplines) && profile.disciplines.length
           ? profile.disciplines : null;
@@ -6274,6 +6306,7 @@
           const parts = [];
           if (state.school.teacher && state.school.teacher !== defaultSchool.teacher) parts.push(state.school.teacher);
           if (state.school.schoolName && state.school.schoolName !== defaultSchool.schoolName) parts.push(state.school.schoolName);
+          if (state.availableClasses.length) parts.push(`Turma: ${state.availableClasses.join(', ')}`);
           if (state.logoDataUrl) {
             parts.push('Logo carregada da escola');
           } else {
