@@ -496,10 +496,11 @@ async function main() {
     assert(coordination.includes("confirm('Desaprovar esta prova"), 'unapprove action should require confirmation');
     assert(coordination.includes("confirm('Bloquear esta prova"), 'block action should require confirmation');
     assert(coordination.includes("confirm('Desbloquear esta prova"), 'unblock action should require confirmation');
-    assert(coordination.includes('const canApprove = !isApproved && !isBlocked;'), 'coordination should hide incompatible approve action');
+    assert(coordination.includes('const isLocked = Boolean(exam.locked_at) || isApproved || isBlocked;'), 'coordination should detect locked exams from locked_at or status');
+    assert(coordination.includes('const canApprove = !isApproved && !isLocked;'), 'coordination should hide incompatible approve action');
     assert(coordination.includes('const canUnapprove = isApproved;'), 'coordination should show unapprove action for approved exams');
-    assert(coordination.includes('const canReturn = !isBlocked;'), 'coordination should hide incompatible return action');
-    assert(coordination.includes('const canUnblock = isBlocked;'), 'coordination should show unblock action for blocked exams');
+    assert(coordination.includes('const canReturn = !isLocked;'), 'coordination should hide incompatible return action');
+    assert(coordination.includes('const canUnblock = isLocked;'), 'coordination should show unblock action for locked exams');
     assert(editor.includes("['topNewQuestionBtn', 'openBankBtn']"), 'review lock should cover top editor actions');
     assert(editor.includes('#topQuestionMenu button, #questionBankModal button[data-bank-action]'), 'review lock should cover menus and bank actions');
   });

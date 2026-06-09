@@ -255,11 +255,12 @@
       const history = Array.isArray(exam.review_history) ? exam.review_history : [];
       const isApproved = exam.review_status === 'aprovada';
       const isBlocked = exam.review_status === 'bloqueada';
-      const canApprove = !isApproved && !isBlocked;
+      const isLocked = Boolean(exam.locked_at) || isApproved || isBlocked;
+      const canApprove = !isApproved && !isLocked;
       const canUnapprove = isApproved;
-      const canReturn = !isBlocked;
-      const canBlock = !isBlocked;
-      const canUnblock = isBlocked;
+      const canReturn = !isLocked;
+      const canBlock = !isLocked;
+      const canUnblock = isLocked;
       const historyHtml = history.length ? `
         <div style="margin-top:4px;">
           <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">📋 Histórico (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
@@ -288,7 +289,7 @@
           ${exam.review_notes ? `<div class="review-note"><strong>Observação registrada</strong>${esc(exam.review_notes)}</div>` : ''}
           ${historyHtml}
           <div class="actions">
-            <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">${isApproved || isBlocked ? 'Ver' : 'Corrigir'}</button>
+            <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">${isLocked ? 'Ver' : 'Corrigir'}</button>
             <button class="btn" type="button" onclick="openPrint('${exam.id}')">PDF</button>
             ${canApprove ? `<button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>` : ''}
             ${canUnapprove ? `<button class="btn" type="button" onclick="unapproveExam('${exam.id}')">Desaprovar</button>` : ''}
