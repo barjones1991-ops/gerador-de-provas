@@ -164,8 +164,10 @@
   };
   const actionLabels = {
     aprovada: 'Prova aprovada',
+    desaprovada: 'Aprovação revertida',
     devolvida: 'Prova devolvida para ajustes',
     bloqueada: 'Prova bloqueada',
+    desbloqueada: 'Bloqueio revertido',
     em_revisao: 'Iniciou revisão',
     enviada: 'Enviada para coordenação',
   };
@@ -254,8 +256,10 @@
       const isApproved = exam.review_status === 'aprovada';
       const isBlocked = exam.review_status === 'bloqueada';
       const canApprove = !isApproved && !isBlocked;
+      const canUnapprove = isApproved;
       const canReturn = !isBlocked;
       const canBlock = !isBlocked;
+      const canUnblock = isBlocked;
       const historyHtml = history.length ? `
         <div style="margin-top:4px;">
           <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">📋 Histórico (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
@@ -287,8 +291,10 @@
             <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">${isApproved || isBlocked ? 'Ver' : 'Corrigir'}</button>
             <button class="btn" type="button" onclick="openPrint('${exam.id}')">PDF</button>
             ${canApprove ? `<button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>` : ''}
+            ${canUnapprove ? `<button class="btn" type="button" onclick="unapproveExam('${exam.id}')">Desaprovar</button>` : ''}
             ${canReturn ? `<button class="btn warn" type="button" onclick="openReturnModal('${exam.id}')">Devolver</button>` : ''}
             ${canBlock ? `<button class="btn danger" type="button" onclick="blockExam('${exam.id}')">Bloquear</button>` : ''}
+            ${canUnblock ? `<button class="btn" type="button" onclick="unblockExam('${exam.id}')">Desbloquear</button>` : ''}
           </div>
         </div>
       `;
@@ -339,21 +345,31 @@
     await updateReviewStatus(id, 'aprovada', { locked_at: new Date().toISOString() }, 'Prova aprovada.');
   }
 
+  async function unapproveExam(id) {
+    if (!confirm('Desaprovar esta prova e liberar a edição do professor?')) return;
+    await updateReviewStatus(id, 'em_revisao', { locked_at: null }, 'Aprovação revertida. A prova voltou para revisão.', 'desaprovada');
+  }
+
   async function blockExam(id) {
     if (!confirm('Bloquear esta prova para impedir novas alterações?')) return;
     await updateReviewStatus(id, 'bloqueada', { locked_at: new Date().toISOString() }, 'Prova bloqueada.');
   }
 
+  async function unblockExam(id) {
+    if (!confirm('Desbloquear esta prova e liberar novas alterações?')) return;
+    await updateReviewStatus(id, 'em_revisao', { locked_at: null }, 'Bloqueio revertido. A prova voltou para revisão.', 'desbloqueada');
+  }
+
   function returnExam(id) { openReturnModal(id); }
 
-  async function updateReviewStatus(id, status, extra, message) {
+  async function updateReviewStatus(id, status, extra, message, historyAction = status) {
     const exam = reviews.find((item) => item.id === id);
     if (!exam) return;
 
     const now = new Date().toISOString();
     const user = auth.getCurrentUser();
     const historyEntry = {
-      action: status,
+      action: historyAction,
       reviewer: profile?.full_name || user.email || 'Coordenação',
       date: now,
       notes: extra.review_notes || '',

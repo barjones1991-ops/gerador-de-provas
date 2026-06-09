@@ -493,9 +493,13 @@ async function main() {
     assert(editor.includes('if (!response.ok)'), 'new exam save should check Supabase response.ok');
     assert(editor.includes('Supabase não retornou o ID da prova criada.'), 'new exam save should fail if Supabase does not return id');
     assert(coordination.includes("confirm('Aprovar esta prova"), 'approve action should require confirmation');
+    assert(coordination.includes("confirm('Desaprovar esta prova"), 'unapprove action should require confirmation');
     assert(coordination.includes("confirm('Bloquear esta prova"), 'block action should require confirmation');
+    assert(coordination.includes("confirm('Desbloquear esta prova"), 'unblock action should require confirmation');
     assert(coordination.includes('const canApprove = !isApproved && !isBlocked;'), 'coordination should hide incompatible approve action');
+    assert(coordination.includes('const canUnapprove = isApproved;'), 'coordination should show unapprove action for approved exams');
     assert(coordination.includes('const canReturn = !isBlocked;'), 'coordination should hide incompatible return action');
+    assert(coordination.includes('const canUnblock = isBlocked;'), 'coordination should show unblock action for blocked exams');
     assert(editor.includes("['topNewQuestionBtn', 'openBankBtn']"), 'review lock should cover top editor actions');
     assert(editor.includes('#topQuestionMenu button, #questionBankModal button[data-bank-action]'), 'review lock should cover menus and bank actions');
   });
@@ -514,7 +518,7 @@ async function main() {
 
   await test('coordination page has review actions', () => {
     const page = read('coordenacao.html');
-    ['approveExam', 'returnExam', 'blockExam', 'updateReviewStatus'].forEach((name) => {
+    ['approveExam', 'unapproveExam', 'returnExam', 'blockExam', 'unblockExam', 'updateReviewStatus'].forEach((name) => {
       assert(page.includes(name), `${name} missing in coordination page`);
     });
     assert(page.includes("profile?.role"), 'coordination role guard missing');
