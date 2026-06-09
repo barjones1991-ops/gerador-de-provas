@@ -251,6 +251,11 @@
       const updated = exam.updated_at ? new Date(exam.updated_at).toLocaleDateString('pt-BR') : '—';
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
       const history = Array.isArray(exam.review_history) ? exam.review_history : [];
+      const isApproved = exam.review_status === 'aprovada';
+      const isBlocked = exam.review_status === 'bloqueada';
+      const canApprove = !isApproved && !isBlocked;
+      const canReturn = !isBlocked;
+      const canBlock = !isBlocked;
       const historyHtml = history.length ? `
         <div style="margin-top:4px;">
           <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">📋 Histórico (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
@@ -279,11 +284,11 @@
           ${exam.review_notes ? `<div class="review-note"><strong>Observação registrada</strong>${esc(exam.review_notes)}</div>` : ''}
           ${historyHtml}
           <div class="actions">
-            <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">Corrigir</button>
+            <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">${isApproved || isBlocked ? 'Ver' : 'Corrigir'}</button>
             <button class="btn" type="button" onclick="openPrint('${exam.id}')">PDF</button>
-            <button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>
-            <button class="btn warn" type="button" onclick="openReturnModal('${exam.id}')">Devolver</button>
-            <button class="btn danger" type="button" onclick="blockExam('${exam.id}')">Bloquear</button>
+            ${canApprove ? `<button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>` : ''}
+            ${canReturn ? `<button class="btn warn" type="button" onclick="openReturnModal('${exam.id}')">Devolver</button>` : ''}
+            ${canBlock ? `<button class="btn danger" type="button" onclick="blockExam('${exam.id}')">Bloquear</button>` : ''}
           </div>
         </div>
       `;
@@ -318,10 +323,10 @@
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('confirmReturnBtn').addEventListener('click', async () => {
       const notes = document.getElementById('returnNotesInput').value.trim();
+      const examId = pendingReturnId;
       closeReturnModal();
-      if (pendingReturnId) {
-        await updateReviewStatus(pendingReturnId, 'devolvida', { review_notes: notes, locked_at: null }, 'Prova devolvida ao professor.');
-        pendingReturnId = null;
+      if (examId) {
+        await updateReviewStatus(examId, 'devolvida', { review_notes: notes, locked_at: null }, 'Prova devolvida ao professor.');
       }
     });
     document.getElementById('returnModalOverlay').addEventListener('click', (e) => {
@@ -330,10 +335,12 @@
   });
 
   async function approveExam(id) {
+    if (!confirm('Aprovar esta prova e bloquear a edição do professor?')) return;
     await updateReviewStatus(id, 'aprovada', { locked_at: new Date().toISOString() }, 'Prova aprovada.');
   }
 
   async function blockExam(id) {
+    if (!confirm('Bloquear esta prova para impedir novas alterações?')) return;
     await updateReviewStatus(id, 'bloqueada', { locked_at: new Date().toISOString() }, 'Prova bloqueada.');
   }
 

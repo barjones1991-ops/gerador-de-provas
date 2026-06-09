@@ -358,6 +358,7 @@
               <div><label>E-mail admin</label><input id="se-email-${s.id}" type="email" value="${esc(s.admin_email || '')}" /></div>
               <div>
                 <label>Logo</label>
+                <img id="se-logo-preview-${s.id}" class="school-logo-thumb" src="${esc(s.logo_data_url || '')}" alt="Prévia da logo" style="${s.logo_data_url ? '' : 'display:none;'} margin-bottom:6px;" />
                 <input id="se-logo-file-${s.id}" type="file" accept="image/*" class="visually-hidden" onchange="onSchoolLogoChange('${s.id}')" />
                 <div style="display:flex;gap:6px;margin-top:4px;">
                   <button class="btn sm" type="button" onclick="document.getElementById('se-logo-file-${s.id}').click()">
@@ -404,7 +405,14 @@
     const file = inp && inp.files && inp.files[0];
     if (!file || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
-    reader.onload = () => { pendingLogos[schoolId] = String(reader.result || ''); };
+    reader.onload = () => {
+      pendingLogos[schoolId] = String(reader.result || '');
+      const preview = document.getElementById(`se-logo-preview-${schoolId}`);
+      if (preview) {
+        preview.src = pendingLogos[schoolId];
+        preview.style.display = 'block';
+      }
+    };
     reader.readAsDataURL(file);
   }
 

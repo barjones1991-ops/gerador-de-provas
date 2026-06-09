@@ -339,31 +339,11 @@
   <div class="modal" style="max-width:440px;">
     <div class="modal-icon">👤</div>
     <h3>Meu perfil</h3>
-    <p>Edite seu nome e série. Escola e disciplinas são definidas pela coordenação.</p>
+    <p>Edite seu nome. Escola, série e disciplinas são definidas pela coordenação.</p>
     <div class="modal-form">
       <div>
         <label>Nome completo</label>
         <input id="profileNameInput" type="text" placeholder="Seu nome" />
-      </div>
-      <div>
-        <label>Série / Ano que leciona</label>
-        <select id="profileGradeInput" style="width:100%;padding:11px 12px;border:1.5px solid #e2e8f0;border-radius:11px;font-size:14px;font-family:inherit;">
-          <option value="">Não informado</option>
-          <option value="Educação Infantil">Educação Infantil</option>
-          <option value="1º ano">1º ano</option>
-          <option value="2º ano">2º ano</option>
-          <option value="3º ano">3º ano</option>
-          <option value="4º ano">4º ano</option>
-          <option value="5º ano">5º ano</option>
-          <option value="6º ano">6º ano</option>
-          <option value="7º ano">7º ano</option>
-          <option value="8º ano">8º ano</option>
-          <option value="9º ano">9º ano</option>
-          <option value="1º Ensino Médio">1º Ensino Médio</option>
-          <option value="2º Ensino Médio">2º Ensino Médio</option>
-          <option value="3º Ensino Médio">3º Ensino Médio</option>
-          <option value="Múltiplas séries">Múltiplas séries</option>
-        </select>
       </div>
       <div class="profile-sec-label" style="margin-top:4px;">Dados vinculados pela coordenação</div>
       <div id="profileSchoolBlock" class="profile-info-block">
@@ -587,6 +567,8 @@
       };
       const badgeClass = badgeMap[review] || (exam.is_published ? 'badge-published' : 'badge-draft');
       const locked = ['aprovada', 'bloqueada'].includes(review);
+      const reviewInProgress = ['enviada', 'em_revisao'].includes(review);
+      const reviewButtonLabel = reviewInProgress ? 'Em revisão' : (locked ? label : 'Enviar revisão');
       const date = exam.created_at ? new Date(exam.created_at).toLocaleDateString('pt-BR') : '—';
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
 
@@ -606,9 +588,8 @@
             <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
             <button class="card-btn print" onclick="printExam('${exam.id}')">PDF</button>
             <button class="card-btn duplicate" onclick="duplicateExam('${exam.id}')">⊕ Copiar</button>
-            <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${locked || review === 'enviada' || review === 'em_revisao' ? 'disabled' : ''}>Coord.</button>
-            <button class="card-btn ${exam.is_published ? 'unpublish' : 'publish'}" onclick="togglePublish('${exam.id}')">${exam.is_published ? 'Rascunho' : 'Publicar'}</button>
-            <button class="card-btn delete" onclick="askDelete('${exam.id}')">🗑️ Deletar</button>
+            <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${locked || reviewInProgress ? 'disabled' : ''}>${reviewButtonLabel}</button>
+            <button class="card-btn delete" onclick="askDelete('${exam.id}')" ${locked ? 'disabled' : ''}>🗑️ Deletar</button>
           </div>
         </div>`;
     }).join('');
@@ -752,8 +733,6 @@
 
   async function openProfileModal() {
     document.getElementById('profileNameInput').value = currentProfile.full_name || '';
-    document.getElementById('profileGradeInput').value = currentProfile.school_grade || '';
-
     // Escola vinculada
     let schoolName = '';
     if (currentProfile.school_id) {
@@ -796,17 +775,7 @@
     const btn = document.getElementById('saveProfileBtn');
     const user = auth.getCurrentUser();
     const fullName = document.getElementById('profileNameInput').value.trim();
-    const grade = document.getElementById('profileGradeInput').value;
-
     // Se vinculado a escola, usa o nome real da escola (não texto livre)
-    let schoolName = currentProfile.school_name || '';
-    if (currentProfile.school_id) {
-      try {
-        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name`);
-        if (Array.isArray(sd) && sd[0]) schoolName = sd[0].name;
-      } catch {}
-    }
-
     btn.disabled = true;
     btn.textContent = 'Salvando...';
 
@@ -815,12 +784,10 @@
         method: 'PATCH',
         body: JSON.stringify({
           full_name: fullName,
-          school_name: schoolName,
-          school_grade: grade || null,
         }),
       });
 
-      currentProfile = { ...currentProfile, full_name: fullName, school_name: schoolName, school_grade: grade };
+      currentProfile = { ...currentProfile, full_name: fullName };
       applyProfileToHeader();
       closeProfileModal();
       showToast('Perfil atualizado.', 'success');
@@ -867,6 +834,11 @@
   function askDelete(id) {
     pendingDeleteId = id;
     const exam = exams.find(e => e.id === id);
+    const review = exam?.review_status || 'rascunho';
+    if (['aprovada', 'bloqueada'].includes(review)) {
+      showToast('Provas aprovadas ou bloqueadas não podem ser deletadas.', 'error');
+      return;
+    }
     const title = exam?.title || 'esta prova';
     document.getElementById('deleteModalMsg').textContent = `Deletar "${title}"? Esta ação não pode ser desfeita.`;
     document.getElementById('deleteModal').classList.add('show');

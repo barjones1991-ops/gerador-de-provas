@@ -1104,7 +1104,8 @@
       const auth = initAuthManager();
       if (!auth || !auth.isAuthenticated()) {
         localStorage.setItem('editExamId', id);
-        window.location.href = 'login.html';
+        const returnTo = `print.html?id=${encodeURIComponent(id)}`;
+        window.location.href = `login.html?return_to=${encodeURIComponent(returnTo)}`;
         return;
       }
 

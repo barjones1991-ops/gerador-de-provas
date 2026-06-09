@@ -409,6 +409,11 @@ async function main() {
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
     assert(sql.includes('school_id'), 'school_id in profiles missing');
+    assert(sql.includes("FOR DELETE USING (") && sql.includes("COALESCE(review_status, 'rascunho') NOT IN ('aprovada', 'bloqueada')"), 'approved/blocked exams should not be deletable by teacher');
+    assert(sql.includes('protect_profile_managed_fields'), 'profile managed fields protection trigger missing');
+    assert(sql.includes('NEW.school_id = OLD.school_id'), 'profile school_id should be protected from self updates');
+    assert(sql.includes('NEW.school_grade = OLD.school_grade'), 'profile school_grade should be protected from self updates');
+    assert(sql.includes('NEW.disciplines = OLD.disciplines'), 'profile disciplines should be protected from self updates');
   });
 
   await test('editor organizes question card into labelled sections', () => {
@@ -449,21 +454,50 @@ async function main() {
     assert(dashboard.includes('currentReviewStatus'), 'currentReviewStatus state missing');
     assert(dashboard.includes('schools.html'), 'schools link missing in dashboard');
     assert(dashboard.includes('localStorage.removeItem(`gerador-provas-state-v1:${user.id}`)'), 'new exam should clear current user local draft');
+    assert(dashboard.includes('Enviar revisão'), 'dashboard should use a clear review action label');
+    assert(!dashboard.includes('>Coord.</button>'), 'dashboard should not use abbreviated Coord. action');
+    assert(!dashboard.includes('Publicar</button>'), 'dashboard should not expose a parallel publish action');
+    assert(dashboard.includes("Provas aprovadas ou bloqueadas não podem ser deletadas."), 'dashboard should guard locked exam delete');
+    assert(!dashboard.includes('profileGradeInput'), 'teacher profile should not expose duplicate editable grade');
+    assert(dashboard.includes('Escola, série e disciplinas são definidas pela coordenação.'), 'teacher profile should clarify coordination-owned fields');
+    assert(!dashboard.includes('school_name: schoolName'), 'teacher profile save should not update coordination-owned school_name');
+    assert(!dashboard.includes('school_grade: grade'), 'teacher profile save should not update coordination-owned school_grade');
   });
 
   await test('saved and anonymous drafts do not reopen as new exams', () => {
     const editor = read('editor.html');
     const dashboard = read('dashboard.html');
     const index = read('index.html');
+    const login = read('login.html');
     const print = read('print.html');
-    assert(index.includes('href="editor.html?new=1"'), 'home create action should force a new exam');
+    assert(index.includes('href="login.html?return_to=editor.html%3Fnew%3D1"'), 'home create action should require login with editor return');
     assert(dashboard.includes("window.location.href = 'editor.html?new=1'"), 'dashboard new exam should force a new exam');
     assert(editor.includes("const forceNewExam = editorParams.get('new') === '1'"), 'editor should detect forced new exam mode');
     assert(editor.includes('if (forceNewExam) localStorage.removeItem(\'editExamId\')'), 'forced new exam should clear editExamId');
     assert(editor.includes('if (forceNewExam) {'), 'forced new exam should bypass saved draft restore');
     assert(editor.includes('localStorage.removeItem(activeStorageKey)'), 'cloud save should remove local draft');
     assert(editor.includes('localDraftAutosaveEnabled = false'), 'cloud save should disable local draft autosave');
+    assert(editor.includes('login.html?return_to=${encodeURIComponent(returnTo)}'), 'editor should redirect anonymous users to login with return_to');
+    assert(login.includes('function getSafeReturnTo()'), 'login should validate return_to');
+    assert(login.includes('setTimeout(goAfterAuth, 1200)'), 'login should return to protected destination after auth');
     assert(print.includes('const raw = userKey ? localStorage.getItem(userKey) : null;'), 'print should not fall back to anonymous draft');
+    assert(print.includes('login.html?return_to=${encodeURIComponent(returnTo)}'), 'print should redirect anonymous users with return_to');
+  });
+
+  await test('critical flow fixes are guarded', () => {
+    const coordination = read('coordenacao.html');
+    const editor = read('editor.html');
+    assert(coordination.includes('const examId = pendingReturnId;'), 'return modal should capture pending id before closing');
+    assert(coordination.indexOf('const examId = pendingReturnId;') < coordination.indexOf('closeReturnModal();'), 'return id should be captured before modal close');
+    assert(coordination.includes("updateReviewStatus(examId, 'devolvida'"), 'return action should use captured id');
+    assert(editor.includes('if (!response.ok)'), 'new exam save should check Supabase response.ok');
+    assert(editor.includes('Supabase não retornou o ID da prova criada.'), 'new exam save should fail if Supabase does not return id');
+    assert(coordination.includes("confirm('Aprovar esta prova"), 'approve action should require confirmation');
+    assert(coordination.includes("confirm('Bloquear esta prova"), 'block action should require confirmation');
+    assert(coordination.includes('const canApprove = !isApproved && !isBlocked;'), 'coordination should hide incompatible approve action');
+    assert(coordination.includes('const canReturn = !isBlocked;'), 'coordination should hide incompatible return action');
+    assert(editor.includes("['topNewQuestionBtn', 'openBankBtn']"), 'review lock should cover top editor actions');
+    assert(editor.includes('#topQuestionMenu button, #questionBankModal button[data-bank-action]'), 'review lock should cover menus and bank actions');
   });
 
   await test('schools admin page exists and is valid', () => {
@@ -474,6 +508,8 @@ async function main() {
     assert(page.includes('deleteSchool'), 'deleteSchool function missing');
     assert(page.includes('school_id'), 'school_id reference missing');
     assert(page.includes("'coordenadora'") || page.includes('is_coordinator_or_admin'), 'role guard reference missing');
+    assert(page.includes('se-logo-preview'), 'school edit should show logo preview');
+    assert(page.includes('preview.src = pendingLogos[schoolId]'), 'school logo change should update preview before save');
   });
 
   await test('coordination page has review actions', () => {

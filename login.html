@@ -147,7 +147,7 @@
         return;
       }
       if (auth && auth.isAuthenticated()) {
-        window.location.href = 'dashboard.html';
+        window.location.href = getSafeReturnTo() || 'dashboard.html';
       }
     });
 
@@ -173,6 +173,19 @@
         refreshToken: hash.get('refresh_token') || query.get('refresh_token') || '',
         type: hash.get('type') || query.get('type') || '',
       };
+    }
+
+    function getSafeReturnTo() {
+      const value = new URLSearchParams(window.location.search).get('return_to') || '';
+      if (!value) return '';
+      if (/^(https?:)?\/\//i.test(value) || value.includes('\\')) return '';
+      const normalized = value.replace(/^\/+/, '');
+      if (!normalized || normalized.startsWith('../') || normalized.includes('/../')) return '';
+      return normalized;
+    }
+
+    function goAfterAuth() {
+      window.location.href = getSafeReturnTo() || 'dashboard.html';
     }
 
     function enableRecoveryMode() {
@@ -264,7 +277,7 @@
             return;
           }
           showAlert('✓ Login realizado! Redirecionando...', 'success');
-          setTimeout(() => window.location.href = 'dashboard.html', 1200);
+          setTimeout(goAfterAuth, 1200);
         } else {
           const result = await auth.signUp(email, password, { full_name: name, school_name: school });
           if (!result.success) {
@@ -275,7 +288,7 @@
           const loginResult = await auth.signIn(email, password);
           if (loginResult.success) {
             showAlert('✓ Conta criada! Redirecionando...', 'success');
-            setTimeout(() => window.location.href = 'dashboard.html', 1200);
+            setTimeout(goAfterAuth, 1200);
           } else {
             showAlert('✓ Conta criada! Faça login para continuar.', 'success');
             setMode('login');

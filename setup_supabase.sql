@@ -44,6 +44,27 @@ DROP POLICY IF EXISTS "Coordenadora edita professores" ON profiles;
 CREATE POLICY "Coordenadora edita professores" ON profiles
   FOR UPDATE USING (public.is_coordinator_or_admin());
 
+-- Campos de vinculo escolar sao gerenciados pela coordenacao/admin.
+-- Quando o proprio professor atualiza o perfil, preserva os campos protegidos.
+CREATE OR REPLACE FUNCTION public.protect_profile_managed_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.uid() = OLD.id AND NOT public.is_coordinator_or_admin() THEN
+    NEW.role = OLD.role;
+    NEW.school_name = OLD.school_name;
+    NEW.school_id = OLD.school_id;
+    NEW.school_grade = OLD.school_grade;
+    NEW.disciplines = OLD.disciplines;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS protect_profile_managed_fields_before_update ON profiles;
+CREATE TRIGGER protect_profile_managed_fields_before_update
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION public.protect_profile_managed_fields();
+
 -- 2. Tabela de provas
 CREATE TABLE IF NOT EXISTS exams (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -103,8 +124,13 @@ CREATE POLICY "Provas próprias: editar" ON exams
   );
 
 DROP POLICY IF EXISTS "Provas próprias: deletar" ON exams;
-CREATE POLICY "Provas próprias: deletar" ON exams
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Provas prÃ³prias: deletar" ON exams;
+DROP POLICY IF EXISTS "exams_delete_own_unlocked" ON exams;
+CREATE POLICY "exams_delete_own_unlocked" ON exams
+  FOR DELETE USING (
+    auth.uid() = user_id
+    AND COALESCE(review_status, 'rascunho') NOT IN ('aprovada', 'bloqueada')
+  );
 
 -- 3. Banco de questões
 CREATE TABLE IF NOT EXISTS question_bank (

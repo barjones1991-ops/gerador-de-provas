@@ -6102,11 +6102,8 @@
 
       if (!auth || !auth.isAuthenticated()) {
         // Não logado: mostra link de login, esconde barra de nuvem
-        document.getElementById('cloudBar').classList.add('visible');
-        document.getElementById('loginLink').classList.remove('hidden');
-        document.getElementById('cloudUser').textContent = 'offline';
-        document.getElementById('saveCloudBtn').disabled = true;
-        document.getElementById('lastSaved').textContent = 'Entre para salvar na nuvem.';
+        const returnTo = currentExamId && !forceNewExam ? 'editor.html' : 'editor.html?new=1';
+        window.location.href = `login.html?return_to=${encodeURIComponent(returnTo)}`;
         return;
       }
 
@@ -6179,6 +6176,18 @@
           if (['printBtn', 'printBtn2'].includes(node.id)) return;
           node.disabled = locked;
         });
+      ['topNewQuestionBtn', 'openBankBtn'].forEach((id) => {
+        const node = document.getElementById(id);
+        if (node) node.disabled = locked;
+      });
+      document.querySelectorAll('#topQuestionMenu button, #questionBankModal button[data-bank-action]')
+        .forEach((node) => { node.disabled = locked; });
+      if (locked) {
+        const topMenu = document.getElementById('topQuestionMenu');
+        if (topMenu) topMenu.classList.add('hidden');
+        const bankModal = document.getElementById('questionBankModal');
+        if (bankModal) bankModal.classList.remove('show');
+      }
       const saveBtn = document.getElementById('saveCloudBtn');
       if (saveBtn) saveBtn.disabled = locked;
       if (locked) showToast('Esta prova foi aprovada/bloqueada pela coordenação e não pode mais ser alterada.', 'err');
@@ -6397,7 +6406,21 @@
             },
             body: JSON.stringify(payload),
           });
-          const data = await response.json();
+          const responseText = await response.text();
+          let data = null;
+          if (responseText) {
+            try {
+              data = JSON.parse(responseText);
+            } catch {
+              data = null;
+            }
+          }
+          if (!response.ok) {
+            const detail = Array.isArray(data)
+              ? data[0]?.message
+              : (data?.message || data?.error_description || data?.details || data?.hint || responseText);
+            throw new Error(detail || `HTTP ${response.status}`);
+          }
           if (Array.isArray(data) && data[0]?.id) {
             currentExamId = data[0].id;
             currentExamOwnerId = auth.getCurrentUser().id;
@@ -6405,6 +6428,8 @@
             localStorage.removeItem(activeStorageKey);
             localDraftAutosaveEnabled = false;
             updatePrintPageLink();
+          } else {
+            throw new Error('Supabase não retornou o ID da prova criada.');
           }
         }
 
