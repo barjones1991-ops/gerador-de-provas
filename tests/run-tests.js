@@ -453,7 +453,14 @@ async function main() {
 
   await test('saved and anonymous drafts do not reopen as new exams', () => {
     const editor = read('editor.html');
+    const dashboard = read('dashboard.html');
+    const index = read('index.html');
     const print = read('print.html');
+    assert(index.includes('href="editor.html?new=1"'), 'home create action should force a new exam');
+    assert(dashboard.includes("window.location.href = 'editor.html?new=1'"), 'dashboard new exam should force a new exam');
+    assert(editor.includes("const forceNewExam = editorParams.get('new') === '1'"), 'editor should detect forced new exam mode');
+    assert(editor.includes('if (forceNewExam) localStorage.removeItem(\'editExamId\')'), 'forced new exam should clear editExamId');
+    assert(editor.includes('if (forceNewExam) {'), 'forced new exam should bypass saved draft restore');
     assert(editor.includes('localStorage.removeItem(activeStorageKey)'), 'cloud save should remove local draft');
     assert(editor.includes('localDraftAutosaveEnabled = false'), 'cloud save should disable local draft autosave');
     assert(print.includes('const raw = userKey ? localStorage.getItem(userKey) : null;'), 'print should not fall back to anonymous draft');

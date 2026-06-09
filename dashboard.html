@@ -655,7 +655,7 @@
     if (user?.id) {
       localStorage.removeItem(`gerador-provas-state-v1:${user.id}`);
     }
-    window.location.href = 'editor.html';
+    window.location.href = 'editor.html?new=1';
   }
 
   function editExam(id) {

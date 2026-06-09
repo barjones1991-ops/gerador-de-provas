@@ -5863,7 +5863,10 @@
   <script src="js/auth.js"></script>
   <script>
     let auth = null;
-    let currentExamId = localStorage.getItem('editExamId') || null;
+    const editorParams = new URLSearchParams(window.location.search);
+    const forceNewExam = editorParams.get('new') === '1';
+    if (forceNewExam) localStorage.removeItem('editExamId');
+    let currentExamId = forceNewExam ? null : (localStorage.getItem('editExamId') || null);
     let toastTimer;
     let currentReviewStatus = 'rascunho';
     let currentExamOwnerId = null;
@@ -6185,6 +6188,14 @@
       activeStorageKey = `${STORAGE_KEY_BASE}:${userId}`;
       localDraftAutosaveEnabled = !currentExamId;
       if (currentExamId) return;
+
+      if (forceNewExam) {
+        localStorage.removeItem(activeStorageKey);
+        resetStateToDefault();
+        applyStateToInputs();
+        renderAll();
+        return;
+      }
 
       const hasUserDraft = loadSavedState(activeStorageKey);
       if (!hasUserDraft) {
