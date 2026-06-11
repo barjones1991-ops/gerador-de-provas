@@ -445,8 +445,11 @@ async function main() {
     assert(print.includes('onclick="printCleanDocument()"'), 'print page button should call clean print wrapper');
     assert(editor.includes("document.title = ' ';"), 'editor should clear title while printing');
     assert(print.includes("document.title = ' ';"), 'print page should clear title while printing');
-    assert(editor.includes('margin: 10mm 12mm 12mm 12mm;'), 'editor should preserve printable page margins');
-    assert(print.includes('@page { size: A4 portrait; margin: 10mm 12mm 12mm; }'), 'print page should preserve printable page margins');
+    assert(editor.includes('margin: 8mm 9mm 10mm 9mm;'), 'editor should use compact printable page margins');
+    assert(print.includes('@page { size: A4 portrait; margin: 8mm 9mm 10mm; }'), 'print page should use compact printable page margins');
+    assert(editor.includes('.question-block {\n        margin: 0 0 12px 0;'), 'editor print should reduce space between questions');
+    assert(print.includes('.question-block { margin: 0 0 12px; }'), 'print page should reduce space between questions');
+    assert(print.includes('.qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; }'), 'print page should use compact question text');
   });
 
   await test('coordination page has review history', () => {
