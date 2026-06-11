@@ -445,8 +445,8 @@ async function main() {
     assert(print.includes('onclick="printCleanDocument()"'), 'print page button should call clean print wrapper');
     assert(editor.includes("document.title = ' ';"), 'editor should clear title while printing');
     assert(print.includes("document.title = ' ';"), 'print page should clear title while printing');
-    assert(editor.includes('margin: 0;'), 'editor print page margin should avoid browser header/footer area');
-    assert(print.includes('@page { size: A4 portrait; margin: 0; }'), 'print page margin should avoid browser header/footer area');
+    assert(editor.includes('margin: 10mm 12mm 12mm 12mm;'), 'editor should preserve printable page margins');
+    assert(print.includes('@page { size: A4 portrait; margin: 10mm 12mm 12mm; }'), 'print page should preserve printable page margins');
   });
 
   await test('coordination page has review history', () => {
