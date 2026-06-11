@@ -529,6 +529,12 @@ async function main() {
     assert(page.includes("'coordenadora'") || page.includes('is_coordinator_or_admin'), 'role guard reference missing');
     assert(page.includes('se-logo-preview'), 'school edit should show logo preview');
     assert(page.includes('preview.src = pendingLogos[schoolId]'), 'school logo change should update preview before save');
+    assert(page.includes('const GRADE_OPTIONS = ['), 'school page should centralize grade options');
+    assert(page.includes('linkGradeCheckboxes'), 'link professor flow should allow multiple grade checkboxes');
+    assert(page.includes('pe-grades-${p.id}'), 'professor edit should allow multiple grade checkboxes');
+    assert(page.includes("getCheckedValues('linkGradeCheckboxes').join(', ')"), 'link professor should save multiple grades');
+    assert(page.includes("getCheckedValues(`pe-grades-${profId}`).join(', ')"), 'professor edit should save multiple grades');
+    assert(!page.includes('linkGradeSelect'), 'school page should not use a single grade select for linking');
   });
 
   await test('coordination page has review actions', () => {

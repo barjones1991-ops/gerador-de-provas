@@ -182,24 +182,8 @@
       </div>
     </div>
     <div>
-      <label>Série / Ano que leciona</label>
-      <select id="linkGradeSelect">
-        <option value="">Selecionar</option>
-        <option value="Educação Infantil">Educação Infantil</option>
-        <option value="1º ano">1º ano</option>
-        <option value="2º ano">2º ano</option>
-        <option value="3º ano">3º ano</option>
-        <option value="4º ano">4º ano</option>
-        <option value="5º ano">5º ano</option>
-        <option value="6º ano">6º ano</option>
-        <option value="7º ano">7º ano</option>
-        <option value="8º ano">8º ano</option>
-        <option value="9º ano">9º ano</option>
-        <option value="1º Ensino Médio">1º Ensino Médio</option>
-        <option value="2º Ensino Médio">2º Ensino Médio</option>
-        <option value="3º Ensino Médio">3º Ensino Médio</option>
-        <option value="Múltiplas séries">Múltiplas séries</option>
-      </select>
+      <label>Séries / anos que leciona</label>
+      <div id="linkGradeCheckboxes" class="disc-checkboxes"></div>
     </div>
     <div id="linkDisciplinesSection" style="display:none;">
       <label>Disciplinas que leciona</label>
@@ -227,6 +211,10 @@
   let schools = [];
   let newSchoolDisciplines = [];
   let newSchoolLogoDataUrl = '';
+  const GRADE_OPTIONS = [
+    'Educação Infantil','1º ano','2º ano','3º ano','4º ano','5º ano','6º ano','7º ano','8º ano','9º ano',
+    '1º Ensino Médio','2º Ensino Médio','3º Ensino Médio',
+  ];
 
   document.addEventListener('DOMContentLoaded', async () => {
     auth = initAuthManager();
@@ -255,6 +243,7 @@
     document.getElementById('addSchoolBtn').addEventListener('click', addSchool);
     document.getElementById('linkProfBtn').addEventListener('click', linkProfessor);
     document.getElementById('linkSchoolSelect').addEventListener('change', onLinkSchoolChange);
+    renderGradeCheckboxes('linkGradeCheckboxes');
 
     // Logo upload
     document.getElementById('pickLogoBtn').addEventListener('click', () => document.getElementById('logoFileInput').click());
@@ -563,7 +552,9 @@
       list.innerHTML = profs.map(p => {
         const school = schools.find(s => s.id === p.school_id);
         const discs = Array.isArray(p.disciplines) ? p.disciplines : [];
+        const profGrades = normalizeGrades(p.school_grade);
         const schoolDiscs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
+        const gradeCheckboxes = renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades);
         const discCheckboxes = schoolDiscs.map(d =>
           `<label class="disc-check-label"><input type="checkbox" value="${esc(d)}" ${discs.includes(d) ? 'checked' : ''} />${esc(d)}</label>`
         ).join('');
@@ -572,7 +563,7 @@
           <div style="display:flex; align-items:center; gap:10px;">
             <div style="flex:1;">
               <div class="pname">${esc(p.full_name || '—')}</div>
-              <div class="pmeta">${esc(p.email || '')}${p.school_grade ? ' · ' + esc(p.school_grade) : ''}${school ? ' · ' + esc(school.name) : ' · Sem escola'}</div>
+              <div class="pmeta">${esc(p.email || '')}${profGrades.length ? ' · ' + esc(profGrades.join(', ')) : ''}${school ? ' · ' + esc(school.name) : ' · Sem escola'}</div>
               ${discs.length ? `<div class="tags" style="margin-top:6px;">${discs.map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>` : ''}
             </div>
             <div class="prof-actions">
@@ -582,12 +573,8 @@
           </div>
           <div class="prof-edit" id="pe-${p.id}">
             <div style="margin-bottom:8px;">
-              <label>Série / Ano</label>
-              <select id="pe-grade-${p.id}">
-                <option value="">Selecionar</option>
-                ${['Educação Infantil','1º ano','2º ano','3º ano','4º ano','5º ano','6º ano','7º ano','8º ano','9º ano','1º Ensino Médio','2º Ensino Médio','3º Ensino Médio','Múltiplas séries']
-                  .map(g => `<option value="${g}"${p.school_grade === g ? ' selected' : ''}>${g}</option>`).join('')}
-              </select>
+              <label>Séries / anos</label>
+              <div id="pe-grades-${p.id}" class="disc-checkboxes">${gradeCheckboxes}</div>
             </div>
             ${schoolDiscs.length ? `
             <div style="margin-bottom:10px;">
@@ -610,7 +597,7 @@
   }
 
   async function saveProfEdit(profId) {
-    const grade = document.getElementById(`pe-grade-${profId}`)?.value || '';
+    const grade = getCheckedValues(`pe-grades-${profId}`).join(', ');
     const checked = Array.from(document.querySelectorAll(`#pe-discs-${profId} input:checked`)).map(cb => cb.value);
     try {
       await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
@@ -641,7 +628,7 @@
   async function linkProfessor() {
     const schoolId = document.getElementById('linkSchoolSelect').value;
     const email = document.getElementById('linkProfEmail').value.trim();
-    const grade = document.getElementById('linkGradeSelect').value;
+    const grade = getCheckedValues('linkGradeCheckboxes').join(', ');
     const checkedDiscs = Array.from(document.querySelectorAll('#linkDisciplinesCheckboxes input:checked')).map(cb => cb.value);
     if (!email) { showToast('Digite o e-mail do professor.', 'error'); return; }
     const btn = document.getElementById('linkProfBtn');
@@ -663,6 +650,7 @@
       resultEl.textContent = `Professor "${prof.full_name || prof.email}" vinculado com sucesso.`;
       showToast('Professor vinculado!');
       document.getElementById('linkProfEmail').value = '';
+      document.querySelectorAll('#linkGradeCheckboxes input:checked').forEach(cb => cb.checked = false);
       document.getElementById('linkDisciplinesSection').style.display = 'none';
       document.getElementById('linkDisciplinesCheckboxes').innerHTML = '';
       await loadProfessors();
@@ -671,6 +659,30 @@
       showToast('Erro ao vincular professor.', 'error');
     }
     btn.disabled = false;
+  }
+
+  function normalizeGrades(value) {
+    if (Array.isArray(value)) return value.map(String).map(v => v.trim()).filter(Boolean);
+    return String(value || '')
+      .split(/[,;|/]+/)
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+
+  function renderGradeCheckboxesHtml(containerId, selected = []) {
+    const chosen = new Set(normalizeGrades(selected));
+    return GRADE_OPTIONS.map(g =>
+      `<label class="disc-check-label"><input type="checkbox" value="${esc(g)}" ${chosen.has(g) ? 'checked' : ''} />${esc(g)}</label>`
+    ).join('');
+  }
+
+  function renderGradeCheckboxes(containerId, selected = []) {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = renderGradeCheckboxesHtml(containerId, selected);
+  }
+
+  function getCheckedValues(containerId) {
+    return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(cb => cb.value);
   }
 
   function esc(s) {
