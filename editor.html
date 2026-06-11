@@ -2776,6 +2776,7 @@
               dataUrl: String(reader.result || ''),
               fileName: file.name,
               align: 'left',
+              offsetY: 0,
               width: 180,
               height: 120,
             });
@@ -5164,8 +5165,9 @@
         : '';
       return images.map((img, imageIndex) => {
         const align = img.align === 'right' || Number(img.x || 0) > 240 ? 'right' : 'left';
+        const offsetY = Math.max(0, Math.min(500, Number(img.offsetY ?? img.y) || 0));
         return `
-          <div class="free-image-item ${align}" data-question-index="${questionIndex}" data-image-index="${imageIndex}" style="width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;">
+          <div class="free-image-item ${align}" data-question-index="${questionIndex}" data-image-index="${imageIndex}" style="width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;margin-top:${offsetY}px;">
             <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
             ${controls}
           </div>
@@ -5628,6 +5630,7 @@
           const base = {
             width: Number(img.width) || 180,
             height: Number(img.height) || 120,
+            offsetY: Math.max(0, Math.min(500, Number(img.offsetY ?? img.y) || 0)),
           };
 
           const onMove = (moveEvent) => {
@@ -5640,7 +5643,9 @@
               item.style.height = `${img.height}px`;
             } else {
               img.align = moveEvent.clientX > blockRect.left + blockRect.width / 2 ? 'right' : 'left';
+              img.offsetY = Math.max(0, Math.min(500, base.offsetY + dy));
               item.classList.toggle('right', img.align === 'right');
+              item.style.marginTop = `${img.offsetY}px`;
             }
           };
 

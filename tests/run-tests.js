@@ -448,8 +448,10 @@ async function main() {
     assert(editor.includes('free-image-remove'), 'editor should expose remove button');
     assert(editor.includes('shape-outside: margin-box;'), 'free images should make text flow around them');
     assert(editor.includes("img.align = moveEvent.clientX > blockRect.left + blockRect.width / 2 ? 'right' : 'left';"), 'dragging should move free image between text-flow sides');
+    assert(editor.includes('img.offsetY = Math.max(0, Math.min(500, base.offsetY + dy));'), 'dragging should allow vertical free image movement');
     assert(print.includes('function buildFreeImagesHtml'), 'print page should render free images');
     assert(print.includes('.free-image-item.right'), 'print page should support right-aligned free images');
+    assert(print.includes('margin-top:${offsetY}px;'), 'print page should preserve vertical free image offset');
     assert(print.includes('${buildFreeImagesHtml(q)}'), 'print page should place free images before flowing text');
   });
 
