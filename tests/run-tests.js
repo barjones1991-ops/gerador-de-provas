@@ -468,7 +468,9 @@ async function main() {
     assert(print.includes('@page { size: A4 portrait; margin: 8mm 9mm 10mm; }'), 'print page should use compact printable page margins');
     assert(editor.includes('.question-block {\n        margin: 0 0 12px 0;'), 'editor print should reduce space between questions');
     assert(print.includes('.question-block { margin: 0 0 12px; }'), 'print page should reduce space between questions');
-    assert(print.includes('.qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; }'), 'print page should use compact question text');
+    assert(print.includes('.qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }'), 'print page should use compact wrapping question text');
+    assert(editor.includes('overflow-wrap: anywhere; word-break: break-word; max-width: 100%;'), 'editor preview should wrap long question text');
+    assert(print.includes('overflow-wrap: anywhere; word-break: break-word; max-width: 100%;'), 'print page should wrap long question text');
   });
 
   await test('coordination page has review history', () => {
