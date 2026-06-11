@@ -60,9 +60,10 @@
     .chip { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 999px; font-size: 12px; color: #334155; }
     .questions { margin-top: 22px; display: grid; gap: 22px; }
     .question-block { break-inside: avoid; page-break-inside: avoid; }
-    .free-image-canvas { position: relative; min-height: 160px; margin-top: 8px; overflow: hidden; }
-    .free-image-item { position: absolute; border: 0; background: transparent; }
+    .free-image-item { position: relative; float: left; margin: 4px 14px 8px 0; border: 0; background: transparent; shape-outside: margin-box; }
+    .free-image-item.right { float: right; margin: 4px 0 8px 14px; }
     .free-image-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .free-image-clear { clear: both; height: 0; }
     .qtitle { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
     .qtitle .n { font-size: 18px; font-weight: 900; }
     .qtitle .p { font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -940,17 +941,14 @@
     function buildFreeImagesHtml(q) {
       const images = Array.isArray(q.freeImages) ? q.freeImages.filter(img => img && img.dataUrl) : [];
       if (!images.length) return '';
-      const bottom = images.reduce((max, img) => Math.max(max, (Number(img.y) || 0) + (Number(img.height) || 120)), 160);
-      const height = Math.max(160, Math.min(900, bottom + 14));
-      return `
-        <div class="free-image-canvas" style="height:${height}px;">
-          ${images.map((img) => `
-            <div class="free-image-item" style="left:${Number(img.x) || 0}px;top:${Number(img.y) || 0}px;width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;">
-              <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
-            </div>
-          `).join('')}
-        </div>
-      `;
+      return images.map((img) => {
+        const align = img.align === 'right' || Number(img.x || 0) > 240 ? 'right' : 'left';
+        return `
+          <div class="free-image-item ${align}" style="width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;">
+            <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
+          </div>
+        `;
+      }).join('');
     }
 
     function getQuestionAnswer(q) {
@@ -1133,8 +1131,10 @@
                 <div class="n">Questão ${i + 1}</div>
                 <div class="p">Valor: ${esc(q.points)}${q.bncc ? ` <span class="bncc-badge">${esc(q.bncc)}</span>` : ''}</div>
               </div>
+              ${buildFreeImagesHtml(q)}
               <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>
-              <div class="qpreview">${_buildHeaderHtml(q) + renderQuestionPreview(q) + buildFreeImagesHtml(q)}</div>
+              <div class="qpreview">${_buildHeaderHtml(q) + renderQuestionPreview(q)}</div>
+              <div class="free-image-clear"></div>
             </div>
           `).join('')}
         </div>

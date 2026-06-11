@@ -446,9 +446,11 @@ async function main() {
     assert(editor.includes('function initFreeImageInteractions'), 'editor should allow free image interaction');
     assert(editor.includes('free-image-resize'), 'editor should expose resize handle');
     assert(editor.includes('free-image-remove'), 'editor should expose remove button');
+    assert(editor.includes('shape-outside: margin-box;'), 'free images should make text flow around them');
+    assert(editor.includes("img.align = moveEvent.clientX > blockRect.left + blockRect.width / 2 ? 'right' : 'left';"), 'dragging should move free image between text-flow sides');
     assert(print.includes('function buildFreeImagesHtml'), 'print page should render free images');
-    assert(print.includes('free-image-canvas'), 'print page should include free image canvas styles');
-    assert(print.includes('renderQuestionPreview(q) + buildFreeImagesHtml(q)'), 'print page should include free images in question output');
+    assert(print.includes('.free-image-item.right'), 'print page should support right-aligned free images');
+    assert(print.includes('${buildFreeImagesHtml(q)}'), 'print page should place free images before flowing text');
   });
 
   await test('print output avoids browser header/footer metadata where possible', () => {

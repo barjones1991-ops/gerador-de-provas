@@ -710,23 +710,18 @@
     .instructions .h { font-weight: 800; margin-bottom: 6px; }
     .questions { margin-top: 22px; display: grid; gap: 22px; }
     .question-block { break-inside: avoid; page-break-inside: avoid; }
-    .free-image-canvas {
-      position: relative;
-      min-height: 160px;
-      margin-top: 8px;
-      border: 1px dashed #cbd5e1;
-      border-radius: 10px;
-      background: #fff;
-      overflow: hidden;
-    }
     .free-image-item {
-      position: absolute;
+      position: relative;
+      float: left;
+      margin: 4px 14px 8px 0;
       border: 1px solid rgba(15, 23, 42, 0.25);
       border-radius: 6px;
       background: #fff;
       cursor: move;
       user-select: none;
+      shape-outside: margin-box;
     }
+    .free-image-item.right { float: right; margin: 4px 0 8px 14px; }
     .free-image-item img {
       width: 100%;
       height: 100%;
@@ -759,6 +754,7 @@
       background: #0f172a;
       cursor: nwse-resize;
     }
+    .free-image-clear { clear: both; height: 0; }
     .qtitle { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
     .qtitle .n { font-size: 18px; font-weight: 900; }
     .qtitle .p { font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -1299,7 +1295,6 @@
         widows: 3;
       }
       .a4-break-indicator { display: none; }
-      .free-image-canvas { border: 0; background: transparent; }
       .free-image-item { border: 0; }
       .free-image-remove, .free-image-resize { display: none !important; }
       .gabarito-page { break-before: page; page-break-before: always; }
@@ -2780,8 +2775,7 @@
             q.freeImages.push({
               dataUrl: String(reader.result || ''),
               fileName: file.name,
-              x: 10,
-              y: 10,
+              align: 'left',
               width: 180,
               height: 120,
             });
@@ -5165,21 +5159,18 @@
     function buildFreeImagesHtml(q, questionIndex, editable = true) {
       const images = Array.isArray(q.freeImages) ? q.freeImages.filter(img => img && img.dataUrl) : [];
       if (!images.length) return '';
-      const bottom = images.reduce((max, img) => Math.max(max, (Number(img.y) || 0) + (Number(img.height) || 120)), 160);
-      const height = Math.max(160, Math.min(900, bottom + 14));
       const controls = editable
         ? '<button class="free-image-remove no-print" type="button" title="Remover imagem">×</button><span class="free-image-resize no-print" title="Redimensionar"></span>'
         : '';
-      return `
-        <div class="free-image-canvas" style="height:${height}px;" data-question-index="${questionIndex}">
-          ${images.map((img, imageIndex) => `
-            <div class="free-image-item" data-question-index="${questionIndex}" data-image-index="${imageIndex}" style="left:${Number(img.x) || 0}px;top:${Number(img.y) || 0}px;width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;">
-              <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
-              ${controls}
-            </div>
-          `).join('')}
-        </div>
-      `;
+      return images.map((img, imageIndex) => {
+        const align = img.align === 'right' || Number(img.x || 0) > 240 ? 'right' : 'left';
+        return `
+          <div class="free-image-item ${align}" data-question-index="${questionIndex}" data-image-index="${imageIndex}" style="width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;">
+            <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
+            ${controls}
+          </div>
+        `;
+      }).join('');
     }
 
     function renderQuestionPreview(q) {
@@ -5586,15 +5577,17 @@
         const text = q.text || 'Digite o enunciado da questão.';
         const numLabel = q.hideNumber ? '' : `<div class="n">Questão ${qNum}</div>`;
         const bnccBadge = q.bncc ? `<span class="bncc-badge no-print">${esc(q.bncc)}</span>` : '';
-        const preview = buildHeaderImageHtml(q) + renderQuestionPreview(q) + buildFreeImagesHtml(q, i, true);
+        const preview = buildHeaderImageHtml(q) + renderQuestionPreview(q);
         return `
           <div class="question-block">
             <div class="qtitle">
               ${numLabel}
               <div class="p">${q.hideNumber ? '' : `Valor: ${esc(q.points)}`}${bnccBadge}</div>
             </div>
+            ${buildFreeImagesHtml(q, i, true)}
             <div class="qtext">${esc(text)}</div>
             <div class="qpreview">${preview}</div>
+            <div class="free-image-clear"></div>
           </div>
         `;
       }).join('');
@@ -5628,13 +5621,11 @@
         const startMove = (event, resizing = false) => {
           event.preventDefault();
           event.stopPropagation();
-          const canvas = item.closest('.free-image-canvas');
-          const canvasRect = canvas.getBoundingClientRect();
+          const block = item.closest('.question-block');
+          const blockRect = block.getBoundingClientRect();
           const startX = event.clientX;
           const startY = event.clientY;
           const base = {
-            x: Number(img.x) || 0,
-            y: Number(img.y) || 0,
             width: Number(img.width) || 180,
             height: Number(img.height) || 120,
           };
@@ -5643,16 +5634,14 @@
             const dx = moveEvent.clientX - startX;
             const dy = moveEvent.clientY - startY;
             if (resizing) {
-              img.width = Math.max(40, Math.min(canvasRect.width - base.x, base.width + dx));
+              img.width = Math.max(40, Math.min(blockRect.width * 0.8, base.width + dx));
               img.height = Math.max(30, base.height + dy);
+              item.style.width = `${img.width}px`;
+              item.style.height = `${img.height}px`;
             } else {
-              img.x = Math.max(0, Math.min(canvasRect.width - base.width, base.x + dx));
-              img.y = Math.max(0, Math.min(canvasRect.height - base.height, base.y + dy));
+              img.align = moveEvent.clientX > blockRect.left + blockRect.width / 2 ? 'right' : 'left';
+              item.classList.toggle('right', img.align === 'right');
             }
-            item.style.left = `${img.x}px`;
-            item.style.top = `${img.y}px`;
-            item.style.width = `${img.width}px`;
-            item.style.height = `${img.height}px`;
           };
 
           const onUp = () => {
