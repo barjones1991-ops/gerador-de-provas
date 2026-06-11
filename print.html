@@ -269,14 +269,12 @@
       .chipbar { display: grid; grid-template-columns: 1fr; }
     }
     @media print {
-      html, body { height: auto !important; overflow: visible !important; }
       body { background: #fff; }
       .no-print { display: none !important; }
-      .page { width: auto; margin: 0; padding: 0; box-shadow: none; height: auto !important; overflow: visible !important; }
-      .questions { display: block; height: auto !important; overflow: visible !important; }
-      .question-block { margin: 0 0 20px; break-inside: auto; page-break-inside: auto; }
-      .pv-header, .info-grid, .student-grid, .instructions, .qtitle { break-inside: avoid; page-break-inside: avoid; }
-      .qpreview, .spacey, .two-cols, .mark-grid, .question-image { break-inside: auto; page-break-inside: auto; overflow: visible !important; }
+      .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
+      .questions { display: block; }
+      .question-block { margin: 0 0 20px; }
+      .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
       @page { size: A4 portrait; margin: 10mm 12mm 12mm; }
     }
   </style>

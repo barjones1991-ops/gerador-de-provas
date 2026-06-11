@@ -1175,10 +1175,6 @@
       .wrap { max-width: none; padding: 0; }
       .grid { display: block; }
       body { background: #fff; padding-top: 0; }
-      html, body {
-        height: auto !important;
-        overflow: visible !important;
-      }
       .no-print { display: none !important; }
       .preview {
         box-shadow: none !important;
@@ -1195,25 +1191,29 @@
       .info-grid,
       .student-grid,
       .instructions,
+      .question-block,
       .infobox,
-      .qtitle {
+      .two-cols,
+      .spacey,
+      .qpreview {
         break-inside: avoid;
         page-break-inside: avoid;
       }
       .questions {
         display: block !important;
-        height: auto !important;
-        overflow: visible !important;
       }
       .question-block {
         margin: 0 0 20px 0;
-        break-inside: auto;
-        page-break-inside: auto;
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
-      .qpreview, .spacey, .two-cols, .mark-grid, .question-image {
-        break-inside: auto;
-        page-break-inside: auto;
-        overflow: visible !important;
+      .qpreview, .spacey, .two-cols, .mark-grid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .question-image {
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
       .qtext {
         orphans: 3;
@@ -5690,40 +5690,37 @@
       const paperRect = paper.getBoundingClientRect();
       const paperTop = paperRect.top + window.scrollY;
 
-      // A4 a 96dpi: 210mm x 297mm. O preview tem borda/padding próprios, então
-      // usamos a largura interna do papel para manter a quebra alinhada ao impresso.
+      // A4 a 96dpi: 297mm → ~1122px. Margem impresso: 22mm topo+baixo ≈ 83px.
+      // Conteúdo por página ≈ 1039px. Mas na tela o zoom varia, então usamos
+      // a proporção da largura do paper em relação a 794px (A4 width at 96dpi).
       const paperWidth = paperRect.width || 794;
-      const paperStyle = getComputedStyle(paper);
-      const horizontalChrome =
-        parseFloat(paperStyle.paddingLeft || 0) +
-        parseFloat(paperStyle.paddingRight || 0) +
-        parseFloat(paperStyle.borderLeftWidth || 0) +
-        parseFloat(paperStyle.borderRightWidth || 0);
-      const contentWidth = Math.max(1, paperWidth - horizontalChrome);
-      const mmToPx = 96 / 25.4;
-      const printableWidthPx = (210 - 12 - 12) * mmToPx;
-      const printableHeightPx = (297 - 10 - 12) * mmToPx;
-      const scale = contentWidth / printableWidthPx;
-      const pageHeightPx = Math.round(printableHeightPx * scale);
+      const scale = paperWidth / 794;
+      const pageHeightPx = Math.round(1039 * scale);
 
-      const blocks = Array.from(pvQ.querySelectorAll('.question-block'));
+      const blocks = pvQ.querySelectorAll('.question-block');
       let markers = new Set();
-      const contentBottom = Math.max(
-        paper.scrollHeight,
-        ...blocks.map(block => {
-          const blockRect = block.getBoundingClientRect();
-          return blockRect.bottom + window.scrollY - paperTop;
-        })
-      );
-      for (let p = 1; p * pageHeightPx < contentBottom; p++) markers.add(p);
+      blocks.forEach(block => {
+        const blockRect = block.getBoundingClientRect();
+        const blockTop = blockRect.top + window.scrollY - paperTop;
+        const blockBottom = blockTop + blockRect.height;
+        const pageStart = Math.floor(blockTop / pageHeightPx);
+        const pageEnd = Math.floor(blockBottom / pageHeightPx);
+        if (pageEnd > pageStart) {
+          // Esta questão cruza uma quebra de página
+          for (let p = pageStart + 1; p <= pageEnd; p++) {
+            markers.add(p);
+          }
+        }
+      });
 
       // Insere marcadores nos pontos de quebra dentro da lista de questões
       if (markers.size === 0) return;
+      const allBlocks = Array.from(pvQ.querySelectorAll('.question-block'));
       markers.forEach(pageNum => {
         const breakY = pageNum * pageHeightPx;
         // Encontra o bloco logo antes do breakY
         let insertBefore = null;
-        for (const block of blocks) {
+        for (const block of allBlocks) {
           const bRect = block.getBoundingClientRect();
           const bTop = bRect.top + window.scrollY - paperTop;
           if (bTop >= breakY) { insertBefore = block; break; }
