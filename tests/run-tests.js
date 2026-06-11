@@ -437,6 +437,18 @@ async function main() {
     assert(print.includes('extraImgsHtml'), 'extra images HTML var missing');
   });
 
+  await test('print output avoids browser header/footer metadata where possible', () => {
+    const editor = read('editor.html');
+    const print = read('print.html');
+    assert(editor.includes('function printCleanDocument()'), 'editor should use clean print wrapper');
+    assert(print.includes('function printCleanDocument()'), 'print page should use clean print wrapper');
+    assert(print.includes('onclick="printCleanDocument()"'), 'print page button should call clean print wrapper');
+    assert(editor.includes("document.title = ' ';"), 'editor should clear title while printing');
+    assert(print.includes("document.title = ' ';"), 'print page should clear title while printing');
+    assert(editor.includes('margin: 0;'), 'editor print page margin should avoid browser header/footer area');
+    assert(print.includes('@page { size: A4 portrait; margin: 0; }'), 'print page margin should avoid browser header/footer area');
+  });
+
   await test('coordination page has review history', () => {
     const page = read('coordenacao.html');
     assert(page.includes('review_history'), 'review_history missing in coordination page');

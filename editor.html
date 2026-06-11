@@ -1224,7 +1224,7 @@
       .answer-space-hidden { display: none !important; }
       @page {
         size: A4 portrait;
-        margin: 10mm 12mm 12mm 12mm;
+        margin: 0;
       }
     }
   </style>
@@ -5855,15 +5855,24 @@
       }
     });
 
+    function printCleanDocument() {
+      const originalTitle = document.title;
+      document.title = ' ';
+      const restoreTitle = () => { document.title = originalTitle; };
+      window.addEventListener('afterprint', restoreTitle, { once: true });
+      window.print();
+      setTimeout(restoreTitle, 1000);
+    }
+
     el('printBtn').addEventListener('click', () => {
       const sec = el('gabaritoSection');
       if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
-      window.print();
+      printCleanDocument();
     });
     el('printBtn2').addEventListener('click', () => {
       const sec = el('gabaritoSection');
       if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
-      window.print();
+      printCleanDocument();
     });
     el('gabaritoBtn').addEventListener('click', () => {
       const sec = el('gabaritoSection');
@@ -5871,7 +5880,7 @@
       sec.dataset.show = 'true';
       sec.style.display = 'block';
       renderGabarito();
-      window.print();
+      printCleanDocument();
       // Oculta após impressão
       setTimeout(() => { sec.style.display = 'none'; sec.dataset.show = 'false'; }, 500);
     });

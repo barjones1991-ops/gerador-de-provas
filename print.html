@@ -271,11 +271,11 @@
     @media print {
       body { background: #fff; }
       .no-print { display: none !important; }
-      .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
+      .page { width: auto; margin: 0; padding: 10mm 12mm 12mm; box-shadow: none; }
       .questions { display: block; }
       .question-block { margin: 0 0 20px; }
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
-      @page { size: A4 portrait; margin: 10mm 12mm 12mm; }
+      @page { size: A4 portrait; margin: 0; }
     }
   </style>
 </head>
@@ -285,7 +285,7 @@
     <div class="toolbar-actions">
       <a class="btn" href="dashboard.html">Minhas Provas</a>
       <button class="btn" type="button" id="answerKeyBtn">Com gabarito</button>
-      <button class="btn primary" type="button" onclick="window.print()">Imprimir / PDF</button>
+      <button class="btn primary" type="button" onclick="printCleanDocument()">Imprimir / PDF</button>
     </div>
   </div>
 
@@ -304,6 +304,16 @@
     function esc(s) {
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
+
+    function printCleanDocument() {
+      const originalTitle = document.title;
+      document.title = ' ';
+      const restoreTitle = () => { document.title = originalTitle; };
+      window.addEventListener('afterprint', restoreTitle, { once: true });
+      window.print();
+      setTimeout(restoreTitle, 1000);
+    }
+
     function normalizeRelacioneQuestion(q) {
       if (!q || q.type !== 'relacione') return q;
       if (!Array.isArray(q.pairs) || q.pairs.length === 0) {
@@ -1041,7 +1051,7 @@
         ? `<div class="logo has-image"><img src="${exam.logo_data_url}" alt="Logo da escola" /></div>`
         : '<div class="logo" style="display:flex;align-items:center;justify-content:center;font-size:11px;color:#cbd5e1;border:1px dashed #e2e8f0;border-radius:8px;">Logo</div>';
 
-      document.title = `${exam.title || 'Prova'} - Impressão`;
+      document.title = exam.title || 'Prova';
       document.getElementById('root').innerHTML = `
         <div class="pv-header">
           <div>
