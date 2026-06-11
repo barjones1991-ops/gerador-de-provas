@@ -447,6 +447,10 @@ async function main() {
     assert(print.includes("document.title = ' ';"), 'print page should clear title while printing');
     assert(editor.includes('margin: 10mm 12mm 12mm 12mm;'), 'editor should preserve printable page margins');
     assert(print.includes('@page { size: A4 portrait; margin: 10mm 12mm 12mm; }'), 'print page should preserve printable page margins');
+    assert(editor.includes('html, body {\n        height: auto !important;\n        overflow: visible !important;'), 'editor print should allow document pagination');
+    assert(print.includes('html, body { height: auto !important; overflow: visible !important; }'), 'print page should allow document pagination');
+    assert(editor.includes('page-break-inside: auto;'), 'editor print should allow long questions to split across PDF pages');
+    assert(print.includes('.question-block { margin: 0 0 20px; break-inside: auto; page-break-inside: auto; }'), 'print page should allow long questions to split across PDF pages');
   });
 
   await test('coordination page has review history', () => {
