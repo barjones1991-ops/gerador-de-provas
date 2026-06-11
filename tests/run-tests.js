@@ -437,6 +437,20 @@ async function main() {
     assert(print.includes('extraImgsHtml'), 'extra images HTML var missing');
   });
 
+  await test('editor supports freely positioned images per question', () => {
+    const editor = read('editor.html');
+    const print = read('print.html');
+    assert(editor.includes('q.freeImages'), 'editor should store free images on each question');
+    assert(editor.includes('Imagem livre'), 'editor should expose free image action');
+    assert(editor.includes('function buildFreeImagesHtml'), 'editor should render free images');
+    assert(editor.includes('function initFreeImageInteractions'), 'editor should allow free image interaction');
+    assert(editor.includes('free-image-resize'), 'editor should expose resize handle');
+    assert(editor.includes('free-image-remove'), 'editor should expose remove button');
+    assert(print.includes('function buildFreeImagesHtml'), 'print page should render free images');
+    assert(print.includes('free-image-canvas'), 'print page should include free image canvas styles');
+    assert(print.includes('renderQuestionPreview(q) + buildFreeImagesHtml(q)'), 'print page should include free images in question output');
+  });
+
   await test('print output avoids browser header/footer metadata where possible', () => {
     const editor = read('editor.html');
     const print = read('print.html');
