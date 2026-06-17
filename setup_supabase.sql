@@ -3,6 +3,8 @@
 -- Supabase > SQL Editor > New Query > Cole tudo > Run
 -- =============================================
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 1. Tabela de perfis dos professores
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
@@ -10,10 +12,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   full_name TEXT,
   school_name TEXT,
   role TEXT DEFAULT 'professor',
+  force_password_change BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'professor';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS force_password_change BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
@@ -27,6 +31,28 @@ CREATE OR REPLACE FUNCTION public.is_coordinator_or_admin()
 RETURNS BOOLEAN AS $$
   SELECT COALESCE(public.current_user_role() IN ('coordenadora', 'admin'), FALSE);
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.admin_reset_user_password(target_profile_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  IF NOT public.is_coordinator_or_admin() THEN
+    RAISE EXCEPTION 'Apenas coordenacao ou admin pode resetar senhas.';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = target_profile_id) THEN
+    RAISE EXCEPTION 'Usuario nao encontrado.';
+  END IF;
+
+  UPDATE auth.users
+  SET encrypted_password = crypt('123456', gen_salt('bf')),
+      updated_at = NOW()
+  WHERE id = target_profile_id;
+
+  UPDATE public.profiles
+  SET force_password_change = TRUE
+  WHERE id = target_profile_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
 DROP POLICY IF EXISTS "Perfil próprio: ver" ON profiles;
 CREATE POLICY "Perfil próprio: ver" ON profiles

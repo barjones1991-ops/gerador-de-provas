@@ -53,6 +53,8 @@ git commit -m "descrição objetiva da alteração"
 git push
 ```
 
+Regra de validação local: depois de qualquer alteração, rodar `npm test` e abrir o projeto em servidor local para o usuário verificar se ficou de acordo com as expectativas. Só publicar no GitHub depois dessa validação do usuário.
+
 Regra de publicação: sempre verificar se a alteração também exige atualização no Supabase. Se envolver tabelas, colunas, policies RLS, Auth, triggers, roles, storage ou payloads salvos no banco, atualizar `setup_supabase.sql`, aplicar no SQL Editor do Supabase e testar Auth/REST antes de considerar a entrega concluída.
 
 ## Arquivos Principais
@@ -213,6 +215,8 @@ npm test
 
 - Atualizar ou criar teste em `tests/run-tests.js`.
 - Rodar `npm test`.
+- Rodar o programa localmente e compartilhar o endereço local com o usuário.
+- Aguardar a validação do usuário antes de enviar para o GitHub.
 - Verificar se houve mudança de schema, RLS, Auth, roles ou formato de dados.
 - Se houve impacto Supabase, atualizar `setup_supabase.sql`, aplicar no SQL Editor do Supabase e testar Auth/REST.
 - Commitar com mensagem objetiva.
@@ -220,6 +224,3 @@ npm test
 ### Achados Para Ajuste Posterior
 
 Registrar aqui bugs ou inconsistências encontrados durante correções/refatorações quando não forem resolvidos no mesmo commit.
-
-- Confirmar aplicação no Supabase real das alterações de `setup_supabase.sql`: trigger de proteção dos campos de vínculo em `profiles` e policy que impede professor de deletar provas `aprovada` ou `bloqueada`.
-- Depois de restaurar o projeto Supabase pausado, testar Auth/REST com anon key e validar login, criação de prova, envio para revisão e bloqueio de exclusão.

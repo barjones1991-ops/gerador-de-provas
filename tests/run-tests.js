@@ -409,6 +409,9 @@ async function main() {
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
     assert(sql.includes('school_id'), 'school_id in profiles missing');
+    assert(sql.includes('force_password_change'), 'forced password change flag missing');
+    assert(sql.includes('admin_reset_user_password'), 'admin password reset RPC missing');
+    assert(sql.includes("crypt('123456'"), 'admin password reset should set temporary password 123456');
     assert(sql.includes("FOR DELETE USING (") && sql.includes("COALESCE(review_status, 'rascunho') NOT IN ('aprovada', 'bloqueada')"), 'approved/blocked exams should not be deletable by teacher');
     assert(sql.includes('protect_profile_managed_fields'), 'profile managed fields protection trigger missing');
     assert(sql.includes('NEW.school_id = OLD.school_id'), 'profile school_id should be protected from self updates');
@@ -570,7 +573,22 @@ async function main() {
     assert(page.includes('pe-grades-${p.id}'), 'professor edit should allow multiple grade checkboxes');
     assert(page.includes("getCheckedValues('linkGradeCheckboxes').join(', ')"), 'link professor should save multiple grades');
     assert(page.includes("getCheckedValues(`pe-grades-${profId}`).join(', ')"), 'professor edit should save multiple grades');
+    assert(page.includes('promoteProfessor'), 'school page should allow promoting a professor');
+    assert(page.includes("role: 'coordenadora'"), 'professor promotion should update role to coordenadora');
+    assert(page.includes('Promover a coordenador(a)'), 'professor list should show promotion action');
+    assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
+    assert(page.includes('/rpc/admin_reset_user_password'), 'password reset should call admin reset RPC');
+    assert(page.includes('target_profile_id: profId'), 'password reset should send target profile id');
     assert(!page.includes('linkGradeSelect'), 'school page should not use a single grade select for linking');
+  });
+
+  await test('login enforces password change after admin reset', () => {
+    const page = read('login.html');
+    assert(page.includes('isForcedPasswordChange'), 'forced password change mode missing');
+    assert(page.includes('requiresPasswordChange'), 'forced password change profile check missing');
+    assert(page.includes('force_password_change'), 'login should read forced password flag');
+    assert(page.includes("password === '123456'"), 'login should reject keeping temporary password');
+    assert(page.includes('force_password_change: false'), 'login should clear forced password flag after update');
   });
 
   await test('coordination page has review actions', () => {

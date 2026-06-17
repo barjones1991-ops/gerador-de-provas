@@ -568,6 +568,8 @@
             </div>
             <div class="prof-actions">
               <button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Editar</button>
+              <button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Resetar senha</button>
+              <button class="btn sm primary" type="button" onclick="promoteProfessor('${p.id}')">Promover a coordenador(a)</button>
               ${p.school_id ? `<button class="btn sm danger" type="button" onclick="unlinkProfessor('${p.id}')">Desvincular</button>` : ''}
             </div>
           </div>
@@ -608,6 +610,33 @@
       await loadProfessors();
     } catch (err) {
       showToast('Erro ao salvar: ' + err.message, 'error');
+    }
+  }
+
+  async function promoteProfessor(profId) {
+    if (!confirm('Promover este professor para coordenador(a)? Este usuario passara a acessar as areas de coordenacao.')) return;
+    try {
+      await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: 'coordenadora' }),
+      });
+      showToast('Professor promovido para coordenador(a).');
+      await loadProfessors();
+    } catch (err) {
+      showToast('Erro ao promover professor: ' + err.message, 'error');
+    }
+  }
+
+  async function resetProfessorPassword(profId) {
+    if (!confirm('Resetar a senha deste usuario para 123456? No proximo acesso ele sera obrigado a cadastrar uma nova senha.')) return;
+    try {
+      await auth.authenticatedRequest('/rpc/admin_reset_user_password', {
+        method: 'POST',
+        body: JSON.stringify({ target_profile_id: profId }),
+      });
+      showToast('Senha resetada para 123456. O usuario devera cadastrar uma nova senha no proximo acesso.');
+    } catch (err) {
+      showToast('Erro ao resetar senha: ' + err.message, 'error');
     }
   }
 

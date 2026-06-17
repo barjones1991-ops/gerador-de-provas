@@ -136,9 +136,10 @@
   <script>
     let isLogin = true;
     let isRecovery = false;
+    let isForcedPasswordChange = false;
     let auth = null;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       auth = initAuthManager();
       const recovery = getRecoveryParams();
       if (recovery.accessToken && auth) {
@@ -147,12 +148,16 @@
         return;
       }
       if (auth && auth.isAuthenticated()) {
+        if (await requiresPasswordChange()) {
+          enableForcedPasswordChangeMode();
+          return;
+        }
         window.location.href = getSafeReturnTo() || 'dashboard.html';
       }
     });
 
     function setMode(mode) {
-      if (isRecovery) return;
+      if (isRecovery || isForcedPasswordChange) return;
       isLogin = (mode === 'login');
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
       document.getElementById('tabSignup').classList.toggle('active', !isLogin);
@@ -203,6 +208,34 @@
       showAlert('Digite sua nova senha para concluir a recuperação.', 'success');
     }
 
+    function enableForcedPasswordChangeMode() {
+      isForcedPasswordChange = true;
+      isLogin = false;
+      document.querySelector('.tab-row').style.display = 'none';
+      document.getElementById('resetWrap').style.display = 'none';
+      document.getElementById('email').closest('.form-group').style.display = 'none';
+      document.getElementById('nameGroup').style.display = 'none';
+      document.getElementById('schoolGroup').style.display = 'none';
+      document.getElementById('passwordLabel').textContent = 'Nova senha';
+      document.getElementById('password').value = '';
+      document.getElementById('password').autocomplete = 'new-password';
+      document.getElementById('password').placeholder = 'Digite uma nova senha';
+      document.getElementById('submitBtn').textContent = 'Salvar nova senha';
+      showAlert('Sua senha foi resetada. Cadastre uma nova senha para continuar.', 'success');
+    }
+
+    async function requiresPasswordChange() {
+      try {
+        if (!auth?.currentUser?.id) return false;
+        const data = await auth.authenticatedRequest(`/profiles?id=eq.${auth.currentUser.id}&select=force_password_change`);
+        const profile = Array.isArray(data) ? data[0] : null;
+        return Boolean(profile?.force_password_change);
+      } catch (err) {
+        console.warn('Nao foi possivel verificar troca obrigatoria de senha:', err.message);
+        return false;
+      }
+    }
+
     function showAlert(msg, type) {
       const box = document.getElementById('alertBox');
       box.textContent = msg;
@@ -225,7 +258,7 @@
       btn.disabled = on;
       btn.innerHTML = on
         ? '<div class="spinner"></div> Aguarde...'
-        : (isRecovery ? 'Salvar nova senha' : (isLogin ? 'Entrar' : 'Criar conta'));
+        : ((isRecovery || isForcedPasswordChange) ? 'Salvar nova senha' : (isLogin ? 'Entrar' : 'Criar conta'));
     }
 
     document.getElementById('authForm').addEventListener('submit', async (e) => {
@@ -263,6 +296,30 @@
         return;
       }
 
+      if (isForcedPasswordChange) {
+        if (!password || password.length < 6) { showFieldError('passwordError', 'Senha deve ter ao menos 6 caracteres'); return; }
+        if (password === '123456') { showFieldError('passwordError', 'Escolha uma senha diferente da senha temporaria.'); return; }
+        setLoading(true);
+        try {
+          const result = await auth.updatePassword(password);
+          if (!result.success) {
+            showAlert(traduzirErro(result.error), 'error');
+            return;
+          }
+          await auth.authenticatedRequest(`/profiles?id=eq.${auth.currentUser.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ force_password_change: false }),
+          });
+          showAlert('Senha atualizada! Redirecionando...', 'success');
+          setTimeout(goAfterAuth, 1200);
+        } catch (err) {
+          showAlert(traduzirErro(err.message), 'error');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       if (!email) { showFieldError('emailError', 'E-mail obrigatório'); return; }
       if (!password || password.length < 6) { showFieldError('passwordError', 'Senha deve ter ao menos 6 caracteres'); return; }
       if (!isLogin && !name) { showFieldError('nameError', 'Nome obrigatório'); return; }
@@ -274,6 +331,10 @@
           const result = await auth.signIn(email, password);
           if (!result.success) {
             showAlert(traduzirErro(result.error), 'error');
+            return;
+          }
+          if (await requiresPasswordChange()) {
+            enableForcedPasswordChangeMode();
             return;
           }
           showAlert('✓ Login realizado! Redirecionando...', 'success');
