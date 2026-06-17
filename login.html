@@ -229,11 +229,13 @@
         if (!auth?.currentUser?.id) return false;
         const data = await auth.authenticatedRequest(`/profiles?id=eq.${auth.currentUser.id}&select=force_password_change`);
         const profile = Array.isArray(data) ? data[0] : null;
-        return Boolean(profile?.force_password_change);
+        if (profile) return Boolean(profile.force_password_change);
       } catch (err) {
         console.warn('Nao foi possivel verificar troca obrigatoria de senha:', err.message);
-        return false;
       }
+
+      const metadata = auth?.currentUser?.user_metadata || {};
+      return metadata.force_password_change === true || metadata.force_password_change === 'true';
     }
 
     function showAlert(msg, type) {
@@ -279,7 +281,7 @@
         if (!password || password.length < 6) { showFieldError('passwordError', 'Senha deve ter ao menos 6 caracteres'); return; }
         setLoading(true);
         try {
-          const result = await auth.updatePassword(password);
+          const result = await auth.updatePassword(password, { force_password_change: false });
           if (!result.success) {
             showAlert(traduzirErro(result.error), 'error');
             return;
@@ -301,7 +303,7 @@
         if (password === '123456') { showFieldError('passwordError', 'Escolha uma senha diferente da senha temporaria.'); return; }
         setLoading(true);
         try {
-          const result = await auth.updatePassword(password);
+          const result = await auth.updatePassword(password, { force_password_change: false });
           if (!result.success) {
             showAlert(traduzirErro(result.error), 'error');
             return;

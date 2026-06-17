@@ -185,7 +185,7 @@ class AuthManager {
   /**
    * Atualizar senha usando a sessão atual
    */
-  async updatePassword(newPassword) {
+  async updatePassword(newPassword, metadata = null) {
     try {
       if (!this.session?.access_token) {
         throw new Error('Sessão de recuperação inválida');
@@ -198,13 +198,31 @@ class AuthManager {
           'apikey': this.config.SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${this.session.access_token}`,
         },
-        body: JSON.stringify({ password: newPassword }),
+        body: JSON.stringify({
+          password: newPassword,
+          ...(metadata ? { data: metadata } : {}),
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok || data.error) {
         throw new Error(data.error?.message || data.message || 'Erro ao atualizar senha');
+      }
+
+      const updatedUser = data?.user || (data?.id ? data : null);
+      if (updatedUser && this.session) {
+        this.currentUser = updatedUser;
+        this.session.user = updatedUser;
+        localStorage.setItem('supabase.auth.token', JSON.stringify(this.session));
+      }
+      if (metadata && this.session?.user) {
+        this.session.user.user_metadata = {
+          ...(this.session.user.user_metadata || {}),
+          ...metadata,
+        };
+        this.currentUser = this.session.user;
+        localStorage.setItem('supabase.auth.token', JSON.stringify(this.session));
       }
 
       return { success: true };

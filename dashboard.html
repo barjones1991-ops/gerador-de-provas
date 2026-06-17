@@ -359,9 +359,19 @@
         <div id="profileDisciplinesTags" class="profile-tags"></div>
         <div id="profileDisciplinesEmpty" class="pib-empty">Não informado</div>
       </div>
+      <div class="profile-sec-label">Seguranca</div>
+      <div>
+        <label>Nova senha</label>
+        <input id="profilePasswordInput" type="password" placeholder="Digite uma nova senha" autocomplete="new-password" />
+      </div>
+      <div>
+        <label>Confirmar nova senha</label>
+        <input id="profilePasswordConfirmInput" type="password" placeholder="Repita a nova senha" autocomplete="new-password" />
+      </div>
     </div>
     <div class="modal-btns">
       <button onclick="closeProfileModal()">Fechar</button>
+      <button id="changePasswordBtn">Alterar senha</button>
       <button class="danger" id="saveProfileBtn" style="background:#667eea; border-color:#667eea;">Salvar</button>
     </div>
   </div>
@@ -388,7 +398,7 @@
 <script>
   let auth = null;
   let exams = [];
-  let currentProfile = { full_name: '', school_name: '', school_id: null, school_grade: '', disciplines: [] };
+  let currentProfile = { full_name: '', school_name: '', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
   let currentFilter = 'all';
   let currentSubject = '';
   let currentTerm = '';
@@ -408,7 +418,7 @@
 
     // Fetch básico: papel e nome — links de menu dependem disso
     try {
-      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,role`);
+      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,role,force_password_change`);
       currentProfile = { ...currentProfile, ...(Array.isArray(profile) && profile[0] ? profile[0] : {}) };
     } catch {}
     applyProfileToHeader();
@@ -431,6 +441,7 @@
     document.getElementById('newExamBtn').addEventListener('click', newExam);
     document.getElementById('profileBtn').addEventListener('click', openProfileModal);
     document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
+    document.getElementById('changePasswordBtn').addEventListener('click', changeOwnPassword);
     document.getElementById('searchInput').addEventListener('input', renderExams);
     document.getElementById('subjectFilter').addEventListener('change', (e) => {
       currentSubject = e.target.value;
@@ -468,6 +479,13 @@
         renderExams();
       });
     });
+
+    if (requiresPasswordChange()) {
+      await openProfileModal();
+      showToast('Cadastre uma nova senha para continuar.', 'error');
+      const passwordInput = document.getElementById('profilePasswordInput');
+      if (passwordInput) passwordInput.focus();
+    }
   });
 
   function extrairNome(email) {
@@ -486,6 +504,10 @@
     document.getElementById('coordinationLink').classList.toggle('show', canCoordinate);
     const schoolsLink = document.getElementById('schoolsLink');
     if (schoolsLink) schoolsLink.style.display = canCoordinate ? 'inline-flex' : 'none';
+  }
+
+  function requiresPasswordChange() {
+    return Boolean(currentProfile.force_password_change);
   }
 
   async function loadExams() {
@@ -733,6 +755,8 @@
 
   async function openProfileModal() {
     document.getElementById('profileNameInput').value = currentProfile.full_name || '';
+    document.getElementById('profilePasswordInput').value = '';
+    document.getElementById('profilePasswordConfirmInput').value = '';
     // Escola vinculada
     let schoolName = '';
     if (currentProfile.school_id) {
@@ -768,6 +792,10 @@
   }
 
   function closeProfileModal() {
+    if (requiresPasswordChange()) {
+      showToast('Altere a senha para continuar.', 'error');
+      return;
+    }
     document.getElementById('profileModal').classList.remove('show');
   }
 
@@ -796,6 +824,49 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Salvar';
+    }
+  }
+
+  async function changeOwnPassword() {
+    const btn = document.getElementById('changePasswordBtn');
+    const user = auth.getCurrentUser();
+    const password = document.getElementById('profilePasswordInput').value;
+    const confirmation = document.getElementById('profilePasswordConfirmInput').value;
+
+    if (!password || password.length < 6) {
+      showToast('A nova senha deve ter ao menos 6 caracteres.', 'error');
+      return;
+    }
+    if (password !== confirmation) {
+      showToast('As senhas digitadas nao conferem.', 'error');
+      return;
+    }
+    if (password === '123456') {
+      showToast('Escolha uma senha diferente da senha temporaria.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Alterando...';
+    try {
+      const result = await auth.updatePassword(password, { force_password_change: false });
+      if (!result.success) throw new Error(result.error || 'Erro ao alterar senha');
+
+      await auth.authenticatedRequest(`/profiles?id=eq.${user.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ force_password_change: false }),
+      });
+
+      currentProfile = { ...currentProfile, force_password_change: false };
+      document.getElementById('profilePasswordInput').value = '';
+      document.getElementById('profilePasswordConfirmInput').value = '';
+      document.getElementById('profileModal').classList.remove('show');
+      showToast('Senha atualizada.', 'success');
+    } catch (err) {
+      showToast('Erro ao alterar senha: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Alterar senha';
     }
   }
 

@@ -411,7 +411,8 @@ async function main() {
     assert(sql.includes('school_id'), 'school_id in profiles missing');
     assert(sql.includes('force_password_change'), 'forced password change flag missing');
     assert(sql.includes('admin_reset_user_password'), 'admin password reset RPC missing');
-    assert(sql.includes("crypt('123456'"), 'admin password reset should set temporary password 123456');
+    assert(sql.includes("extensions.crypt('123456', extensions.gen_salt('bf'))"), 'admin password reset should set temporary password 123456 with Supabase pgcrypto schema');
+    assert(sql.includes('raw_user_meta_data') && sql.includes('"force_password_change": true'), 'admin password reset should mark Auth metadata for forced password change');
     assert(sql.includes("FOR DELETE USING (") && sql.includes("COALESCE(review_status, 'rascunho') NOT IN ('aprovada', 'bloqueada')"), 'approved/blocked exams should not be deletable by teacher');
     assert(sql.includes('protect_profile_managed_fields'), 'profile managed fields protection trigger missing');
     assert(sql.includes('NEW.school_id = OLD.school_id'), 'profile school_id should be protected from self updates');
@@ -584,11 +585,30 @@ async function main() {
 
   await test('login enforces password change after admin reset', () => {
     const page = read('login.html');
+    const auth = read('js/auth.js');
     assert(page.includes('isForcedPasswordChange'), 'forced password change mode missing');
     assert(page.includes('requiresPasswordChange'), 'forced password change profile check missing');
     assert(page.includes('force_password_change'), 'login should read forced password flag');
+    assert(page.indexOf('select=force_password_change') < page.indexOf('user_metadata'), 'login should prefer profile flag before Auth metadata fallback');
     assert(page.includes("password === '123456'"), 'login should reject keeping temporary password');
     assert(page.includes('force_password_change: false'), 'login should clear forced password flag after update');
+    assert(auth.includes('async updatePassword(newPassword, metadata = null)'), 'AuthManager updatePassword should accept metadata');
+    assert(auth.includes('...(metadata ? { data: metadata } : {})'), 'AuthManager updatePassword should send metadata to Supabase Auth');
+    assert(auth.includes('data?.user || (data?.id ? data : null)'), 'AuthManager updatePassword should refresh local session from Supabase user response');
+    assert(auth.includes('this.session.user.user_metadata') && auth.includes('...metadata'), 'AuthManager updatePassword should merge metadata into local session');
+  });
+
+  await test('dashboard allows the current user to change password', () => {
+    const page = read('dashboard.html');
+    assert(page.includes('profilePasswordInput'), 'profile modal should include new password input');
+    assert(page.includes('profilePasswordConfirmInput'), 'profile modal should include password confirmation input');
+    assert(page.includes('changeOwnPassword'), 'dashboard should define password change handler');
+    assert(page.includes('auth.updatePassword(password, { force_password_change: false })'), 'dashboard password change should clear Auth forced password metadata');
+    assert(page.includes('force_password_change: false'), 'dashboard password change should clear profile forced password flag');
+    assert(page.includes("password === '123456'"), 'dashboard should reject keeping the temporary password');
+    assert(page.includes('requiresPasswordChange()'), 'dashboard should check forced password change state');
+    assert(page.includes('return Boolean(currentProfile.force_password_change)'), 'dashboard forced password check should use profile flag as source of truth');
+    assert(page.includes("document.getElementById('profileModal').classList.remove('show')"), 'dashboard should close profile modal after successful password change');
   });
 
   await test('coordination page has review actions', () => {

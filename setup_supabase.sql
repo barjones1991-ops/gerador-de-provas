@@ -44,7 +44,8 @@ BEGIN
   END IF;
 
   UPDATE auth.users
-  SET encrypted_password = crypt('123456', gen_salt('bf')),
+  SET encrypted_password = extensions.crypt('123456', extensions.gen_salt('bf')),
+      raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || '{"force_password_change": true}'::jsonb,
       updated_at = NOW()
   WHERE id = target_profile_id;
 
