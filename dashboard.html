@@ -250,6 +250,7 @@
     </div>
     <div class="avatar" id="userAvatar">P</div>
     <a class="btn-profile btn-coordination" id="coordinationLink" href="coordenacao.html">Coordenação</a>
+    <a class="btn-profile btn-coordination" id="printQueueLink" href="impressao.html">Impressão</a>
     <a class="btn-profile btn-coordination" id="schoolsLink" href="schools.html" style="display:none;">Escolas</a>
     <button class="btn-profile" id="profileBtn">Perfil</button>
     <button class="btn-logout" id="logoutBtn">Sair</button>
@@ -505,6 +506,8 @@
   function applyRoleActions() {
     const canCoordinate = auth.canReviewExams(currentProfile);
     document.getElementById('coordinationLink').classList.toggle('show', canCoordinate);
+    document.getElementById('printQueueLink').classList.toggle('show', auth.canAccessPrintQueue(currentProfile));
+    if (auth.hasRole(['print_operator'], currentProfile)) document.getElementById('newExamBtn').style.display = 'none';
     const schoolsLink = document.getElementById('schoolsLink');
     if (schoolsLink) schoolsLink.style.display = (auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile)) ? 'inline-flex' : 'none';
   }
@@ -516,11 +519,9 @@
   async function loadExams() {
     try {
       const user = auth.getCurrentUser();
-      const endpoint = auth.canReviewExams(currentProfile)
-        ? '/exams?order=created_at.desc&select=*'
-        : `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`;
+      const endpoint = `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`;
       const data = await auth.authenticatedRequest(endpoint);
-      exams = Array.isArray(data) ? data : [];
+      exams = (Array.isArray(data) ? data : []).filter((exam) => exam.user_id === user.id);
       renderSubjectOptions();
       renderExams();
     } catch (err) {

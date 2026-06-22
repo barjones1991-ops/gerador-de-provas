@@ -146,6 +146,19 @@
   </div>
 </div>
 
+<div class="return-modal-overlay" id="printModalOverlay">
+  <div class="return-modal">
+    <h3>Enviar prova para impressão</h3>
+    <p>Informe a quantidade de cópias e uma observação para o responsável pela impressão.</p>
+    <input id="printCopiesInput" type="number" min="1" step="1" placeholder="Quantidade de cópias" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font:inherit;" />
+    <textarea id="printNotesInput" placeholder="Ex.: Imprimir frente e verso. Separar por turma."></textarea>
+    <div class="return-modal-btns">
+      <button class="btn" type="button" onclick="closePrintModal()">Cancelar</button>
+      <button class="btn green" type="button" id="confirmPrintBtn">Enviar para impressão</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
@@ -155,6 +168,7 @@
   let reviews = [];
   let profile = null;
   let pendingReturnId = null;
+  let pendingPrintId = null;
   const reviewLabels = {
     enviada: 'Enviada',
     em_revisao: 'Em revisão',
@@ -180,7 +194,7 @@
     }
 
     try {
-      profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
+      profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id,school_grade');
       if (!auth.canReviewExams(profile)) {
         showToast('Acesso restrito à coordenação.', 'error');
         setTimeout(() => window.location.href = 'dashboard.html', 1200);
@@ -209,7 +223,7 @@
       const data = await auth.authenticatedRequest(
         '/exams?review_status=in.(enviada,em_revisao,aprovada,devolvida,bloqueada)&order=updated_at.desc&select=*'
       );
-      reviews = Array.isArray(data) ? data : [];
+      reviews = (Array.isArray(data) ? data : []).filter(canCurrentProfileReviewExam);
       renderProfFilter();
       renderReviews();
     } catch (err) {
@@ -225,6 +239,36 @@
     const current = sel.value;
     sel.innerHTML = '<option value="">Todos os professores</option>' +
       teachers.map(t => `<option value="${esc(t)}"${t === current ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  }
+
+  function normalizeGradeList(value) {
+    return String(value || '')
+      .split(/[,;|/]+/)
+      .map(normalizeGradeValue)
+      .filter(Boolean);
+  }
+
+  function normalizeGradeValue(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function canCurrentProfileReviewExam(exam) {
+    const role = auth.getRole(profile);
+    if (['master', 'school_owner'].includes(role)) return true;
+    if (role !== 'coordinator') return false;
+
+    const className = normalizeGradeValue(exam.class_name);
+    const allowedGrades = normalizeGradeList(profile?.school_grade);
+    if (!className || !allowedGrades.length) return false;
+
+    return allowedGrades.some((grade) =>
+      className === grade ||
+      className.startsWith(`${grade} `) ||
+      className.startsWith(`${grade} -`)
+    );
   }
 
   function renderReviews() {
@@ -259,6 +303,9 @@
       const canReturn = !isLocked;
       const canBlock = !isLocked;
       const canUnblock = isLocked;
+      const printStatus = exam.print_status || 'nao_enviada';
+      const canSendToPrint = isApproved && printStatus !== 'enviada';
+      const printButtonLabel = printStatus === 'impressa' ? 'Reenviar para impressão' : 'Enviar para impressão';
       const historyHtml = history.length ? `
         <div style="margin-top:4px;">
           <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">📋 Histórico (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
@@ -292,6 +339,7 @@
             ${canApprove ? `<button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>` : ''}
             ${canUnapprove ? `<button class="btn" type="button" onclick="unapproveExam('${exam.id}')">Desaprovar</button>` : ''}
             ${canReturn ? `<button class="btn warn" type="button" onclick="openReturnModal('${exam.id}')">Devolver</button>` : ''}
+            ${canSendToPrint ? `<button class="btn blue" type="button" onclick="openPrintModal('${exam.id}')">${printButtonLabel}</button>` : ''}
             ${canBlock ? `<button class="btn danger" type="button" onclick="blockExam('${exam.id}')">Bloquear</button>` : ''}
             ${canUnblock ? `<button class="btn" type="button" onclick="unblockExam('${exam.id}')">Desbloquear</button>` : ''}
           </div>
@@ -325,6 +373,18 @@
     document.getElementById('returnModalOverlay').classList.remove('show');
   }
 
+  function openPrintModal(id) {
+    pendingPrintId = id;
+    document.getElementById('printCopiesInput').value = '1';
+    document.getElementById('printNotesInput').value = '';
+    document.getElementById('printModalOverlay').classList.add('show');
+  }
+
+  function closePrintModal() {
+    pendingPrintId = null;
+    document.getElementById('printModalOverlay').classList.remove('show');
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('confirmReturnBtn').addEventListener('click', async () => {
       const notes = document.getElementById('returnNotesInput').value.trim();
@@ -336,6 +396,10 @@
     });
     document.getElementById('returnModalOverlay').addEventListener('click', (e) => {
       if (e.target === document.getElementById('returnModalOverlay')) closeReturnModal();
+    });
+    document.getElementById('confirmPrintBtn').addEventListener('click', sendToPrint);
+    document.getElementById('printModalOverlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('printModalOverlay')) closePrintModal();
     });
   });
 
@@ -360,6 +424,54 @@
   }
 
   function returnExam(id) { openReturnModal(id); }
+
+  async function sendToPrint() {
+    const examId = pendingPrintId;
+    const exam = reviews.find((item) => item.id === examId);
+    const copies = Math.max(1, Number.parseInt(document.getElementById('printCopiesInput').value, 10) || 1);
+    const notes = document.getElementById('printNotesInput').value.trim();
+    closePrintModal();
+    if (!exam || exam.review_status !== 'aprovada') {
+      showToast('Apenas provas aprovadas podem ser enviadas para impressão.', 'error');
+      return;
+    }
+
+    const previous = { ...exam };
+    const now = new Date().toISOString();
+    const user = auth.getCurrentUser();
+    Object.assign(exam, {
+      print_status: 'enviada',
+      print_copies: copies,
+      print_notes: notes,
+      print_requested_by: user.id,
+      print_requested_at: now,
+      printed_by: null,
+      printed_at: null,
+      updated_at: now,
+    });
+    renderReviews();
+
+    try {
+      await auth.authenticatedRequest(`/exams?id=eq.${examId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          print_status: 'enviada',
+          print_copies: copies,
+          print_notes: notes,
+          print_requested_by: user.id,
+          print_requested_at: now,
+          printed_by: null,
+          printed_at: null,
+          updated_at: now,
+        }),
+      });
+      showToast('Prova enviada para impressão.');
+    } catch (err) {
+      Object.assign(exam, previous);
+      renderReviews();
+      showToast('Erro ao enviar para impressão: ' + err.message, 'error');
+    }
+  }
 
   async function updateReviewStatus(id, status, extra, message, historyAction = status) {
     const exam = reviews.find((item) => item.id === id);

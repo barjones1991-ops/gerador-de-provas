@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Impressão - Gerador de Provas</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f1f5f9; color: #0f172a; min-height: 100vh; }
+    header {
+      background: #fff; border-bottom: 1px solid #e2e8f0; min-height: 64px; padding: 0 32px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .logo { font-size: 18px; font-weight: 900; color: #1e293b; text-decoration: none; }
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn {
+      border: 1.5px solid #e2e8f0; background: #fff; color: #475569; border-radius: 10px; padding: 9px 14px;
+      font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn.primary { background: #0f172a; border-color: #0f172a; color: #fff; }
+    .btn.green { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .main { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+    h1 { font-size: 26px; font-weight: 900; }
+    .muted { color: #64748b; font-size: 14px; margin-top: 6px; }
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .controls input, .controls select {
+      min-width: 210px; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 11px; background: #fff; font: inherit; font-size: 14px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .print-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; display: grid; gap: 12px;
+      box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    }
+    .print-card.done { background: #f8fafc; color: #64748b; }
+    .print-card.done .card-title, .print-card.done .meta-row strong { color: #64748b; }
+    .badge { width: fit-content; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 900; background: #dbeafe; color: #1d4ed8; }
+    .badge.impressa { background: #e2e8f0; color: #475569; }
+    .card-title { font-size: 16px; font-weight: 900; line-height: 1.35; color: #0f172a; }
+    .meta { display: grid; gap: 6px; color: #475569; font-size: 13px; }
+    .meta-row { display: flex; justify-content: space-between; gap: 12px; }
+    .meta-row strong { color: #0f172a; text-align: right; }
+    .note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 10px 12px; color: #78350f; font-size: 13px; line-height: 1.45; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+    .empty { grid-column: 1/-1; text-align: center; padding: 80px 24px; color: #64748b; }
+    .empty h2 { color: #0f172a; font-size: 20px; margin-bottom: 8px; }
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 12px; color: #fff; background: #16a34a;
+      font-size: 14px; font-weight: 700; transform: translateY(80px); opacity: 0; transition: all .3s; z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,.15);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { background: #dc2626; }
+    @media (max-width: 640px) {
+      header { padding: 10px 16px; }
+      .header-actions, .controls { width: 100%; display: grid; grid-template-columns: 1fr; }
+      .main { padding: 24px 16px; }
+      .btn, .controls input, .controls select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <a href="dashboard.html" class="logo">Impressão</a>
+  <div class="header-actions">
+    <a class="btn" href="dashboard.html">Minhas Provas</a>
+    <button class="btn" id="logoutBtn" type="button">Sair</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1>Fila de impressão</h1>
+      <p class="muted">Acesse o PDF das provas pendentes e registre quando a impressão for concluída.</p>
+    </div>
+    <button class="btn primary" id="reloadBtn" type="button">Atualizar</button>
+  </div>
+
+  <div class="controls">
+    <input id="searchInput" type="text" placeholder="Buscar por título, professor, turma..." />
+    <select id="statusFilter">
+      <option value="">Todas</option>
+      <option value="enviada">Pendentes</option>
+      <option value="impressa">Impressas</option>
+    </select>
+  </div>
+
+  <div class="grid" id="printGrid">
+    <div class="empty"><h2>Carregando...</h2><p>Aguarde um instante.</p></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  let auth = null;
+  let profile = null;
+  let jobs = [];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    auth = initAuthManager();
+    if (!auth || !auth.isAuthenticated()) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    try {
+      profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
+      if (!auth.canAccessPrintQueue(profile)) {
+        showToast('Acesso restrito à impressão.', 'error');
+        setTimeout(() => window.location.href = 'dashboard.html', 1200);
+        return;
+      }
+    } catch (err) {
+      showToast('Erro ao verificar perfil: ' + err.message, 'error');
+      return;
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await auth.signOut();
+      window.location.href = 'login.html';
+    });
+    document.getElementById('reloadBtn').addEventListener('click', loadPrintQueue);
+    document.getElementById('searchInput').addEventListener('input', renderPrintQueue);
+    document.getElementById('statusFilter').addEventListener('change', renderPrintQueue);
+
+    await loadPrintQueue();
+  });
+
+  async function loadPrintQueue() {
+    try {
+      const data = await auth.authenticatedRequest('/exams?print_status=in.(enviada,impressa)&order=print_requested_at.desc&select=id,title,teacher,subject,class_name,print_status,print_copies,print_notes,print_requested_at,printed_at');
+      jobs = Array.isArray(data) ? data : [];
+      renderPrintQueue();
+    } catch (err) {
+      jobs = [];
+      renderPrintQueue();
+      showToast('Erro ao carregar fila: ' + err.message, 'error');
+    }
+  }
+
+  function renderPrintQueue() {
+    const grid = document.getElementById('printGrid');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+
+    let filtered = jobs;
+    if (status) filtered = filtered.filter((job) => (job.print_status || 'nao_enviada') === status);
+    if (search) filtered = filtered.filter((job) =>
+      [job.title, job.teacher, job.subject, job.class_name, job.print_notes]
+        .some((value) => String(value || '').toLowerCase().includes(search))
+    );
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="empty"><h2>Nenhuma prova na fila</h2><p>As provas aprovadas e enviadas pela coordenação aparecerão aqui.</p></div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map((job) => {
+      const statusValue = job.print_status || 'nao_enviada';
+      const isPrinted = statusValue === 'impressa';
+      const requested = job.print_requested_at ? new Date(job.print_requested_at).toLocaleString('pt-BR') : '—';
+      const printed = job.printed_at ? new Date(job.printed_at).toLocaleString('pt-BR') : '';
+      return `
+        <div class="print-card ${isPrinted ? 'done' : ''}">
+          <span class="badge ${esc(statusValue)}">${isPrinted ? 'Impressa' : 'Pendente'}</span>
+          <div class="card-title">${esc(job.title || 'Sem título')}</div>
+          <div class="meta">
+            <div class="meta-row"><span>Professor</span><strong>${esc(job.teacher || '—')}</strong></div>
+            <div class="meta-row"><span>Disciplina</span><strong>${esc(job.subject || '—')}</strong></div>
+            <div class="meta-row"><span>Turma</span><strong>${esc(job.class_name || '—')}</strong></div>
+            <div class="meta-row"><span>Cópias</span><strong>${esc(job.print_copies || 1)}</strong></div>
+            <div class="meta-row"><span>Solicitada</span><strong>${requested}</strong></div>
+            ${printed ? `<div class="meta-row"><span>Impressa</span><strong>${printed}</strong></div>` : ''}
+          </div>
+          ${job.print_notes ? `<div class="note">${esc(job.print_notes)}</div>` : ''}
+          <div class="actions">
+            ${!isPrinted ? `<button class="btn primary" type="button" onclick="openPdf('${job.id}')">Abrir PDF</button>` : '<button class="btn" type="button" disabled>PDF bloqueado</button>'}
+            ${!isPrinted ? `<button class="btn green" type="button" onclick="markPrinted('${job.id}')">Marcar como impressa</button>` : '<button class="btn" type="button" disabled>Concluída</button>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openPdf(id) {
+    window.location.href = `print.html?id=${encodeURIComponent(id)}&from=impressao`;
+  }
+
+  async function markPrinted(id) {
+    if (!confirm('Marcar esta prova como impressa? Depois disso o PDF ficará bloqueado para este perfil.')) return;
+    const previous = jobs.map((job) => ({ ...job }));
+    const job = jobs.find((item) => item.id === id);
+    if (job) {
+      job.print_status = 'impressa';
+      job.printed_at = new Date().toISOString();
+    }
+    renderPrintQueue();
+    try {
+      await auth.authenticatedRequest('/rpc/mark_exam_printed', {
+        method: 'POST',
+        body: JSON.stringify({ target_exam_id: id }),
+      });
+      showToast('Prova marcada como impressa.');
+      await loadPrintQueue();
+    } catch (err) {
+      jobs = previous;
+      renderPrintQueue();
+      showToast('Erro ao marcar impressão: ' + err.message, 'error');
+    }
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

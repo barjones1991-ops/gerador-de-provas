@@ -40,26 +40,18 @@ RETURNS TEXT AS $$
     WHEN 'admin' THEN 'master'
     WHEN 'coordenadora' THEN 'coordinator'
     WHEN 'professor' THEN 'teacher'
+    WHEN 'impressao' THEN 'print_operator'
     ELSE raw_role
   END;
 $$ LANGUAGE sql IMMUTABLE;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'profiles_manager_roles_require_school'
-      AND conrelid = 'public.profiles'::regclass
-  ) THEN
-    ALTER TABLE public.profiles
-    ADD CONSTRAINT profiles_manager_roles_require_school
-    CHECK (
-      public.normalized_role(role) NOT IN ('school_owner', 'coordinator')
-      OR school_id IS NOT NULL
-    ) NOT VALID;
-  END IF;
-END $$;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_manager_roles_require_school;
+ALTER TABLE public.profiles
+ADD CONSTRAINT profiles_manager_roles_require_school
+CHECK (
+  public.normalized_role(role) NOT IN ('school_owner', 'coordinator', 'print_operator')
+  OR school_id IS NOT NULL
+) NOT VALID;
 
 CREATE OR REPLACE FUNCTION public.current_user_role()
 RETURNS TEXT AS $$
@@ -95,7 +87,7 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION public.is_school_staff(target_school_id UUID)
 RETURNS BOOLEAN AS $$
   SELECT COALESCE(
-    public.current_user_role() IN ('school_owner', 'coordinator', 'teacher')
+    public.current_user_role() IN ('school_owner', 'coordinator', 'teacher', 'print_operator')
     AND public.current_user_school_id() = target_school_id,
     FALSE
   );
@@ -105,6 +97,21 @@ CREATE OR REPLACE FUNCTION public.can_manage_school(target_school_id UUID)
 RETURNS BOOLEAN AS $$
   SELECT COALESCE(public.is_master() OR public.is_school_owner(target_school_id), FALSE);
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.grade_list_contains_class(grade_list TEXT, target_class_name TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(EXISTS (
+    SELECT 1
+    FROM regexp_split_to_table(COALESCE(grade_list, ''), '\s*[,;|/]\s*') AS grade(raw_grade)
+    WHERE btrim(raw_grade) <> ''
+      AND btrim(COALESCE(target_class_name, '')) <> ''
+      AND (
+        lower(btrim(target_class_name)) = lower(btrim(raw_grade))
+        OR lower(btrim(target_class_name)) LIKE lower(btrim(raw_grade)) || ' %'
+        OR lower(btrim(target_class_name)) LIKE lower(btrim(raw_grade)) || ' -%'
+      )
+  ), FALSE);
+$$ LANGUAGE sql IMMUTABLE;
 
 CREATE OR REPLACE FUNCTION public.can_manage_profile(target_profile_id UUID)
 RETURNS BOOLEAN AS $$
@@ -119,7 +126,7 @@ RETURNS BOOLEAN AS $$
         AND (
           (
             public.current_user_role() = 'school_owner'
-            AND public.normalized_role(target_profile.role) IN ('coordinator', 'teacher')
+            AND public.normalized_role(target_profile.role) IN ('coordinator', 'teacher', 'print_operator')
           )
           OR (
             public.current_user_role() = 'coordinator'
@@ -217,6 +224,13 @@ CREATE TABLE IF NOT EXISTS exams (
   reviewed_by UUID REFERENCES auth.users,
   reviewed_at TIMESTAMPTZ,
   locked_at TIMESTAMPTZ,
+  print_status TEXT DEFAULT 'nao_enviada',
+  print_copies INTEGER,
+  print_notes TEXT,
+  print_requested_by UUID REFERENCES auth.users,
+  print_requested_at TIMESTAMPTZ,
+  printed_by UUID REFERENCES auth.users,
+  printed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -226,6 +240,13 @@ ALTER TABLE exams ADD COLUMN IF NOT EXISTS review_notes TEXT;
 ALTER TABLE exams ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES auth.users;
 ALTER TABLE exams ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 ALTER TABLE exams ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS print_status TEXT DEFAULT 'nao_enviada';
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS print_copies INTEGER;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS print_notes TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS print_requested_by UUID REFERENCES auth.users;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS print_requested_at TIMESTAMPTZ;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS printed_by UUID REFERENCES auth.users;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS printed_at TIMESTAMPTZ;
 
 ALTER TABLE exams ENABLE ROW LEVEL SECURITY;
 
@@ -237,20 +258,68 @@ RETURNS BOOLEAN AS $$
       SELECT 1
       FROM public.exams exam
       JOIN public.profiles owner_profile ON owner_profile.id = exam.user_id
+      JOIN public.profiles current_profile ON current_profile.id = auth.uid()
       WHERE exam.id = target_exam_id
-        AND public.current_user_role() IN ('school_owner', 'coordinator')
-        AND public.current_user_school_id() IS NOT NULL
-        AND public.current_user_school_id() = owner_profile.school_id
+        AND current_profile.school_id IS NOT NULL
+        AND current_profile.school_id = owner_profile.school_id
+        AND (
+          public.normalized_role(current_profile.role) = 'school_owner'
+          OR (
+            public.normalized_role(current_profile.role) = 'coordinator'
+            AND public.grade_list_contains_class(current_profile.school_grade, exam.class_name)
+          )
+        )
     ),
     FALSE
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.can_print_exam(target_exam_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(
+    public.is_master()
+    OR EXISTS (
+      SELECT 1
+      FROM public.exams exam
+      JOIN public.profiles owner_profile ON owner_profile.id = exam.user_id
+      JOIN public.profiles current_profile ON current_profile.id = auth.uid()
+      WHERE exam.id = target_exam_id
+        AND public.normalized_role(current_profile.role) = 'print_operator'
+        AND current_profile.school_id IS NOT NULL
+        AND current_profile.school_id = owner_profile.school_id
+        AND COALESCE(exam.print_status, 'nao_enviada') IN ('enviada', 'impressa')
+    ),
+    FALSE
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.mark_exam_printed(target_exam_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  IF NOT public.can_print_exam(target_exam_id) THEN
+    RAISE EXCEPTION 'Apenas usuarios de impressao autorizados podem marcar esta prova.';
+  END IF;
+
+  UPDATE public.exams
+  SET print_status = 'impressa',
+      printed_by = auth.uid(),
+      printed_at = NOW(),
+      updated_at = NOW()
+  WHERE id = target_exam_id
+    AND COALESCE(print_status, 'nao_enviada') = 'enviada';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Prova nao esta pendente de impressao.';
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
 DROP POLICY IF EXISTS "Provas próprias: ver" ON exams;
 CREATE POLICY "Provas próprias: ver" ON exams
   FOR SELECT USING (
     auth.uid() = user_id
     OR public.can_review_exam(id)
+    OR public.can_print_exam(id)
   );
 
 DROP POLICY IF EXISTS "Provas próprias: criar" ON exams;
@@ -429,22 +498,13 @@ ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS accepted_by UUID REFERENCES au
 ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
 ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days');
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'user_invites_school_roles_require_school'
-      AND conrelid = 'public.user_invites'::regclass
-  ) THEN
-    ALTER TABLE public.user_invites
-    ADD CONSTRAINT user_invites_school_roles_require_school
-    CHECK (
-      role NOT IN ('teacher', 'coordinator', 'school_owner')
-      OR school_id IS NOT NULL
-    ) NOT VALID;
-  END IF;
-END $$;
+ALTER TABLE public.user_invites DROP CONSTRAINT IF EXISTS user_invites_school_roles_require_school;
+ALTER TABLE public.user_invites
+ADD CONSTRAINT user_invites_school_roles_require_school
+CHECK (
+  role NOT IN ('teacher', 'coordinator', 'school_owner', 'print_operator', 'impressao')
+  OR school_id IS NOT NULL
+) NOT VALID;
 
 ALTER TABLE user_invites ENABLE ROW LEVEL SECURITY;
 
@@ -453,6 +513,12 @@ CREATE POLICY "Convites: ver gerenciaveis" ON user_invites
   FOR SELECT USING (
     public.is_master()
     OR (school_id IS NOT NULL AND public.can_manage_school(school_id))
+    OR (
+      school_id IS NOT NULL
+      AND public.current_user_role() = 'coordinator'
+      AND public.current_user_school_id() = school_id
+      AND public.normalized_role(role) = 'teacher'
+    )
     OR lower(email) = lower(COALESCE(auth.jwt()->>'email', ''))
   );
 
@@ -463,7 +529,13 @@ CREATE POLICY "Convites: criar gerenciaveis" ON user_invites
     OR (
       school_id IS NOT NULL
       AND public.can_manage_school(school_id)
-      AND role IN ('teacher', 'coordinator')
+      AND public.normalized_role(role) IN ('teacher', 'coordinator', 'print_operator')
+    )
+    OR (
+      school_id IS NOT NULL
+      AND public.current_user_role() = 'coordinator'
+      AND public.current_user_school_id() = school_id
+      AND public.normalized_role(role) = 'teacher'
     )
   );
 
@@ -472,13 +544,25 @@ CREATE POLICY "Convites: editar gerenciaveis" ON user_invites
   FOR UPDATE USING (
     public.is_master()
     OR (school_id IS NOT NULL AND public.can_manage_school(school_id))
+    OR (
+      school_id IS NOT NULL
+      AND public.current_user_role() = 'coordinator'
+      AND public.current_user_school_id() = school_id
+      AND public.normalized_role(role) = 'teacher'
+    )
   )
   WITH CHECK (
     public.is_master()
     OR (
       school_id IS NOT NULL
       AND public.can_manage_school(school_id)
-      AND role IN ('teacher', 'coordinator')
+      AND public.normalized_role(role) IN ('teacher', 'coordinator', 'print_operator')
+    )
+    OR (
+      school_id IS NOT NULL
+      AND public.current_user_role() = 'coordinator'
+      AND public.current_user_school_id() = school_id
+      AND public.normalized_role(role) = 'teacher'
     )
   );
 
@@ -487,6 +571,12 @@ CREATE POLICY "Convites: excluir gerenciaveis" ON user_invites
   FOR DELETE USING (
     public.is_master()
     OR (school_id IS NOT NULL AND public.can_manage_school(school_id))
+    OR (
+      school_id IS NOT NULL
+      AND public.current_user_role() = 'coordinator'
+      AND public.current_user_school_id() = school_id
+      AND public.normalized_role(role) = 'teacher'
+    )
   );
 
 CREATE OR REPLACE FUNCTION public.accept_user_invite(invite_token TEXT)

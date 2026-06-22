@@ -117,6 +117,7 @@
   <a href="dashboard.html" class="logo">🏫 Escolas</a>
   <div class="header-actions">
     <a class="btn" href="coordenacao.html">Coordenação</a>
+    <a class="btn" href="impressao.html">Impressão</a>
     <a class="btn" href="dashboard.html">Minhas Provas</a>
     <button class="btn" id="logoutBtn" type="button">Sair</button>
   </div>
@@ -195,6 +196,7 @@
       <select id="inviteRoleSelect">
         <option value="teacher">Professor</option>
         <option value="coordinator">Coordenacao</option>
+        <option value="print_operator">Impressao</option>
         <option value="school_owner">Dono da escola</option>
       </select>
     </div>
@@ -282,7 +284,9 @@
     if (!auth.hasRole(['master'], currentProfile)) document.getElementById('linkProfBtn').style.display = 'none';
     document.getElementById('linkProfBtn').addEventListener('click', linkProfessor);
     document.getElementById('linkSchoolSelect').addEventListener('change', onLinkSchoolChange);
+    document.getElementById('inviteRoleSelect').addEventListener('change', onLinkSchoolChange);
     renderGradeCheckboxes('linkGradeCheckboxes');
+    updateInviteFieldVisibility();
 
     // Logo upload
     document.getElementById('pickLogoBtn').addEventListener('click', () => document.getElementById('logoFileInput').click());
@@ -530,6 +534,8 @@
   }
 
   function onLinkSchoolChange() {
+    updateInviteFieldVisibility();
+    if (document.getElementById('inviteRoleSelect').value === 'print_operator') return;
     const schoolId = document.getElementById('linkSchoolSelect').value;
     const section = document.getElementById('linkDisciplinesSection');
     const box = document.getElementById('linkDisciplinesCheckboxes');
@@ -543,6 +549,18 @@
         <input type="checkbox" value="${esc(d)}" /> ${esc(d)}
       </label>
     `).join('');
+  }
+
+  function updateInviteFieldVisibility() {
+    const role = document.getElementById('inviteRoleSelect').value;
+    const isPrint = role === 'print_operator';
+    const gradeBox = document.getElementById('linkGradeCheckboxes');
+    const discSection = document.getElementById('linkDisciplinesSection');
+    if (gradeBox?.parentElement) gradeBox.parentElement.style.display = isPrint ? 'none' : '';
+    if (isPrint && discSection) {
+      discSection.style.display = 'none';
+      document.querySelectorAll('#linkGradeCheckboxes input:checked, #linkDisciplinesCheckboxes input:checked').forEach(cb => cb.checked = false);
+    }
   }
 
   async function addSchool() {
@@ -601,7 +619,7 @@
 
   async function loadProfessors() {
     try {
-      const data = await auth.authenticatedRequest('/profiles?role=in.(professor,teacher,coordenadora,coordinator,school_owner,admin,master)&select=id,full_name,email,role,school_grade,school_id,disciplines&order=full_name.asc');
+      const data = await auth.authenticatedRequest('/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)&select=id,full_name,email,role,school_grade,school_id,disciplines&order=full_name.asc');
       const profs = Array.isArray(data) ? data : [];
       teamProfiles = profs;
       renderAccessSummary();
@@ -670,20 +688,24 @@
       master: 'Master',
       school_owner: 'Dono da escola',
       coordinator: 'Coordenacao',
+      print_operator: 'Impressao',
       teacher: 'Professor',
     }[role] || role || 'Professor';
   }
 
   function canManageInvites() {
-    return auth.hasRole(['master', 'school_owner'], currentProfile);
+    return auth.hasRole(['master', 'school_owner', 'coordinator'], currentProfile);
   }
 
   function updateInviteRoleOptions() {
     const select = document.getElementById('inviteRoleSelect');
     if (!select) return;
-    const allowed = auth.hasRole(['master'], currentProfile)
-      ? ['teacher', 'coordinator', 'school_owner']
-      : ['teacher', 'coordinator'];
+    let allowed = ['teacher'];
+    if (auth.hasRole(['master'], currentProfile)) {
+      allowed = ['teacher', 'coordinator', 'print_operator', 'school_owner'];
+    } else if (auth.hasRole(['school_owner'], currentProfile)) {
+      allowed = ['teacher', 'coordinator', 'print_operator'];
+    }
     select.innerHTML = allowed.map(role => `<option value="${role}">${esc(roleLabel(role))}</option>`).join('');
   }
 
@@ -692,7 +714,7 @@
     const role = auth.normalizeRole(profile.role);
     if (auth.hasRole(['master'], currentProfile)) return true;
     if (auth.hasRole(['school_owner'], currentProfile)) {
-      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher'].includes(role);
+      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher', 'print_operator'].includes(role);
     }
     if (auth.hasRole(['coordinator'], currentProfile)) {
       return profile.school_id === currentProfile.school_id && role === 'teacher';
@@ -705,7 +727,7 @@
     const role = auth.normalizeRole(profile.role);
     if (auth.hasRole(['master'], currentProfile)) return role !== 'master';
     if (auth.hasRole(['school_owner'], currentProfile)) {
-      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher'].includes(role);
+      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher', 'print_operator'].includes(role);
     }
     return false;
   }
@@ -716,15 +738,15 @@
     if (role === 'master') return false;
     if (auth.hasRole(['master'], currentProfile)) return true;
     if (auth.hasRole(['school_owner'], currentProfile)) {
-      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher'].includes(role);
+      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher', 'print_operator'].includes(role);
     }
     return false;
   }
 
   function renderRoleSelect(profileId, role) {
     const allowed = auth.hasRole(['master'], currentProfile)
-      ? ['teacher', 'coordinator', 'school_owner']
-      : ['teacher', 'coordinator'];
+      ? ['teacher', 'coordinator', 'print_operator', 'school_owner']
+      : ['teacher', 'coordinator', 'print_operator'];
     const options = allowed.map(value => `<option value="${value}"${value === role ? ' selected' : ''}>${esc(roleLabel(value))}</option>`).join('');
     return `<label style="display:inline-flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;color:#475569;font-size:12px;">Perfil <select style="width:auto;min-width:150px;padding:5px 8px;font-size:12px;" onchange="changeProfileRole('${profileId}', this.value)">${options}</select></label>`;
   }
@@ -769,7 +791,7 @@
     const checked = Array.from(document.querySelectorAll(`#pe-discs-${profId} input:checked`)).map(cb => cb.value);
     const schoolId = getProfileSchoolId(profile);
     const role = auth.normalizeRole(profile.role);
-    if (['school_owner', 'coordinator', 'teacher'].includes(role) && !schoolId) {
+    if (['school_owner', 'coordinator', 'teacher', 'print_operator'].includes(role) && !schoolId) {
       showToast('Selecione a escola de acesso deste perfil.', 'error');
       return;
     }
@@ -798,7 +820,7 @@
       await loadProfessors();
       return;
     }
-    if (!['teacher', 'coordinator', 'school_owner'].includes(role)) {
+    if (!['teacher', 'coordinator', 'print_operator', 'school_owner'].includes(role)) {
       showToast('Perfil invalido.', 'error');
       await loadProfessors();
       return;
@@ -809,7 +831,7 @@
       return;
     }
     const schoolId = getProfileSchoolId(profile);
-    if (['school_owner', 'coordinator'].includes(role) && !schoolId) {
+    if (['school_owner', 'coordinator', 'print_operator'].includes(role) && !schoolId) {
       showToast('Selecione a escola antes de definir este perfil.', 'error');
       await loadProfessors();
       return;
@@ -1039,13 +1061,17 @@
     }
     if (!schoolId) { showToast('Selecione a escola do convite.', 'error'); return; }
     if (!email) { showToast('Digite o e-mail do usuario.', 'error'); return; }
-    if (!['teacher', 'coordinator', 'school_owner'].includes(role)) { showToast('Perfil invalido.', 'error'); return; }
+    if (!['teacher', 'coordinator', 'print_operator', 'school_owner'].includes(role)) { showToast('Perfil invalido.', 'error'); return; }
     if (role === 'school_owner' && !auth.hasRole(['master'], currentProfile)) {
       showToast('Apenas o acesso master pode convidar dono da escola.', 'error');
       return;
     }
-    if (auth.hasRole(['school_owner'], currentProfile) && schoolId !== currentProfile.school_id) {
+    if (auth.hasRole(['school_owner', 'coordinator'], currentProfile) && schoolId !== currentProfile.school_id) {
       showToast('Voce so pode convidar usuarios para a sua escola.', 'error');
+      return;
+    }
+    if (auth.hasRole(['coordinator'], currentProfile) && role !== 'teacher') {
+      showToast('Coordenacao pode convidar apenas professores.', 'error');
       return;
     }
 
@@ -1091,7 +1117,7 @@
     const grade = getCheckedValues('linkGradeCheckboxes').join(', ');
     const checkedDiscs = Array.from(document.querySelectorAll('#linkDisciplinesCheckboxes input:checked')).map(cb => cb.value);
     if (!email) { showToast('Digite o e-mail do professor.', 'error'); return; }
-    if (['school_owner', 'coordinator', 'teacher'].includes(role) && !schoolId) {
+    if (['school_owner', 'coordinator', 'teacher', 'print_operator'].includes(role) && !schoolId) {
       showToast('Selecione a escola de acesso deste perfil.', 'error');
       return;
     }

@@ -172,6 +172,7 @@ class AuthManager {
       admin: 'master',
       coordenadora: 'coordinator',
       professor: 'teacher',
+      impressao: 'print_operator',
     };
     return aliases[role] || role || 'teacher';
   }
@@ -211,6 +212,10 @@ class AuthManager {
 
   canReviewExams(profile = this.currentProfile) {
     return this.hasRole(['master', 'school_owner', 'coordinator'], profile);
+  }
+
+  canAccessPrintQueue(profile = this.currentProfile) {
+    return this.hasRole(['master', 'school_owner', 'print_operator'], profile);
   }
 
   canEditExam(exam, profile = this.currentProfile) {

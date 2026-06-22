@@ -1174,6 +1174,11 @@
         showMessage('Prova não encontrada', 'Verifique se você está na conta correta.');
         return;
       }
+      const profile = await auth.loadCurrentProfile('id,role,school_id');
+      if (auth.hasRole(['print_operator'], profile) && data[0].print_status === 'impressa') {
+        showMessage('PDF bloqueado', 'Esta prova ja foi marcada como impressa. Para imprimir novamente, peça um novo envio da coordenação.');
+        return;
+      }
       renderExam(data[0]);
     }
 
