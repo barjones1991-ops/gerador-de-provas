@@ -7,6 +7,7 @@ class AuthManager {
   constructor(config) {
     this.config = config;
     this.currentUser = null;
+    this.currentProfile = null;
     this.session = null;
     this.loadSession();
   }
@@ -24,6 +25,7 @@ class AuthManager {
         if (session.access_token && session.user) {
           this.session = session;
           this.currentUser = session.user;
+          this.currentProfile = session.profile || null;
           console.log('✓ Sessão carregada:', this.currentUser.email);
         }
       }
@@ -60,6 +62,7 @@ class AuthManager {
       // Salvar sessão
       this.session = data;
       this.currentUser = data.user;
+      this.currentProfile = null;
       localStorage.setItem('supabase.auth.token', JSON.stringify(data));
 
       console.log('✓ Login bem-sucedido:', email);
@@ -144,6 +147,7 @@ class AuthManager {
   async signOut() {
     this.session = null;
     this.currentUser = null;
+    this.currentProfile = null;
     localStorage.removeItem('supabase.auth.token');
     console.log('✓ Logout realizado');
     return { success: true };
@@ -161,6 +165,70 @@ class AuthManager {
    */
   getCurrentUser() {
     return this.currentUser;
+  }
+
+  normalizeRole(role) {
+    const aliases = {
+      admin: 'master',
+      coordenadora: 'coordinator',
+      professor: 'teacher',
+    };
+    return aliases[role] || role || 'teacher';
+  }
+
+  async loadCurrentProfile(select = 'id,email,full_name,school_name,role,school_id,school_grade,disciplines,force_password_change') {
+    const user = this.getCurrentUser();
+    if (!user?.id) return null;
+    const data = await this.authenticatedRequest(`/profiles?id=eq.${user.id}&select=${select}`);
+    const profile = Array.isArray(data) ? data[0] : null;
+    this.currentProfile = profile ? { ...profile, normalized_role: this.normalizeRole(profile.role) } : null;
+    if (this.session) {
+      this.session.profile = this.currentProfile;
+      localStorage.setItem('supabase.auth.token', JSON.stringify(this.session));
+    }
+    return this.currentProfile;
+  }
+
+  getCurrentProfile() {
+    return this.currentProfile;
+  }
+
+  getRole(profile = this.currentProfile) {
+    return this.normalizeRole(profile?.role);
+  }
+
+  hasRole(roles, profile = this.currentProfile) {
+    return roles.includes(this.getRole(profile));
+  }
+
+  canManageSchools(profile = this.currentProfile) {
+    return this.hasRole(['master', 'school_owner'], profile);
+  }
+
+  canManageUsers(profile = this.currentProfile) {
+    return this.hasRole(['master', 'school_owner', 'coordinator'], profile);
+  }
+
+  canReviewExams(profile = this.currentProfile) {
+    return this.hasRole(['master', 'school_owner', 'coordinator'], profile);
+  }
+
+  canEditExam(exam, profile = this.currentProfile) {
+    if (!exam) return false;
+    const user = this.getCurrentUser();
+    if (this.canReviewExams(profile)) return true;
+    return user?.id === exam.user_id && !['aprovada', 'bloqueada'].includes(exam.review_status || 'rascunho');
+  }
+
+  canDeleteExam(exam, profile = this.currentProfile) {
+    if (!exam) return false;
+    const user = this.getCurrentUser();
+    if (this.hasRole(['master', 'school_owner'], profile)) return true;
+    return user?.id === exam.user_id && !['aprovada', 'bloqueada'].includes(exam.review_status || 'rascunho');
+  }
+
+  canManageQuestionBank(profile = this.currentProfile) {
+    return this.hasRole(['master', 'school_owner', 'coordinator', 'teacher'], profile);
   }
 
   /**

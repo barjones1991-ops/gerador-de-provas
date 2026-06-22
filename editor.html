@@ -945,9 +945,29 @@
       background: #eef2ff;
       color: #4338ca;
     }
+    .bank-badge.private { background: #eef2ff; color: #4338ca; }
+    .bank-badge.school { background: #dcfce7; color: #166534; }
     .bank-badge.public { background: #f1f5f9; color: #475569; }
     .bank-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .bank-actions button { padding: 7px 10px; border-radius: 10px; font-size: 12px; }
+    .bank-scope-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .bank-scope-control select {
+      width: auto;
+      min-width: 112px;
+      padding: 7px 9px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -1527,6 +1547,17 @@
             <option value="facil">Fácil</option>
             <option value="media">Média</option>
             <option value="dificil">Difícil</option>
+          </select>
+          <select id="bankSaveScope">
+            <option value="private">Salvar como privada</option>
+            <option value="school">Salvar para minha escola</option>
+            <option value="public">Salvar como publica</option>
+          </select>
+          <select id="bankScopeFilter">
+            <option value="">Todos os escopos</option>
+            <option value="mine">Criadas por mim</option>
+            <option value="school">Da minha escola</option>
+            <option value="public">Publicas</option>
           </select>
           <button id="loadBankBtn" class="primary" type="button">Buscar questões</button>
         </div>
@@ -6100,6 +6131,7 @@
     let currentReviewStatus = 'rascunho';
     let currentExamOwnerId = null;
     let currentReviewNotes = '';
+    let currentProfile = null;
 
     function showToast(msg, type = 'ok') {
       let t = document.getElementById('editorToast');
@@ -6124,6 +6156,31 @@
       return text ? text.slice(0, 80) : (question?.type ? `Questão ${question.type}` : 'Questão sem título');
     }
 
+    function getBankItemScope(item) {
+      if (item?.is_public) return 'public';
+      if (item?.school_id) return 'school';
+      return 'private';
+    }
+
+    function bankScopeLabel(scope) {
+      return {
+        private: 'Privada',
+        school: 'Escola',
+        public: 'Publica',
+      }[scope] || 'Privada';
+    }
+
+    function buildBankScopePayload(scope) {
+      if (scope === 'public') return { is_public: true, school_id: null };
+      if (scope === 'school') {
+        if (!currentProfile?.school_id) {
+          throw new Error('Seu perfil precisa estar vinculado a uma escola para usar o escopo da escola.');
+        }
+        return { is_public: false, school_id: currentProfile.school_id };
+      }
+      return { is_public: false, school_id: null };
+    }
+
     async function saveQuestionToBank(idx) {
       if (!auth || !auth.isAuthenticated()) {
         showToast('Entre na conta para usar o banco de questões.', 'err');
@@ -6135,22 +6192,24 @@
       const grade = document.getElementById('bankGrade').value.trim() || state.school.className || '';
       const skill = document.getElementById('bankSkill').value.trim();
       const difficulty = document.getElementById('bankDifficulty').value || 'media';
+      const scope = document.getElementById('bankSaveScope')?.value || 'private';
 
       try {
+        const bankPayload = {
+          user_id: auth.getCurrentUser().id,
+          title: questionTitle(question),
+          subject: state.school.subject || '',
+          grade,
+          skill,
+          difficulty,
+          question_type: question.type || '',
+          question,
+          ...buildBankScopePayload(scope),
+        };
         await auth.authenticatedRequest('/question_bank', {
           method: 'POST',
           headers: { 'Prefer': 'return=minimal' },
-          body: JSON.stringify({
-            user_id: auth.getCurrentUser().id,
-            title: questionTitle(question),
-            subject: state.school.subject || '',
-            grade,
-            skill,
-            difficulty,
-            question_type: question.type || '',
-            question,
-            is_public: false,
-          }),
+          body: JSON.stringify(bankPayload),
         });
         showToast('Questão salva no banco.', 'ok');
       } catch (err) {
@@ -6170,10 +6229,13 @@
       root.innerHTML = items.map((item, index) => {
         const q = item.question || {};
         const isMine = item.user_id === currentUserId;
-        const visibility = item.is_public ? 'Pública' : 'Privada';
+        const scope = getBankItemScope(item);
+        const canUseScopeSelect = isMine
+          || auth?.hasRole?.(['master'], currentProfile)
+          || (auth?.hasRole?.(['school_owner'], currentProfile) && item.school_id === currentProfile?.school_id);
         return `
           <div class="bank-item">
-            <span class="bank-badge ${isMine ? '' : 'public'}">${isMine ? `Criada por você · ${visibility}` : 'Questão pública'}</span>
+            <span class="bank-badge ${scope}">${isMine ? 'Criada por voce' : 'Compartilhada'} - ${bankScopeLabel(scope)}</span>
             <div class="bank-title">${esc(item.title || questionTitle(q))}</div>
             <div class="bank-meta">${esc(item.subject || 'Sem disciplina')} · ${esc(item.grade || 'Sem série')} · ${esc(item.difficulty || 'média')} · ${esc(typeLabel[q.type] || q.type || 'tipo')}</div>
             ${item.skill ? `<div class="bank-meta">Habilidade: ${esc(item.skill)}</div>` : ''}
@@ -6181,13 +6243,27 @@
             <div class="bank-actions">
               <button class="primary" type="button" data-bank-action="insert" data-bank-index="${index}">Inserir na prova</button>
               ${isMine ? `<button class="outline" type="button" data-bank-action="edit" data-bank-index="${index}">Alterar</button>` : ''}
-              ${isMine ? `<button class="outline" type="button" data-bank-action="visibility" data-bank-index="${index}">${item.is_public ? 'Tornar privada' : 'Tornar pública'}</button>` : ''}
+              ${canUseScopeSelect ? renderBankScopeSelect(index, scope) : ''}
               ${isMine ? `<button class="danger" type="button" data-bank-action="delete" data-bank-index="${index}">Excluir</button>` : ''}
             </div>
           </div>
         `;
       }).join('');
       window.currentQuestionBankResults = items;
+    }
+
+    function renderBankScopeSelect(index, scope) {
+      const schoolOption = currentProfile?.school_id ? '<option value="school">Escola</option>' : '';
+      return `
+        <label class="bank-scope-control">
+          Escopo
+          <select data-bank-scope-action data-bank-index="${index}" onchange="changeBankQuestionScope(${index}, this.value)">
+            <option value="private"${scope === 'private' ? ' selected' : ''}>Privada</option>
+            ${schoolOption.replace(`value="school"`, `value="school"${scope === 'school' ? ' selected' : ''}`)}
+            <option value="public"${scope === 'public' ? ' selected' : ''}>Publica</option>
+          </select>
+        </label>
+      `;
     }
 
     async function loadQuestionBank() {
@@ -6202,6 +6278,7 @@
       const grade = document.getElementById('bankGrade').value.trim();
       const skill = document.getElementById('bankSkill').value.trim().toLowerCase();
       const difficulty = document.getElementById('bankDifficulty').value;
+      const scopeFilter = document.getElementById('bankScopeFilter')?.value || '';
 
       root.innerHTML = '<div class="small">Buscando questões...</div>';
       window.currentQuestionBankResults = [];
@@ -6226,6 +6303,14 @@
         }
         if (skill) {
           items = items.filter((item) => String(item.skill || '').toLowerCase().includes(skill));
+        }
+        if (scopeFilter === 'mine') {
+          const currentUserId = auth.getCurrentUser()?.id || '';
+          items = items.filter((item) => item.user_id === currentUserId);
+        } else if (scopeFilter === 'school') {
+          items = items.filter((item) => getBankItemScope(item) === 'school');
+        } else if (scopeFilter === 'public') {
+          items = items.filter((item) => getBankItemScope(item) === 'public');
         }
         renderQuestionBank(items);
       } catch (err) {
@@ -6303,6 +6388,52 @@
       }
     }
 
+    async function changeBankQuestionScope(index, scope) {
+      const item = window.currentQuestionBankResults?.[index];
+      if (!item?.id) return;
+      const currentUserId = auth?.getCurrentUser()?.id || '';
+      const canChange = item.user_id === currentUserId
+        || auth?.hasRole?.(['master'], currentProfile)
+        || (auth?.hasRole?.(['school_owner'], currentProfile) && item.school_id === currentProfile?.school_id);
+      if (!canChange) {
+        showToast('Voce nao pode alterar o escopo desta questao.', 'err');
+        renderQuestionBank(window.currentQuestionBankResults || []);
+        return;
+      }
+
+      let payload;
+      try {
+        payload = buildBankScopePayload(scope);
+      } catch (err) {
+        showToast(err.message, 'err');
+        renderQuestionBank(window.currentQuestionBankResults || []);
+        return;
+      }
+
+      const previous = {
+        is_public: item.is_public,
+        school_id: item.school_id || null,
+      };
+      Object.assign(item, payload);
+      renderQuestionBank(window.currentQuestionBankResults || []);
+
+      try {
+        await auth.authenticatedRequest(`/question_bank?id=eq.${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            ...payload,
+            updated_at: new Date().toISOString(),
+          }),
+        });
+        showToast(`Questao marcada como ${bankScopeLabel(scope).toLowerCase()}.`, 'ok');
+      } catch (err) {
+        item.is_public = previous.is_public;
+        item.school_id = previous.school_id;
+        renderQuestionBank(window.currentQuestionBankResults || []);
+        showToast('Erro ao alterar escopo: ' + err.message, 'err');
+      }
+    }
+
     function openQuestionBankModal() {
       document.getElementById('questionBankModal').classList.add('show');
       loadQuestionBank();
@@ -6338,6 +6469,11 @@
 
       // Logado: mostra barra de nuvem, esconde link de login
       const user = auth.getCurrentUser();
+      try {
+        currentProfile = await auth.loadCurrentProfile();
+      } catch {
+        currentProfile = null;
+      }
       useUserDraftStorage(user.id);
       document.getElementById('cloudBar').classList.add('visible');
       document.getElementById('loginLink').classList.add('hidden');
@@ -6409,7 +6545,7 @@
         const node = document.getElementById(id);
         if (node) node.disabled = locked;
       });
-      document.querySelectorAll('#topQuestionMenu button, #questionBankModal button[data-bank-action]')
+      document.querySelectorAll('#topQuestionMenu button, #questionBankModal button[data-bank-action], #questionBankModal select[data-bank-scope-action]')
         .forEach((node) => { node.disabled = locked; });
       if (locked) {
         const topMenu = document.getElementById('topQuestionMenu');
@@ -6691,6 +6827,7 @@
     document.getElementById('openBankBtn').addEventListener('click', openQuestionBankModal);
     document.getElementById('closeBankBtn').addEventListener('click', closeQuestionBankModal);
     document.getElementById('loadBankBtn').addEventListener('click', loadQuestionBank);
+    document.getElementById('bankScopeFilter').addEventListener('change', loadQuestionBank);
     document.getElementById('questionBankList').addEventListener('click', handleQuestionBankAction);
     window.addEventListener('DOMContentLoaded', initCloud);
   </script>

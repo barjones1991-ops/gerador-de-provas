@@ -250,12 +250,15 @@ async function main() {
     assert(editor.includes('questionBankModal'), 'question bank modal missing');
     assert(editor.includes('editBankQuestion'), 'question bank edit action missing');
     assert(editor.includes('deleteBankQuestion'), 'question bank delete action missing');
-    assert(editor.includes('toggleBankQuestionVisibility'), 'question bank visibility action missing');
+    assert(editor.includes('changeBankQuestionScope'), 'question bank scope action missing');
+    assert(editor.includes('toggleBankQuestionVisibility'), 'legacy question bank visibility action missing');
     assert(editor.includes('handleQuestionBankAction'), 'question bank delegated action handler missing');
     assert(editor.includes('data-bank-action="insert"'), 'question bank insert action data attribute missing');
-    assert(editor.includes('data-bank-action="visibility"'), 'question bank visibility data attribute missing');
-    assert(editor.includes('Questão pública'), 'public question label missing');
-    assert(editor.includes('Criada por você'), 'own question label missing');
+    assert(editor.includes('bankSaveScope'), 'question bank save scope control missing');
+    assert(editor.includes('bankScopeFilter'), 'question bank scope filter missing');
+    assert(editor.includes('data-bank-scope-action'), 'question bank scope select data attribute missing');
+    assert(editor.includes('bankScopeLabel(scope)'), 'question bank scope label missing');
+    assert(editor.includes('Criada por voce'), 'own question label missing');
     assert(editor.includes('readImageFile'), 'image upload helper missing');
     assert(editor.includes('STORAGE_KEY_BASE'), 'base draft storage key missing');
     assert(editor.includes('useUserDraftStorage'), 'user-scoped draft storage missing');
@@ -405,10 +408,34 @@ async function main() {
     assert(sql.includes('review_status TEXT DEFAULT'), 'exam review_status column missing');
     assert(sql.includes('CREATE OR REPLACE FUNCTION public.is_coordinator_or_admin()'), 'coordinator/admin helper function missing');
     assert(sql.includes('public.is_coordinator_or_admin()'), 'coordinator/admin role policy missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.normalized_role(raw_role TEXT)'), 'normalized role helper function missing');
+    assert(sql.includes("WHEN 'admin' THEN 'master'"), 'legacy admin role should normalize to master');
+    assert(sql.includes("WHEN 'coordenadora' THEN 'coordinator'"), 'legacy coordinator role should normalize to coordinator');
+    assert(sql.includes("WHEN 'professor' THEN 'teacher'"), 'legacy professor role should normalize to teacher');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.is_master()'), 'master helper function missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.is_school_owner'), 'school owner helper function missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.can_manage_school'), 'school management helper function missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.can_manage_profile'), 'profile management helper function missing');
+    assert(sql.includes("public.normalized_role(target_profile.role) IN ('coordinator', 'teacher')"), 'school owner should manage only school staff roles');
+    assert(sql.includes("public.normalized_role(target_profile.role) = 'teacher'"), 'coordinator should manage only teachers');
+    assert(sql.includes('WITH CHECK (public.is_master() OR public.can_manage_profile(id))'), 'profile manager updates should validate final profile state');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.can_review_exam'), 'exam review helper function missing');
     assert(sql.includes('DROP TRIGGER IF EXISTS on_auth_user_created'), 'trigger drop missing');
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
     assert(sql.includes('school_id'), 'school_id in profiles missing');
+    assert(sql.includes('ALTER TABLE question_bank ADD COLUMN IF NOT EXISTS school_id'), 'question bank school scope column missing');
+    assert(sql.includes('CREATE TABLE IF NOT EXISTS user_invites'), 'user invite table missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.accept_user_invite'), 'accept invite RPC missing');
+    assert(sql.includes('token TEXT UNIQUE'), 'invite token column missing');
+    assert(sql.includes('profiles_manager_roles_require_school'), 'manager profile roles should require school constraint');
+    assert(sql.includes("public.normalized_role(role) NOT IN ('school_owner', 'coordinator')"), 'owner/coordinator profiles should require school_id');
+    assert(sql.includes('user_invites_school_roles_require_school'), 'school invite roles should require school constraint');
+    assert(sql.includes("role NOT IN ('teacher', 'coordinator', 'school_owner')"), 'school invites should require school_id');
+    assert(sql.includes('NOT VALID'), 'new constraints should avoid blocking existing data during migration');
+    assert(sql.includes("role IN ('teacher', 'coordinator')"), 'school owner invite role restriction missing');
+    assert(sql.includes("set_config('app.accepting_invite', 'true', TRUE)"), 'accept invite should bypass self-managed field trigger intentionally');
+    assert(sql.includes("current_setting('app.accepting_invite', TRUE)"), 'profile managed fields trigger should recognize invite acceptance');
     assert(sql.includes('force_password_change'), 'forced password change flag missing');
     assert(sql.includes('admin_reset_user_password'), 'admin password reset RPC missing');
     assert(sql.includes("extensions.crypt('123456', extensions.gen_salt('bf'))"), 'admin password reset should set temporary password 123456 with Supabase pgcrypto schema');
@@ -418,6 +445,24 @@ async function main() {
     assert(sql.includes('NEW.school_id = OLD.school_id'), 'profile school_id should be protected from self updates');
     assert(sql.includes('NEW.school_grade = OLD.school_grade'), 'profile school_grade should be protected from self updates');
     assert(sql.includes('NEW.disciplines = OLD.disciplines'), 'profile disciplines should be protected from self updates');
+    assert(sql.includes('FOR INSERT WITH CHECK (public.is_master())'), 'only master should create schools');
+    assert(sql.includes('FOR DELETE USING (public.is_master())'), 'only master should delete schools');
+    assert(sql.includes("SET role = 'master'") && sql.includes("WHERE email = 'yesley@msn.com'"), 'initial owner should be promoted to master');
+  });
+
+  await test('AuthManager exposes access profile helpers', () => {
+    const auth = read('js/auth.js');
+    assert(auth.includes('normalizeRole(role)'), 'role normalizer missing');
+    assert(auth.includes("admin: 'master'"), 'admin alias missing');
+    assert(auth.includes("coordenadora: 'coordinator'"), 'coordinator alias missing');
+    assert(auth.includes("professor: 'teacher'"), 'teacher alias missing');
+    assert(auth.includes('async loadCurrentProfile'), 'current profile loader missing');
+    assert(auth.includes('canManageSchools'), 'school management helper missing');
+    assert(auth.includes('canManageUsers'), 'user management helper missing');
+    assert(auth.includes('canReviewExams'), 'exam review helper missing');
+    assert(auth.includes('canEditExam'), 'exam edit helper missing');
+    assert(auth.includes('canDeleteExam'), 'exam delete helper missing');
+    assert(auth.includes('canManageQuestionBank'), 'question bank helper missing');
   });
 
   await test('editor organizes question card into labelled sections', () => {
@@ -493,6 +538,10 @@ async function main() {
     assert(dashboard.includes('currentTerm'), 'currentTerm state missing');
     assert(dashboard.includes('currentReviewStatus'), 'currentReviewStatus state missing');
     assert(dashboard.includes('schools.html'), 'schools link missing in dashboard');
+    assert(dashboard.includes('auth.loadCurrentProfile'), 'dashboard should load current profile through AuthManager');
+    assert(dashboard.includes('auth.canReviewExams(currentProfile)'), 'dashboard should use role helper for coordination access');
+    assert(dashboard.includes('auth.canManageSchools(currentProfile)'), 'dashboard should use role helper for school access');
+    assert(dashboard.includes('auth.canDeleteExam(exam, currentProfile)'), 'dashboard should use delete permission helper');
     assert(dashboard.includes('localStorage.removeItem(`gerador-provas-state-v1:${user.id}`)'), 'new exam should clear current user local draft');
     assert(dashboard.includes('Enviar revisão'), 'dashboard should use a clear review action label');
     assert(!dashboard.includes('>Coord.</button>'), 'dashboard should not use abbreviated Coord. action');
@@ -508,6 +557,9 @@ async function main() {
     const editor = read('editor.html');
     const print = read('print.html');
     assert(editor.includes('<select id="className">'), 'class field should be a select in the editor');
+    assert(editor.includes('currentProfile = await auth.loadCurrentProfile()'), 'editor should load current profile for school-scoped features');
+    assert(editor.includes('buildBankScopePayload(scope)'), 'editor should save question bank scope through scope payload helper');
+    assert(editor.includes('school_id: currentProfile.school_id'), 'editor should save school scope on question bank items when available');
     assert(editor.includes('school_grade,disciplines'), 'editor profile query should fetch teacher grade/classes');
     assert(editor.includes('function normalizeClassList'), 'editor should normalize one or many profile classes');
     assert(editor.includes('function setClassOptions'), 'editor should populate class options');
@@ -533,7 +585,9 @@ async function main() {
     assert(editor.includes('localDraftAutosaveEnabled = false'), 'cloud save should disable local draft autosave');
     assert(editor.includes('login.html?return_to=${encodeURIComponent(returnTo)}'), 'editor should redirect anonymous users to login with return_to');
     assert(login.includes('function getSafeReturnTo()'), 'login should validate return_to');
-    assert(login.includes('setTimeout(goAfterAuth, 1200)'), 'login should return to protected destination after auth');
+    assert(login.includes('async function goAfterAuth()'), 'login should return asynchronously after auth');
+    assert(login.includes('getSafeReturnTo() || await getDefaultDestinationForRole()'), 'login should prefer safe return_to before role destination');
+    assert(login.includes('getDefaultDestinationForRole'), 'login should choose default destination by role');
     assert(print.includes('const raw = userKey ? localStorage.getItem(userKey) : null;'), 'print should not fall back to anonymous draft');
     assert(print.includes('login.html?return_to=${encodeURIComponent(returnTo)}'), 'print should redirect anonymous users with return_to');
   });
@@ -564,9 +618,26 @@ async function main() {
     assert(page.includes('loadSchools'), 'loadSchools function missing');
     assert(page.includes('addSchool'), 'addSchool function missing');
     assert(page.includes('linkProfessor'), 'linkProfessor function missing');
+    assert(page.includes('createInvite'), 'school page should create invite links');
+    assert(page.includes('/user_invites'), 'school page should persist invite records');
+    assert(page.includes('renderAccessSummary'), 'school page should render access migration summary');
+    assert(page.includes('accessSummarySection'), 'school page should include access summary section');
+    assert(page.includes('withoutSchool'), 'school page should flag users without school');
+    assert(page.includes('pendingInvites'), 'school page should count pending invites');
+    assert(page.includes('expiredInvites'), 'school page should count expired invites');
+    assert(page.includes('loadInvites'), 'school page should list generated invites');
+    assert(page.includes('deleteInvite'), 'school page should allow canceling unused invites');
+    assert(page.includes('invitesSection'), 'school page should render invite management section');
+    assert(page.includes('/user_invites?select=*&order=created_at.desc'), 'school page should load invite records');
+    assert(page.includes('accepted_at'), 'school page should distinguish accepted invites');
+    assert(page.includes('expires_at'), 'school page should distinguish expired invites');
+    assert(page.includes('buildInviteLink(invite.token)'), 'school page should show reusable pending invite links');
+    assert(page.includes('accepted_at=is.null'), 'invite cancel should only target unused invites');
+    assert(page.includes('buildInviteLink'), 'school page should build login invite links');
+    assert(page.includes('inviteRoleSelect'), 'school page should choose invited access role');
     assert(page.includes('deleteSchool'), 'deleteSchool function missing');
     assert(page.includes('school_id'), 'school_id reference missing');
-    assert(page.includes("'coordenadora'") || page.includes('is_coordinator_or_admin'), 'role guard reference missing');
+    assert(page.includes('auth.canManageSchools(currentProfile)') && page.includes('auth.canManageUsers(currentProfile)'), 'role guard helper reference missing');
     assert(page.includes('se-logo-preview'), 'school edit should show logo preview');
     assert(page.includes('preview.src = pendingLogos[schoolId]'), 'school logo change should update preview before save');
     assert(page.includes('const GRADE_OPTIONS = ['), 'school page should centralize grade options');
@@ -575,7 +646,24 @@ async function main() {
     assert(page.includes("getCheckedValues('linkGradeCheckboxes').join(', ')"), 'link professor should save multiple grades');
     assert(page.includes("getCheckedValues(`pe-grades-${profId}`).join(', ')"), 'professor edit should save multiple grades');
     assert(page.includes('promoteProfessor'), 'school page should allow promoting a professor');
-    assert(page.includes("role: 'coordenadora'"), 'professor promotion should update role to coordenadora');
+    assert(page.includes("changeProfileRole(profId, 'coordinator')"), 'professor promotion should update role to coordinator');
+    assert(page.includes('roleLabel(role)'), 'school page should label access roles');
+    assert(page.includes('canChangeTeamRole'), 'school page should guard role changes');
+    assert(page.includes('canChangeTeamSchool'), 'school page should guard profile school changes');
+    assert(page.includes('renderProfileSchoolSelect'), 'school page should let managers choose profile access school');
+    assert(page.includes('data-profile-school-select'), 'profile school select marker missing');
+    assert(page.includes('getProfileSchoolId(profile)'), 'role changes should read selected profile school');
+    assert(page.includes("['school_owner', 'coordinator'].includes(role) && !schoolId"), 'owner/coordinator role should require a school');
+    assert(page.includes('update.school_id = schoolId'), 'profile role changes should persist selected school');
+    assert(page.includes('Selecione a escola de acesso deste perfil.'), 'existing-user linking should require access school');
+    assert(page.includes('renderRoleSelect'), 'school page should render role select');
+    assert(page.includes("role=in.(professor,teacher,coordenadora,coordinator,school_owner,admin,master)"), 'school page should list all school access roles');
+    assert(page.includes("role === 'school_owner' && !auth.hasRole(['master'], currentProfile)"), 'only master should assign school owner role');
+    assert(page.includes('function canManageInvites()'), 'school page should centralize invite permission');
+    assert(page.includes("auth.hasRole(['master', 'school_owner'], currentProfile)"), 'master and school owner should manage invites');
+    assert(page.includes("role === 'school_owner' && !auth.hasRole(['master'], currentProfile)"), 'only master should invite school owner role');
+    assert(page.includes("document.getElementById('linkProfBtn').style.display = 'none'"), 'existing-user linking should remain master-only');
+    assert(page.includes("Apenas o acesso master pode vincular usuarios existentes."), 'non-master existing-user linking should be blocked');
     assert(page.includes('Promover a coordenador(a)'), 'professor list should show promotion action');
     assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
     assert(page.includes('/rpc/admin_reset_user_password'), 'password reset should call admin reset RPC');
@@ -598,6 +686,17 @@ async function main() {
     assert(auth.includes('this.session.user.user_metadata') && auth.includes('...metadata'), 'AuthManager updatePassword should merge metadata into local session');
   });
 
+  await test('login redirects by access role when no return target exists', () => {
+    const page = read('login.html');
+    assert(page.includes("['master', 'school_owner'].includes(role)") && page.includes("return 'schools.html'"), 'master and school owner should default to schools page');
+    assert(page.includes("role === 'coordinator'") && page.includes("return 'coordenacao.html'"), 'coordinator should default to coordination page');
+    assert(page.includes("return 'dashboard.html'"), 'teacher and fallback should default to dashboard');
+    assert(page.includes("auth.loadCurrentProfile('id,role,school_id,force_password_change')"), 'login should load profile before role redirect');
+    assert(page.includes('function getInviteToken()'), 'login should read invite token');
+    assert(page.includes('/rpc/accept_user_invite'), 'login should accept invite through RPC');
+    assert(page.includes('await acceptPendingInvite()'), 'login should apply invite before redirect');
+  });
+
   await test('dashboard allows the current user to change password', () => {
     const page = read('dashboard.html');
     assert(page.includes('profilePasswordInput'), 'profile modal should include new password input');
@@ -616,7 +715,7 @@ async function main() {
     ['approveExam', 'unapproveExam', 'returnExam', 'blockExam', 'unblockExam', 'updateReviewStatus'].forEach((name) => {
       assert(page.includes(name), `${name} missing in coordination page`);
     });
-    assert(page.includes("profile?.role"), 'coordination role guard missing');
+    assert(page.includes('auth.canReviewExams(profile)'), 'coordination role guard missing');
     assert(page.includes('Observação registrada'), 'coordination review note display missing');
   });
 

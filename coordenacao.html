@@ -180,10 +180,8 @@
     }
 
     try {
-      const user = auth.getCurrentUser();
-      const data = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=role,full_name,email`);
-      profile = Array.isArray(data) ? data[0] : null;
-      if (!['coordenadora', 'admin'].includes(profile?.role)) {
+      profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
+      if (!auth.canReviewExams(profile)) {
         showToast('Acesso restrito à coordenação.', 'error');
         setTimeout(() => window.location.href = 'dashboard.html', 1200);
         return;

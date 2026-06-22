@@ -152,7 +152,7 @@
           enableForcedPasswordChangeMode();
           return;
         }
-        window.location.href = getSafeReturnTo() || 'dashboard.html';
+        await goAfterAuth();
       }
     });
 
@@ -189,8 +189,41 @@
       return normalized;
     }
 
-    function goAfterAuth() {
-      window.location.href = getSafeReturnTo() || 'dashboard.html';
+    function getInviteToken() {
+      const value = new URLSearchParams(window.location.search).get('invite') || '';
+      return /^[a-f0-9]{16,128}$/i.test(value) ? value : '';
+    }
+
+    async function acceptPendingInvite() {
+      const token = getInviteToken();
+      if (!token) return false;
+      await auth.authenticatedRequest('/rpc/accept_user_invite', {
+        method: 'POST',
+        body: JSON.stringify({ invite_token: token }),
+      });
+      return true;
+    }
+
+    async function getDefaultDestinationForRole() {
+      try {
+        const profile = await auth.loadCurrentProfile('id,role,school_id,force_password_change');
+        const role = auth.getRole(profile);
+        if (['master', 'school_owner'].includes(role)) return 'schools.html';
+        if (role === 'coordinator') return 'coordenacao.html';
+      } catch (err) {
+        console.warn('Nao foi possivel carregar perfil para redirecionamento:', err.message);
+      }
+      return 'dashboard.html';
+    }
+
+    async function goAfterAuth() {
+      try {
+        await acceptPendingInvite();
+      } catch (err) {
+        showAlert('Convite nao aplicado: ' + traduzirErro(err.message), 'error');
+        return;
+      }
+      window.location.href = getSafeReturnTo() || await getDefaultDestinationForRole();
     }
 
     function enableRecoveryMode() {
@@ -313,7 +346,7 @@
             body: JSON.stringify({ force_password_change: false }),
           });
           showAlert('Senha atualizada! Redirecionando...', 'success');
-          setTimeout(goAfterAuth, 1200);
+          setTimeout(() => goAfterAuth(), 1200);
         } catch (err) {
           showAlert(traduzirErro(err.message), 'error');
         } finally {
@@ -340,7 +373,7 @@
             return;
           }
           showAlert('✓ Login realizado! Redirecionando...', 'success');
-          setTimeout(goAfterAuth, 1200);
+          setTimeout(() => goAfterAuth(), 1200);
         } else {
           const result = await auth.signUp(email, password, { full_name: name, school_name: school });
           if (!result.success) {
@@ -351,7 +384,7 @@
           const loginResult = await auth.signIn(email, password);
           if (loginResult.success) {
             showAlert('✓ Conta criada! Redirecionando...', 'success');
-            setTimeout(goAfterAuth, 1200);
+            setTimeout(() => goAfterAuth(), 1200);
           } else {
             showAlert('✓ Conta criada! Faça login para continuar.', 'success');
             setMode('login');

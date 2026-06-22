@@ -398,7 +398,7 @@
 <script>
   let auth = null;
   let exams = [];
-  let currentProfile = { full_name: '', school_name: '', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
+  let currentProfile = { full_name: '', school_name: '', role: 'professor', normalized_role: 'teacher', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
   let currentFilter = 'all';
   let currentSubject = '';
   let currentTerm = '';
@@ -418,8 +418,8 @@
 
     // Fetch básico: papel e nome — links de menu dependem disso
     try {
-      const profile = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=full_name,school_name,role,force_password_change`);
-      currentProfile = { ...currentProfile, ...(Array.isArray(profile) && profile[0] ? profile[0] : {}) };
+      const profile = await auth.loadCurrentProfile('id,email,full_name,school_name,role,force_password_change');
+      currentProfile = { ...currentProfile, ...(profile || {}) };
     } catch {}
     applyProfileToHeader();
     applyRoleActions();
@@ -427,7 +427,10 @@
     // Fetch estendido: colunas opcionais (falha silenciosa se migration não foi rodada)
     try {
       const ext = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=school_id,school_grade,disciplines`);
-      if (Array.isArray(ext) && ext[0]) currentProfile = { ...currentProfile, ...ext[0] };
+      if (Array.isArray(ext) && ext[0]) {
+        currentProfile = { ...currentProfile, ...ext[0], normalized_role: auth.normalizeRole(currentProfile.role) };
+        auth.currentProfile = currentProfile;
+      }
     } catch {}
 
     await loadExams();
@@ -500,10 +503,10 @@
   }
 
   function applyRoleActions() {
-    const canCoordinate = ['coordenadora', 'admin'].includes(currentProfile.role);
+    const canCoordinate = auth.canReviewExams(currentProfile);
     document.getElementById('coordinationLink').classList.toggle('show', canCoordinate);
     const schoolsLink = document.getElementById('schoolsLink');
-    if (schoolsLink) schoolsLink.style.display = canCoordinate ? 'inline-flex' : 'none';
+    if (schoolsLink) schoolsLink.style.display = (auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile)) ? 'inline-flex' : 'none';
   }
 
   function requiresPasswordChange() {
@@ -513,9 +516,10 @@
   async function loadExams() {
     try {
       const user = auth.getCurrentUser();
-      const data = await auth.authenticatedRequest(
-        `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`
-      );
+      const endpoint = auth.canReviewExams(currentProfile)
+        ? '/exams?order=created_at.desc&select=*'
+        : `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`;
+      const data = await auth.authenticatedRequest(endpoint);
       exams = Array.isArray(data) ? data : [];
       renderSubjectOptions();
       renderExams();
@@ -593,6 +597,10 @@
       const reviewButtonLabel = reviewInProgress ? 'Em revisão' : (locked ? label : 'Enviar revisão');
       const date = exam.created_at ? new Date(exam.created_at).toLocaleDateString('pt-BR') : '—';
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
+      const ownedByCurrentUser = exam.user_id === auth.getCurrentUser()?.id;
+      const canEdit = auth.canEditExam(exam, currentProfile);
+      const canDelete = auth.canDeleteExam(exam, currentProfile);
+      const canSendToReview = ownedByCurrentUser && !locked && !reviewInProgress;
 
       return `
         <div class="exam-card">
@@ -610,8 +618,8 @@
             <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
             <button class="card-btn print" onclick="printExam('${exam.id}')">PDF</button>
             <button class="card-btn duplicate" onclick="duplicateExam('${exam.id}')">⊕ Copiar</button>
-            <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${locked || reviewInProgress ? 'disabled' : ''}>${reviewButtonLabel}</button>
-            <button class="card-btn delete" onclick="askDelete('${exam.id}')" ${locked ? 'disabled' : ''}>🗑️ Deletar</button>
+            <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${!canSendToReview ? 'disabled' : ''}>${reviewButtonLabel}</button>
+            <button class="card-btn delete" onclick="askDelete('${exam.id}')" ${!canDelete ? 'disabled' : ''}>🗑️ Deletar</button>
           </div>
         </div>`;
     }).join('');
@@ -905,8 +913,12 @@
   function askDelete(id) {
     pendingDeleteId = id;
     const exam = exams.find(e => e.id === id);
+    if (!auth.canDeleteExam(exam, currentProfile)) {
+      showToast('Voce nao tem permissao para deletar esta prova.', 'error');
+      return;
+    }
     const review = exam?.review_status || 'rascunho';
-    if (['aprovada', 'bloqueada'].includes(review)) {
+    if (['aprovada', 'bloqueada'].includes(review) && !auth.hasRole(['master', 'school_owner'], currentProfile)) {
       showToast('Provas aprovadas ou bloqueadas não podem ser deletadas.', 'error');
       return;
     }

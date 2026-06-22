@@ -96,10 +96,19 @@
     .prof-edit { margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 10px; display: none; }
     .prof-edit.open { display: block; }
     .prof-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .access-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .access-summary-item { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc; }
+    .access-summary-value { font-size: 22px; font-weight: 900; color: #0f172a; }
+    .access-summary-label { font-size: 12px; font-weight: 700; color: #64748b; margin-top: 2px; }
+    .access-alert-list { display: grid; gap: 6px; margin-top: 10px; }
+    .access-alert-item { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; }
+    .invite-link-row { display: flex; gap: 8px; margin-top: 8px; }
+    .invite-link-row input { flex: 1; font-size: 12px; }
     @media (max-width: 600px) {
       .form-row { grid-template-columns: 1fr; }
       .school-card-top { flex-wrap: wrap; }
       .main { padding: 20px 16px; }
+      .invite-link-row { flex-direction: column; }
     }
   </style>
 </head>
@@ -166,9 +175,9 @@
     <div class="empty"><h2>Carregando...</h2></div>
   </div>
 
-  <!-- Vincular professor a escola -->
-  <div class="form-card" style="margin-top: 28px;">
-    <h2>Vincular professor a uma escola</h2>
+  <!-- Convidar ou vincular usuario a escola -->
+  <div class="form-card" id="linkProfessorCard" style="margin-top: 28px;">
+    <h2>Convidar ou vincular usuario a uma escola</h2>
     <div class="form-row">
       <div>
         <label>Escola</label>
@@ -177,9 +186,17 @@
         </select>
       </div>
       <div>
-        <label>E-mail do professor</label>
+        <label>E-mail do usuario</label>
         <input id="linkProfEmail" type="email" placeholder="email@prof.com" />
       </div>
+    </div>
+    <div>
+      <label>Perfil de acesso</label>
+      <select id="inviteRoleSelect">
+        <option value="teacher">Professor</option>
+        <option value="coordinator">Coordenacao</option>
+        <option value="school_owner">Dono da escola</option>
+      </select>
     </div>
     <div>
       <label>Séries / anos que leciona</label>
@@ -190,15 +207,29 @@
       <div id="linkDisciplinesCheckboxes" class="disc-checkboxes"></div>
     </div>
     <div>
-      <button class="btn green" id="linkProfBtn" type="button">Vincular professor</button>
+      <button class="btn green" id="createInviteBtn" type="button">Gerar link de convite</button>
+      <button class="btn" id="linkProfBtn" type="button">Vincular usuario existente</button>
     </div>
     <div id="linkResult" style="font-size:13px; color:#64748b;"></div>
   </div>
 
-  <!-- Professores cadastrados -->
+  <!-- Resumo de acessos -->
+  <div class="form-card" id="accessSummarySection" style="display:none;">
+    <p class="section-title">Resumo de acessos</p>
+    <div id="accessSummaryGrid" class="access-summary-grid"></div>
+    <div id="accessSummaryAlerts" class="access-alert-list"></div>
+  </div>
+
+  <!-- Equipe cadastrada -->
   <div class="form-card" id="professorsSection" style="display:none;">
-    <p class="section-title">Professores cadastrados no sistema</p>
+    <p class="section-title">Equipe cadastrada no sistema</p>
     <div id="professorsList" class="professor-list"></div>
+  </div>
+
+  <!-- Convites -->
+  <div class="form-card" id="invitesSection" style="display:none;">
+    <p class="section-title">Convites de acesso</p>
+    <div id="invitesList" class="professor-list"></div>
   </div>
 </main>
 
@@ -208,7 +239,10 @@
 <script src="js/auth.js"></script>
 <script>
   let auth = null;
+  let currentProfile = null;
   let schools = [];
+  let teamProfiles = [];
+  let invites = [];
   let newSchoolDisciplines = [];
   let newSchoolLogoDataUrl = '';
   const GRADE_OPTIONS = [
@@ -223,10 +257,8 @@
       return;
     }
     try {
-      const user = auth.getCurrentUser();
-      const data = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=role`);
-      const profile = Array.isArray(data) ? data[0] : null;
-      if (!['coordenadora', 'admin'].includes(profile?.role)) {
+      currentProfile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
+      if (!auth.canManageSchools(currentProfile) && !auth.canManageUsers(currentProfile)) {
         showToast('Acesso restrito à coordenação.', 'error');
         setTimeout(() => window.location.href = 'dashboard.html', 1200);
         return;
@@ -240,7 +272,14 @@
       await auth.signOut();
       window.location.href = 'login.html';
     });
+    const schoolForm = document.querySelector('.form-card');
+    if (schoolForm && !auth.hasRole(['master'], currentProfile)) schoolForm.style.display = 'none';
+    const linkCard = document.getElementById('linkProfessorCard');
+    if (linkCard && !canManageInvites()) linkCard.style.display = 'none';
+    updateInviteRoleOptions();
     document.getElementById('addSchoolBtn').addEventListener('click', addSchool);
+    document.getElementById('createInviteBtn').addEventListener('click', createInvite);
+    if (!auth.hasRole(['master'], currentProfile)) document.getElementById('linkProfBtn').style.display = 'none';
     document.getElementById('linkProfBtn').addEventListener('click', linkProfessor);
     document.getElementById('linkSchoolSelect').addEventListener('change', onLinkSchoolChange);
     renderGradeCheckboxes('linkGradeCheckboxes');
@@ -273,6 +312,7 @@
 
     await loadSchools();
     await loadProfessors();
+    await loadInvites();
   });
 
   function addNewSchoolDisc() {
@@ -322,6 +362,8 @@
           ? `<img class="school-logo-thumb" src="${esc(s.logo_data_url)}" alt="Logo" />`
           : `<div class="school-logo-placeholder">🏫</div>`;
         const discTags = discs.map(d => `<span class="tag">${esc(d)}</span>`).join('');
+        const canEditSchool = auth.canManageSchools(currentProfile);
+        const canDeleteSchool = auth.hasRole(['master'], currentProfile);
         return `
         <div class="school-card" id="sc-${s.id}">
           <div class="school-card-top">
@@ -332,9 +374,9 @@
               ${discTags ? `<div class="tags" style="margin-top:6px;">${discTags}</div>` : ''}
             </div>
             <div class="school-actions">
-              <button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Editar</button>
-              <button class="btn sm" type="button" onclick="toggleDiscEdit('${s.id}')">Disciplinas</button>
-              <button class="btn sm danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>
+              ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Editar</button>` : ''}
+              ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleDiscEdit('${s.id}')">Disciplinas</button>` : ''}
+              ${canDeleteSchool ? `<button class="btn sm danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>` : ''}
             </div>
           </div>
 
@@ -411,6 +453,10 @@
   }
 
   async function saveSchoolEdit(schoolId) {
+    if (!auth.canManageSchools(currentProfile)) {
+      showToast('Voce nao tem permissao para editar escolas.', 'error');
+      return;
+    }
     const name = (document.getElementById(`se-name-${schoolId}`)?.value || '').trim();
     const city = (document.getElementById(`se-city-${schoolId}`)?.value || '').trim();
     const email = (document.getElementById(`se-email-${schoolId}`)?.value || '').trim();
@@ -458,6 +504,10 @@
   }
 
   async function saveSchoolDisciplines(schoolId, discs) {
+    if (!auth.canManageSchools(currentProfile)) {
+      showToast('Voce nao tem permissao para editar disciplinas da escola.', 'error');
+      return;
+    }
     try {
       await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
         method: 'PATCH',
@@ -496,6 +546,10 @@
   }
 
   async function addSchool() {
+    if (!auth.hasRole(['master'], currentProfile)) {
+      showToast('Apenas o acesso master pode cadastrar escolas.', 'error');
+      return;
+    }
     const name = document.getElementById('schoolNameInput').value.trim();
     const city = document.getElementById('schoolCityInput').value.trim();
     const adminEmail = document.getElementById('schoolAdminInput').value.trim();
@@ -531,6 +585,10 @@
   }
 
   async function deleteSchool(id) {
+    if (!auth.hasRole(['master'], currentProfile)) {
+      showToast('Apenas o acesso master pode excluir escolas.', 'error');
+      return;
+    }
     if (!confirm('Excluir esta escola? Os professores vinculados perderão a associação.')) return;
     try {
       await auth.authenticatedRequest(`/schools?id=eq.${id}`, { method: 'DELETE' });
@@ -543,46 +601,60 @@
 
   async function loadProfessors() {
     try {
-      const data = await auth.authenticatedRequest('/profiles?role=eq.professor&select=id,full_name,email,school_grade,school_id,disciplines&order=full_name.asc');
+      const data = await auth.authenticatedRequest('/profiles?role=in.(professor,teacher,coordenadora,coordinator,school_owner,admin,master)&select=id,full_name,email,role,school_grade,school_id,disciplines&order=full_name.asc');
       const profs = Array.isArray(data) ? data : [];
+      teamProfiles = profs;
+      renderAccessSummary();
       const section = document.getElementById('professorsSection');
       const list = document.getElementById('professorsList');
       if (!profs.length) { section.style.display = 'none'; return; }
       section.style.display = '';
       list.innerHTML = profs.map(p => {
+        const role = auth.normalizeRole(p.role);
         const school = schools.find(s => s.id === p.school_id);
         const discs = Array.isArray(p.disciplines) ? p.disciplines : [];
         const profGrades = normalizeGrades(p.school_grade);
         const schoolDiscs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
+        const canChangeSchool = canChangeTeamSchool(p);
+        const schoolControl = canChangeSchool ? renderProfileSchoolSelect(p.id, p.school_id) : '';
         const gradeCheckboxes = renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades);
         const discCheckboxes = schoolDiscs.map(d =>
           `<label class="disc-check-label"><input type="checkbox" value="${esc(d)}" ${discs.includes(d) ? 'checked' : ''} />${esc(d)}</label>`
         ).join('');
+        const canEditProfile = canEditTeamProfile(p);
+        const canChangeRole = canChangeTeamRole(p);
+        const canUnlink = canEditProfile && p.school_id && role !== 'master';
+        const roleControl = canChangeRole ? renderRoleSelect(p.id, role) : `<span class="tag">${esc(roleLabel(role))}</span>`;
         return `
         <div class="professor-row" style="flex-direction:column; align-items:stretch;">
           <div style="display:flex; align-items:center; gap:10px;">
             <div style="flex:1;">
               <div class="pname">${esc(p.full_name || '—')}</div>
               <div class="pmeta">${esc(p.email || '')}${profGrades.length ? ' · ' + esc(profGrades.join(', ')) : ''}${school ? ' · ' + esc(school.name) : ' · Sem escola'}</div>
+              <div class="tags" style="margin-top:6px;">${roleControl}</div>
               ${discs.length ? `<div class="tags" style="margin-top:6px;">${discs.map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>` : ''}
             </div>
             <div class="prof-actions">
-              <button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Editar</button>
-              <button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Resetar senha</button>
-              <button class="btn sm primary" type="button" onclick="promoteProfessor('${p.id}')">Promover a coordenador(a)</button>
-              ${p.school_id ? `<button class="btn sm danger" type="button" onclick="unlinkProfessor('${p.id}')">Desvincular</button>` : ''}
+              ${canEditProfile ? `<button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Editar</button>` : ''}
+              ${canEditProfile ? `<button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Resetar senha</button>` : ''}
+              ${canChangeRole && role === 'teacher' ? `<button class="btn sm primary" type="button" onclick="promoteProfessor('${p.id}')">Promover a coordenador(a)</button>` : ''}
+              ${canUnlink ? `<button class="btn sm danger" type="button" onclick="unlinkProfessor('${p.id}')">Desvincular</button>` : ''}
             </div>
           </div>
           <div class="prof-edit" id="pe-${p.id}">
+            ${schoolControl ? `
+            <div style="margin-bottom:8px;">
+              <label>Escola de acesso</label>
+              ${schoolControl}
+            </div>` : ''}
             <div style="margin-bottom:8px;">
               <label>Séries / anos</label>
               <div id="pe-grades-${p.id}" class="disc-checkboxes">${gradeCheckboxes}</div>
             </div>
-            ${schoolDiscs.length ? `
-            <div style="margin-bottom:10px;">
+            <div id="pe-discs-wrap-${p.id}" style="${schoolDiscs.length ? '' : 'display:none;'}margin-bottom:10px;">
               <label>Disciplinas</label>
               <div id="pe-discs-${p.id}" class="disc-checkboxes" style="margin-top:6px;">${discCheckboxes}</div>
-            </div>` : ''}
+            </div>
             <div style="display:flex;gap:8px;">
               <button class="btn sm primary" type="button" onclick="saveProfEdit('${p.id}')">Salvar</button>
               <button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Cancelar</button>
@@ -593,18 +665,124 @@
     } catch {}
   }
 
+  function roleLabel(role) {
+    return {
+      master: 'Master',
+      school_owner: 'Dono da escola',
+      coordinator: 'Coordenacao',
+      teacher: 'Professor',
+    }[role] || role || 'Professor';
+  }
+
+  function canManageInvites() {
+    return auth.hasRole(['master', 'school_owner'], currentProfile);
+  }
+
+  function updateInviteRoleOptions() {
+    const select = document.getElementById('inviteRoleSelect');
+    if (!select) return;
+    const allowed = auth.hasRole(['master'], currentProfile)
+      ? ['teacher', 'coordinator', 'school_owner']
+      : ['teacher', 'coordinator'];
+    select.innerHTML = allowed.map(role => `<option value="${role}">${esc(roleLabel(role))}</option>`).join('');
+  }
+
+  function canEditTeamProfile(profile) {
+    if (!profile) return false;
+    const role = auth.normalizeRole(profile.role);
+    if (auth.hasRole(['master'], currentProfile)) return true;
+    if (auth.hasRole(['school_owner'], currentProfile)) {
+      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher'].includes(role);
+    }
+    if (auth.hasRole(['coordinator'], currentProfile)) {
+      return profile.school_id === currentProfile.school_id && role === 'teacher';
+    }
+    return false;
+  }
+
+  function canChangeTeamRole(profile) {
+    if (!profile || auth.getCurrentUser()?.id === profile.id) return false;
+    const role = auth.normalizeRole(profile.role);
+    if (auth.hasRole(['master'], currentProfile)) return role !== 'master';
+    if (auth.hasRole(['school_owner'], currentProfile)) {
+      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher'].includes(role);
+    }
+    return false;
+  }
+
+  function canChangeTeamSchool(profile) {
+    if (!profile) return false;
+    const role = auth.normalizeRole(profile.role);
+    if (role === 'master') return false;
+    if (auth.hasRole(['master'], currentProfile)) return true;
+    if (auth.hasRole(['school_owner'], currentProfile)) {
+      return profile.school_id === currentProfile.school_id && ['coordinator', 'teacher'].includes(role);
+    }
+    return false;
+  }
+
+  function renderRoleSelect(profileId, role) {
+    const allowed = auth.hasRole(['master'], currentProfile)
+      ? ['teacher', 'coordinator', 'school_owner']
+      : ['teacher', 'coordinator'];
+    const options = allowed.map(value => `<option value="${value}"${value === role ? ' selected' : ''}>${esc(roleLabel(value))}</option>`).join('');
+    return `<label style="display:inline-flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;color:#475569;font-size:12px;">Perfil <select style="width:auto;min-width:150px;padding:5px 8px;font-size:12px;" onchange="changeProfileRole('${profileId}', this.value)">${options}</select></label>`;
+  }
+
+  function renderProfileSchoolSelect(profileId, selectedSchoolId) {
+    const availableSchools = auth.hasRole(['master'], currentProfile)
+      ? schools
+      : schools.filter(s => s.id === currentProfile.school_id);
+    const options = availableSchools.map(s => `<option value="${esc(s.id)}"${s.id === selectedSchoolId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+    return `<select id="pe-school-${profileId}" data-profile-school-select style="max-width:360px;" onchange="changeProfileSchool('${profileId}', this.value)"><option value="">Selecione a escola</option>${options}</select>`;
+  }
+
+  function changeProfileSchool(profileId, schoolId) {
+    const school = schools.find(s => s.id === schoolId);
+    const discs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
+    const wrap = document.getElementById(`pe-discs-wrap-${profileId}`);
+    const box = document.getElementById(`pe-discs-${profileId}`);
+    if (!box) return;
+    if (wrap) wrap.style.display = discs.length ? '' : 'none';
+    box.innerHTML = discs.map(d =>
+      `<label class="disc-check-label"><input type="checkbox" value="${esc(d)}" />${esc(d)}</label>`
+    ).join('');
+  }
+
+  function getProfileSchoolId(profile) {
+    const select = document.getElementById(`pe-school-${profile.id}`);
+    return select ? select.value : (profile.school_id || '');
+  }
+
   function toggleProfEdit(profId) {
     const el = document.getElementById(`pe-${profId}`);
     if (el) el.classList.toggle('open');
   }
 
   async function saveProfEdit(profId) {
+    const profile = teamProfiles.find(p => p.id === profId);
+    if (!canEditTeamProfile(profile)) {
+      showToast('Voce nao tem permissao para editar este perfil.', 'error');
+      return;
+    }
     const grade = getCheckedValues(`pe-grades-${profId}`).join(', ');
     const checked = Array.from(document.querySelectorAll(`#pe-discs-${profId} input:checked`)).map(cb => cb.value);
+    const schoolId = getProfileSchoolId(profile);
+    const role = auth.normalizeRole(profile.role);
+    if (['school_owner', 'coordinator', 'teacher'].includes(role) && !schoolId) {
+      showToast('Selecione a escola de acesso deste perfil.', 'error');
+      return;
+    }
+    if (auth.hasRole(['school_owner'], currentProfile) && schoolId !== currentProfile.school_id) {
+      showToast('Voce so pode vincular usuarios a sua escola.', 'error');
+      return;
+    }
+    const update = { school_grade: grade || null, disciplines: checked };
+    if (canChangeTeamSchool(profile)) update.school_id = schoolId || null;
     try {
       await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ school_grade: grade || null, disciplines: checked }),
+        body: JSON.stringify(update),
       });
       showToast('Vínculo atualizado!');
       await loadProfessors();
@@ -613,21 +791,60 @@
     }
   }
 
-  async function promoteProfessor(profId) {
-    if (!confirm('Promover este professor para coordenador(a)? Este usuario passara a acessar as areas de coordenacao.')) return;
+  async function changeProfileRole(profId, role) {
+    const profile = teamProfiles.find(p => p.id === profId);
+    if (!canChangeTeamRole(profile)) {
+      showToast('Voce nao tem permissao para alterar este perfil.', 'error');
+      await loadProfessors();
+      return;
+    }
+    if (!['teacher', 'coordinator', 'school_owner'].includes(role)) {
+      showToast('Perfil invalido.', 'error');
+      await loadProfessors();
+      return;
+    }
+    if (role === 'school_owner' && !auth.hasRole(['master'], currentProfile)) {
+      showToast('Apenas o acesso master pode definir dono da escola.', 'error');
+      await loadProfessors();
+      return;
+    }
+    const schoolId = getProfileSchoolId(profile);
+    if (['school_owner', 'coordinator'].includes(role) && !schoolId) {
+      showToast('Selecione a escola antes de definir este perfil.', 'error');
+      await loadProfessors();
+      return;
+    }
+    if (auth.hasRole(['school_owner'], currentProfile) && schoolId !== currentProfile.school_id) {
+      showToast('Voce so pode alterar perfis da sua escola.', 'error');
+      await loadProfessors();
+      return;
+    }
+    const update = { role };
+    if (schoolId) update.school_id = schoolId;
     try {
       await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ role: 'coordenadora' }),
+        body: JSON.stringify(update),
       });
-      showToast('Professor promovido para coordenador(a).');
+      showToast('Perfil de acesso atualizado.');
       await loadProfessors();
     } catch (err) {
-      showToast('Erro ao promover professor: ' + err.message, 'error');
+      showToast('Erro ao atualizar perfil: ' + err.message, 'error');
+      await loadProfessors();
     }
   }
 
+  async function promoteProfessor(profId) {
+    if (!confirm('Promover este professor para coordenador(a)? Este usuario passara a acessar as areas de coordenacao.')) return;
+    await changeProfileRole(profId, 'coordinator');
+  }
+
   async function resetProfessorPassword(profId) {
+    const profile = teamProfiles.find(p => p.id === profId);
+    if (!canEditTeamProfile(profile)) {
+      showToast('Voce nao tem permissao para resetar este usuario.', 'error');
+      return;
+    }
     if (!confirm('Resetar a senha deste usuario para 123456? No proximo acesso ele sera obrigado a cadastrar uma nova senha.')) return;
     try {
       await auth.authenticatedRequest('/rpc/admin_reset_user_password', {
@@ -641,6 +858,11 @@
   }
 
   async function unlinkProfessor(profId) {
+    const profile = teamProfiles.find(p => p.id === profId);
+    if (!canEditTeamProfile(profile)) {
+      showToast('Voce nao tem permissao para desvincular este usuario.', 'error');
+      return;
+    }
     if (!confirm('Desvincular este professor da escola? Ele perderá a associação de escola, série e disciplinas.')) return;
     try {
       await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
@@ -654,12 +876,225 @@
     }
   }
 
-  async function linkProfessor() {
+  async function loadInvites() {
+    const section = document.getElementById('invitesSection');
+    const list = document.getElementById('invitesList');
+    if (!canManageInvites()) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    try {
+      const data = await auth.authenticatedRequest('/user_invites?select=*&order=created_at.desc');
+      invites = Array.isArray(data) ? data : [];
+      renderAccessSummary();
+      renderInvites();
+    } catch (err) {
+      invites = [];
+      renderAccessSummary();
+      if (section) section.style.display = 'none';
+      if (list) list.innerHTML = '';
+    }
+  }
+
+  function renderAccessSummary() {
+    const section = document.getElementById('accessSummarySection');
+    const grid = document.getElementById('accessSummaryGrid');
+    const alerts = document.getElementById('accessSummaryAlerts');
+    if (!section || !grid || !alerts) return;
+    if (!auth.canManageUsers(currentProfile) && !auth.canManageSchools(currentProfile)) {
+      section.style.display = 'none';
+      return;
+    }
+
+    const counts = teamProfiles.reduce((acc, profile) => {
+      const role = auth.normalizeRole(profile.role);
+      acc[role] = (acc[role] || 0) + 1;
+      return acc;
+    }, {});
+    const pendingInvites = invites.filter(invite => inviteStatus(invite).key === 'pending').length;
+    const expiredInvites = invites.filter(invite => inviteStatus(invite).key === 'expired').length;
+    const withoutSchool = teamProfiles.filter(profile => {
+      const role = auth.normalizeRole(profile.role);
+      return role !== 'master' && !profile.school_id;
+    });
+
+    section.style.display = '';
+    grid.innerHTML = [
+      ['Master', counts.master || 0],
+      ['Donos', counts.school_owner || 0],
+      ['Coordenacao', counts.coordinator || 0],
+      ['Professores', counts.teacher || 0],
+      ['Sem escola', withoutSchool.length],
+      ['Convites pendentes', pendingInvites],
+    ].map(([label, value]) => `
+      <div class="access-summary-item">
+        <div class="access-summary-value">${esc(value)}</div>
+        <div class="access-summary-label">${esc(label)}</div>
+      </div>
+    `).join('');
+
+    const notes = [];
+    if (withoutSchool.length) {
+      notes.push(`${withoutSchool.length} usuario(s) ainda precisam ser vinculados a uma escola.`);
+    }
+    if (expiredInvites) {
+      notes.push(`${expiredInvites} convite(s) expirados podem ser cancelados e gerados novamente.`);
+    }
+    alerts.innerHTML = notes.map(note => `<div class="access-alert-item">${esc(note)}</div>`).join('');
+  }
+
+  function renderInvites() {
+    const section = document.getElementById('invitesSection');
+    const list = document.getElementById('invitesList');
+    if (!section || !list) return;
+    if (!canManageInvites()) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    if (!invites.length) {
+      list.innerHTML = '<div class="empty" style="padding:24px;"><h2>Nenhum convite criado</h2><p>Os convites gerados aparecerao aqui.</p></div>';
+      return;
+    }
+    list.innerHTML = invites.map(invite => {
+      const school = schools.find(s => s.id === invite.school_id);
+      const status = inviteStatus(invite);
+      const link = invite.token ? buildInviteLink(invite.token) : '';
+      const canCancel = !invite.accepted_at;
+      const linkRow = status.key === 'pending' && link
+        ? `<div class="invite-link-row"><input readonly value="${esc(link)}" onclick="this.select()" /><button class="btn sm" type="button" onclick="copyInviteLink('${invite.id}')">Copiar</button></div>`
+        : '';
+      return `
+      <div class="professor-row" style="flex-direction:column; align-items:stretch;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="flex:1;">
+            <div class="pname">${esc(invite.email)}</div>
+            <div class="pmeta">${esc(school ? school.name : 'Sem escola')} &middot; ${esc(roleLabel(auth.normalizeRole(invite.role)))} &middot; Expira em ${esc(formatDate(invite.expires_at))}</div>
+            <div class="tags" style="margin-top:6px;"><span class="tag">${esc(status.label)}</span></div>
+          </div>
+          <div class="prof-actions">
+            ${canCancel ? `<button class="btn sm danger" type="button" onclick="deleteInvite('${invite.id}')">Cancelar</button>` : ''}
+          </div>
+        </div>
+        ${linkRow}
+      </div>`;
+    }).join('');
+  }
+
+  function inviteStatus(invite) {
+    if (invite.accepted_at) return { key: 'accepted', label: 'Aceito em ' + formatDate(invite.accepted_at) };
+    if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) return { key: 'expired', label: 'Expirado' };
+    return { key: 'pending', label: 'Pendente' };
+  }
+
+  function formatDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('pt-BR');
+  }
+
+  async function copyInviteLink(inviteId) {
+    const invite = invites.find(item => item.id === inviteId);
+    if (!invite?.token) return;
+    const link = buildInviteLink(invite.token);
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Link copiado.');
+    } catch {
+      showToast('Nao foi possivel copiar automaticamente. Clique no campo e copie manualmente.', 'error');
+    }
+  }
+
+  async function deleteInvite(inviteId) {
+    const invite = invites.find(item => item.id === inviteId);
+    if (!invite || invite.accepted_at) return;
+    if (!confirm('Cancelar este convite? O link deixara de funcionar.')) return;
+    try {
+      await auth.authenticatedRequest(`/user_invites?id=eq.${inviteId}&accepted_at=is.null`, { method: 'DELETE' });
+      showToast('Convite cancelado.');
+      await loadInvites();
+    } catch (err) {
+      showToast('Erro ao cancelar convite: ' + err.message, 'error');
+    }
+  }
+
+  function buildInviteLink(token) {
+    const url = new URL('login.html', window.location.href);
+    url.searchParams.set('invite', token);
+    return url.href;
+  }
+
+  async function createInvite() {
     const schoolId = document.getElementById('linkSchoolSelect').value;
     const email = document.getElementById('linkProfEmail').value.trim();
+    const role = document.getElementById('inviteRoleSelect').value;
+    const grade = getCheckedValues('linkGradeCheckboxes').join(', ');
+    const checkedDiscs = Array.from(document.querySelectorAll('#linkDisciplinesCheckboxes input:checked')).map(cb => cb.value);
+    const resultEl = document.getElementById('linkResult');
+
+    if (!canManageInvites()) {
+      showToast('Voce nao tem permissao para gerar convites.', 'error');
+      return;
+    }
+    if (!schoolId) { showToast('Selecione a escola do convite.', 'error'); return; }
+    if (!email) { showToast('Digite o e-mail do usuario.', 'error'); return; }
+    if (!['teacher', 'coordinator', 'school_owner'].includes(role)) { showToast('Perfil invalido.', 'error'); return; }
+    if (role === 'school_owner' && !auth.hasRole(['master'], currentProfile)) {
+      showToast('Apenas o acesso master pode convidar dono da escola.', 'error');
+      return;
+    }
+    if (auth.hasRole(['school_owner'], currentProfile) && schoolId !== currentProfile.school_id) {
+      showToast('Voce so pode convidar usuarios para a sua escola.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('createInviteBtn');
+    btn.disabled = true;
+    resultEl.textContent = 'Gerando convite...';
+    try {
+      const data = await auth.authenticatedRequest('/user_invites', {
+        method: 'POST',
+        headers: { 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          email,
+          role,
+          school_id: schoolId,
+          school_grade: grade || null,
+          disciplines: checkedDiscs,
+          created_by: auth.getCurrentUser().id,
+        }),
+      });
+      const invite = Array.isArray(data) ? data[0] : data;
+      const link = invite?.token ? buildInviteLink(invite.token) : '';
+      resultEl.innerHTML = link
+        ? `Convite criado para ${esc(email)}.<br><input readonly style="margin-top:6px;" value="${esc(link)}" onclick="this.select()" />`
+        : `Convite criado para ${esc(email)}.`;
+      showToast('Link de convite gerado.');
+      await loadInvites();
+    } catch (err) {
+      resultEl.textContent = 'Erro: ' + err.message;
+      showToast('Erro ao gerar convite.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function linkProfessor() {
+    if (!auth.hasRole(['master'], currentProfile)) {
+      showToast('Apenas o acesso master pode vincular usuarios existentes.', 'error');
+      return;
+    }
+    const schoolId = document.getElementById('linkSchoolSelect').value;
+    const email = document.getElementById('linkProfEmail').value.trim();
+    const role = document.getElementById('inviteRoleSelect').value;
     const grade = getCheckedValues('linkGradeCheckboxes').join(', ');
     const checkedDiscs = Array.from(document.querySelectorAll('#linkDisciplinesCheckboxes input:checked')).map(cb => cb.value);
     if (!email) { showToast('Digite o e-mail do professor.', 'error'); return; }
+    if (['school_owner', 'coordinator', 'teacher'].includes(role) && !schoolId) {
+      showToast('Selecione a escola de acesso deste perfil.', 'error');
+      return;
+    }
     const btn = document.getElementById('linkProfBtn');
     btn.disabled = true;
     const resultEl = document.getElementById('linkResult');
@@ -669,6 +1104,7 @@
       const prof = Array.isArray(profData) ? profData[0] : null;
       if (!prof) { resultEl.textContent = 'Professor não encontrado com este e-mail.'; btn.disabled = false; return; }
       const update = {};
+      update.role = role || 'teacher';
       if (schoolId) update.school_id = schoolId;
       if (grade) update.school_grade = grade;
       if (checkedDiscs.length) update.disciplines = checkedDiscs;
