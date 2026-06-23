@@ -237,21 +237,51 @@
       .select-control { width: 100%; }
       .btn-profile, .btn-logout { padding: 7px 9px; }
     }
+
+    /* APP NAVIGATION */
+    body { padding-left: 240px; }
+    .app-sidebar {
+      position: fixed; inset: 0 auto 0 0; width: 240px; background: #fff;
+      border-right: 1px solid #e2e8f0; padding: 22px 16px; z-index: 20;
+      display: flex; flex-direction: column; gap: 22px;
+    }
+    .app-brand { color: #0f172a; font-size: 18px; font-weight: 900; text-decoration: none; padding: 0 8px; }
+    .app-nav { display: grid; gap: 6px; }
+    .app-nav-link {
+      color: #475569; text-decoration: none; border-radius: 10px; padding: 10px 12px;
+      font-size: 14px; font-weight: 800; display: flex; align-items: center;
+    }
+    .app-nav-link:hover { background: #f8fafc; color: #0f172a; }
+    .app-nav-link.active { background: #0f172a; color: #fff; }
+    .app-nav-link.restricted { display: none; }
+    .app-nav-link.restricted.show { display: flex; }
+    .page-title { font-size: 15px; font-weight: 900; color: #1e293b; }
+    @media (max-width: 760px) {
+      body { padding-left: 0; }
+      .app-sidebar { position: static; width: auto; min-height: auto; border-right: 0; border-bottom: 1px solid #e2e8f0; padding: 16px; }
+      .app-nav { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
+<aside class="app-sidebar">
+  <a class="app-brand" href="dashboard.html">Gerador de Provas</a>
+  <nav class="app-nav" aria-label="Módulos do sistema">
+    <a class="app-nav-link active" href="dashboard.html">Minhas provas</a>
+    <a class="app-nav-link restricted" id="navReviewLink" href="coordenacao.html">Revisão pedagógica</a>
+    <a class="app-nav-link restricted" id="navPrintLink" href="impressao.html">Fila de impressão</a>
+    <a class="app-nav-link restricted" id="navSchoolsLink" href="schools.html">Gestão escolar</a>
+  </nav>
+</aside>
 <header>
-  <a href="index.html" class="logo">📝 Gerador de Provas</a>
+  <div class="page-title">Minhas provas</div>
   <div class="header-right">
     <div class="user-info">
       <div class="user-name" id="userName">Professor</div>
       <div class="user-email" id="userEmail"></div>
     </div>
     <div class="avatar" id="userAvatar">P</div>
-    <a class="btn-profile btn-coordination" id="coordinationLink" href="coordenacao.html">Coordenação</a>
-    <a class="btn-profile btn-coordination" id="printQueueLink" href="impressao.html">Impressão</a>
-    <a class="btn-profile btn-coordination" id="schoolsLink" href="schools.html" style="display:none;">Escolas</a>
     <button class="btn-profile" id="profileBtn">Perfil</button>
     <button class="btn-logout" id="logoutBtn">Sair</button>
   </div>
@@ -505,11 +535,10 @@
 
   function applyRoleActions() {
     const canCoordinate = auth.canReviewExams(currentProfile);
-    document.getElementById('coordinationLink').classList.toggle('show', canCoordinate);
-    document.getElementById('printQueueLink').classList.toggle('show', auth.canAccessPrintQueue(currentProfile));
+    document.getElementById('navReviewLink').classList.toggle('show', canCoordinate);
+    document.getElementById('navPrintLink').classList.toggle('show', auth.canAccessPrintQueue(currentProfile));
     if (auth.hasRole(['print_operator'], currentProfile)) document.getElementById('newExamBtn').style.display = 'none';
-    const schoolsLink = document.getElementById('schoolsLink');
-    if (schoolsLink) schoolsLink.style.display = (auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile)) ? 'inline-flex' : 'none';
+    document.getElementById('navSchoolsLink').classList.toggle('show', auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile));
   }
 
   function requiresPasswordChange() {

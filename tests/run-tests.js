@@ -321,6 +321,12 @@ async function main() {
     assert(editor.includes('Recuperação'), 'recovery instruction template missing');
     assert(editor.includes('buildWordSearch'), 'word search generator missing');
     assert(editor.includes('renderWordSearch'), 'word search renderer missing');
+    assert(editor.includes('showWordList'), 'word search word-list visibility option missing');
+    assert(editor.includes('Mostrar legenda de palavras'), 'word search legend visibility control missing');
+    assert(editor.includes('math-division-svg'), 'math column division SVG layout missing');
+    assert(editor.includes('divisionOp'), 'math column division renderer missing');
+    assert(editor.includes('width="${width}" height="${height}"'), 'math column division SVG should not stretch to full card width');
+    assert(editor.includes('x2="${leftW}" y2="38"'), 'math column division vertical key should stop at the horizontal bar');
     assert(editor.includes('buildCrossword'), 'crossword grid generator missing');
     assert(editor.includes('renderCrossword'), 'crossword renderer missing');
     assert(editor.includes('Horizontais'), 'crossword horizontal clues missing');
@@ -385,6 +391,11 @@ async function main() {
     assert(print.includes('relacioneImagensAnswer'), 'print image-word answer key missing');
     assert(print.includes('wordOrder'), 'print image-word order missing');
     assert(print.includes('renderWordSearch'), 'print word search renderer missing');
+    assert(print.includes('showWordList === false'), 'print word search should allow hiding word list');
+    assert(print.includes('math-division-svg'), 'print math division SVG layout missing');
+    assert(print.includes('divisionOp'), 'print math division renderer missing');
+    assert(print.includes('width="${width}" height="${height}"'), 'print math division SVG should not stretch to full card width');
+    assert(print.includes('x2="${leftW}" y2="37"'), 'print math division vertical key should stop at the horizontal bar');
     assert(print.includes('buildCrossword'), 'print crossword grid generator missing');
     assert(print.includes('renderCrossword'), 'print crossword renderer missing');
     assert(print.includes('STORAGE_KEY_BASE'), 'print page should use base draft key');
@@ -397,8 +408,10 @@ async function main() {
     assert(editor.includes('pairs: ['), 'match-column structured pairs missing');
     assert(editor.includes('rightOrder'), 'match-column answer order missing');
     assert(editor.includes('Adicionar par'), 'match-column add pair button missing');
-    assert(editor.includes('Embaralhar coluna B'), 'match-column shuffle button missing');
+    assert(editor.includes('Embaralhar lado direito'), 'match-column shuffle button missing');
     assert(editor.includes('Pares corretos'), 'match-column editing label missing');
+    assert(editor.includes('connect-match'), 'match-column line connector layout missing');
+    assert(editor.includes('connect-dot'), 'match-column connector dots missing');
   });
 
   await test('Supabase SQL includes idempotent policies and question bank', () => {
@@ -555,7 +568,8 @@ async function main() {
     assert(dashboard.includes('auth.canDeleteExam(exam, currentProfile)'), 'dashboard should use delete permission helper');
     assert(dashboard.includes('`/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`'), 'dashboard should load only current user exams');
     assert(dashboard.includes('filter((exam) => exam.user_id === user.id)'), 'dashboard should defensively keep only owned exams');
-    assert(dashboard.includes('printQueueLink') && dashboard.includes('auth.canAccessPrintQueue(currentProfile)'), 'dashboard should link allowed users to print queue');
+    assert(dashboard.includes('navPrintLink') && dashboard.includes('auth.canAccessPrintQueue(currentProfile)'), 'dashboard should link allowed users to print queue');
+    assert(dashboard.includes('app-sidebar') && dashboard.includes('Módulos do sistema'), 'dashboard should use module sidebar navigation');
     assert(dashboard.includes("auth.hasRole(['print_operator'], currentProfile)") && dashboard.includes("newExamBtn').style.display = 'none'"), 'print operators should not create exams from dashboard');
     assert(dashboard.includes('localStorage.removeItem(`gerador-provas-state-v1:${user.id}`)'), 'new exam should clear current user local draft');
     assert(dashboard.includes('Enviar revisão'), 'dashboard should use a clear review action label');

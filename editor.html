@@ -331,6 +331,39 @@
     .digit-box { width: 26px; height: 32px; border: 1.5px solid #334155; border-radius: 2px; display: inline-block; }
     .fs-large .digit-box { width: 34px; height: 40px; }
     .math-op-box.estilo-minimo { border: none; border-radius: 0; background: transparent; padding: 8px 0 4px; }
+    .math-division-box {
+      min-width: 150px;
+      width: max-content;
+      max-width: 100%;
+      text-align: left;
+    }
+    .math-division-svg {
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      display: block;
+      overflow: visible;
+    }
+    .math-division-text {
+      font-family: 'Courier New', monospace;
+      font-weight: 800;
+      fill: #0f172a;
+    }
+    .math-division-line {
+      stroke: #0f172a;
+      stroke-width: 2.5;
+      vector-effect: non-scaling-stroke;
+    }
+    .math-division-guide {
+      stroke: #94a3b8;
+      stroke-width: 1.5;
+      stroke-dasharray: 5 4;
+      vector-effect: non-scaling-stroke;
+    }
+    .math-division-box .digit-box {
+      width: 18px;
+      height: 24px;
+    }
     /* Expressão matemática (KaTeX) */
     .expr-grid { display: grid; gap: 14px; margin-top: 10px; }
     .expr-item { border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 16px 10px; background: #fff; }
@@ -764,6 +797,44 @@
     .spacey { display: grid; gap: 8px; }
     .hline { height: 20px; border-bottom: 1px solid #cbd5e1; }
     .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .connect-match {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(80px, 140px) minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+    .connect-col,
+    .connect-lines {
+      display: grid;
+      gap: 10px;
+    }
+    .connect-item {
+      min-height: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #fff;
+      overflow-wrap: anywhere;
+    }
+    .connect-item span:first-child,
+    .connect-item span:last-child {
+      min-width: 0;
+    }
+    .connect-dot {
+      width: 8px;
+      height: 8px;
+      border: 1.5px solid #64748b;
+      border-radius: 999px;
+      background: #fff;
+      flex: 0 0 auto;
+    }
+    .connect-line {
+      min-height: 36px;
+    }
     .nowrap { white-space: pre-line; }
     .image-drop {
       border: 1.5px dashed #cbd5e1;
@@ -1612,9 +1683,10 @@
     function relacioneAnswer(q) {
       normalizeRelacioneQuestion(q);
       return q.pairs
-        .map((_, i) => {
-          const pos = q.rightOrder.indexOf(i);
-          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
+        .map((pair) => {
+          const left = String(pair.left || '').trim();
+          const right = String(pair.right || '').trim();
+          return left || right ? `${left || 'Item'} -> ${right || 'Correspondente'}` : '';
         })
         .filter(Boolean)
         .join('; ');
@@ -1729,7 +1801,8 @@
       const built = buildWordSearch(words, q.gridSize || 12);
       const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
       const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
-      return `<div><div class="word-search-grid" style="grid-template-columns: repeat(${built.grid.length}, 24px);">${grid}</div><div class="word-search-list">${list}</div></div>`;
+      const wordList = q.showWordList === false ? '' : `<div class="word-search-list">${list}</div>`;
+      return `<div><div class="word-search-grid" style="grid-template-columns: repeat(${built.grid.length}, 24px);">${grid}</div>${wordList}</div>`;
     }
     function buildCrossword(clues, seed = 0) {
       const words = (Array.isArray(clues) ? clues : [])
@@ -1915,7 +1988,7 @@
       }),
       relacione: () => ({
         type: 'relacione',
-        text: 'Relacione corretamente as colunas.',
+        text: 'Ligue os itens relacionados.',
         pairs: [
           { left: '', right: '' },
           { left: '', right: '' },
@@ -2000,6 +2073,7 @@
           { num1: '234', op: '+', num2: '567', result: '' },
           { num1: '800', op: '-', num2: '345', result: '' },
           { num1: '12', op: '×', num2: '4', result: '' },
+          { num1: '84', op: '\u00f7', num2: '4', result: '' },
         ],
         columns: 3,
         fontSize: 'normal',
@@ -2215,6 +2289,7 @@
         text: 'Encontre no caça-palavras as palavras abaixo:',
         wordsText: 'ESCOLA\nLIVRO\nPROFESSOR\nCADERNO\nALUNO',
         gridSize: 12,
+        showWordList: true,
         points: '1,0',
         hideNumber: false,
       }),
@@ -3769,7 +3844,7 @@
           normalizeRelacioneQuestion(q);
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = `<label>Pares corretos</label><div class="small">Preencha cada par correto. A coluna B pode ser embaralhada para a prova, e o gabarito sera gerado automaticamente.</div>`;
+          block.innerHTML = `<label>Pares corretos</label><div class="small">Preencha cada par correto. O lado direito pode ser embaralhado para a prova, e o gabarito sera gerado automaticamente.</div>`;
           const box = document.createElement('div');
           box.className = 'row';
           q.pairs.forEach((pair, j) => {
@@ -3778,7 +3853,7 @@
 
             const leftInp = document.createElement('input');
             leftInp.value = pair.left || '';
-            leftInp.placeholder = `Coluna A ${j + 1}`;
+            leftInp.placeholder = `Item da esquerda ${j + 1}`;
             leftInp.addEventListener('input', () => {
               pair.left = leftInp.value;
               q.left = q.pairs.map((p) => p.left);
@@ -3787,7 +3862,7 @@
 
             const rightInp = document.createElement('input');
             rightInp.value = pair.right || '';
-            rightInp.placeholder = `Resposta correspondente ${j + 1}`;
+            rightInp.placeholder = `Item da direita ${j + 1}`;
             rightInp.addEventListener('input', () => {
               pair.right = rightInp.value;
               q.right = q.pairs.map((p) => p.right);
@@ -3829,7 +3904,7 @@
           const shuffle = document.createElement('button');
           shuffle.type = 'button';
           shuffle.className = 'secondary';
-          shuffle.textContent = 'Embaralhar coluna B';
+          shuffle.textContent = 'Embaralhar lado direito';
           shuffle.addEventListener('click', () => {
             const previous = q.rightOrder.join(',');
             q.rightOrder = q.pairs.map((_, pairIndex) => pairIndex);
@@ -4574,9 +4649,18 @@
         if (q.type === 'caca_palavras') {
           if (!q.wordsText) q.wordsText = 'ESCOLA\nLIVRO\nCADERNO';
           if (!q.gridSize) q.gridSize = 12;
+          if (typeof q.showWordList !== 'boolean') q.showWordList = true;
           const cpblock = document.createElement('div');
           cpblock.className = 'row two';
           cpblock.innerHTML = `
+            <div>
+              <label>Mostrar legenda de palavras</label>
+              <select data-k="showWordList">
+                <option value="true" ${q.showWordList !== false ? 'selected' : ''}>Sim</option>
+                <option value="false" ${q.showWordList === false ? 'selected' : ''}>Nao</option>
+              </select>
+              <div class="small">Quando ocultar, os nomes nao aparecem abaixo do caca-palavras.</div>
+            </div>
             <div>
               <label>Palavras escondidas</label>
               <textarea data-k="wordsText" rows="6" placeholder="Uma palavra por linha">${esc(q.wordsText || '')}</textarea>
@@ -5135,6 +5219,8 @@
               q.columns = Number(node.value) || 2;
             } else if (key === 'showCopyLines') {
               q.showCopyLines = node.value !== 'false';
+            } else if (key === 'showWordList') {
+              q.showWordList = node.value !== 'false';
             } else if (key === 'showAnswerList') {
               q.showAnswerList = node.value !== 'false';
             } else if (key === 'gradeDisplayMode') {
@@ -5297,12 +5383,13 @@
       }
       if (q.type === 'relacione') {
         normalizeRelacioneQuestion(q);
-        const left = q.pairs.map((pair, i) => `<div>${i + 1}. ${esc(pair.left || `Item A${i + 1}`)}</div>`).join('');
+        const left = q.pairs.map((pair, i) => `<div class="connect-item"><span>${esc(pair.left || `Item da esquerda ${i + 1}`)}</span><span class="connect-dot"></span></div>`).join('');
         const right = q.rightOrder.map((pairIndex, i) => {
           const pair = q.pairs[pairIndex] || {};
-          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.right || `Item B${i + 1}`)}</div>`;
+          return `<div class="connect-item"><span class="connect-dot"></span><span>${esc(pair.right || `Item da direita ${i + 1}`)}</span></div>`;
         }).join('');
-        return `<div class="two-cols"><div class="spacey">${left}</div><div class="spacey">${right}</div></div>`;
+        const lines = q.pairs.map(() => '<div class="connect-line"></div>').join('');
+        return `<div class="connect-match"><div class="connect-col">${left}</div><div class="connect-lines">${lines}</div><div class="connect-col">${right}</div></div>`;
       }
       if (q.type === 'imagem') {
         const image = imageFigure(q);
@@ -5373,6 +5460,29 @@
           }
           return '<div class="math-op-answer"></div>';
         };
+        const isDivision = (symbol) => {
+          const value = String(symbol || '').trim();
+          return value === '\u00f7' || value === '/' || value === ':';
+        };
+        const divisionOp = (n1, n2, op) => {
+          const dividend = String(n1 || '').trim();
+          const divisor = String(n2 || '').trim();
+          const font = q.fontSize === 'large' ? 24 : 19;
+          const digitWidth = q.fontSize === 'large' ? 14 : 11;
+          const answerDigits = Math.max(1, Math.min(8, op.result ? String(op.result).replace(/[^0-9]/g, '').length || (q.answerBoxes || 4) : (q.answerBoxes || 4)));
+          const leftW = Math.max(78, Math.min(170, dividend.length * digitWidth + 34));
+          const rightW = Math.max(82, Math.min(170, Math.max(divisor.length * digitWidth + 34, answerDigits * 20 + 18)));
+          const width = leftW + rightW;
+          const height = q.showCalcSpace ? 126 : 86;
+          const rightX = leftW + 12;
+          const answer = q.answerStyle === 'boxes'
+            ? Array.from({ length: answerDigits }, (_, i) => `<rect x="${rightX + i * 19}" y="48" width="16" height="24" fill="none" stroke="#334155" stroke-width="1.5" />`).join('')
+            : `<line class="math-division-guide" x1="${rightX}" y1="64" x2="${width - 10}" y2="64" />`;
+          const scratch = q.showCalcSpace
+            ? [64, 86, 108].map((y) => `<line class="math-division-guide" x1="12" y1="${y}" x2="${leftW - 14}" y2="${y}" />`).join('')
+            : '';
+          return `<div class="${boxClass} math-division-box"><svg class="math-division-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(dividend)} dividido por ${esc(divisor)}"><text class="math-division-text" x="${leftW - 12}" y="28" font-size="${font}" text-anchor="end">${esc(dividend)}</text><line class="math-division-line" x1="${leftW}" y1="8" x2="${leftW}" y2="38" /><text class="math-division-text" x="${rightX}" y="28" font-size="${font}">${esc(divisor)}</text><line class="math-division-line" x1="${leftW}" y1="38" x2="${width - 10}" y2="38" />${answer}${scratch}</svg></div>`;
+        };
         const ops = (q.operations || []).map((op) => {
           let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
           if ((!n1 && !n2) && op.expression) {
@@ -5380,6 +5490,7 @@
             if (m) { n1=m[1].trim(); sym=m[2]; n2=m[3].trim(); } else { n1=op.expression; n2=''; }
           }
           if (!n1 && !n2) return `<div class="${boxClass}"><span class="small">—</span></div>`;
+          if (isDivision(sym)) return divisionOp(n1, n2, op);
           return `<div class="${boxClass}">${carryRow}<span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div>${answerArea(op)}${calcSpace}</div>`;
         }).join('');
         return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
