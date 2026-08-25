@@ -260,11 +260,15 @@ async function main() {
     assert(editor.includes('bankScopeLabel(scope)'), 'question bank scope label missing');
     assert(editor.includes('Criada por voce'), 'own question label missing');
     assert(editor.includes('readImageFile'), 'image upload helper missing');
-    assert(editor.includes('STORAGE_KEY_BASE'), 'base draft storage key missing');
-    assert(editor.includes('useUserDraftStorage'), 'user-scoped draft storage missing');
-    assert(editor.includes('localDraftAutosaveEnabled'), 'draft autosave gate missing');
-    assert(!editor.includes('\n    loadSavedState();'), 'editor should not load anonymous browser draft on startup');
+    assert(editor.includes('MAX_IMAGE_FILE_BYTES'), 'editor image upload should reject oversized source files');
+    assert(editor.includes('SAFE_IMAGE_DATA_URL_RE'), 'editor should validate image data URLs');
+    assert(editor.includes('safeImageAttr'), 'editor should render images through a safe src helper');
+    assert(!editor.includes('gerador-provas-state-v1'), 'editor should not use local browser draft storage');
+    assert(!editor.includes('loadSavedState'), 'editor should not restore local browser drafts');
+    assert(editor.includes('initializeNewExamState'), 'editor should initialize new exams without local draft restore');
     assert(editor.includes('resetStateToDefault'), 'draft reset helper missing');
+    assert(!editor.includes('defaultQuestions'), 'new exams should start empty without default example questions');
+    assert(!editor.includes('Exemplo de questão'), 'editor should not seed example questions');
     assert(editor.includes('applyReviewLock'), 'review lock helper missing');
     assert(editor.includes("['aprovada', 'bloqueada']"), 'approved/blocked lock statuses missing');
     assert(editor.includes('correctOption'), 'multiple choice correct option missing');
@@ -313,14 +317,22 @@ async function main() {
     assert(editor.includes('ponto(s) ${direction} do total'), 'score mismatch warning missing');
     assert(editor.includes('collapsedQuestions'), 'collapsed questions state missing');
     assert(editor.includes('toggleQuestionCollapsed'), 'question collapse toggle missing');
+    assert(editor.includes('collapseAllQuestions'), 'cloud-loaded exams should start with questions collapsed');
     assert(editor.includes('Recolher'), 'collapse question action missing');
     assert(editor.includes('Expandir'), 'expand question action missing');
     assert(editor.includes('instructionTemplates'), 'instruction templates missing');
     assert(editor.includes('instructionTemplate'), 'instruction template selector missing');
+    assert(editor.includes('function applyInstructionTemplate'), 'instruction template changes should use a dedicated apply function');
+    assert(editor.includes('applyInstructionTemplate(event.target.value)'), 'instruction template selector should apply the selected template');
+    assert(editor.includes('const instructionText = instructionTemplates[templateKey]'), 'instruction template apply function should read the selected template text');
+    assert(editor.includes("el('instructions').value = instructionText"), 'instruction template should update the instructions textarea');
+    assert(editor.includes('syncSchoolFromInputs();\r\n      renderPreview();\r\n      saveState();') || editor.includes('syncSchoolFromInputs();\n      renderPreview();\n      saveState();'), 'instruction template should sync, preview, and autosave');
     assert(editor.includes('Prova padrão'), 'default instruction template missing');
     assert(editor.includes('Recuperação'), 'recovery instruction template missing');
     assert(editor.includes('buildWordSearch'), 'word search generator missing');
     assert(editor.includes('renderWordSearch'), 'word search renderer missing');
+    assert(editor.includes('app-sidebar') && editor.includes('Editor de provas'), 'editor should use module sidebar navigation');
+    assert(editor.includes('applyModuleNavigation'), 'editor should apply module navigation permissions');
     assert(editor.includes('showWordList'), 'word search word-list visibility option missing');
     assert(editor.includes('Mostrar legenda de palavras'), 'word search legend visibility control missing');
     assert(editor.includes('math-division-svg'), 'math column division SVG layout missing');
@@ -387,6 +399,7 @@ async function main() {
     assert(print.includes("q.type === 'identificar_imagem'"), 'print identify image renderer missing');
     assert(print.includes('identify-marker'), 'print identify image marker class missing');
     assert(print.includes('imageFigure'), 'print image figure helper missing');
+    assert(print.includes('safeImageAttr') && print.includes('SAFE_IMAGE_DATA_URL_RE'), 'print page should render only safe image data URLs');
     assert(print.includes('image-caption'), 'print image caption missing');
     assert(print.includes('relacioneImagensAnswer'), 'print image-word answer key missing');
     assert(print.includes('wordOrder'), 'print image-word order missing');
@@ -398,8 +411,8 @@ async function main() {
     assert(print.includes('x2="${leftW}" y2="37"'), 'print math division vertical key should stop at the horizontal bar');
     assert(print.includes('buildCrossword'), 'print crossword grid generator missing');
     assert(print.includes('renderCrossword'), 'print crossword renderer missing');
-    assert(print.includes('STORAGE_KEY_BASE'), 'print page should use base draft key');
-    assert(print.includes('${STORAGE_KEY_BASE}:${auth.getCurrentUser().id}'), 'print page should read user-scoped draft key');
+    assert(!print.includes('STORAGE_KEY_BASE'), 'print page should not use local draft storage');
+    assert(print.includes('Nenhuma prova selecionada'), 'print page should ask for a selected/saved exam when no id is provided');
   });
 
   await test('editor supports structured match-column questions', () => {
@@ -434,6 +447,11 @@ async function main() {
     assert(sql.includes("public.normalized_role(target_profile.role) = 'teacher'"), 'coordinator should manage only teachers');
     assert(sql.includes('WITH CHECK (public.is_master() OR public.can_manage_profile(id))'), 'profile manager updates should validate final profile state');
     assert(sql.includes('CREATE OR REPLACE FUNCTION public.can_review_exam'), 'exam review helper function missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.prevent_empty_exam_review'), 'Supabase should block empty exams from entering review statuses');
+    assert(sql.includes('prevent_empty_exam_review_before_write'), 'empty exam review trigger missing');
+    assert(sql.includes("COALESCE(NEW.review_status, 'rascunho') IN ('enviada', 'em_revisao', 'aprovada')"), 'empty exam trigger should guard review statuses');
+    assert(sql.includes('public.exam_questions_count(NEW.questions) = 0'), 'empty exam trigger should count JSONB questions');
+    assert(sql.includes("UPDATE exams\nSET review_status = 'rascunho'"), 'setup SQL should reset already-sent empty exams');
     assert(sql.includes('DROP TRIGGER IF EXISTS on_auth_user_created'), 'trigger drop missing');
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
@@ -457,7 +475,13 @@ async function main() {
     assert(sql.includes('print_status TEXT DEFAULT') && sql.includes('print_copies INTEGER') && sql.includes('print_notes TEXT'), 'print queue columns missing');
     assert(sql.includes('CREATE OR REPLACE FUNCTION public.can_print_exam'), 'print access helper missing');
     assert(sql.includes('CREATE OR REPLACE FUNCTION public.mark_exam_printed'), 'mark printed RPC missing');
-    assert(sql.includes("public.normalized_role(current_profile.role) = 'print_operator'"), 'print operator access check missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.prevent_invalid_print_request'), 'Supabase should block invalid print requests');
+    assert(sql.includes('prevent_invalid_print_request_before_write'), 'invalid print request trigger missing');
+    assert(sql.includes("COALESCE(NEW.print_status, 'nao_enviada') IN ('enviada', 'impressa')"), 'print trigger should guard printed/pending statuses');
+    assert(sql.includes("COALESCE(NEW.review_status, 'rascunho') <> 'aprovada'"), 'print trigger should require approved exams');
+    assert(sql.includes("UPDATE exams\nSET print_status = 'nao_enviada'"), 'setup SQL should reset invalid print requests');
+    assert(sql.includes('NEW.print_copies = GREATEST(1, COALESCE(NEW.print_copies, 1))'), 'print trigger should normalize copy count');
+    assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'print queue access should include school owners and print operators');
     assert(sql.includes('force_password_change'), 'forced password change flag missing');
     assert(sql.includes('admin_reset_user_password'), 'admin password reset RPC missing');
     assert(sql.includes("extensions.crypt('123456', extensions.gen_salt('bf'))"), 'admin password reset should set temporary password 123456 with Supabase pgcrypto schema');
@@ -539,7 +563,7 @@ async function main() {
     assert(print.includes("document.title = ' ';"), 'print page should clear title while printing');
     assert(editor.includes('margin: 8mm 9mm 10mm 9mm;'), 'editor should use compact printable page margins');
     assert(print.includes('@page { size: A4 portrait; margin: 8mm 9mm 10mm; }'), 'print page should use compact printable page margins');
-    assert(editor.includes('.question-block {\n        margin: 0 0 12px 0;'), 'editor print should reduce space between questions');
+    assert(editor.includes('.question-block {\n        margin: 0 0 12px 0;') || editor.includes('.question-block {\r\n        margin: 0 0 12px 0;'), 'editor print should reduce space between questions');
     assert(print.includes('.question-block { margin: 0 0 12px; }'), 'print page should reduce space between questions');
     assert(print.includes('.qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }'), 'print page should use compact wrapping question text');
     assert(editor.includes('overflow-wrap: anywhere; word-break: break-word; max-width: 100%;'), 'editor preview should wrap long question text');
@@ -571,7 +595,8 @@ async function main() {
     assert(dashboard.includes('navPrintLink') && dashboard.includes('auth.canAccessPrintQueue(currentProfile)'), 'dashboard should link allowed users to print queue');
     assert(dashboard.includes('app-sidebar') && dashboard.includes('Módulos do sistema'), 'dashboard should use module sidebar navigation');
     assert(dashboard.includes("auth.hasRole(['print_operator'], currentProfile)") && dashboard.includes("newExamBtn').style.display = 'none'"), 'print operators should not create exams from dashboard');
-    assert(dashboard.includes('localStorage.removeItem(`gerador-provas-state-v1:${user.id}`)'), 'new exam should clear current user local draft');
+    assert(dashboard.includes('const canCreateExam = !auth.hasRole([\'print_operator\'], currentProfile)'), 'empty dashboard state should also hide creation for print operators');
+    assert(!dashboard.includes('gerador-provas-state-v1'), 'new exam should not clear local browser drafts');
     assert(dashboard.includes('Enviar revisão'), 'dashboard should use a clear review action label');
     assert(!dashboard.includes('>Coord.</button>'), 'dashboard should not use abbreviated Coord. action');
     assert(!dashboard.includes('Publicar</button>'), 'dashboard should not expose a parallel publish action');
@@ -580,6 +605,11 @@ async function main() {
     assert(dashboard.includes('Escola, série e disciplinas são definidas pela coordenação.'), 'teacher profile should clarify coordination-owned fields');
     assert(!dashboard.includes('school_name: schoolName'), 'teacher profile save should not update coordination-owned school_name');
     assert(!dashboard.includes('school_grade: grade'), 'teacher profile save should not update coordination-owned school_grade');
+    assert(dashboard.includes('function getExamQuestions(exam)'), 'dashboard should normalize exam questions before counting them');
+    assert(dashboard.includes("typeof exam?.questions === 'string'"), 'dashboard should handle question payloads returned as JSON strings');
+    assert(dashboard.includes('questions: getExamQuestions(exam)'), 'dashboard should normalize loaded exams before rendering actions');
+    assert(dashboard.includes('if (!hasExamQuestions(exam))'), 'send-to-review should use normalized question count');
+    assert(dashboard.includes('qCount > 0 && !locked && !reviewInProgress'), 'dashboard should not send empty exams to review');
   });
 
   await test('editor uses professor profile classes and keeps student date printable', () => {
@@ -593,31 +623,64 @@ async function main() {
     assert(editor.includes('function normalizeClassList'), 'editor should normalize one or many profile classes');
     assert(editor.includes('function setClassOptions'), 'editor should populate class options');
     assert(editor.includes('if (unique.length === 1 && !current) state.school.className = unique[0];'), 'single class should be selected automatically');
+    assert(editor.includes("subject: '',"), 'default subject should be empty so the placeholder is not a selectable discipline');
+    assert(editor.includes('function isPlaceholderDiscipline'), 'editor should detect placeholder discipline names');
+    assert(editor.includes("['disciplina', 'diciplina', 'selecionar disciplina']"), 'editor should filter placeholder and typo discipline labels');
+    assert(editor.includes('function normalizeDisciplineList'), 'editor should clean profile/school discipline lists');
+    assert(editor.includes('const currentVal = isPlaceholderDiscipline(state.school.subject) ?'), 'editor should not re-add placeholder subject as an option');
+    assert(!editor.includes('profileInfo'), 'editor should not show profile summary under the exam editor title');
+    assert(!editor.includes('Dados incorretos? Atualize seu perfil'), 'editor should not show profile maintenance link inside the exam form');
+    assert(!editor.includes('logoUploadFallback'), 'editor should not show logo fallback upload inside the removed profile summary');
     assert(!editor.includes('id="date"'), 'date should not be editable in the editor form');
     assert(editor.includes("el('pvDate').textContent = state.school.date ? state.school.date : '____/____/______';"), 'editor preview should keep student date placeholder');
     assert(print.includes("exam.date || '____/____/______'"), 'print page should keep student date placeholder');
     assert(editor.indexOf('<label>Valor total</label>') > editor.indexOf('<label>Bimestre/Etapa</label>'), 'total value should remain in the metadata editor after term');
   });
 
-  await test('saved and anonymous drafts do not reopen as new exams', () => {
+  await test('new exam flow does not use local browser drafts', () => {
     const editor = read('editor.html');
     const dashboard = read('dashboard.html');
     const index = read('index.html');
     const login = read('login.html');
     const print = read('print.html');
     assert(index.includes('href="login.html?return_to=editor.html%3Fnew%3D1"'), 'home create action should require login with editor return');
-    assert(dashboard.includes("window.location.href = 'editor.html?new=1'"), 'dashboard new exam should force a new exam');
+    assert(dashboard.includes('id="newExamModal"'), 'dashboard should ask for subject/class before creating a new exam');
+    assert(dashboard.includes('id="newExamSubject"') && dashboard.includes('id="newExamClass"'), 'new exam modal should collect subject and class');
+    assert(dashboard.includes('return uniqueCleanList(currentProfile.disciplines, { discipline: true });'), 'new exam modal should only list disciplines linked to the logged-in profile');
+    assert(dashboard.includes('Nenhuma disciplina vinculada'), 'new exam modal should explain when the profile has no linked disciplines');
+    assert(dashboard.includes('subjectSelect.disabled = disciplines.length === 0'), 'new exam subject select should be disabled without linked disciplines');
+    assert(dashboard.includes('classSelect.disabled = classes.length === 0'), 'new exam class select should be disabled without linked classes');
+    assert(dashboard.includes('Peca para a coordenacao vincular'), 'new exam modal should explain missing profile links before creation');
+    assert(dashboard.includes('confirmBtn.disabled = !canCreate'), 'new exam create action should be disabled until profile links are ready');
+    assert(dashboard.indexOf("newExamBtn').addEventListener('click', openNewExamModal)") < dashboard.indexOf('await loadExams();'), 'new exam button should open modal before exam loading finishes');
+    assert(dashboard.includes('z-index: 200'), 'new exam modal should render above the app chrome');
+    assert(dashboard.includes('async function createNewExamFromModal'), 'dashboard should create the new exam before opening the editor');
+    assert(dashboard.includes("method: 'POST'") && dashboard.includes("window.location.href = `editor.html?id=${encodeURIComponent(newId)}`"), 'dashboard should save the exam and open editor with its id');
     assert(editor.includes("const forceNewExam = editorParams.get('new') === '1'"), 'editor should detect forced new exam mode');
+    assert(editor.includes("const examIdFromUrl = editorParams.get('id')"), 'editor should open exams directly from the id URL parameter');
     assert(editor.includes('if (forceNewExam) localStorage.removeItem(\'editExamId\')'), 'forced new exam should clear editExamId');
-    assert(editor.includes('if (forceNewExam) {'), 'forced new exam should bypass saved draft restore');
-    assert(editor.includes('localStorage.removeItem(activeStorageKey)'), 'cloud save should remove local draft');
-    assert(editor.includes('localDraftAutosaveEnabled = false'), 'cloud save should disable local draft autosave');
+    assert(editor.includes('function scheduleAutoSave'), 'editor should autosave saved exams after edits');
+    assert(editor.includes('saveToCloud({ auto: true })'), 'autosave should reuse cloud save');
+    assert(editor.includes('autoSaveReady = Boolean(currentExamId)'), 'autosave should only start after a cloud exam is loaded');
+    assert(editor.includes('function flushAutoSaveBeforeAction'), 'editor should expose a flush save before leaving/printing');
+    assert(editor.includes("document.querySelectorAll('.app-sidebar a[href], #settingsMenu a[href]')"), 'editor navigation links should flush autosave before leaving');
+    assert(editor.includes('if (ok) window.location.href = destination'), 'editor should navigate only after successful flush save');
+    assert(editor.includes('runAfterAutosave(printCleanDocument)'), 'editor print actions should save before printing');
+    assert(!editor.includes('saveCloudBtn'), 'editor should not show a manual save button when autosave is active');
+    assert(editor.includes('Salvando alteracoes...'), 'editor should show autosave progress in the status line');
+    assert(editor.includes('function setAutoSaveHint'), 'editor should have a calm autosave hint helper');
+    assert(editor.includes('Alteracoes salvas automaticamente.'), 'editor should explain autosave before the first edit');
+    assert(editor.includes('Ultimo salvamento: ${hora}'), 'editor should update autosave status through the hint helper after saving');
+    assert(!editor.includes('gerador-provas-state-v1'), 'editor should not write local browser drafts');
+    assert(!editor.includes('activeStorageKey'), 'editor should not track a local draft storage key');
+    assert(!editor.includes('localDraftAutosaveEnabled'), 'editor should not autosave local browser drafts');
     assert(editor.includes('login.html?return_to=${encodeURIComponent(returnTo)}'), 'editor should redirect anonymous users to login with return_to');
     assert(login.includes('function getSafeReturnTo()'), 'login should validate return_to');
     assert(login.includes('async function goAfterAuth()'), 'login should return asynchronously after auth');
     assert(login.includes('getSafeReturnTo() || await getDefaultDestinationForRole()'), 'login should prefer safe return_to before role destination');
     assert(login.includes('getDefaultDestinationForRole'), 'login should choose default destination by role');
-    assert(print.includes('const raw = userKey ? localStorage.getItem(userKey) : null;'), 'print should not fall back to anonymous draft');
+    assert(!print.includes('gerador-provas-state-v1'), 'print should not read local browser drafts');
+    assert(print.includes('Nenhuma prova selecionada'), 'print should require a saved/selected exam when no id is provided');
     assert(print.includes('login.html?return_to=${encodeURIComponent(returnTo)}'), 'print should redirect anonymous users with return_to');
   });
 
@@ -640,6 +703,8 @@ async function main() {
     assert(coordination.includes('const canUnblock = isLocked;'), 'coordination should show unblock action for locked exams');
     assert(editor.includes("['topNewQuestionBtn', 'openBankBtn']"), 'review lock should cover top editor actions');
     assert(editor.includes('#topQuestionMenu button, #questionBankModal button[data-bank-action]'), 'review lock should cover menus and bank actions');
+    assert(/try \{\r?\n        const totalImageBytes = imagePayloadBytes\(\);/.test(editor), 'autosave image payload limit should run inside try/finally');
+    assert(editor.lastIndexOf('autoSaveInFlight = false;') > editor.indexOf('const totalImageBytes = imagePayloadBytes();'), 'autosave should always release in-flight state after payload validation');
   });
 
   await test('schools admin page exists and is valid', () => {
@@ -668,7 +733,9 @@ async function main() {
     assert(page.includes('school_id'), 'school_id reference missing');
     assert(page.includes('auth.canManageSchools(currentProfile)') && page.includes('auth.canManageUsers(currentProfile)'), 'role guard helper reference missing');
     assert(page.includes('se-logo-preview'), 'school edit should show logo preview');
-    assert(page.includes('preview.src = pendingLogos[schoolId]'), 'school logo change should update preview before save');
+    assert(page.includes('readCompressedLogo(file, (dataUrl) => {'), 'school logo upload should be compressed before preview/save');
+    assert(page.includes('preview.src = dataUrl'), 'school logo change should update preview before save');
+    assert(page.includes('MAX_LOGO_DATA_URL_BYTES'), 'school logo upload should have a compressed payload limit');
     assert(page.includes('const GRADE_OPTIONS = ['), 'school page should centralize grade options');
     assert(page.includes('linkGradeCheckboxes'), 'link professor flow should allow multiple grade checkboxes');
     assert(page.includes('pe-grades-${p.id}'), 'professor edit should allow multiple grade checkboxes');
@@ -761,11 +828,21 @@ async function main() {
   await test('print queue page receives and completes print jobs', () => {
     const page = read('impressao.html');
     const print = read('print.html');
+    const auth = read('js/auth.js');
+    const sql = read('setup_supabase.sql');
     assert(page.includes('Fila de impressão'), 'print queue page title missing');
     assert(page.includes("auth.canAccessPrintQueue(profile)"), 'print queue guard missing');
+    assert(auth.includes("return this.hasRole(['master', 'school_owner', 'print_operator'], profile);"), 'frontend should allow school owners to access the print queue');
+    assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'Supabase print permission should match frontend school owner access');
     assert(page.includes("print_status=in.(enviada,impressa)"), 'print queue should load pending and printed jobs');
     assert(page.includes('/rpc/mark_exam_printed'), 'print queue should mark jobs as printed through RPC');
     assert(page.includes('PDF bloqueado'), 'printed jobs should hide PDF action');
+    assert(print.includes('id="markPrintedBtn"'), 'print PDF should expose mark-printed action from queue');
+    assert(print.includes('id="printQueueLink"'), 'print PDF should link back to queue when opened from queue');
+    assert(print.includes("get('from') === 'impressao'"), 'print PDF should detect queue origin');
+    assert(print.includes('/rpc/mark_exam_printed'), 'print PDF should mark the current job as printed through RPC');
+    assert(print.includes("auth.hasRole(['master', 'school_owner', 'print_operator'], profile)"), 'print PDF mark action should match print queue roles');
+    assert(print.includes('currentExam = data[0]') && print.includes('renderExam(currentExam)'), 'print PDF should render the loaded exam state');
     assert(print.includes("auth.hasRole(['print_operator'], profile)") && print.includes("data[0].print_status === 'impressa'"), 'print page should block printed jobs for print operator');
   });
 

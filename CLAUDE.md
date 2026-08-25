@@ -196,6 +196,267 @@ Os testes verificam:
 - Revisar textos com mojibake em alguns arquivos se aparecerem quebrados no navegador.
 - Evitar transformar `CLAUDE.md` em checklist histórico; melhorias concluídas devem sair daqui e ficar no git/testes.
 
+## Fluxo de Trabalho Para Tornar o Projeto Utilizavel
+
+Objetivo: transformar o projeto de piloto funcional em produto confiavel para escola, coordenacao, impressao e professores. Cada melhoria deve passar por descoberta, implementacao, teste tecnico e confirmacao de uso real antes de ser considerada pronta.
+
+### Regra Geral
+
+Antes de iniciar qualquer melhoria:
+
+```bash
+git status --short --branch
+npm test
+```
+
+- Identificar o perfil afetado: professor, coordenacao, impressao, dono de escola ou master.
+- Descrever o fluxo afetado em uma frase: origem, acao, destino e dado salvo.
+- Conferir se existe impacto no Supabase: tabela, coluna, RLS, Auth, roles, storage ou payload JSON.
+- Definir o criterio de pronto antes de editar.
+- Atualizar ou criar teste em `tests/run-tests.js` quando o comportamento puder quebrar no futuro.
+- Rodar `npm test` ao final.
+- Rodar localmente e entregar o link para validacao do usuario.
+- So publicar depois da validacao manual do usuario.
+
+### Ordem Recomendada de Implementacao
+
+1. Estabilizacao e fechamento do pacote atual.
+2. Documentacao e operacao do projeto.
+3. Validacao real dos perfis e permissoes.
+4. Usabilidade do professor no dashboard e editor.
+5. Impressao/PDF e fila de impressao.
+6. Coordenacao pedagogica e devolutivas.
+7. Gestao escolar, convites e vinculos.
+8. Seguranca, backup e escala.
+
+### 1. Estabilizacao Atual
+
+Objetivo: garantir que o estado local atual seja compreendido, testado e versionado.
+
+Confirmacoes obrigatorias:
+
+- `git status --short --branch` revisado.
+- Diff revisado por arquivo alterado.
+- `npm test` passando.
+- Fluxo manual testado: login, dashboard, nova prova, editor, autosave, print limpo, envio para coordenacao.
+- Alteracoes confirmadas pelo usuario antes de commit/push.
+
+Criterio de pronto:
+
+- Nenhuma mudanca local sem explicacao.
+- Testes passando.
+- Usuario validou no navegador local.
+- Commit feito com mensagem objetiva.
+
+### 2. Documentacao e Operacao
+
+Objetivo: deixar o projeto retomavel por qualquer sessao futura e instalavel sem memoria oral.
+
+Tarefas:
+
+- Atualizar `GUIA_SETUP.md` para refletir o schema real atual.
+- Criar ou atualizar `README.md` com execucao local, publicacao e perfis.
+- Documentar checklist de deploy no GitHub Pages.
+- Documentar checklist de aplicacao do `setup_supabase.sql`.
+- Registrar como testar Supabase pausado/restaurado.
+
+Confirmacoes obrigatorias:
+
+- Instrucoes antigas removidas ou marcadas como historicas.
+- SQL documentado bate com `setup_supabase.sql`.
+- Comandos de teste e servidor local documentados.
+
+Criterio de pronto:
+
+- Uma pessoa consegue abrir o projeto, rodar localmente e saber qual SQL aplicar sem perguntar.
+
+### 3. Perfis, Permissoes e Supabase
+
+Objetivo: confirmar que cada perfil ve e faz apenas o que deve.
+
+Perfis a validar:
+
+- `master`
+- `school_owner`
+- `coordinator`
+- `teacher`
+- `print_operator`
+
+Fluxos a confirmar:
+
+- Login redireciona para o modulo correto.
+- Professor cria, edita, duplica, envia e imprime apenas suas provas permitidas.
+- Coordenacao revisa, devolve, aprova, bloqueia e edita sem trocar dono da prova.
+- Impressao acessa fila e marca como impressa.
+- Gestao escolar cria escola, vincula professores, define series e disciplinas.
+- RLS impede acesso indevido via REST.
+
+Criterio de pronto:
+
+- Cada perfil foi testado com usuario real no Supabase.
+- Qualquer ajuste de banco foi refletido em `setup_supabase.sql`.
+- Teste automatizado cobre o contrato critico.
+
+### 4. Usabilidade do Professor
+
+Objetivo: fazer o professor criar prova sem medo e sem depender do desenvolvedor.
+
+Melhorias prioritarias:
+
+- Fluxo guiado de primeira prova.
+- Modelos prontos: bimestral, recuperacao, simulado e atividade.
+- Tipos de questao separados por "mais usados" e "avancados".
+- Busca/filtro para tipos de questao.
+- Mensagem clara de autosave: salvando, salvo, erro ao salvar.
+- Recuperacao amigavel quando internet ou Supabase falhar.
+- Aviso claro quando disciplina/turma nao estiverem vinculadas.
+- Preview e acoes de imprimir/enviar sempre visiveis ou faceis de encontrar.
+
+Confirmacoes obrigatorias:
+
+- Criar prova nova nao reabre prova antiga.
+- Autosave preserva titulo, disciplina, turma, questoes, gabaritos e imagens.
+- Professor entende o que fazer quando nao tem disciplina vinculada.
+- Prova aprovada/bloqueada nao fica editavel para professor.
+
+Criterio de pronto:
+
+- Um professor consegue criar uma prova simples, salvar, sair, voltar e imprimir sem instrucao externa.
+
+### 5. Impressao, PDF e Fila
+
+Objetivo: tornar a impressao previsivel em ambiente escolar.
+
+Fluxos a validar:
+
+- PDF limpo sem gabarito.
+- PDF com gabarito.
+- Prova curta.
+- Prova longa.
+- Prova com imagens.
+- Prova enviada para fila de impressao.
+- Operador marca prova como impressa.
+- Bloqueio de reimpressao quando aplicavel.
+
+Confirmacoes obrigatorias:
+
+- Testar no Chrome ou Edge.
+- Conferir A4 real.
+- Conferir que imagens nao estouram pagina.
+- Conferir que cabecalho e rodape do navegador nao aparecem quando possivel.
+
+Criterio de pronto:
+
+- Escola consegue imprimir uma prova real sem ajuste manual no HTML.
+
+### 6. Coordenacao Pedagogica
+
+Objetivo: deixar revisao, devolucao e aprovacao claras para coordenacao e professor.
+
+Melhorias prioritarias:
+
+- Filtros por professor, turma, disciplina e status.
+- Historico de revisao mais legivel.
+- Observacao de devolucao destacada no dashboard do professor.
+- Acoes com texto claro: enviar revisao, devolver, aprovar, bloquear, enviar para impressao.
+- Confirmacoes para acoes irreversiveis.
+
+Criterio de pronto:
+
+- Coordenacao consegue revisar uma prova, devolver com observacao, professor corrigir e reenviar.
+
+### 7. Gestao Escolar
+
+Objetivo: permitir que a escola se configure sem manutencao manual.
+
+Melhorias prioritarias:
+
+- Onboarding para master/dono de escola.
+- Convites com status claro: pendente, usado, cancelado.
+- Edicao de vinculos de professor com series e disciplinas.
+- Validacao de escola obrigatoria para perfis de gestao.
+- Confirmacao antes de reset de senha e desvinculo.
+
+Criterio de pronto:
+
+- Uma escola nova consegue cadastrar estrutura minima e liberar acesso para professores.
+
+### 8. Seguranca, Backup e Escala
+
+Objetivo: reduzir risco operacional antes de uso amplo.
+
+Melhorias prioritarias:
+
+- Revisar RLS real no Supabase com usuarios de teste.
+- Definir rotina de backup/exportacao.
+- Trocar fluxo de senha padrao por convite/reset mais seguro.
+- Planejar migracao de imagens grandes para Supabase Storage.
+- Registrar limites de payload e tamanho de imagem.
+- Documentar como recuperar projeto pausado no Supabase.
+
+Criterio de pronto:
+
+- Dados de escolas e provas ficam protegidos por perfil.
+- Existe caminho documentado de backup e restauracao.
+
+### Registro de Validacao Manual
+
+Ao concluir uma melhoria, registrar no resumo da entrega:
+
+- Perfil testado.
+- Fluxo testado.
+- Navegador usado.
+- Resultado do `npm test`.
+- Se houve impacto no Supabase.
+- Pendencias restantes.
+
+### Validacao Manual - Etapa 1
+
+Data: 2026-08-24.
+Perfil testado: validacao manual informada pelo usuario.
+Fluxo testado: estabilizacao do pacote atual, criacao/edicao de provas, imagens, impressao e navegacao principal.
+Navegador usado: validacao local pelo usuario.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sem migracao nova; alteracoes usam tabelas e endpoints existentes.
+Pendencias restantes: seguir para a Etapa 2, documentacao operacional e setup confiavel.
+
+### Validacao Manual - Etapa 2
+
+Data: 2026-08-24.
+Perfil testado: documentacao operacional para professor, coordenacao, impressao e gestao escolar.
+Fluxo testado: setup local, configuracao Supabase, testes tecnicos, fluxo de uso e checklist manual.
+Navegador usado: nao aplicavel para documentacao; servidor local segue validado por teste automatizado.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sem migracao nova; documentacao aponta `setup_supabase.sql` como fonte oficial.
+Pendencias restantes: seguir para a Etapa 3, perfis, permissoes e Supabase em profundidade.
+### Validacao Tecnica - Etapa 3
+
+Data: 2026-08-24.
+Perfil testado: matriz tecnica de `master`, `school_owner`, `coordinator`, `teacher` e `print_operator` por codigo e SQL.
+Fluxo testado: helpers de acesso no frontend, RLS/funcoes em `setup_supabase.sql`, fila de impressao e autosave com payload pesado.
+Navegador usado: pendente de validacao manual por usuarios reais no Supabase.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sim; `can_print_exam` agora permite `school_owner` da mesma escola, alinhando banco com `canAccessPrintQueue` do frontend.
+Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar login/acoes com um usuario real de cada perfil.
+### Validacao Manual - Etapa 4
+
+Data: 2026-08-24.
+Perfil testado: professor por fluxo tecnico de dashboard e editor.
+Fluxo testado: criacao de prova com disciplina/turma vinculadas, bloqueio quando falta vinculo, autosave visivel e envio para revisao apenas com questoes.
+Navegador usado: validacao manual do usuario no navegador local.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sem migracao nova; apenas uso dos dados existentes de perfil, turma, disciplina e prova.
+Pendencias restantes: seguir para a Etapa 5, impressao/PDF e fila de impressao.
+
+### Validacao Tecnica - Etapa 5
+
+Data: 2026-08-25.
+Perfil testado: matriz tecnica de `master`, `school_owner` e `print_operator` para fila/PDF.
+Fluxo testado: somente prova aprovada pode ser enviada/mantida na fila de impressao, PDF aberto pela fila mostra acao de marcar como impressa, RPC `mark_exam_printed` continua centralizando a conclusao do trabalho.
+Navegador usado: pendente de validacao manual do usuario em ambiente local conectado ao Supabase real.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sim; `setup_supabase.sql` adiciona limpeza de pedidos invalidos e trigger `prevent_invalid_print_request_before_write` para impedir impressao de prova nao aprovada.
+Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar manualmente: aprovar prova, enviar para impressao, abrir PDF pela fila, imprimir e marcar como impressa.
 ## Plano de Ajuste de Fluxo
 
 Status: implementado no commit `7908c76`.

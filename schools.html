@@ -283,6 +283,70 @@
     '1º Ensino Médio','2º Ensino Médio','3º Ensino Médio',
   ];
 
+  const MAX_LOGO_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
+  const MAX_LOGO_DATA_URL_BYTES = 220 * 1024;
+  const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
+
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+    return (b / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function dataUrlBytes(dataUrl) {
+    const base64 = String(dataUrl || '').split(',')[1] || '';
+    return Math.round(base64.length * 3 / 4);
+  }
+
+  function isSafeImageDataUrl(dataUrl) {
+    return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || ''));
+  }
+
+  function safeImageSrc(dataUrl) {
+    return isSafeImageDataUrl(dataUrl) ? esc(dataUrl) : '';
+  }
+
+  function safeImageAttr(dataUrl) {
+    const src = safeImageSrc(dataUrl);
+    return src ? `src="${src}"` : '';
+  }
+
+  function isAllowedImageFile(file) {
+    return !!file && ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
+  }
+
+  function readCompressedLogo(file, onReady) {
+    if (!isAllowedImageFile(file)) { showToast('Selecione uma imagem PNG, JPG, WebP ou GIF.', 'error'); return; }
+    if (file.size > MAX_LOGO_FILE_BYTES) { showToast(`Logo muito grande. Use ate ${formatBytes(MAX_LOGO_FILE_BYTES)}.`, 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSide = 420;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        let dataUrl = canvas.toDataURL('image/webp', 0.78);
+        if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+        for (const quality of [0.68, 0.58]) {
+          if (dataUrlBytes(dataUrl) <= MAX_LOGO_DATA_URL_BYTES) break;
+          dataUrl = canvas.toDataURL('image/webp', quality);
+          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        if (!isSafeImageDataUrl(dataUrl) || dataUrlBytes(dataUrl) > MAX_LOGO_DATA_URL_BYTES) {
+          showToast(`Nao foi possivel reduzir a logo para ate ${formatBytes(MAX_LOGO_DATA_URL_BYTES)}.`, 'error');
+          return;
+        }
+        onReady(dataUrl);
+      };
+      img.onerror = () => showToast('Nao foi possivel carregar esta imagem.', 'error');
+      img.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     auth = initAuthManager();
     if (!auth || !auth.isAuthenticated()) {
@@ -324,16 +388,14 @@
     document.getElementById('pickLogoBtn').addEventListener('click', () => document.getElementById('logoFileInput').click());
     document.getElementById('logoFileInput').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
-      if (!file || !file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        newSchoolLogoDataUrl = String(reader.result || '');
+      readCompressedLogo(file, (dataUrl) => {
+        newSchoolLogoDataUrl = dataUrl;
         const prev = document.getElementById('logoPreview');
-        prev.src = newSchoolLogoDataUrl;
+        prev.src = dataUrl;
         prev.style.display = 'block';
         document.getElementById('clearLogoBtn').style.display = '';
-      };
-      reader.readAsDataURL(file);
+      });
+      e.target.value = '';
     });
     document.getElementById('clearLogoBtn').addEventListener('click', () => {
       newSchoolLogoDataUrl = '';
@@ -399,8 +461,8 @@
     el.innerHTML = `<p class="divider">Escolas cadastradas (${schools.length})</p><div class="schools-grid">` +
       schools.map(s => {
         const discs = Array.isArray(s.disciplines) ? s.disciplines : [];
-        const logoHtml = s.logo_data_url
-          ? `<img class="school-logo-thumb" src="${esc(s.logo_data_url)}" alt="Logo" />`
+        const logoHtml = isSafeImageDataUrl(s.logo_data_url)
+          ? `<img class="school-logo-thumb" ${safeImageAttr(s.logo_data_url)} alt="Logo" />`
           : `<div class="school-logo-placeholder">🏫</div>`;
         const discTags = discs.map(d => `<span class="tag">${esc(d)}</span>`).join('');
         const canEditSchool = auth.canManageSchools(currentProfile);
@@ -430,7 +492,7 @@
               <div><label>E-mail admin</label><input id="se-email-${s.id}" type="email" value="${esc(s.admin_email || '')}" /></div>
               <div>
                 <label>Logo</label>
-                <img id="se-logo-preview-${s.id}" class="school-logo-thumb" src="${esc(s.logo_data_url || '')}" alt="Prévia da logo" style="${s.logo_data_url ? '' : 'display:none;'} margin-bottom:6px;" />
+                <img id="se-logo-preview-${s.id}" class="school-logo-thumb" ${safeImageAttr(s.logo_data_url)} alt="Previa da logo" style="${isSafeImageDataUrl(s.logo_data_url) ? '' : 'display:none;'} margin-bottom:6px;" />
                 <input id="se-logo-file-${s.id}" type="file" accept="image/*" class="visually-hidden" onchange="onSchoolLogoChange('${s.id}')" />
                 <div style="display:flex;gap:6px;margin-top:4px;">
                   <button class="btn sm" type="button" onclick="document.getElementById('se-logo-file-${s.id}').click()">
@@ -475,17 +537,15 @@
   function onSchoolLogoChange(schoolId) {
     const inp = document.getElementById(`se-logo-file-${schoolId}`);
     const file = inp && inp.files && inp.files[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      pendingLogos[schoolId] = String(reader.result || '');
+    readCompressedLogo(file, (dataUrl) => {
+      pendingLogos[schoolId] = dataUrl;
       const preview = document.getElementById(`se-logo-preview-${schoolId}`);
       if (preview) {
-        preview.src = pendingLogos[schoolId];
+        preview.src = dataUrl;
         preview.style.display = 'block';
       }
-    };
-    reader.readAsDataURL(file);
+    });
+    if (inp) inp.value = '';
   }
 
   function clearSchoolLogo(schoolId) {

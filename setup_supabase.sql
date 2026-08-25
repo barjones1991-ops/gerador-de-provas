@@ -250,6 +250,38 @@ ALTER TABLE exams ADD COLUMN IF NOT EXISTS printed_at TIMESTAMPTZ;
 
 ALTER TABLE exams ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION public.exam_questions_count(raw_questions JSONB)
+RETURNS INTEGER AS $$
+  SELECT CASE
+    WHEN jsonb_typeof(COALESCE(raw_questions, '[]'::jsonb)) = 'array'
+      THEN jsonb_array_length(COALESCE(raw_questions, '[]'::jsonb))
+    ELSE 0
+  END;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.prevent_empty_exam_review()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF COALESCE(NEW.review_status, 'rascunho') IN ('enviada', 'em_revisao', 'aprovada')
+    AND public.exam_questions_count(NEW.questions) = 0
+  THEN
+    RAISE EXCEPTION 'Adicione pelo menos uma questao antes de enviar para revisao.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+UPDATE exams
+SET review_status = 'rascunho',
+    is_published = FALSE,
+    is_draft = TRUE,
+    updated_at = NOW()
+WHERE COALESCE(review_status, 'rascunho') IN ('enviada', 'em_revisao', 'aprovada')
+  AND public.exam_questions_count(questions) = 0;
+DROP TRIGGER IF EXISTS prevent_empty_exam_review_before_write ON exams;
+CREATE TRIGGER prevent_empty_exam_review_before_write
+  BEFORE INSERT OR UPDATE ON exams
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_empty_exam_review();
 CREATE OR REPLACE FUNCTION public.can_review_exam(target_exam_id UUID)
 RETURNS BOOLEAN AS $$
   SELECT COALESCE(
@@ -274,6 +306,39 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
+UPDATE exams
+SET print_status = 'nao_enviada',
+    print_copies = NULL,
+    print_notes = NULL,
+    print_requested_by = NULL,
+    print_requested_at = NULL,
+    printed_by = NULL,
+    printed_at = NULL,
+    updated_at = NOW()
+WHERE COALESCE(print_status, 'nao_enviada') IN ('enviada', 'impressa')
+  AND COALESCE(review_status, 'rascunho') <> 'aprovada';
+
+CREATE OR REPLACE FUNCTION public.prevent_invalid_print_request()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF COALESCE(NEW.print_status, 'nao_enviada') IN ('enviada', 'impressa')
+    AND COALESCE(NEW.review_status, 'rascunho') <> 'aprovada'
+  THEN
+    RAISE EXCEPTION 'Apenas provas aprovadas podem ser enviadas para impressao.';
+  END IF;
+
+  IF COALESCE(NEW.print_status, 'nao_enviada') = 'enviada' THEN
+    NEW.print_copies = GREATEST(1, COALESCE(NEW.print_copies, 1));
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS prevent_invalid_print_request_before_write ON exams;
+CREATE TRIGGER prevent_invalid_print_request_before_write
+  BEFORE INSERT OR UPDATE ON exams
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_invalid_print_request();
 CREATE OR REPLACE FUNCTION public.can_print_exam(target_exam_id UUID)
 RETURNS BOOLEAN AS $$
   SELECT COALESCE(
@@ -284,7 +349,7 @@ RETURNS BOOLEAN AS $$
       JOIN public.profiles owner_profile ON owner_profile.id = exam.user_id
       JOIN public.profiles current_profile ON current_profile.id = auth.uid()
       WHERE exam.id = target_exam_id
-        AND public.normalized_role(current_profile.role) = 'print_operator'
+        AND public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')
         AND current_profile.school_id IS NOT NULL
         AND current_profile.school_id = owner_profile.school_id
         AND COALESCE(exam.print_status, 'nao_enviada') IN ('enviada', 'impressa')

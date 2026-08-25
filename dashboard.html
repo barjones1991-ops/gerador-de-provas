@@ -190,7 +190,7 @@
     /* MODAL DELETE */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      display: none; place-items: center; z-index: 50; padding: 16px;
+      display: none; place-items: center; z-index: 200; padding: 16px;
     }
     .modal-overlay.show { display: grid; }
     .modal {
@@ -203,12 +203,14 @@
     .modal p { color: #64748b; font-size: 14px; margin-bottom: 24px; }
     .modal-form { display: grid; gap: 14px; text-align: left; margin: 18px 0 24px; }
     .modal-form label { display: block; font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .modal-form input {
+    .modal-form input,
+    .modal-form select {
       width: 100%; padding: 11px 12px;
       border: 1.5px solid #e2e8f0; border-radius: 11px;
-      font-size: 14px; outline: none; font-family: inherit;
+      font-size: 14px; outline: none; font-family: inherit; background: white;
     }
-    .modal-form input:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+    .modal-form input:focus,
+    .modal-form select:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
     .profile-info-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; text-align: left; }
     .profile-info-block .pib-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
     .profile-info-block .pib-value { font-size: 13px; font-weight: 600; color: #334155; }
@@ -365,6 +367,30 @@
   </div>
 </div>
 
+<!-- Modal de nova prova -->
+<div class="modal-overlay" id="newExamModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-icon">＋</div>
+    <h3>Nova prova</h3>
+    <p>Selecione os dados iniciais. A prova sera criada e salva automaticamente.</p>
+    <div class="modal-form">
+      <div>
+        <label>Disciplina</label>
+        <select id="newExamSubject"></select>
+      </div>
+      <div>
+        <label>Turma</label>
+        <select id="newExamClass"></select>
+      </div>
+    </div>
+    <p id="newExamReadiness" class="small" style="margin:-6px 0 14px; color:#64748b;"></p>
+    <div class="modal-btns">
+      <button type="button" id="cancelNewExamBtn">Cancelar</button>
+      <button type="button" class="danger" id="confirmNewExamBtn" style="background:#667eea; border-color:#667eea;">Criar prova</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal de perfil -->
 <div class="modal-overlay" id="profileModal">
   <div class="modal" style="max-width:440px;">
@@ -437,6 +463,8 @@
   let currentSort = 'created_desc';
   let pendingDeleteId = null;
 
+  const PLACEHOLDER_DISCIPLINES = new Set(['disciplina', 'diciplina', 'selecionar disciplina']);
+
   document.addEventListener('DOMContentLoaded', async () => {
     auth = initAuthManager();
     if (!auth || !auth.isAuthenticated()) {
@@ -464,15 +492,15 @@
       }
     } catch {}
 
-    await loadExams();
-
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await auth.signOut();
       localStorage.removeItem('editExamId');
       window.location.href = 'login.html';
     });
 
-    document.getElementById('newExamBtn').addEventListener('click', newExam);
+    document.getElementById('newExamBtn').addEventListener('click', openNewExamModal);
+    document.getElementById('cancelNewExamBtn').addEventListener('click', closeNewExamModal);
+    document.getElementById('confirmNewExamBtn').addEventListener('click', createNewExamFromModal);
     document.getElementById('profileBtn').addEventListener('click', openProfileModal);
     document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
     document.getElementById('changePasswordBtn').addEventListener('click', changeOwnPassword);
@@ -493,6 +521,8 @@
       currentSort = e.target.value;
       renderExams();
     });
+
+    await loadExams();
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -541,6 +571,23 @@
     document.getElementById('navSchoolsLink').classList.toggle('show', auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile));
   }
 
+
+  function getExamQuestions(exam) {
+    if (Array.isArray(exam?.questions)) return exam.questions;
+    if (typeof exam?.questions === 'string') {
+      try {
+        const parsed = JSON.parse(exam.questions);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  function hasExamQuestions(exam) {
+    return getExamQuestions(exam).length > 0;
+  }
   function requiresPasswordChange() {
     return Boolean(currentProfile.force_password_change);
   }
@@ -550,7 +597,7 @@
       const user = auth.getCurrentUser();
       const endpoint = `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`;
       const data = await auth.authenticatedRequest(endpoint);
-      exams = (Array.isArray(data) ? data : []).filter((exam) => exam.user_id === user.id);
+      exams = (Array.isArray(data) ? data : []).filter((exam) => exam.user_id === user.id).map((exam) => ({ ...exam, questions: getExamQuestions(exam) }));
       renderSubjectOptions();
       renderExams();
     } catch (err) {
@@ -589,6 +636,7 @@
     });
 
     const hasFilters = search || currentSubject || currentTerm || currentReviewStatus || currentFilter !== 'all';
+    const canCreateExam = !auth.hasRole(['print_operator'], currentProfile);
     const info = document.getElementById('showingInfo');
     if (info) info.textContent = hasFilters && filtered.length !== exams.length ? `Mostrando ${filtered.length} de ${exams.length} prova${exams.length !== 1 ? 's' : ''} — filtros ativos` : '';
 
@@ -598,7 +646,7 @@
             <div class="empty-icon">${hasFilters ? '🔍' : '📄'}</div>
           <h2>${hasFilters ? 'Nenhuma prova encontrada' : 'Nenhuma prova ainda'}</h2>
           <p>${hasFilters ? 'Ajuste a busca ou os filtros para ver mais provas.' : 'Crie sua primeira prova clicando no botão acima.'}</p>
-          ${!hasFilters ? `<button class="btn-new" onclick="newExam()">＋ Nova Prova</button>` : ''}
+          ${!hasFilters && canCreateExam ? `<button class="btn-new" onclick="openNewExamModal()">＋ Nova Prova</button>` : ''}
         </div>`;
       return;
     }
@@ -626,11 +674,13 @@
       const reviewInProgress = ['enviada', 'em_revisao'].includes(review);
       const reviewButtonLabel = reviewInProgress ? 'Em revisão' : (locked ? label : 'Enviar revisão');
       const date = exam.created_at ? new Date(exam.created_at).toLocaleDateString('pt-BR') : '—';
-      const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
+      const qCount = getExamQuestions(exam).length;
       const ownedByCurrentUser = exam.user_id === auth.getCurrentUser()?.id;
       const canEdit = auth.canEditExam(exam, currentProfile);
       const canDelete = auth.canDeleteExam(exam, currentProfile);
-      const canSendToReview = ownedByCurrentUser && !locked && !reviewInProgress;
+      const canSendToReview = ownedByCurrentUser && qCount > 0 && !locked && !reviewInProgress;
+      const reviewActionTitle = qCount === 0 ? 'Adicione pelo menos uma questao antes de enviar para revisao.' : '';
+      const effectiveReviewButtonLabel = qCount === 0 ? 'Adicione questoes' : reviewButtonLabel;
 
       return `
         <div class="exam-card">
@@ -648,7 +698,7 @@
             <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
             <button class="card-btn print" onclick="printExam('${exam.id}')">PDF</button>
             <button class="card-btn duplicate" onclick="duplicateExam('${exam.id}')">⊕ Copiar</button>
-            <button class="card-btn review" onclick="sendToReview('${exam.id}')" ${!canSendToReview ? 'disabled' : ''}>${reviewButtonLabel}</button>
+            <button class="card-btn review" onclick="sendToReview('${exam.id}')" title="${esc(reviewActionTitle)}" ${!canSendToReview ? 'disabled' : ''}>${effectiveReviewButtonLabel}</button>
             <button class="card-btn delete" onclick="askDelete('${exam.id}')" ${!canDelete ? 'disabled' : ''}>🗑️ Deletar</button>
           </div>
         </div>`;
@@ -690,13 +740,125 @@
     return sorted;
   }
 
-  function newExam() {
-    localStorage.removeItem('editExamId');
-    const user = auth?.getCurrentUser?.();
-    if (user?.id) {
-      localStorage.removeItem(`gerador-provas-state-v1:${user.id}`);
+  function isPlaceholderDiscipline(value) {
+    return PLACEHOLDER_DISCIPLINES.has(String(value || '').trim().toLowerCase());
+  }
+
+  function uniqueCleanList(values, options = {}) {
+    const source = Array.isArray(values) ? values : String(values || '').split(/[,;|/]+/);
+    const seen = new Set();
+    return source
+      .map(item => String(item || '').trim())
+      .filter(item => item && (!options.discipline || !isPlaceholderDiscipline(item)))
+      .filter((item) => {
+        const key = item.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function getNewExamDisciplines() {
+    return uniqueCleanList(currentProfile.disciplines, { discipline: true });
+  }
+
+  function getNewExamClasses() {
+    const fromProfile = uniqueCleanList(currentProfile.school_grade);
+    if (fromProfile.length) return fromProfile;
+    return uniqueCleanList(exams.map(e => e.class_name));
+  }
+
+  function fillSelect(select, values, placeholder) {
+    select.innerHTML = `<option value="">${esc(placeholder)}</option>` +
+      values.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
+  }
+
+  function openNewExamModal() {
+    const disciplines = getNewExamDisciplines();
+    const classes = getNewExamClasses();
+    const subjectSelect = document.getElementById('newExamSubject');
+    const classSelect = document.getElementById('newExamClass');
+    const confirmBtn = document.getElementById('confirmNewExamBtn');
+    const readiness = document.getElementById('newExamReadiness');
+
+    fillSelect(subjectSelect, disciplines, disciplines.length ? 'Selecione a disciplina' : 'Nenhuma disciplina vinculada');
+    subjectSelect.disabled = disciplines.length === 0;
+    fillSelect(classSelect, classes, classes.length ? 'Selecione a turma' : 'Nenhuma turma vinculada');
+    classSelect.disabled = classes.length === 0;
+
+    const missing = [];
+    if (!disciplines.length) missing.push('disciplina');
+    if (!classes.length) missing.push('turma');
+    const canCreate = missing.length === 0;
+    confirmBtn.disabled = !canCreate;
+    confirmBtn.textContent = 'Criar prova';
+    readiness.textContent = canCreate
+      ? 'A prova sera criada na nuvem antes de abrir o editor.'
+      : `Peca para a coordenacao vincular ${missing.join(' e ')} ao seu perfil.`;
+    if (!canCreate) showToast(readiness.textContent, 'error');
+    document.getElementById('newExamModal').classList.add('show');
+  }
+
+  function closeNewExamModal() {
+    document.getElementById('newExamModal').classList.remove('show');
+  }
+
+  async function createNewExamFromModal() {
+    const subject = document.getElementById('newExamSubject').value;
+    const className = document.getElementById('newExamClass').value;
+
+    if (!subject) {
+      showToast('Selecione a disciplina para criar a prova.', 'error');
+      return;
     }
-    window.location.href = 'editor.html?new=1';
+    if (!className) {
+      showToast('Selecione a turma para criar a prova.', 'error');
+      return;
+    }
+
+    const user = auth.getCurrentUser();
+    if (!user) return;
+
+    const btn = document.getElementById('confirmNewExamBtn');
+    btn.disabled = true;
+    btn.textContent = 'Criando...';
+
+    const payload = {
+      user_id: user.id,
+      title: `Nova prova - ${subject}`,
+      school_name: currentProfile.school_name || '',
+      subject,
+      class_name: className,
+      teacher: currentProfile.full_name || user.email || '',
+      term: '1º Bimestre',
+      date: '',
+      total_value: '10,0',
+      instructions: 'Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.',
+      questions: [],
+      logo_data_url: null,
+      is_draft: true,
+      is_published: false,
+      review_status: 'rascunho',
+    };
+
+    try {
+      const data = await auth.authenticatedRequest('/exams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify(payload),
+      });
+      const newId = Array.isArray(data) ? data[0]?.id : data?.id;
+      if (!newId) throw new Error('Supabase nao retornou o ID da prova criada.');
+      localStorage.setItem('editExamId', newId);
+      window.location.href = `editor.html?id=${encodeURIComponent(newId)}`;
+    } catch (err) {
+      showToast('Erro ao criar prova: ' + err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Criar prova';
+    }
   }
 
   function editExam(id) {
@@ -760,6 +922,10 @@
   async function sendToReview(id) {
     const exam = exams.find(e => e.id === id);
     if (!exam) return;
+    if (!hasExamQuestions(exam)) {
+      showToast('Adicione pelo menos uma questao antes de enviar para revisao.', 'error');
+      return;
+    }
 
     const previous = {
       review_status: exam.review_status,

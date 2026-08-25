@@ -29,6 +29,8 @@
       font: inherit; font-size: 13px; font-weight: 800;
     }
     .btn.primary { background: #0f172a; border-color: #0f172a; color: white; }
+    .btn.green { background: #16a34a; border-color: #16a34a; color: white; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .page {
       width: min(100%, 842px);
       margin: 24px auto;
@@ -389,7 +391,9 @@
     <div class="toolbar-title">Gerador de Provas</div>
     <div class="toolbar-actions">
       <a class="btn" href="dashboard.html">Minhas Provas</a>
+      <a class="btn" id="printQueueLink" href="impressao.html" style="display:none;">Fila de impressao</a>
       <button class="btn" type="button" id="answerKeyBtn">Com gabarito</button>
+      <button class="btn green" type="button" id="markPrintedBtn" style="display:none;">Marcar como impressa</button>
       <button class="btn primary" type="button" onclick="printCleanDocument()">Imprimir / PDF</button>
     </div>
   </div>
@@ -404,12 +408,28 @@
   <script src="config.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    const STORAGE_KEY_BASE = 'gerador-provas-state-v1';
-
     function esc(s) {
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
+
+    const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
+    let printAuth = null;
+    let printProfile = null;
+    let currentExam = null;
+
+    function isSafeImageDataUrl(dataUrl) {
+      return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || ''));
+    }
+
+    function safeImageSrc(dataUrl) {
+      return isSafeImageDataUrl(dataUrl) ? esc(dataUrl) : '';
+    }
+
+    function safeImageAttr(dataUrl) {
+      const src = safeImageSrc(dataUrl);
+      return src ? `src="${src}"` : '';
+    }
     function printCleanDocument() {
       const originalTitle = document.title;
       document.title = ' ';
@@ -656,17 +676,17 @@
       const _imgOnly = ['imagem','interpretacao_imagem','relacione_imagens','associacao_imagem_imagem','sequencia_imagens','comparar_imagens','legenda_imagens','grade_imagens','identificar_imagem'];
       if (_imgOnly.includes(q.type)||!q.headerImage) return '';
       const hi=q.headerImage;
-      if (hi.mode==='one'&&hi.dataUrl) {
+      if (hi.mode==='one'&&isSafeImageDataUrl(hi.dataUrl)) {
         const sz=['small','medium','large','full'].includes(hi.size)?hi.size:'medium';
         const al=['left','center','right','lado_esquerda','lado_direita'].includes(hi.align)?hi.align:'center';
         const cap=hi.caption?`<div class="image-caption">${esc(hi.caption)}</div>`:'';
-        return `<div class="question-image ${sz} ${al}"><img src="${hi.dataUrl}" alt="" />${cap}</div>`;
+        return `<div class="question-image ${sz} ${al}"><img ${safeImageAttr(hi.dataUrl)} alt="" />${cap}</div>`;
       }
-      if (hi.mode==='grade'&&Array.isArray(hi.items)&&hi.items.some(i=>i.dataUrl)) {
+      if (hi.mode==='grade'&&Array.isArray(hi.items)&&hi.items.some(i=>isSafeImageDataUrl(i.dataUrl))) {
         const cols=Math.max(2,Math.min(4,Number(hi.columns)||2));
         const cells=hi.items.map(item=>{
           const cap=item.caption?`<div class="image-caption">${esc(item.caption)}</div>`:'';
-          return item.dataUrl?`<div><img src="${item.dataUrl}" style="width:100%;border-radius:6px;" alt=""/>${cap}</div>`:`<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;" class="small">—</div>`;
+          return isSafeImageDataUrl(item.dataUrl)?`<div><img ${safeImageAttr(item.dataUrl)} style="width:100%;border-radius:6px;" alt=""/>${cap}</div>`:`<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;" class="small">—</div>`;
         }).join('');
         return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:10px;">${cells}</div>`;
       }
@@ -679,8 +699,8 @@
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
         const align = ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'].includes(question.imageAlign) ? question.imageAlign : 'center';
         const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
-        return question.imageDataUrl
-          ? `<div class="question-image ${size} ${align}"><img src="${question.imageDataUrl}" alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
+        return isSafeImageDataUrl(question.imageDataUrl)
+          ? `<div class="question-image ${size} ${align}"><img ${safeImageAttr(question.imageDataUrl)} alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
           : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
       };
       const answerArea = (question) => {
@@ -698,8 +718,8 @@
         const hasOptImgs = q.headerImage?.mode === 'alternativas' && Array.isArray(q.optionImages);
         const opts = (q.options || []).map((op, i) => {
           const letter = String.fromCharCode(65 + i);
-          const optImg = hasOptImgs && q.optionImages[i]?.dataUrl
-            ? `<div><img src="${q.optionImages[i].dataUrl}" style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
+          const optImg = hasOptImgs && isSafeImageDataUrl(q.optionImages[i]?.dataUrl)
+            ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
             : '';
           return optImg
             ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(op || `Alternativa ${letter}`)}</span></div></div>`
@@ -721,7 +741,7 @@
           const text = item.text ? `<span>${esc(item.text)}</span>` : '';
           const imgSrc = item.imageDataUrl;
           const h = imgH[item.imageSize || 'small'];
-          const imgTag = imgSrc ? `<img src="${imgSrc}" style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
+          const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc)} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
             const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
@@ -772,7 +792,7 @@
           const eSize = ['small','medium','large','full'].includes(ei.size) ? ei.size : 'medium';
           const eAlign = ['left','center','right'].includes(ei.align) ? ei.align : 'center';
           const eCap = ei.caption ? `<div class="image-caption">${esc(ei.caption)}</div>` : '';
-          return `<div class="question-image ${eSize} ${eAlign}"><img src="${ei.dataUrl}" alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
+          return `<div class="question-image ${eSize} ${eAlign}"><img ${safeImageAttr(ei.dataUrl)} alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
         }).join('') : '';
         const allImages = `${image}${extraImgsHtml}`;
         if (q.imageAnswerType === 'multipla') {
@@ -806,7 +826,7 @@
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
         const images = pairs.map((pair, i) => `
           <div class="match-image">
-            ${pair.imageDataUrl ? `<img src="${pair.imageDataUrl}" alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
+            ${isSafeImageDataUrl(pair.imageDataUrl) ? `<img ${safeImageAttr(pair.imageDataUrl)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
             <strong>Imagem ${i + 1}</strong>
           </div>
         `).join('');
@@ -972,15 +992,15 @@
       if (q.type === 'sequencia_imagens') {
         const items = q.items||[];
         const cards = items.map(item => {
-          const img = item.imageDataUrl ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
+          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
           const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
           return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num"></div></div>`;
         }).join('');
         return `<div class="seq-img-grid">${cards}</div>`;
       }
       if (q.type === 'comparar_imagens') {
-        const img1 = q.image1DataUrl ? `<img src="${q.image1DataUrl}" alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
-        const img2 = q.image2DataUrl ? `<img src="${q.image2DataUrl}" alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
+        const img1 = isSafeImageDataUrl(q.image1DataUrl) ? `<img ${safeImageAttr(q.image1DataUrl)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
+        const img2 = isSafeImageDataUrl(q.image2DataUrl) ? `<img ${safeImageAttr(q.image2DataUrl)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
         const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
         if (q.showAnswerSpace===false) return grid;
         return `${grid}${answerArea(q)}`;
@@ -988,7 +1008,7 @@
       if (q.type === 'legenda_imagens') {
         const items = q.items||[];
         const cards = items.map(item => {
-          const img = item.imageDataUrl ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />` : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
         }).join('');
         return `<div class="legenda-grid">${cards}</div>`;
@@ -998,7 +1018,7 @@
         const cols = [2, 3, 4].includes(Number(q.columns)) ? Number(q.columns) : 3;
         const cards = items.map((item, i) => {
           const img = item.imageDataUrl
-            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
             : `<div class="grade-img-placeholder">Sem imagem</div>`;
           const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
           const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
@@ -1014,7 +1034,7 @@
           return `<span class="identify-marker" style="left:${x}%;top:${y}%;">${i + 1}</span>`;
         }).join('');
         const image = q.imageDataUrl
-          ? `<div class="identify-image-wrap"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
+          ? `<div class="identify-image-wrap"><img ${safeImageAttr(q.imageDataUrl)} alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
           : `<div class="identify-image-wrap"><div class="identify-image-placeholder">Imagem não selecionada</div>${markerHtml}</div>`;
         const caption = q.imageCaption ? `<div class="image-caption">${esc(q.imageCaption)}</div>` : '';
         const list = q.showAnswerList === false ? '' : `<div class="identify-answer-list">${markers.map((marker, i) => `
@@ -1026,7 +1046,7 @@
         const left = q.leftItems||[]; const right = q.rightItems||[];
         const order = Array.isArray(q.rightOrder)&&q.rightOrder.length===right.length ? q.rightOrder : right.map((_,i)=>i);
         const mkCard = (item, label) => {
-          const img = item&&item.imageDataUrl ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />` : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          const img = item&&isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="assoc-img-card">${img}<div style="margin-top:4px;font-weight:700;">${esc(label)}</div><div class="assoc-img-blank"></div></div>`;
         };
         const leftCards = left.map((item,i)=>mkCard(item,String.fromCharCode(65+i))).join('');
@@ -1044,7 +1064,7 @@
         const offsetY = Math.max(0, Math.min(500, Number(img.offsetY ?? img.y) || 0));
         return `
           <div class="free-image-item ${align}" style="width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;margin-top:${offsetY}px;">
-            <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
+            <img ${safeImageAttr(img.dataUrl)} alt="${esc(img.fileName || 'Imagem livre')}" />
           </div>
         `;
       }).join('');
@@ -1193,8 +1213,8 @@
       const questions = (Array.isArray(exam.questions) ? exam.questions : []).map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
       const showAnswerKey = new URLSearchParams(window.location.search).get('gabarito') === '1';
       const sum = questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
-      const logo = exam.logo_data_url
-        ? `<div class="logo has-image"><img src="${exam.logo_data_url}" alt="Logo da escola" /></div>`
+      const logo = isSafeImageDataUrl(exam.logo_data_url)
+        ? `<div class="logo has-image"><img ${safeImageAttr(exam.logo_data_url)} alt="Logo da escola" /></div>`
         : '<div class="logo" style="display:flex;align-items:center;justify-content:center;font-size:11px;color:#cbd5e1;border:1px dashed #e2e8f0;border-radius:8px;">Logo</div>';
 
       document.title = exam.title || 'Prova';
@@ -1245,21 +1265,54 @@
       document.getElementById('root').innerHTML = `<div class="message"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>`;
     }
 
+    function isFromPrintQueue() {
+      return new URLSearchParams(window.location.search).get('from') === 'impressao';
+    }
+
+    function updatePrintToolbar(exam, auth, profile) {
+      const queueLink = document.getElementById('printQueueLink');
+      const markBtn = document.getElementById('markPrintedBtn');
+      const canMarkPrinted = auth.hasRole(['master', 'school_owner', 'print_operator'], profile);
+      const fromQueue = isFromPrintQueue();
+
+      queueLink.style.display = fromQueue ? 'inline-flex' : 'none';
+      markBtn.style.display = fromQueue && canMarkPrinted && exam.print_status === 'enviada' ? 'inline-flex' : 'none';
+      markBtn.disabled = false;
+      markBtn.textContent = 'Marcar como impressa';
+    }
+
+    async function markCurrentExamPrinted() {
+      if (!currentExam?.id || !printAuth) return;
+      if (!confirm('Marcar esta prova como impressa?')) return;
+
+      const markBtn = document.getElementById('markPrintedBtn');
+      markBtn.disabled = true;
+      markBtn.textContent = 'Marcando...';
+
+      try {
+        await printAuth.authenticatedRequest('/rpc/mark_exam_printed', {
+          method: 'POST',
+          body: JSON.stringify({ target_exam_id: currentExam.id })
+        });
+        currentExam.print_status = 'impressa';
+        alert('Prova marcada como impressa.');
+        window.location.href = 'impressao.html';
+      } catch (err) {
+        markBtn.disabled = false;
+        markBtn.textContent = 'Marcar como impressa';
+        alert(err.message || 'Nao foi possivel marcar a prova como impressa.');
+      }
+    }
+
     async function loadExam() {
       const id = new URLSearchParams(window.location.search).get('id');
       if (!id) {
-        const auth = initAuthManager();
-        const userKey = auth?.isAuthenticated() ? `${STORAGE_KEY_BASE}:${auth.getCurrentUser().id}` : '';
-        const raw = userKey ? localStorage.getItem(userKey) : null;
-        if (!raw) {
-          showMessage('Nenhuma prova local encontrada', 'Abra uma prova no editor ou escolha uma prova salva no dashboard.');
-          return;
-        }
-        renderExam(JSON.parse(raw));
+        showMessage('Nenhuma prova selecionada', 'Salve a prova na nuvem ou escolha uma prova salva no dashboard para gerar o PDF limpo.');
         return;
       }
 
       const auth = initAuthManager();
+      printAuth = auth;
       if (!auth || !auth.isAuthenticated()) {
         localStorage.setItem('editExamId', id);
         const returnTo = `print.html?id=${encodeURIComponent(id)}`;
@@ -1273,14 +1326,18 @@
         return;
       }
       const profile = await auth.loadCurrentProfile('id,role,school_id');
+      printProfile = profile;
+      currentExam = data[0];
+      updatePrintToolbar(currentExam, auth, profile);
       if (auth.hasRole(['print_operator'], profile) && data[0].print_status === 'impressa') {
         showMessage('PDF bloqueado', 'Esta prova ja foi marcada como impressa. Para imprimir novamente, peça um novo envio da coordenação.');
         return;
       }
-      renderExam(data[0]);
+      renderExam(currentExam);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('markPrintedBtn').addEventListener('click', markCurrentExamPrinted);
       document.getElementById('answerKeyBtn').addEventListener('click', () => {
         const url = new URL(window.location.href);
         if (url.searchParams.get('gabarito') === '1') url.searchParams.delete('gabarito');

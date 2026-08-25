@@ -38,6 +38,7 @@
     body {
       margin: 0;
       padding-top: 112px;
+      padding-left: 240px;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -46,7 +47,7 @@
     .editor-actionbar {
       position: fixed;
       top: 0;
-      left: 0;
+      left: 240px;
       right: 0;
       z-index: 80;
       background: rgba(248, 250, 252, 0.96);
@@ -120,6 +121,41 @@
       z-index: 95;
     }
     .top-question-menu.hidden { display: none; }
+    /* APP NAVIGATION */
+    .app-sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 240px;
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 22px 16px;
+      z-index: 90;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .app-brand {
+      color: #0f172a;
+      font-size: 18px;
+      font-weight: 900;
+      text-decoration: none;
+      padding: 0 8px;
+    }
+    .app-nav { display: grid; gap: 6px; }
+    .app-nav-link {
+      color: #475569;
+      text-decoration: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+    }
+    .app-nav-link:hover { background: #f8fafc; color: #0f172a; }
+    .app-nav-link.active { background: #0f172a; color: #fff; }
+    .app-nav-link.restricted { display: none; }
+    .app-nav-link.restricted.show { display: flex; }
     .top-question-menu-label {
       padding: 8px 8px 4px;
       font-size: 10px;
@@ -1112,7 +1148,10 @@
     }
 
     @media (max-width: 720px) {
-      body { padding-top: 208px; }
+      body { padding-top: 0; padding-left: 0; }
+      .app-sidebar { position: static; width: auto; min-height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+      .app-nav { grid-template-columns: 1fr; }
+      .editor-actionbar { position: static; }
       .wrap { padding: 10px; }
       .editor-actionbar-inner { padding: 8px 10px; }
       .grid { gap: 12px; }
@@ -1398,6 +1437,16 @@
   </style>
 </head>
 <body>
+  <aside class="app-sidebar">
+    <a class="app-brand" href="dashboard.html">Gerador de Provas</a>
+    <nav class="app-nav" aria-label="Modulos do sistema">
+      <a class="app-nav-link" href="dashboard.html">Minhas provas</a>
+      <a class="app-nav-link active" href="editor.html">Editor de provas</a>
+      <a class="app-nav-link restricted" id="navReviewLink" href="coordenacao.html">Revisao pedagogica</a>
+      <a class="app-nav-link restricted" id="navPrintLink" href="impressao.html">Fila de impressao</a>
+      <a class="app-nav-link restricted" id="navSchoolsLink" href="schools.html">Gestao escolar</a>
+    </nav>
+  </aside>
   <div class="editor-actionbar no-print">
     <div class="editor-actionbar-inner">
       <!-- Barra quando logado -->
@@ -1407,7 +1456,6 @@
             <button id="topNewQuestionBtn" class="primary" type="button">Nova questao</button>
             <div id="topQuestionMenu" class="top-question-menu hidden" aria-label="Tipos de nova questao"></div>
           </div>
-          <button id="saveCloudBtn" class="primary" type="button" style="background:#16a34a; border-color:#16a34a; font-size:13px; padding:8px 16px;">Salvar na Nuvem</button>
         </div>
         <div class="topbar-status">
           <div style="font-weight:700; font-size:13px; color:#166534;">Conectado: <span id="cloudUser" style="font-weight:500;"></span></div>
@@ -1418,11 +1466,9 @@
           <button id="settingsBtn" class="outline gear-btn" type="button" aria-label="Menu de opcoes">&#9881;</button>
           <div id="settingsMenu" class="settings-menu hidden">
             <a id="printPageLink" href="print.html">PDF limpo</a>
-            <a href="dashboard.html">Minhas Provas</a>
             <button id="printBtn" class="outline" type="button">Exportar PDF</button>
             <button id="gabaritoBtn" class="outline" type="button" title="Imprime a prova com o gabarito numa pagina separada">Com gabarito</button>
             <button id="printBtn2" class="outline" type="button">Imprimir</button>
-            <a href="index.html">Inicio</a>
           </div>
         </div>
         <a id="loginLink" href="login.html" style="display:none;">Entrar para salvar</a>
@@ -1433,7 +1479,6 @@
     <div class="grid">
       <div class="card no-print">
         <h2 class="title">Editor da prova</h2>
-        <div id="profileInfo" class="small" style="color:#64748b; margin-bottom:8px; min-height:18px;"></div>
         <div class="row">
           <div>
             <label>Título da avaliação</label>
@@ -1899,10 +1944,6 @@
       const down = built.placed.filter((item) => item.dir === 'V').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
       return `<div class="crossword-layout"><div class="crossword-grid" style="grid-template-columns: repeat(${built.grid[0].length}, 24px);">${cells}</div><div class="crossword-clues"><div><h4>Horizontais</h4>${across || '<span class="small">Nenhuma.</span>'}</div><div><h4>Verticais</h4>${down || '<span class="small">Nenhuma.</span>'}</div></div></div>`;
     }
-    const STORAGE_KEY_BASE = 'gerador-provas-state-v1';
-    let activeStorageKey = STORAGE_KEY_BASE;
-    let localDraftAutosaveEnabled = false;
-
     const typeLabel = {
       multipla: 'Múltipla escolha',
       discursiva: 'Discursativa',
@@ -2310,7 +2351,7 @@
     const defaultSchool = {
       schoolName: 'Nome da Escola',
       examTitle: 'Avaliação Bimestral',
-      subject: 'Disciplina',
+      subject: '',
       teacher: 'Professor(a)',
       className: 'Turma',
       date: '',
@@ -2327,17 +2368,12 @@
       anos_iniciais: 'Leia com calma. Capriche na letra e nos desenhos. Se precisar, peça para a professora repetir a orientação.',
     };
 
-    const defaultQuestions = [
-      { ...templates.multipla(), text: 'Exemplo de questão de múltipla escolha.', options: ['Alternativa A', 'Alternativa B', 'Alternativa C', 'Alternativa D'], correctOption: 0 },
-      { ...templates.discursiva(), text: 'Exemplo de questão discursiva.' },
-    ];
-
     const state = {
       school: { ...defaultSchool },
       availableClasses: [],
       logoDataUrl: '',
       logoFileName: '',
-      questions: defaultQuestions.map((q) => ({ ...q })),
+      questions: [],
       collapsedQuestions: {},
     };
 
@@ -2346,56 +2382,13 @@
       state.availableClasses = [];
       state.logoDataUrl = '';
       state.logoFileName = '';
-      state.questions = defaultQuestions.map((q) => JSON.parse(JSON.stringify(q)));
+      state.questions = [];
       state.collapsedQuestions = {};
     }
 
     function saveState() {
-      if (!localDraftAutosaveEnabled || activeStorageKey === STORAGE_KEY_BASE) return;
-      try {
-        localStorage.setItem(activeStorageKey, JSON.stringify({
-          school: state.school,
-          availableClasses: state.availableClasses,
-          logoDataUrl: state.logoDataUrl,
-          logoFileName: state.logoFileName,
-          questions: state.questions,
-          collapsedQuestions: state.collapsedQuestions,
-        }));
-      } catch (error) {
-        console.warn('Nao foi possivel salvar os dados localmente.', error);
-      }
-    }
-
-    function loadSavedState(storageKey = activeStorageKey) {
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (!raw) return false;
-        const saved = JSON.parse(raw);
-        if (saved && typeof saved === 'object') {
-          if (saved.school && typeof saved.school === 'object') {
-            state.school = { ...defaultSchool, ...saved.school };
-          }
-          if (Array.isArray(saved.availableClasses)) {
-            state.availableClasses = saved.availableClasses;
-          }
-          if (typeof saved.logoDataUrl === 'string') {
-            state.logoDataUrl = saved.logoDataUrl;
-          }
-          if (typeof saved.logoFileName === 'string') {
-            state.logoFileName = saved.logoFileName;
-          }
-          if (Array.isArray(saved.questions) && saved.questions.length > 0) {
-            state.questions = saved.questions.map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
-          }
-          if (saved.collapsedQuestions && typeof saved.collapsedQuestions === 'object') {
-            state.collapsedQuestions = saved.collapsedQuestions;
-          }
-          return true;
-        }
-      } catch (error) {
-        console.warn('Nao foi possivel restaurar os dados salvos.', error);
-      }
-      return false;
+      // Rascunho local automatico removido: a persistencia acontece apenas ao salvar na nuvem.
+      if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
     }
 
     function applyStateToInputs() {
@@ -2406,16 +2399,19 @@
       el('instructions').value = state.school.instructions || '';
       // subject: select the saved value if it exists as an option
       const subj = el('subject');
-      if (state.school.subject) {
-        const opt = Array.from(subj.options).find(o => o.value === state.school.subject);
-        if (opt) subj.value = state.school.subject;
-        else if (state.school.subject) {
+      const currentSubject = isPlaceholderDiscipline(state.school.subject) ? '' : (state.school.subject || '');
+      if (currentSubject) {
+        const opt = Array.from(subj.options).find(o => o.value === currentSubject);
+        if (opt) subj.value = currentSubject;
+        else {
           const extra = document.createElement('option');
-          extra.value = state.school.subject;
-          extra.textContent = state.school.subject;
+          extra.value = currentSubject;
+          extra.textContent = currentSubject;
           subj.appendChild(extra);
-          subj.value = state.school.subject;
+          subj.value = currentSubject;
         }
+      } else {
+        subj.value = '';
       }
     }
 
@@ -2480,6 +2476,14 @@
       renderAll();
     }
 
+    function collapseAllQuestions() {
+      const nextCollapsed = {};
+      state.questions.forEach((_, idx) => {
+        nextCollapsed[idx] = true;
+      });
+      state.collapsedQuestions = nextCollapsed;
+    }
+
     function formatBytes(b) {
       if (b < 1024) return b + ' B';
       if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
@@ -2491,14 +2495,42 @@
       return Math.round(base64.length * 3 / 4);
     }
 
-    function compressDataUrl(dataUrl, quality) {
+    const MAX_IMAGE_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
+    const MAX_IMAGE_DATA_URL_BYTES = 850 * 1024;
+    const MAX_EXAM_IMAGE_BYTES = 8 * 1024 * 1024;
+    const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
+
+    function isSafeImageDataUrl(dataUrl) {
+      return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || ''));
+    }
+
+    function safeImageSrc(dataUrl) {
+      return isSafeImageDataUrl(dataUrl) ? esc(dataUrl) : '';
+    }
+
+    function safeImageAttr(dataUrl) {
+      const src = safeImageSrc(dataUrl);
+      return src ? `src="${src}"` : '';
+    }
+
+    function isAllowedImageFile(file) {
+      return !!file && ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
+    }
+
+    function imagePayloadBytes() {
+      const payload = JSON.stringify({ logoDataUrl: state.logoDataUrl, questions: state.questions });
+      return new Blob([payload]).size;
+    }
+
+    function compressDataUrl(dataUrl, quality, maxSide = 1400) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvas.getContext('2d').drawImage(img, 0, 0);
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
           let out = canvas.toDataURL('image/webp', quality);
           if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', quality);
           resolve(out);
@@ -2507,25 +2539,41 @@
       });
     }
 
-    function readImageFile(file, onReady) {
-      if (!file || !file.type.startsWith('image/')) {
-        window.alert('Selecione um arquivo de imagem valido.');
+    function readImageFile(file, onReady, options = {}) {
+      if (!isAllowedImageFile(file)) {
+        window.alert('Selecione uma imagem PNG, JPG, WebP ou GIF.');
+        return;
+      }
+      if (file.size > MAX_IMAGE_FILE_BYTES) {
+        window.alert(`Imagem muito grande. Use um arquivo de ate ${formatBytes(MAX_IMAGE_FILE_BYTES)}.`);
         return;
       }
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
         img.onload = () => {
-          const maxSide = 1400;
+          const maxSide = options.maxSide || 1400;
           const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
           const canvas = document.createElement('canvas');
           canvas.width = Math.max(1, Math.round(img.width * scale));
           canvas.height = Math.max(1, Math.round(img.height * scale));
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          let dataUrl = canvas.toDataURL('image/webp', 0.82);
-          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          const maxOutputBytes = options.maxOutputBytes || MAX_IMAGE_DATA_URL_BYTES;
+          let quality = options.quality || 0.82;
+          let dataUrl = canvas.toDataURL('image/webp', quality);
+          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
+          for (const nextQuality of [0.72, 0.62, 0.52]) {
+            if (dataUrlBytes(dataUrl) <= maxOutputBytes) break;
+            quality = nextQuality;
+            dataUrl = canvas.toDataURL('image/webp', quality);
+            if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
           const bytes = dataUrlBytes(dataUrl);
+          if (!isSafeImageDataUrl(dataUrl) || bytes > maxOutputBytes) {
+            window.alert(`Nao foi possivel reduzir esta imagem para ate ${formatBytes(maxOutputBytes)}.`);
+            return;
+          }
           onReady(dataUrl, file.name, bytes);
         };
         img.onerror = () => window.alert('Nao foi possivel carregar esta imagem.');
@@ -2696,7 +2744,7 @@
         const image = getImage();
         const hasImg = !!image.dataUrl;
         drop.innerHTML = hasImg
-          ? `<img src="${image.dataUrl}" alt="${esc(image.fileName || 'Imagem da questao')}" />`
+          ? `<img ${safeImageAttr(image.dataUrl)} alt="${esc(image.fileName || 'Imagem da questao')}" />`
           : '<div><strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span></div>';
         [rotateLeftBtn, rotateRightBtn, cropBtn, removeBtn].forEach(b => {
           b.style.display = hasImg ? '' : 'none';
@@ -4195,7 +4243,7 @@
               resLbl.textContent = '= Gabarito:'; resLbl.style.cssText='font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
               const res = document.createElement('input'); res.value=op.result||''; res.placeholder='auto';
               res.style.cssText='flex:1;text-align:right;font-family:monospace;background:#f0fdf4;border-color:#86efac;';
-              res.addEventListener('input', () => { op.result=res.value; });
+              res.addEventListener('input', () => { op.result=res.value; saveState(); });
               n1.addEventListener('blur', () => tryCalc(op,res));
               n2.addEventListener('blur', () => tryCalc(op,res));
               r3.appendChild(resLbl); r3.appendChild(res);
@@ -4358,7 +4406,7 @@
               const gabInp = document.createElement('input');
               gabInp.value = expr.answer || ''; gabInp.placeholder = 'resposta esperada';
               gabInp.style.cssText = 'flex:1;background:#f0fdf4;border-color:#86efac;';
-              gabInp.addEventListener('input', () => { expr.answer = gabInp.value; });
+              gabInp.addEventListener('input', () => { expr.answer = gabInp.value; saveState(); });
               gabRow.appendChild(gabLbl); gabRow.appendChild(gabInp);
 
               top.appendChild(inp); top.appendChild(rmv);
@@ -4806,7 +4854,7 @@
               }));
               const bot=document.createElement('div'); bot.style.cssText='display:flex;gap:6px;align-items:center;margin-top:6px;';
               const ai=document.createElement('input'); ai.value=item.answer||''; ai.placeholder='Gabarito (ex: cachorro)'; ai.style.flex='1';
-              ai.addEventListener('input',()=>{ item.answer=ai.value; });
+              ai.addEventListener('input',()=>{ item.answer=ai.value; saveState(); });
               const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
               if(q.items.length>1) rmBtn.addEventListener('click',()=>{ q.items.splice(ii,1); renderLeg(); renderPreview(); });
               else rmBtn.disabled=true;
@@ -4879,7 +4927,7 @@
               const answer = document.createElement('input');
               answer.value = item.answer || '';
               answer.placeholder = 'Gabarito / resposta esperada';
-              answer.addEventListener('input', () => { item.answer = answer.value; });
+              answer.addEventListener('input', () => { item.answer = answer.value; saveState(); });
               const rmBtn = document.createElement('button');
               rmBtn.type = 'button';
               rmBtn.className = 'danger';
@@ -4966,7 +5014,7 @@
               `;
               const inputs = row.querySelectorAll('input');
               inputs[0].addEventListener('input', () => { marker.label = inputs[0].value; renderPreview(); });
-              inputs[1].addEventListener('input', () => { marker.answer = inputs[1].value; });
+              inputs[1].addEventListener('input', () => { marker.answer = inputs[1].value; saveState(); });
               inputs[2].addEventListener('input', () => { marker.x = Math.max(0, Math.min(100, Number(inputs[2].value) || 0)); renderPreview(); });
               inputs[3].addEventListener('input', () => { marker.y = Math.max(0, Math.min(100, Number(inputs[3].value) || 0)); renderPreview(); });
               const remove = row.querySelector('button');
@@ -5254,7 +5302,7 @@
         const sz = ['small','medium','large','full'].includes(hi.size) ? hi.size : 'medium';
         const al = ['left','center','right','lado_esquerda','lado_direita'].includes(hi.align) ? hi.align : 'center';
         const cap = hi.caption ? `<div class="image-caption">${esc(hi.caption)}</div>` : '';
-        return `<div class="question-image ${sz} ${al}"><img src="${hi.dataUrl}" alt="" />${cap}</div>`;
+        return `<div class="question-image ${sz} ${al}"><img ${safeImageAttr(hi.dataUrl)} alt="" />${cap}</div>`;
       }
       if (hi.mode === 'grade') {
         const cols = Math.max(2, Math.min(4, Number(hi.columns)||2));
@@ -5262,8 +5310,8 @@
         if (!items.some(i=>i.dataUrl)) return '';
         const cells = items.map(item => {
           const cap = item.caption ? `<div class="image-caption">${esc(item.caption)}</div>` : '';
-          return item.dataUrl
-            ? `<div><img src="${item.dataUrl}" style="width:100%;border-radius:6px;" alt="" />${cap}</div>`
+          return isSafeImageDataUrl(item.dataUrl)
+            ? `<div><img ${safeImageAttr(item.dataUrl)} style="width:100%;border-radius:6px;" alt="" />${cap}</div>`
             : `<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;text-align:center;" class="small">—</div>`;
         }).join('');
         return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:10px;">${cells}</div>`;
@@ -5282,7 +5330,7 @@
         const offsetY = Math.max(0, Math.min(500, Number(img.offsetY ?? img.y) || 0));
         return `
           <div class="free-image-item ${align}" data-question-index="${questionIndex}" data-image-index="${imageIndex}" style="width:${Math.max(40, Number(img.width) || 180)}px;height:${Math.max(30, Number(img.height) || 120)}px;margin-top:${offsetY}px;">
-            <img src="${img.dataUrl}" alt="${esc(img.fileName || 'Imagem livre')}" />
+            <img ${safeImageAttr(img.dataUrl)} alt="${esc(img.fileName || 'Imagem livre')}" />
             ${controls}
           </div>
         `;
@@ -5298,7 +5346,7 @@
         const isFloat = align === 'lado_esquerda' || align === 'lado_direita';
         const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
         const figure = question.imageDataUrl
-          ? `<div class="question-image ${size} ${align}"><img src="${question.imageDataUrl}" alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
+          ? `<div class="question-image ${size} ${align}"><img ${safeImageAttr(question.imageDataUrl)} alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
           : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
         return figure;
       };
@@ -5319,8 +5367,8 @@
         const items = opts.map((op, i) => {
           const letter = String.fromCharCode(65 + i);
           const label = op || `Alternativa ${letter}`;
-          const optImg = hasOptImgs && q.optionImages[i]?.dataUrl
-            ? `<div><img src="${q.optionImages[i].dataUrl}" style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
+          const optImg = hasOptImgs && isSafeImageDataUrl(q.optionImages[i]?.dataUrl)
+            ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
             : '';
           return optImg
             ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(label)}</span></div></div>`
@@ -5347,7 +5395,7 @@
           const text = item.text ? `<span>${esc(item.text)}</span>` : '';
           const imgSrc = item.imageDataUrl;
           const h = imgH[item.imageSize || 'small'];
-          const imgTag = imgSrc ? `<img src="${imgSrc}" style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
+          const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc)} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
             const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
@@ -5398,7 +5446,7 @@
           const eSize = ['small','medium','large','full'].includes(ei.size) ? ei.size : 'medium';
           const eAlign = ['left','center','right'].includes(ei.align) ? ei.align : 'center';
           const eCap = ei.caption ? `<div class="image-caption">${esc(ei.caption)}</div>` : '';
-          return `<div class="question-image ${eSize} ${eAlign}"><img src="${ei.dataUrl}" alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
+          return `<div class="question-image ${eSize} ${eAlign}"><img ${safeImageAttr(ei.dataUrl)} alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
         }).join('') : '';
         const allImages = `${image}${extraImgsHtml}`;
         if (q.imageAnswerType === 'multipla') {
@@ -5432,7 +5480,7 @@
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
         const images = pairs.map((pair, i) => `
           <div class="match-image">
-            ${pair.imageDataUrl ? `<img src="${pair.imageDataUrl}" alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
+            ${pair.imageDataUrl ? `<img ${safeImageAttr(pair.imageDataUrl)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
             <strong>Imagem ${i + 1}</strong>
           </div>
         `).join('');
@@ -5601,7 +5649,7 @@
         const items = q.items || [];
         const cards = items.map(item => {
           const img = item.imageDataUrl
-            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />`
             : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
           const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
           return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num">&nbsp;</div></div>`;
@@ -5609,8 +5657,8 @@
         return `<div class="seq-img-grid">${cards}</div>`;
       }
       if (q.type === 'comparar_imagens') {
-        const img1 = q.image1DataUrl ? `<img src="${q.image1DataUrl}" alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
-        const img2 = q.image2DataUrl ? `<img src="${q.image2DataUrl}" alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
+        const img1 = q.image1DataUrl ? `<img ${safeImageAttr(q.image1DataUrl)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
+        const img2 = q.image2DataUrl ? `<img ${safeImageAttr(q.image2DataUrl)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
         const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
         if (q.showAnswerSpace === false) return grid;
         return `${grid}${answerArea(q)}`;
@@ -5619,7 +5667,7 @@
         const items = q.items || [];
         const cards = items.map(item => {
           const img = item.imageDataUrl
-            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />`
             : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
         }).join('');
@@ -5630,7 +5678,7 @@
         const cols = [2, 3, 4].includes(Number(q.columns)) ? Number(q.columns) : 3;
         const cards = items.map((item, i) => {
           const img = item.imageDataUrl
-            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
             : `<div class="grade-img-placeholder">Sem imagem</div>`;
           const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
           const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
@@ -5646,7 +5694,7 @@
           return `<span class="identify-marker" style="left:${x}%;top:${y}%;">${i + 1}</span>`;
         }).join('');
         const image = q.imageDataUrl
-          ? `<div class="identify-image-wrap"><img src="${q.imageDataUrl}" alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
+          ? `<div class="identify-image-wrap"><img ${safeImageAttr(q.imageDataUrl)} alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
           : `<div class="identify-image-wrap"><div class="identify-image-placeholder">Imagem não selecionada</div>${markerHtml}</div>`;
         const caption = q.imageCaption ? `<div class="image-caption">${esc(q.imageCaption)}</div>` : '';
         const list = q.showAnswerList === false ? '' : `<div class="identify-answer-list">${markers.map((marker, i) => `
@@ -5660,7 +5708,7 @@
         const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
         const mkCard = (item, label) => {
           const img = item && item.imageDataUrl
-            ? `<img src="${item.imageDataUrl}" alt="${esc(item.imageFileName||'')}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />`
             : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="assoc-img-card">${img}<div style="margin-top:4px;font-weight:700;">${esc(label)}</div><div class="assoc-img-blank"></div></div>`;
         };
@@ -5683,9 +5731,9 @@
       el('pvInstructions').textContent = state.school.instructions || '';
 
       const logo = el('pvLogo');
-      if (state.logoDataUrl) {
+      if (isSafeImageDataUrl(state.logoDataUrl)) {
         logo.classList.add('has-image');
-        logo.innerHTML = `<img src="${state.logoDataUrl}" alt="Logo da escola" />`;
+        logo.innerHTML = `<img ${safeImageAttr(state.logoDataUrl)} alt="Logo da escola" />`;
       } else {
         logo.classList.remove('has-image');
         logo.textContent = 'Logo da escola';
@@ -6087,15 +6135,20 @@
         renderPreview();
       }));
       el('instructionTemplate').addEventListener('change', (event) => {
-        const value = event.target.value;
-        if (!value || !instructionTemplates[value]) return;
-        el('instructions').value = instructionTemplates[value];
+        applyInstructionTemplate(event.target.value);
         event.target.value = '';
-        syncSchoolFromInputs();
-        renderPreview();
       });
     }
 
+
+    function applyInstructionTemplate(templateKey) {
+      const instructionText = instructionTemplates[templateKey];
+      if (!instructionText) return;
+      el('instructions').value = instructionText;
+      syncSchoolFromInputs();
+      renderPreview();
+      saveState();
+    }
 
     // Seletor de tipo de questão
     let selectedQType = 'multipla';
@@ -6203,27 +6256,52 @@
       setTimeout(restoreTitle, 1000);
     }
 
+    async function runAfterAutosave(action) {
+      const ok = typeof flushAutoSaveBeforeAction === 'function'
+        ? await flushAutoSaveBeforeAction()
+        : true;
+      if (ok) action();
+    }
+
+    function wireAutosaveBeforeNavigation() {
+      document.querySelectorAll('.app-sidebar a[href], #settingsMenu a[href]').forEach((link) => {
+        link.addEventListener('click', async (event) => {
+          if (link.classList.contains('active')) {
+            event.preventDefault();
+            return;
+          }
+          event.preventDefault();
+          const destination = link.href;
+          const ok = typeof flushAutoSaveBeforeAction === 'function'
+            ? await flushAutoSaveBeforeAction()
+            : true;
+          if (ok) window.location.href = destination;
+        });
+      });
+    }
+
     el('printBtn').addEventListener('click', () => {
       const sec = el('gabaritoSection');
       if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
-      printCleanDocument();
+      runAfterAutosave(printCleanDocument);
     });
     el('printBtn2').addEventListener('click', () => {
       const sec = el('gabaritoSection');
       if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
-      printCleanDocument();
+      runAfterAutosave(printCleanDocument);
     });
-    el('gabaritoBtn').addEventListener('click', () => {
+    el('gabaritoBtn').addEventListener('click', async () => {
       const sec = el('gabaritoSection');
       if (!sec) return;
       sec.dataset.show = 'true';
       sec.style.display = 'block';
       renderGabarito();
-      printCleanDocument();
+      await runAfterAutosave(printCleanDocument);
       // Oculta após impressão
       setTimeout(() => { sec.style.display = 'none'; sec.dataset.show = 'false'; }, 500);
     });
 
+    wireAutosaveBeforeNavigation();
 
     applyStateToInputs();
     wireSchoolInputs();
@@ -6236,13 +6314,30 @@
     let auth = null;
     const editorParams = new URLSearchParams(window.location.search);
     const forceNewExam = editorParams.get('new') === '1';
+    const examIdFromUrl = editorParams.get('id');
     if (forceNewExam) localStorage.removeItem('editExamId');
-    let currentExamId = forceNewExam ? null : (localStorage.getItem('editExamId') || null);
+    if (examIdFromUrl) localStorage.setItem('editExamId', examIdFromUrl);
+    let currentExamId = forceNewExam ? null : (examIdFromUrl || localStorage.getItem('editExamId') || null);
     let toastTimer;
     let currentReviewStatus = 'rascunho';
     let currentExamOwnerId = null;
     let currentReviewNotes = '';
     let currentProfile = null;
+    let autoSaveReady = false;
+    let autoSaveTimer = null;
+    let autoSaveInFlight = false;
+    let autoSaveQueued = false;
+
+    function waitForAutoSaveIdle() {
+      if (!autoSaveInFlight) return Promise.resolve();
+      return new Promise((resolve) => {
+        const tick = () => {
+          if (!autoSaveInFlight) resolve();
+          else setTimeout(tick, 80);
+        };
+        tick();
+      });
+    }
 
     function showToast(msg, type = 'ok') {
       let t = document.getElementById('editorToast');
@@ -6292,6 +6387,13 @@
       return { is_public: false, school_id: null };
     }
 
+    function applyModuleNavigation() {
+      const profile = currentProfile;
+      document.getElementById('navReviewLink')?.classList.toggle('show', Boolean(auth?.canReviewExams?.(profile)));
+      document.getElementById('navPrintLink')?.classList.toggle('show', Boolean(auth?.canAccessPrintQueue?.(profile)));
+      document.getElementById('navSchoolsLink')?.classList.toggle('show', Boolean(auth?.canManageSchools?.(profile) || auth?.canManageUsers?.(profile)));
+    }
+
     async function saveQuestionToBank(idx) {
       if (!auth || !auth.isAuthenticated()) {
         showToast('Entre na conta para usar o banco de questões.', 'err');
@@ -6300,6 +6402,11 @@
 
       syncSchoolFromInputs();
       const question = cloneQuestion(state.questions[idx]);
+      const questionPayloadBytes = new Blob([JSON.stringify(question)]).size;
+      if (questionPayloadBytes > MAX_IMAGE_DATA_URL_BYTES * 2) {
+        showToast('Questao muito pesada para o banco. Remova ou reduza imagens antes de salvar.', 'err');
+        return;
+      }
       const grade = document.getElementById('bankGrade').value.trim() || state.school.className || '';
       const skill = document.getElementById('bankSkill').value.trim();
       const difficulty = document.getElementById('bankDifficulty').value || 'media';
@@ -6573,7 +6680,9 @@
 
       if (!auth || !auth.isAuthenticated()) {
         // Não logado: mostra link de login, esconde barra de nuvem
-        const returnTo = currentExamId && !forceNewExam ? 'editor.html' : 'editor.html?new=1';
+        const returnTo = currentExamId && !forceNewExam
+          ? `editor.html?id=${encodeURIComponent(currentExamId)}`
+          : 'editor.html?new=1';
         window.location.href = `login.html?return_to=${encodeURIComponent(returnTo)}`;
         return;
       }
@@ -6585,11 +6694,11 @@
       } catch {
         currentProfile = null;
       }
-      useUserDraftStorage(user.id);
+      applyModuleNavigation();
+      initializeNewExamState();
       document.getElementById('cloudBar').classList.add('visible');
       document.getElementById('loginLink').classList.add('hidden');
       document.getElementById('cloudUser').textContent = user.email;
-      document.getElementById('saveCloudBtn').disabled = false;
 
       if (currentExamId) {
         await loadFromCloud(currentExamId);
@@ -6597,6 +6706,8 @@
       } else {
         await applyProfileDefaults();
       }
+      autoSaveReady = Boolean(currentExamId);
+      setAutoSaveHint(autoSaveReady ? 'Alteracoes salvas automaticamente.' : 'Abra uma prova criada no dashboard para ativar o autosave.');
       updatePrintPageLink();
     }
 
@@ -6664,28 +6775,12 @@
         const bankModal = document.getElementById('questionBankModal');
         if (bankModal) bankModal.classList.remove('show');
       }
-      const saveBtn = document.getElementById('saveCloudBtn');
-      if (saveBtn) saveBtn.disabled = locked;
       if (locked) showToast('Esta prova foi aprovada/bloqueada pela coordenação e não pode mais ser alterada.', 'err');
     }
 
-    function useUserDraftStorage(userId) {
-      activeStorageKey = `${STORAGE_KEY_BASE}:${userId}`;
-      localDraftAutosaveEnabled = !currentExamId;
+    function initializeNewExamState() {
       if (currentExamId) return;
-
-      if (forceNewExam) {
-        localStorage.removeItem(activeStorageKey);
-        resetStateToDefault();
-        applyStateToInputs();
-        renderAll();
-        return;
-      }
-
-      const hasUserDraft = loadSavedState(activeStorageKey);
-      if (!hasUserDraft) {
-        resetStateToDefault();
-      }
+      resetStateToDefault();
       applyStateToInputs();
       renderAll();
     }
@@ -6695,6 +6790,26 @@
       'Arte','Educação Física','Inglês','Espanhol','Filosofia','Sociologia',
       'Física','Química','Biologia','Religião','Tecnologia','Música',
     ];
+
+    const PLACEHOLDER_DISCIPLINES = new Set(['disciplina', 'diciplina', 'selecionar disciplina']);
+
+    function isPlaceholderDiscipline(value) {
+      return PLACEHOLDER_DISCIPLINES.has(String(value || '').trim().toLowerCase());
+    }
+
+    function normalizeDisciplineList(value) {
+      const source = Array.isArray(value) ? value : [];
+      const seen = new Set();
+      return source
+        .map(item => String(item || '').trim())
+        .filter(item => item && !isPlaceholderDiscipline(item))
+        .filter((item) => {
+          const key = item.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
 
     async function applyProfileDefaults() {
       try {
@@ -6720,8 +6835,8 @@
           }
         }
 
-        let disciplines = Array.isArray(profile.disciplines) && profile.disciplines.length
-          ? profile.disciplines : null;
+        let disciplines = normalizeDisciplineList(profile.disciplines);
+        disciplines = disciplines.length ? disciplines : null;
 
         // Fetch school for name, logo, and disciplines fallback
         if (profile.school_id) {
@@ -6734,7 +6849,8 @@
               if (shouldUseSchool && school.name) state.school.schoolName = school.name;
               if (!state.logoDataUrl && school.logo_data_url) state.logoDataUrl = school.logo_data_url;
               if (!disciplines && Array.isArray(school.disciplines) && school.disciplines.length) {
-                disciplines = school.disciplines;
+                const schoolDisciplines = normalizeDisciplineList(school.disciplines);
+                disciplines = schoolDisciplines.length ? schoolDisciplines : null;
               }
             }
           } catch { /* escola opcional */ }
@@ -6745,47 +6861,12 @@
         // Populate subject select
         const list = disciplines || STANDARD_DISCIPLINES;
         const subj = el('subject');
-        const currentVal = state.school.subject || '';
+        const currentVal = isPlaceholderDiscipline(state.school.subject) ? '' : (state.school.subject || '');
         subj.innerHTML = '<option value="">Selecionar disciplina</option>' +
           list.map(d => `<option value="${esc(d)}"${d === currentVal ? ' selected' : ''}>${esc(d)}</option>`).join('');
         // If saved value not in list, add it
         if (currentVal && !list.includes(currentVal)) {
           subj.innerHTML += `<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>`;
-        }
-
-        // Show profile info bar
-        const infoEl = document.getElementById('profileInfo');
-        if (infoEl) {
-          const parts = [];
-          if (state.school.teacher && state.school.teacher !== defaultSchool.teacher) parts.push(state.school.teacher);
-          if (state.school.schoolName && state.school.schoolName !== defaultSchool.schoolName) parts.push(state.school.schoolName);
-          if (state.availableClasses.length) parts.push(`Turma: ${state.availableClasses.join(', ')}`);
-          if (state.logoDataUrl) {
-            parts.push('Logo carregada da escola');
-          } else {
-            // Sem logo na escola: oferece upload avulso para esta prova
-            parts.push('<label style="cursor:pointer;color:#667eea;font-weight:700;">＋ Adicionar logo <input id="logoUploadFallback" type="file" accept="image/*" style="display:none;" /></label>');
-          }
-          parts.push('<a href="dashboard.html" style="color:#94a3b8;font-weight:600;font-size:11px;">Dados incorretos? Atualize seu perfil</a>');
-          infoEl.innerHTML = '✓ ' + parts.join(' · ');
-          const fallbackInput = document.getElementById('logoUploadFallback');
-          if (fallbackInput) {
-            fallbackInput.addEventListener('change', (e) => {
-              const file = e.target.files && e.target.files[0];
-              if (!file || !file.type.startsWith('image/')) return;
-              const reader = new FileReader();
-              reader.onload = () => {
-                state.logoDataUrl = String(reader.result || '');
-                infoEl.innerHTML = '✓ ' + [
-                  state.school.teacher !== defaultSchool.teacher ? state.school.teacher : '',
-                  state.school.schoolName !== defaultSchool.schoolName ? state.school.schoolName : '',
-                  'Logo carregada',
-                ].filter(Boolean).join(' · ');
-                renderPreview();
-              };
-              reader.readAsDataURL(file);
-            });
-          }
         }
 
         applyStateToInputs();
@@ -6823,6 +6904,7 @@
         if (Array.isArray(exam.questions) && exam.questions.length > 0) {
           state.questions = exam.questions.map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
         }
+        collapseAllQuestions();
         currentReviewStatus = exam.review_status || 'rascunho';
         currentReviewNotes = exam.review_notes || '';
         state.logoDataUrl = exam.logo_data_url || '';
@@ -6838,43 +6920,87 @@
           const existing = info ? info.textContent : '';
           if (info) info.innerHTML = `${existing ? existing + ' | ' : ''}📋 ${history.length} entrada${history.length > 1 ? 's' : ''} no histórico (última: ${lastDate})`;
         }
-        showToast('Prova carregada da nuvem ✓', 'ok');
+        setAutoSaveHint('Prova carregada. Alteracoes salvas automaticamente.');
+        showToast('Prova carregada da nuvem', 'ok');
       } catch (err) {
         showToast('Erro ao carregar prova da nuvem', 'err');
       }
     }
 
-    async function saveToCloud() {
+    function scheduleAutoSave() {
+      if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return;
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        saveToCloud({ auto: true });
+      }, 1200);
+    }
+
+    function setAutoSaveStatus(isSaving) {
+      const status = document.getElementById('lastSaved');
+      if (!status) return;
+      if (isSaving) status.textContent = 'Salvando alteracoes...';
+    }
+
+    function setAutoSaveHint(message = '') {
+      const status = document.getElementById('lastSaved');
+      if (status) status.textContent = message || 'Alteracoes salvas automaticamente.';
+    }
+
+    async function flushAutoSaveBeforeAction() {
+      clearTimeout(autoSaveTimer);
+      autoSaveQueued = false;
+
+      if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return true;
+      if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return true;
+
+      await waitForAutoSaveIdle();
+      clearTimeout(autoSaveTimer);
+      autoSaveQueued = false;
+      return saveToCloud({ auto: true });
+    }
+
+    async function saveToCloud(options = {}) {
+      const isAuto = Boolean(options.auto);
       if (!auth || !auth.isAuthenticated()) {
         showToast('Entre para salvar na nuvem.', 'err');
-        return;
+        return false;
       }
 
-      const btn = document.getElementById('saveCloudBtn');
-      btn.disabled = true;
-      btn.textContent = 'Salvando...';
+      if (isAuto && autoSaveInFlight) {
+        autoSaveQueued = true;
+        return true;
+      }
+
+      autoSaveInFlight = true;
+      setAutoSaveStatus(true);
       syncSchoolFromInputs();
 
-      if (!state.school.subject) showToast('Nenhuma disciplina selecionada — a prova será salva sem disciplina.', 'warn');
-
-      const payload = {
-        title: state.school.examTitle || 'Sem título',
-        school_name: state.school.schoolName,
-        subject: state.school.subject,
-        class_name: state.school.className,
-        teacher: state.school.teacher,
-        term: state.school.term,
-        date: state.school.date,
-        total_value: state.school.totalValue,
-        instructions: state.school.instructions,
-        questions: state.questions,
-        logo_data_url: state.logoDataUrl,
-        is_draft: true,
-        ...getReviewPayloadForSave(),
-        updated_at: new Date().toISOString(),
-      };
+      if (!isAuto && !state.school.subject) showToast('Nenhuma disciplina selecionada — a prova será salva sem disciplina.', 'warn');
 
       try {
+        const totalImageBytes = imagePayloadBytes();
+        if (totalImageBytes > MAX_EXAM_IMAGE_BYTES) {
+          showToast(`Prova com imagens muito pesada (${formatBytes(totalImageBytes)}). Remova ou reduza imagens.`, 'err');
+          return false;
+        }
+
+        const payload = {
+          title: state.school.examTitle || 'Sem título',
+          school_name: state.school.schoolName,
+          subject: state.school.subject,
+          class_name: state.school.className,
+          teacher: state.school.teacher,
+          term: state.school.term,
+          date: state.school.date,
+          total_value: state.school.totalValue,
+          instructions: state.school.instructions,
+          questions: state.questions,
+          logo_data_url: state.logoDataUrl,
+          is_draft: true,
+          ...getReviewPayloadForSave(),
+          updated_at: new Date().toISOString(),
+        };
+
         if (currentExamId) {
           await auth.authenticatedRequest(`/exams?id=eq.${currentExamId}`, {
             method: 'PATCH',
@@ -6910,9 +7036,8 @@
           if (Array.isArray(data) && data[0]?.id) {
             currentExamId = data[0].id;
             currentExamOwnerId = auth.getCurrentUser().id;
+            autoSaveReady = true;
             localStorage.setItem('editExamId', currentExamId);
-            localStorage.removeItem(activeStorageKey);
-            localDraftAutosaveEnabled = false;
             updatePrintPageLink();
           } else {
             throw new Error('Supabase não retornou o ID da prova criada.');
@@ -6920,21 +7045,28 @@
         }
 
         const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('lastSaved').textContent = `Último salvamento: ${hora}`;
+        setAutoSaveHint(`Ultimo salvamento: ${hora}`);
         currentReviewStatus = payload.review_status || currentReviewStatus;
         currentReviewNotes = payload.review_notes ?? currentReviewNotes;
         applyReviewLock();
         updatePrintPageLink();
-        showToast('✓ Salvo na nuvem!', 'ok');
+        if (!isAuto) showToast('✓ Salvo na nuvem!', 'ok');
+        return true;
       } catch (err) {
+        const status = document.getElementById('lastSaved');
+        if (status) status.textContent = 'Erro ao salvar alterações.';
         showToast('Erro ao salvar: ' + err.message, 'err');
+        return false;
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Salvar na Nuvem';
+        autoSaveInFlight = false;
+        setAutoSaveStatus(false);
+        if (autoSaveQueued) {
+          autoSaveQueued = false;
+          scheduleAutoSave();
+        }
       }
     }
 
-    document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
     document.getElementById('openBankBtn').addEventListener('click', openQuestionBankModal);
     document.getElementById('closeBankBtn').addEventListener('click', closeQuestionBankModal);
     document.getElementById('loadBankBtn').addEventListener('click', loadQuestionBank);
