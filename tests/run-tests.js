@@ -154,7 +154,7 @@ function makeLocalStorage(initial = {}) {
 
 async function main() {
   await test('required project files exist', () => {
-    [...htmlFiles, ...jsFiles, 'setup_supabase.sql', 'CLAUDE.md', '.env.example', 'SEGURANCA_BACKUP_ESCALA.md'].forEach((file) => {
+    [...htmlFiles, ...jsFiles, 'setup_supabase.sql', 'CLAUDE.md', '.env.example', 'SEGURANCA_BACKUP_ESCALA.md', '.github/workflows/supabase-keepalive.yml'].forEach((file) => {
       assert(fs.existsSync(filePath(file)), `${file} is missing`);
     });
   });
@@ -222,6 +222,18 @@ async function main() {
     assert(guide.includes('Seguranca') && guide.includes('Backup') && guide.includes('Escala'), 'security guide should cover security, backup and scale');
     assert(guide.includes('SECURITY DEFINER'), 'security guide should call out SECURITY DEFINER review');
     assert(guide.includes('select=*') && guide.includes('paginacao'), 'security guide should document scale risks');
+  });
+
+  await test('Supabase keepalive workflow is safe to publish', () => {
+    const workflow = read('.github/workflows/supabase-keepalive.yml');
+
+    assert(workflow.includes('schedule:'), 'keepalive workflow should run on a schedule');
+    assert(workflow.includes('workflow_dispatch:'), 'keepalive workflow should allow manual run');
+    assert(workflow.includes('secrets.SUPABASE_URL'), 'keepalive workflow should use SUPABASE_URL secret');
+    assert(workflow.includes('secrets.SUPABASE_ANON_KEY'), 'keepalive workflow should use SUPABASE_ANON_KEY secret');
+    assert(workflow.includes('/rest/v1/profiles?select=id&limit=1'), 'keepalive workflow should query a small profiles payload');
+    assert(!/https:\/\/[^\s"']+\.supabase\.co/.test(workflow), 'keepalive workflow should not hardcode a Supabase project URL');
+    assert(!/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(workflow), 'keepalive workflow should not contain JWT values');
   });
 
   await test('AuthManager loads, signs out, and handles empty authenticated response', async () => {

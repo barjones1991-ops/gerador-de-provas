@@ -10,6 +10,13 @@ Este arquivo registra as regras minimas da Etapa 8 para manter o Gerador de Prov
 - Alteracoes em `profiles.role`, `profiles.school_id`, `profiles.school_grade`, `profiles.disciplines`, `exams.review_status`, `exams.print_status` e `user_invites` precisam de teste ou revisao manual antes de publicar.
 - O reset administrativo de senha deve continuar marcando `force_password_change = TRUE` e proibindo manter `123456` como senha definitiva.
 
+## Keepalive no Plano Free
+
+- O workflow `.github/workflows/supabase-keepalive.yml` faz uma consulta leve diária em `profiles` para gerar atividade no banco.
+- Configurar no GitHub, em Settings > Secrets and variables > Actions, os secrets `SUPABASE_URL` e `SUPABASE_ANON_KEY`.
+- O workflow tambem pode ser executado manualmente em Actions > Supabase Keepalive > Run workflow.
+- Essa rotina ajuda no plano Free, mas nao substitui o plano Pro quando houver uso real por escolas.
+
 ## Backup
 
 - Antes de mexer em schema, RLS ou funcoes RPC, salvar uma copia do `setup_supabase.sql` no historico do Git.
