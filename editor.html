@@ -1527,46 +1527,20 @@
         <div id="newQuestionPanel" style="display:none;">
           <label>Nova questão</label>
           <select id="qtypeSelect">
-            <optgroup label="— Objetivas —">
-              <option value="multipla">Múltipla escolha</option>
-              <option value="vf">Verdadeiro ou Falso</option>
-              <option value="marcarx">Marcar X</option>
-              <option value="lacunas">Complete as lacunas</option>
-              <option value="relacione">Relacione as colunas</option>
-              <option value="associacao_setas">Associação por setas</option>
-              <option value="ordenacao">Ordenação de frases</option>
-              <option value="sequencia_numerica">Sequência numérica</option>
-            </optgroup>
-            <optgroup label="— Discursivas —">
-              <option value="discursiva">Discursiva</option>
-              <option value="subitens">Questão com subitens (a, b, c...)</option>
-              <option value="problema_matematico">Problema matemático</option>
-            </optgroup>
-            <optgroup label="— Com imagem (especializadas) —">
-              <option value="relacione_imagens">Relacione imagens e palavras</option>
-              <option value="associacao_imagem_imagem">Associe imagem a imagem</option>
-              <option value="sequencia_imagens">Sequência de imagens</option>
-              <option value="comparar_imagens">Comparar duas imagens</option>
-              <option value="legenda_imagens">Legenda das imagens</option>
-              <option value="grade_imagens">Grade de imagens</option>
-              <option value="identificar_imagem">Identificar partes da imagem</option>
-            </optgroup>
-            <optgroup label="— Texto e leitura —">
-              <option value="texto_base">Interpretação de texto</option>
-              <option value="leitura_escrita">Leitura e escrita</option>
-              <option value="silabas">Sílabas / letras / sons</option>
-              <option value="ditado">Ditado / lista de palavras</option>
-            </optgroup>
-            <optgroup label="— Matemática —">
-              <option value="matematica_coluna">Operações matemáticas (conta armada)</option>
-              <option value="expressao_matematica">Expressão matemática (fração, raiz, potência…)</option>
-            </optgroup>
-            <optgroup label="— Dados e jogos —">
-              <option value="tabela">Tabela / gráfico</option>
-              <option value="caca_palavras">Caça-palavras</option>
-              <option value="cruzadinha">Cruzadinha</option>
-              <option value="espaco_livre">Espaço de desenho</option>
-            </optgroup>
+            <option value="multipla">Múltipla escolha</option>
+            <option value="vf">Verdadeiro ou Falso</option>
+            <option value="marcarx">Marcar X</option>
+            <option value="discursiva">Resposta escrita</option>
+            <option value="lacunas">Completar / organizar</option>
+            <option value="relacione">Relacionar itens</option>
+            <option value="imagem">Questão com imagem</option>
+            <option value="matematica_coluna">Matemática</option>
+            <option value="tabela">Tabela / gráfico</option>
+            <option value="caca_palavras">Caça-palavras</option>
+            <option value="cruzadinha">Cruzadinha</option>
+            <option value="espaco_livre">Espaço de desenho</option>
+            <option value="ditado">Ditado / lista de palavras</option>
+            <option value="silabas">Sílabas / letras / sons</option>
           </select>
           <button id="addQuestion" class="primary" type="button" style="width:100%; margin-top:8px;">＋ Adicionar questão</button>
         </div>
@@ -6171,21 +6145,27 @@
       bankBtn.textContent = 'Abrir banco de questoes';
       bankBtn.dataset.action = 'bank';
       topQuestionMenu.appendChild(bankBtn);
+      const questionLabel = document.createElement('div');
+      questionLabel.className = 'top-question-menu-label';
+      questionLabel.textContent = 'Questões';
+      topQuestionMenu.appendChild(questionLabel);
       Array.from(el('qtypeSelect').children).forEach((child) => {
+        const options = child.tagName === 'OPTGROUP' ? Array.from(child.children) : [child];
         if (child.tagName === 'OPTGROUP') {
           const label = document.createElement('div');
           label.className = 'top-question-menu-label';
-          label.textContent = child.label.replace(/[—]/g, '').trim();
+          label.textContent = child.label.replace(/[-â€”]/g, '').trim();
           topQuestionMenu.appendChild(label);
-          Array.from(child.children).forEach((option) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'outline';
-            btn.textContent = option.textContent;
-            btn.dataset.type = option.value;
-            topQuestionMenu.appendChild(btn);
-          });
         }
+        options.forEach((option) => {
+          if (!option || option.tagName !== 'OPTION') return;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'outline';
+          btn.textContent = option.textContent;
+          btn.dataset.type = option.value;
+          topQuestionMenu.appendChild(btn);
+        });
       });
     }
     buildTopQuestionMenu();

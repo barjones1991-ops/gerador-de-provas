@@ -273,6 +273,13 @@ async function main() {
       assert(editor.includes(`value="${type}"`) || editor.includes(`${type}:`), `${type} missing in editor`);
       assert(editor.includes(`q.type === '${type}'`) || editor.includes(`type: '${type}'`), `${type} render/template missing`);
     });
+    const qtypeSelect = editor.match(/<select id="qtypeSelect">([\s\S]*?)<\/select>/)[1];
+    const creationTypes = [...qtypeSelect.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
+    assert(creationTypes.length === 14, 'question creation selector should expose consolidated types only');
+    ['subitens', 'problema_matematico', 'interpretacao_imagem', 'relacione_imagens', 'associacao_imagem_imagem', 'associacao_setas', 'sequencia_imagens', 'comparar_imagens', 'legenda_imagens', 'grade_imagens', 'identificar_imagem', 'ordenacao', 'sequencia_numerica', 'leitura_escrita', 'expressao_matematica'].forEach((type) => {
+      assert(!creationTypes.includes(type), `${type} should be integrated into consolidated creation options`);
+    });
+    assert(editor.includes("questionLabel.textContent = 'Questões'"), 'top question menu should support direct consolidated options');
     assert(editor.includes('saveQuestionToBank'), 'question bank save function missing');
     assert(editor.includes('loadQuestionBank'), 'question bank search function missing');
     assert(editor.includes('questionBankModal'), 'question bank modal missing');
