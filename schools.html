@@ -49,6 +49,7 @@
     .school-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
     .school-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .tag-group-label { display: block; margin-top: 8px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; }
     .tag {
       display: inline-flex; align-items: center; gap: 4px;
       background: #ede9fe; color: #6d28d9; border-radius: 20px;
@@ -518,8 +519,8 @@
             <div class="school-info">
               <div class="school-name">${esc(s.name)}</div>
               <div class="school-meta">${esc(s.city || '')}${s.admin_email ? ' · ' + esc(s.admin_email) : ''}</div>
-              ${discTags ? `<div class="tags" style="margin-top:6px;">${discTags}</div>` : ''}
-              ${classTags ? `<div class="tags" style="margin-top:6px;">${classTags}</div>` : ''}
+              ${discTags ? `<span class="tag-group-label">Disciplinas</span><div class="tags" style="margin-top:4px;">${discTags}</div>` : ''}
+              ${classTags ? `<span class="tag-group-label">Turmas</span><div class="tags" style="margin-top:4px;">${classTags}</div>` : ''}
             </div>
             <div class="school-actions">
               ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Editar</button>` : ''}
