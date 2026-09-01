@@ -125,7 +125,6 @@ class AuthManager {
           id: userId,
           email: profileData.email,
           full_name: profileData.full_name,
-          school_name: profileData.school_name,
         }),
       });
 
@@ -177,7 +176,7 @@ class AuthManager {
     return aliases[role] || role || 'teacher';
   }
 
-  async loadCurrentProfile(select = 'id,email,full_name,school_name,role,school_id,school_grade,disciplines,force_password_change') {
+  async loadCurrentProfile(select = 'id,email,full_name,role,school_id,school_grade,disciplines,force_password_change') {
     const user = this.getCurrentUser();
     if (!user?.id) return null;
     const data = await this.authenticatedRequest(`/profiles?id=eq.${user.id}&select=${select}`);

@@ -484,6 +484,9 @@ async function main() {
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
     assert(sql.includes('school_id'), 'school_id in profiles missing');
+    assert(!/CREATE TABLE IF NOT EXISTS profiles[\s\S]*?\);[\s\S]*?school_name TEXT/.test(sql.split('-- 2. Tabela de provas')[0]), 'profiles should not keep legacy school_name column');
+    assert(sql.includes('ALTER TABLE profiles DROP COLUMN IF EXISTS school_name'), 'setup SQL should drop legacy profile school_name');
+    assert(sql.includes('INSERT INTO public.profiles (id, email, full_name)'), 'new auth profiles should be created without school_name');
     assert(sql.includes('ALTER TABLE question_bank ADD COLUMN IF NOT EXISTS school_id'), 'question bank school scope column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS user_invites'), 'user invite table missing');
     assert(sql.includes('canceled_by UUID REFERENCES auth.users') && sql.includes('canceled_at TIMESTAMPTZ'), 'user invites should keep cancellation metadata');
@@ -634,7 +637,7 @@ async function main() {
     assert(dashboard.includes("Provas aprovadas ou bloqueadas não podem ser deletadas."), 'dashboard should guard locked exam delete');
     assert(!dashboard.includes('profileGradeInput'), 'teacher profile should not expose duplicate editable grade');
     assert(dashboard.includes('Escola, série e disciplinas são definidas pela coordenação.'), 'teacher profile should clarify coordination-owned fields');
-    assert(!dashboard.includes('school_name: schoolName'), 'teacher profile save should not update coordination-owned school_name');
+    assert(!dashboard.includes('school_name: currentProfile.school_name'), 'new exam should not use legacy profile school_name');
     assert(!dashboard.includes('school_grade: grade'), 'teacher profile save should not update coordination-owned school_grade');
     assert(dashboard.includes('function getExamQuestions(exam)'), 'dashboard should normalize exam questions before counting them');
     assert(dashboard.includes("typeof exam?.questions === 'string'"), 'dashboard should handle question payloads returned as JSON strings');
@@ -648,6 +651,8 @@ async function main() {
     const print = read('print.html');
     assert(editor.includes('<select id="className">'), 'class field should be a select in the editor');
     assert(editor.includes('currentProfile = await auth.loadCurrentProfile()'), 'editor should load current profile for school-scoped features');
+    assert(editor.includes('select=full_name,school_id,school_grade,disciplines'), 'editor profile defaults should depend on school_id, not profile school_name');
+    assert(!editor.includes('profile.school_name'), 'editor should not fall back to legacy profile school_name');
     assert(editor.includes('buildBankScopePayload(scope)'), 'editor should save question bank scope through scope payload helper');
     assert(editor.includes('school_id: currentProfile.school_id'), 'editor should save school scope on question bank items when available');
     assert(editor.includes('school_grade,disciplines'), 'editor profile query should fetch teacher grade/classes');
@@ -863,6 +868,8 @@ async function main() {
     assert(page.includes("role === 'coordinator'") && page.includes("return 'coordenacao.html'"), 'coordinator should default to coordination page');
     assert(page.includes("role === 'print_operator'") && page.includes("return 'impressao.html'"), 'print operator should default to print queue');
     assert(page.includes("return 'dashboard.html'"), 'teacher and fallback should default to dashboard');
+    assert(!page.includes('id="school"'), 'signup should not collect free-text school_name');
+    assert(!page.includes('school_name: school'), 'signup should not send legacy profile school_name');
     assert(page.includes("auth.loadCurrentProfile('id,role,school_id,force_password_change')"), 'login should load profile before role redirect');
     assert(page.includes('function getInviteToken()'), 'login should read invite token');
     assert(page.includes('/rpc/accept_user_invite'), 'login should accept invite through RPC');

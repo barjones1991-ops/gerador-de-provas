@@ -6817,7 +6817,7 @@
       try {
         const user = auth.getCurrentUser();
         const data = await auth.authenticatedRequest(
-          `/profiles?id=eq.${user.id}&select=full_name,school_name,school_id,school_grade,disciplines`
+          `/profiles?id=eq.${user.id}&select=full_name,school_id,school_grade,disciplines`
         );
         const profile = Array.isArray(data) ? data[0] : null;
         if (!profile) return;
@@ -6856,8 +6856,6 @@
               }
             }
           } catch { /* escola opcional */ }
-        } else if (shouldUseSchool && profile.school_name) {
-          state.school.schoolName = profile.school_name;
         }
 
         // Populate subject select

@@ -118,10 +118,6 @@
         <input id="name" type="text" placeholder="João Silva" autocomplete="name" />
         <div class="field-error" id="nameError"></div>
       </div>
-      <div class="form-group" id="schoolGroup" style="display:none;">
-        <label>Nome da escola</label>
-        <input id="school" type="text" placeholder="Escola Municipal XYZ" autocomplete="off" />
-      </div>
       <button type="submit" class="btn-submit" id="submitBtn">Entrar</button>
     </form>
     <div class="helper-actions" id="resetWrap">
@@ -162,7 +158,6 @@
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
       document.getElementById('tabSignup').classList.toggle('active', !isLogin);
       document.getElementById('nameGroup').style.display = isLogin ? 'none' : 'block';
-      document.getElementById('schoolGroup').style.display = isLogin ? 'none' : 'block';
       document.getElementById('submitBtn').textContent = isLogin ? 'Entrar' : 'Criar conta';
       document.getElementById('resetWrap').style.display = isLogin ? 'flex' : 'none';
       document.getElementById('name').required = !isLogin;
@@ -235,7 +230,6 @@
       document.getElementById('resetWrap').style.display = 'none';
       document.getElementById('email').closest('.form-group').style.display = 'none';
       document.getElementById('nameGroup').style.display = 'none';
-      document.getElementById('schoolGroup').style.display = 'none';
       document.getElementById('passwordLabel').textContent = 'Nova senha';
       document.getElementById('password').autocomplete = 'new-password';
       document.getElementById('password').placeholder = 'Digite sua nova senha';
@@ -250,7 +244,6 @@
       document.getElementById('resetWrap').style.display = 'none';
       document.getElementById('email').closest('.form-group').style.display = 'none';
       document.getElementById('nameGroup').style.display = 'none';
-      document.getElementById('schoolGroup').style.display = 'none';
       document.getElementById('passwordLabel').textContent = 'Nova senha';
       document.getElementById('password').value = '';
       document.getElementById('password').autocomplete = 'new-password';
@@ -310,7 +303,6 @@
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const name = document.getElementById('name').value.trim();
-      const school = document.getElementById('school').value.trim();
 
       if (isRecovery) {
         if (!password || password.length < 6) { showFieldError('passwordError', 'Senha deve ter ao menos 6 caracteres'); return; }
@@ -377,7 +369,7 @@
           showAlert('✓ Login realizado! Redirecionando...', 'success');
           setTimeout(() => goAfterAuth(), 1200);
         } else {
-          const result = await auth.signUp(email, password, { full_name: name, school_name: school });
+          const result = await auth.signUp(email, password, { full_name: name });
           if (!result.success) {
             showAlert(traduzirErro(result.error), 'error');
             return;

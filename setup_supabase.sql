@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   full_name TEXT,
-  school_name TEXT,
   role TEXT DEFAULT 'professor',
   force_password_change BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -18,6 +17,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'professor';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS force_password_change BOOLEAN DEFAULT FALSE;
+ALTER TABLE profiles DROP COLUMN IF EXISTS school_name;
 
 CREATE TABLE IF NOT EXISTS schools (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -188,7 +188,6 @@ BEGIN
     AND COALESCE(current_setting('app.accepting_invite', TRUE), '') <> 'true'
   THEN
     NEW.role = OLD.role;
-    NEW.school_name = OLD.school_name;
     NEW.school_id = OLD.school_id;
     NEW.school_grade = OLD.school_grade;
     NEW.disciplines = OLD.disciplines;
@@ -479,12 +478,11 @@ CREATE POLICY "Banco de questões: deletar próprias" ON question_bank
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, school_name)
+  INSERT INTO public.profiles (id, email, full_name)
   VALUES (
     NEW.id,
     NEW.email,
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'school_name'
+    NEW.raw_user_meta_data->>'full_name'
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;

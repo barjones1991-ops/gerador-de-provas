@@ -509,6 +509,12 @@ npm test
 - Se houve impacto Supabase, atualizar `setup_supabase.sql`, aplicar no SQL Editor do Supabase e testar Auth/REST.
 - Commitar com mensagem objetiva.
 
+### Ajuste Tecnico - Perfil Escolar
+
+Data: 2026-09-01.
+Mudanca: `profiles.school_name` foi removido do modelo de perfil. O nome da escola passa a vir apenas de `profiles.school_id` vinculado a `schools.name`; `exams.school_name` permanece para guardar o nome impresso/salvo em cada prova.
+Impacto no Supabase: sim; executar `setup_supabase.sql` para aplicar `ALTER TABLE profiles DROP COLUMN IF EXISTS school_name` e atualizar `handle_new_user`.
+Validacao: `npm test` aprovado.
 ### Achados Para Ajuste Posterior
 
 Registrar aqui bugs ou inconsistências encontrados durante correções/refatorações quando não forem resolvidos no mesmo commit.

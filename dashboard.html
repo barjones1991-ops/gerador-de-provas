@@ -456,7 +456,7 @@
 <script>
   let auth = null;
   let exams = [];
-  let currentProfile = { full_name: '', school_name: '', role: 'professor', normalized_role: 'teacher', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
+  let currentProfile = { full_name: '', role: 'professor', normalized_role: 'teacher', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
   let currentFilter = 'all';
   let currentSubject = '';
   let currentTerm = '';
@@ -478,7 +478,7 @@
 
     // Fetch básico: papel e nome — links de menu dependem disso
     try {
-      const profile = await auth.loadCurrentProfile('id,email,full_name,school_name,role,force_password_change');
+      const profile = await auth.loadCurrentProfile('id,email,full_name,role,force_password_change');
       currentProfile = { ...currentProfile, ...(profile || {}) };
     } catch {}
     applyProfileToHeader();
@@ -825,10 +825,18 @@
     btn.disabled = true;
     btn.textContent = 'Criando...';
 
+    let schoolName = '';
+    if (currentProfile.school_id) {
+      try {
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name`);
+        schoolName = (Array.isArray(sd) && sd[0]) ? sd[0].name : '';
+      } catch {}
+    }
+
     const payload = {
       user_id: user.id,
       title: `Nova prova - ${subject}`,
-      school_name: currentProfile.school_name || '',
+      school_name: schoolName,
       subject,
       class_name: className,
       teacher: currentProfile.full_name || user.email || '',
@@ -1009,7 +1017,6 @@
     const btn = document.getElementById('saveProfileBtn');
     const user = auth.getCurrentUser();
     const fullName = document.getElementById('profileNameInput').value.trim();
-    // Se vinculado a escola, usa o nome real da escola (não texto livre)
     btn.disabled = true;
     btn.textContent = 'Salvando...';
 
