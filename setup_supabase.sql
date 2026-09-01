@@ -549,6 +549,8 @@ CREATE TABLE IF NOT EXISTS user_invites (
   created_by UUID REFERENCES auth.users,
   accepted_by UUID REFERENCES auth.users,
   accepted_at TIMESTAMPTZ,
+  canceled_by UUID REFERENCES auth.users,
+  canceled_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days'),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -561,6 +563,8 @@ ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS token TEXT UNIQUE DEFAULT enco
 ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users;
 ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS accepted_by UUID REFERENCES auth.users;
 ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
+ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS canceled_by UUID REFERENCES auth.users;
+ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ;
 ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days');
 
 ALTER TABLE public.user_invites DROP CONSTRAINT IF EXISTS user_invites_school_roles_require_school;
@@ -661,6 +665,7 @@ BEGIN
   FROM public.user_invites
   WHERE token = invite_token
     AND accepted_at IS NULL
+    AND canceled_at IS NULL
     AND COALESCE(expires_at, NOW()) >= NOW()
   LIMIT 1;
 

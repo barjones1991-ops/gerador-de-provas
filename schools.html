@@ -1032,6 +1032,7 @@
     }, {});
     const pendingInvites = invites.filter(invite => inviteStatus(invite).key === 'pending').length;
     const expiredInvites = invites.filter(invite => inviteStatus(invite).key === 'expired').length;
+    const canceledInvites = invites.filter(invite => inviteStatus(invite).key === 'canceled').length;
     const withoutSchool = teamProfiles.filter(profile => {
       const role = auth.normalizeRole(profile.role);
       return role !== 'master' && !profile.school_id;
@@ -1045,6 +1046,7 @@
       ['Professores', counts.teacher || 0],
       ['Sem escola', withoutSchool.length],
       ['Convites pendentes', pendingInvites],
+      ['Convites cancelados', canceledInvites],
     ].map(([label, value]) => `
       <div class="access-summary-item">
         <div class="access-summary-value">${esc(value)}</div>
@@ -1079,7 +1081,7 @@
       const school = schools.find(s => s.id === invite.school_id);
       const status = inviteStatus(invite);
       const link = invite.token ? buildInviteLink(invite.token) : '';
-      const canCancel = !invite.accepted_at;
+      const canCancel = ['pending', 'expired'].includes(status.key);
       const linkRow = status.key === 'pending' && link
         ? `<div class="invite-link-row"><input readonly value="${esc(link)}" onclick="this.select()" /><button class="btn sm" type="button" onclick="copyInviteLink('${invite.id}')">Copiar</button></div>`
         : '';
@@ -1101,6 +1103,7 @@
   }
 
   function inviteStatus(invite) {
+    if (invite.canceled_at) return { key: 'canceled', label: 'Cancelado em ' + formatDate(invite.canceled_at) };
     if (invite.accepted_at) return { key: 'accepted', label: 'Aceito em ' + formatDate(invite.accepted_at) };
     if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) return { key: 'expired', label: 'Expirado' };
     return { key: 'pending', label: 'Pendente' };
@@ -1127,10 +1130,13 @@
 
   async function deleteInvite(inviteId) {
     const invite = invites.find(item => item.id === inviteId);
-    if (!invite || invite.accepted_at) return;
-    if (!confirm('Cancelar este convite? O link deixara de funcionar.')) return;
+    if (!invite || invite.accepted_at || invite.canceled_at) return;
+    if (!confirm('Cancelar este convite? O link deixara de funcionar, mas o historico ficara visivel.')) return;
     try {
-      await auth.authenticatedRequest(`/user_invites?id=eq.${inviteId}&accepted_at=is.null`, { method: 'DELETE' });
+      await auth.authenticatedRequest(`/user_invites?id=eq.${inviteId}&accepted_at=is.null&canceled_at=is.null`, {
+        method: 'PATCH',
+        body: JSON.stringify({ canceled_at: new Date().toISOString(), canceled_by: auth.getCurrentUser().id })
+      });
       showToast('Convite cancelado.');
       await loadInvites();
     } catch (err) {

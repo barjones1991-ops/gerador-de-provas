@@ -466,6 +466,15 @@ Navegador usado: pendente de validacao manual do usuario no navegador local.
 Resultado do `npm test`: aprovado.
 Impacto no Supabase: sem mudanca de schema ou RLS; usa campos existentes em `exams`.
 Pendencias restantes: validar manualmente uma devolucao com observacao, correcao pelo professor e reenvio para revisao.
+### Validacao Tecnica - Etapa 7
+
+Data: 2026-09-01.
+Perfil testado: gestao escolar por codigo e testes automatizados.
+Fluxo testado: convites de acesso passam a ter status persistente de cancelado; cancelar convite nao apaga historico, remove uso do link e o aceite rejeita convites cancelados.
+Navegador usado: pendente de validacao manual do usuario no navegador local.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sim; `user_invites` ganha `canceled_by` e `canceled_at`, e `accept_user_invite` passa a exigir `canceled_at IS NULL`.
+Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar: gerar convite, cancelar convite, confirmar que aparece como cancelado e que o link cancelado nao funciona.
 ## Plano de Ajuste de Fluxo
 
 Status: implementado no commit `7908c76`.

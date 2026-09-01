@@ -458,6 +458,9 @@ async function main() {
     assert(sql.includes('school_id'), 'school_id in profiles missing');
     assert(sql.includes('ALTER TABLE question_bank ADD COLUMN IF NOT EXISTS school_id'), 'question bank school scope column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS user_invites'), 'user invite table missing');
+    assert(sql.includes('canceled_by UUID REFERENCES auth.users') && sql.includes('canceled_at TIMESTAMPTZ'), 'user invites should keep cancellation metadata');
+    assert(sql.includes('ALTER TABLE user_invites ADD COLUMN IF NOT EXISTS canceled_at'), 'canceled_at migration missing');
+    assert(sql.includes('AND canceled_at IS NULL'), 'accept invite should reject canceled invites');
     assert(sql.includes('CREATE OR REPLACE FUNCTION public.accept_user_invite'), 'accept invite RPC missing');
     assert(sql.includes('token TEXT UNIQUE'), 'invite token column missing');
     assert(sql.includes('profiles_manager_roles_require_school'), 'manager profile roles should require school constraint');
@@ -764,6 +767,10 @@ async function main() {
     assert(page.includes("document.getElementById('linkProfBtn').style.display = 'none'"), 'existing-user linking should remain master-only');
     assert(page.includes("Apenas o acesso master pode vincular usuarios existentes."), 'non-master existing-user linking should be blocked');
     assert(page.includes('Promover a coordenador(a)'), 'professor list should show promotion action');
+    assert(page.includes("if (invite.canceled_at) return { key: 'canceled'"), 'school invites should show canceled status');
+    assert(page.includes('Convites cancelados'), 'school access summary should count canceled invites');
+    assert(page.includes('canceled_at:is.null') || page.includes('canceled_at=is.null'), 'cancel invite should target only active invites');
+    assert(page.includes("method: 'PATCH'") && page.includes('canceled_by: auth.getCurrentUser().id'), 'cancel invite should persist cancellation instead of deleting history');
     assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
     assert(page.includes('/rpc/admin_reset_user_password'), 'password reset should call admin reset RPC');
     assert(page.includes('target_profile_id: profId'), 'password reset should send target profile id');
