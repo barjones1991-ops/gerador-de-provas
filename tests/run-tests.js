@@ -823,6 +823,11 @@ async function main() {
     assert(page.includes('print_copies') && page.includes('print_notes'), 'coordination should send print copies and notes');
     assert(page.includes('Reenviar para impressão'), 'coordination should allow resending printed exams');
     assert(page.includes('Observação registrada'), 'coordination review note display missing');
+    assert(page.includes('id="subjectFilter"') && page.includes('id="classFilter"'), 'coordination should expose subject and class filters');
+    assert(page.includes("renderSelectFilter('subjectFilter', reviews.map(r => r.subject)") && page.includes("renderSelectFilter('classFilter', reviews.map(r => r.class_name)"), 'coordination should populate subject and class filters from reviews');
+    assert(page.includes('if (subject) filtered = filtered.filter((exam) => exam.subject === subject);'), 'coordination should filter by subject');
+    assert(page.includes('if (className) filtered = filtered.filter((exam) => exam.class_name === className);'), 'coordination should filter by class');
+    assert(page.includes('history-panel') && page.includes('he-notes') && page.includes('Historico de revisao'), 'coordination should render readable review history');
   });
 
   await test('print queue page receives and completes print jobs', () => {

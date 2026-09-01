@@ -65,11 +65,13 @@
     .toast.show { transform: translateY(0); opacity: 1; }
     .toast.error { background: #dc2626; }
     /* Histórico */
-    .history-toggle { background: none; border: none; color: #667eea; font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; }
-    .history-log { display: none; margin-top: 8px; border-left: 3px solid #e2e8f0; padding-left: 10px; }
-    .history-log.open { display: block; }
-    .history-entry { font-size: 12px; color: #475569; margin-bottom: 6px; line-height: 1.5; }
-    .history-entry .he-date { color: #94a3b8; font-size: 11px; }
+    .history-panel { margin-top: 4px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #f8fafc; }
+    .history-toggle { background: none; border: none; color: #1d4ed8; font-size: 12px; font-weight: 800; cursor: pointer; padding: 0; }
+    .history-log { display: none; margin-top: 10px; gap: 8px; }
+    .history-log.open { display: grid; }
+    .history-entry { font-size: 12px; color: #475569; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+    .history-entry .he-date { color: #64748b; font-size: 11px; display: block; margin-top: 2px; }
+    .history-entry .he-notes { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: #fffbeb; color: #78350f; border: 1px solid #fde68a; }
     .history-entry .he-action { font-weight: 700; color: #0f172a; }
     /* Modal de devolução */
     .return-modal-overlay {
@@ -146,9 +148,15 @@
   </div>
 
   <div class="controls">
-    <input id="searchInput" type="text" placeholder="Buscar por título, turma, escola..." />
+    <input id="searchInput" type="text" placeholder="Buscar por titulo, professor ou escola..." />
     <select id="profFilter">
       <option value="">Todos os professores</option>
+    </select>
+    <select id="subjectFilter">
+      <option value="">Todas as disciplinas</option>
+    </select>
+    <select id="classFilter">
+      <option value="">Todas as turmas</option>
     </select>
     <select id="statusFilter">
       <option value="">Todos os status</option>
@@ -246,6 +254,8 @@
     document.getElementById('reloadBtn').addEventListener('click', loadReviews);
     document.getElementById('searchInput').addEventListener('input', renderReviews);
     document.getElementById('profFilter').addEventListener('change', renderReviews);
+    document.getElementById('subjectFilter').addEventListener('change', renderReviews);
+    document.getElementById('classFilter').addEventListener('change', renderReviews);
     document.getElementById('statusFilter').addEventListener('change', renderReviews);
 
     await loadReviews();
@@ -262,7 +272,7 @@
         '/exams?review_status=in.(enviada,em_revisao,aprovada,devolvida,bloqueada)&order=updated_at.desc&select=*'
       );
       reviews = (Array.isArray(data) ? data : []).filter(canCurrentProfileReviewExam);
-      renderProfFilter();
+      renderReviewFilters();
       renderReviews();
     } catch (err) {
       reviews = [];
@@ -271,12 +281,20 @@
     }
   }
 
-  function renderProfFilter() {
-    const sel = document.getElementById('profFilter');
-    const teachers = [...new Set(reviews.map(r => r.teacher).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  function renderReviewFilters() {
+    renderSelectFilter('profFilter', reviews.map(r => r.teacher), 'Todos os professores');
+    renderSelectFilter('subjectFilter', reviews.map(r => r.subject), 'Todas as disciplinas');
+    renderSelectFilter('classFilter', reviews.map(r => r.class_name), 'Todas as turmas');
+  }
+
+  function renderSelectFilter(id, rawValues, emptyLabel) {
+    const sel = document.getElementById(id);
     const current = sel.value;
-    sel.innerHTML = '<option value="">Todos os professores</option>' +
-      teachers.map(t => `<option value="${esc(t)}"${t === current ? ' selected' : ''}>${esc(t)}</option>`).join('');
+    const values = [...new Set(rawValues.map(v => String(v || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    sel.innerHTML = `<option value="">${esc(emptyLabel)}</option>` +
+      values.map(value => `<option value="${esc(value)}"${value === current ? ' selected' : ''}>${esc(value)}</option>`).join('');
+    if (current && !values.includes(current)) sel.value = '';
   }
 
   function normalizeGradeList(value) {
@@ -314,12 +332,16 @@
     const search = document.getElementById('searchInput').value.toLowerCase();
     const status = document.getElementById('statusFilter').value;
     const prof = document.getElementById('profFilter').value;
+    const subject = document.getElementById('subjectFilter').value;
+    const className = document.getElementById('classFilter').value;
 
     let filtered = reviews;
     if (status) filtered = filtered.filter((exam) => exam.review_status === status);
     if (prof) filtered = filtered.filter((exam) => exam.teacher === prof);
+    if (subject) filtered = filtered.filter((exam) => exam.subject === subject);
+    if (className) filtered = filtered.filter((exam) => exam.class_name === className);
     if (search) filtered = filtered.filter((exam) =>
-      [exam.title, exam.subject, exam.class_name, exam.school_name]
+      [exam.title, exam.teacher, exam.subject, exam.class_name, exam.school_name]
         .some((value) => String(value || '').toLowerCase().includes(search))
     );
 
@@ -345,14 +367,14 @@
       const canSendToPrint = isApproved && printStatus !== 'enviada';
       const printButtonLabel = printStatus === 'impressa' ? 'Reenviar para impressão' : 'Enviar para impressão';
       const historyHtml = history.length ? `
-        <div style="margin-top:4px;">
-          <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">📋 Histórico (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
+        <div class="history-panel">
+          <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">Historico de revisao (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
           <div class="history-log" id="history-${exam.id}">
             ${[...history].reverse().map(h => `
               <div class="history-entry">
                 <span class="he-action">${esc(actionLabels[h.action] || h.action)}</span>
-                ${h.notes ? `<br><span style="color:#78350f;">"${esc(h.notes)}"</span>` : ''}
-                <br><span class="he-date">${h.reviewer || ''} — ${h.date ? new Date(h.date).toLocaleString('pt-BR') : '—'}</span>
+                <span class="he-date">${esc(h.reviewer || 'Coordenacao')} - ${h.date ? new Date(h.date).toLocaleString('pt-BR') : '-'}</span>
+                ${h.notes ? `<div class="he-notes">${esc(h.notes)}</div>` : ''}
               </div>
             `).join('')}
           </div>

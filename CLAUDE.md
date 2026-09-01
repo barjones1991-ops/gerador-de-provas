@@ -457,6 +457,15 @@ Navegador usado: pendente de validacao manual do usuario em ambiente local conec
 Resultado do `npm test`: aprovado.
 Impacto no Supabase: sim; `setup_supabase.sql` adiciona limpeza de pedidos invalidos e trigger `prevent_invalid_print_request_before_write` para impedir impressao de prova nao aprovada.
 Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar manualmente: aprovar prova, enviar para impressao, abrir PDF pela fila, imprimir e marcar como impressa.
+### Validacao Tecnica - Etapa 6
+
+Data: 2026-08-25.
+Perfil testado: coordenacao pedagogica por codigo e testes automatizados.
+Fluxo testado: revisao de provas com filtros por professor, disciplina, turma e status; historico de revisao mais legivel com observacoes destacadas.
+Navegador usado: pendente de validacao manual do usuario no navegador local.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sem mudanca de schema ou RLS; usa campos existentes em `exams`.
+Pendencias restantes: validar manualmente uma devolucao com observacao, correcao pelo professor e reenvio para revisao.
 ## Plano de Ajuste de Fluxo
 
 Status: implementado no commit `7908c76`.
