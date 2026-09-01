@@ -515,6 +515,13 @@ Data: 2026-09-01.
 Mudanca: `profiles.school_name` foi removido do modelo de perfil. O nome da escola passa a vir apenas de `profiles.school_id` vinculado a `schools.name`; `exams.school_name` permanece para guardar o nome impresso/salvo em cada prova.
 Impacto no Supabase: sim; executar `setup_supabase.sql` para aplicar `ALTER TABLE profiles DROP COLUMN IF EXISTS school_name` e atualizar `handle_new_user`.
 Validacao: `npm test` aprovado.
+### Ajuste Tecnico - Turmas por Escola
+
+Data: 2026-09-01.
+Mudanca: turmas passaram a seguir o mesmo modelo das disciplinas. A escola possui `schools.classes` como lista geral, e cada usuario continua recebendo as turmas liberadas em `profiles.school_grade`.
+Fluxo: Gestão Escolar cadastra/altera turmas da escola; convite/vinculo de usuario escolhe turmas a partir da escola selecionada; professor e coordenacao seguem usando `school_grade` para criacao/revisao de provas.
+Impacto no Supabase: sim; executar `setup_supabase.sql` para aplicar `classes JSONB DEFAULT '[]'` em `schools`.
+Validacao: `npm test` aprovado.
 ### Achados Para Ajuste Posterior
 
 Registrar aqui bugs ou inconsistências encontrados durante correções/refatorações quando não forem resolvidos no mesmo commit.

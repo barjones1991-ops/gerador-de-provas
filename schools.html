@@ -210,6 +210,15 @@
       <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Adicione as disciplinas que esta escola oferece. Professores poderão ser vinculados a elas.</div>
     </div>
     <div>
+      <label>Turmas da escola</label>
+      <div id="newSchoolClassTags" class="tags"></div>
+      <div class="disc-add-row">
+        <input id="newClassInput" type="text" placeholder="Ex.: 1º Ano A, 2º Ano B..." />
+        <button class="btn sm primary" type="button" id="addClassBtn">Adicionar</button>
+      </div>
+      <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Cadastre as turmas da escola para depois liberar por professor ou coordenação.</div>
+    </div>
+    <div>
       <button class="btn primary" id="addSchoolBtn" type="button">＋ Cadastrar escola</button>
     </div>
   </div>
@@ -289,11 +298,8 @@
   let teamProfiles = [];
   let invites = [];
   let newSchoolDisciplines = [];
+  let newSchoolClasses = [];
   let newSchoolLogoDataUrl = '';
-  const GRADE_OPTIONS = [
-    'Educação Infantil','1º ano','2º ano','3º ano','4º ano','5º ano','6º ano','7º ano','8º ano','9º ano',
-    '1º Ensino Médio','2º Ensino Médio','3º Ensino Médio',
-  ];
 
   const MAX_LOGO_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
   const MAX_LOGO_DATA_URL_BYTES = 220 * 1024;
@@ -419,6 +425,8 @@
     // Discipline add for new school
     document.getElementById('addDiscBtn').addEventListener('click', addNewSchoolDisc);
     document.getElementById('newDiscInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addNewSchoolDisc(); } });
+    document.getElementById('addClassBtn').addEventListener('click', addNewSchoolClass);
+    document.getElementById('newClassInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addNewSchoolClass(); } });
 
     await loadSchools();
     await loadProfessors();
@@ -444,6 +452,25 @@
   function removeNewDisc(i) {
     newSchoolDisciplines.splice(i, 1);
     renderNewSchoolTags();
+  }
+
+  function addNewSchoolClass() {
+    const inp = document.getElementById('newClassInput');
+    const val = inp.value.trim();
+    if (!val || newSchoolClasses.includes(val)) { inp.value = ''; return; }
+    newSchoolClasses.push(val);
+    inp.value = '';
+    renderNewSchoolClassTags();
+  }
+
+  function renderNewSchoolClassTags() {
+    const el = document.getElementById('newSchoolClassTags');
+    el.innerHTML = newSchoolClasses.map((c, i) => '<span class="tag">' + esc(c) + ' <span class="rm" onclick="removeNewClass(' + i + ')">×</span></span>').join('');
+  }
+
+  function removeNewClass(i) {
+    newSchoolClasses.splice(i, 1);
+    renderNewSchoolClassTags();
   }
 
   function applyModuleNavigation() {
@@ -476,10 +503,12 @@
     el.innerHTML = `<p class="divider">Escola cadastrada (${schools.length})</p><div class="schools-grid">` +
       schools.map(s => {
         const discs = Array.isArray(s.disciplines) ? s.disciplines : [];
+        const classes = getSchoolClasses(s);
         const logoHtml = isSafeImageDataUrl(s.logo_data_url)
           ? `<img class="school-logo-thumb" ${safeImageAttr(s.logo_data_url)} alt="Logo" />`
           : `<div class="school-logo-placeholder">🏫</div>`;
         const discTags = discs.map(d => `<span class="tag">${esc(d)}</span>`).join('');
+        const classTags = classes.map(c => `<span class="tag">${esc(c)}</span>`).join('');
         const canEditSchool = auth.canManageSchools(currentProfile);
         const canDeleteSchool = auth.hasRole(['master'], currentProfile);
         return `
@@ -490,10 +519,12 @@
               <div class="school-name">${esc(s.name)}</div>
               <div class="school-meta">${esc(s.city || '')}${s.admin_email ? ' · ' + esc(s.admin_email) : ''}</div>
               ${discTags ? `<div class="tags" style="margin-top:6px;">${discTags}</div>` : ''}
+              ${classTags ? `<div class="tags" style="margin-top:6px;">${classTags}</div>` : ''}
             </div>
             <div class="school-actions">
               ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Editar</button>` : ''}
               ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleDiscEdit('${s.id}')">Disciplinas</button>` : ''}
+              ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleClassEdit('${s.id}')">Turmas</button>` : ''}
               ${canDeleteSchool ? `<button class="btn sm danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>` : ''}
             </div>
           </div>
@@ -530,6 +561,16 @@
             <div class="disc-add-row">
               <input id="di-${s.id}" type="text" placeholder="Nova disciplina..." onkeydown="if(event.key==='Enter'){event.preventDefault();addSchoolDisc('${s.id}')}" />
               <button class="btn sm primary" type="button" onclick="addSchoolDisc('${s.id}')">Adicionar</button>
+            </div>
+          </div>
+
+          <!-- Gerenciar turmas -->
+          <div class="disc-edit" id="ce-${s.id}">
+            <label style="margin-bottom:8px;">Turmas da escola</label>
+            <div id="ct-${s.id}" class="tags">${classes.map((c, i) => `<span class="tag">${esc(c)} <span class="rm" onclick="removeSchoolClass('${s.id}',${i})">×</span></span>`).join('')}</div>
+            <div class="disc-add-row">
+              <input id="ci-${s.id}" type="text" placeholder="Nova turma..." onkeydown="if(event.key==='Enter'){event.preventDefault();addSchoolClass('${s.id}')}" />
+              <button class="btn sm primary" type="button" onclick="addSchoolClass('${s.id}')">Adicionar</button>
             </div>
           </div>
         </div>`;
@@ -597,7 +638,17 @@
     if (el) el.classList.toggle('open');
   }
 
+  function toggleClassEdit(id) {
+    const el = document.getElementById(`ce-${id}`);
+    if (el) el.classList.toggle('open');
+  }
+
   function getSchool(id) { return schools.find(s => s.id === id); }
+
+  function getSchoolClasses(school) {
+    const classes = Array.isArray(school?.classes) ? school.classes : [];
+    return [...classes];
+  }
 
   function removeSchoolDisc(schoolId, idx) {
     const s = getSchool(schoolId);
@@ -619,6 +670,44 @@
     saveSchoolDisciplines(schoolId, discs);
   }
 
+  function removeSchoolClass(schoolId, idx) {
+    const s = getSchool(schoolId);
+    if (!s) return;
+    const classes = getSchoolClasses(s);
+    classes.splice(idx, 1);
+    saveSchoolClasses(schoolId, classes);
+  }
+
+  function addSchoolClass(schoolId) {
+    const inp = document.getElementById(`ci-${schoolId}`);
+    const val = inp ? inp.value.trim() : '';
+    if (!val) return;
+    const s = getSchool(schoolId);
+    if (!s) return;
+    const classes = getSchoolClasses(s);
+    if (!classes.includes(val)) classes.push(val);
+    inp.value = '';
+    saveSchoolClasses(schoolId, classes);
+  }
+
+  async function saveSchoolClasses(schoolId, classes) {
+    if (!auth.canManageSchools(currentProfile)) {
+      showToast('Voce nao tem permissao para editar turmas da escola.', 'error');
+      return;
+    }
+    try {
+      await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ classes }),
+      });
+      showToast('Turmas atualizadas!');
+      await loadSchools();
+      const el = document.getElementById(`ce-${schoolId}`);
+      if (el) el.classList.add('open');
+    } catch (err) {
+      showToast('Erro ao salvar turmas: ' + err.message, 'error');
+    }
+  }
   async function saveSchoolDisciplines(schoolId, discs) {
     if (!auth.canManageSchools(currentProfile)) {
       showToast('Voce nao tem permissao para editar disciplinas da escola.', 'error');
@@ -647,12 +736,15 @@
 
   function onLinkSchoolChange() {
     updateInviteFieldVisibility();
-    if (document.getElementById('inviteRoleSelect').value === 'print_operator') return;
     const schoolId = document.getElementById('linkSchoolSelect').value;
+    const role = document.getElementById('inviteRoleSelect').value;
+    const gradeBox = document.getElementById('linkGradeCheckboxes');
     const section = document.getElementById('linkDisciplinesSection');
     const box = document.getElementById('linkDisciplinesCheckboxes');
-    if (!schoolId) { section.style.display = 'none'; box.innerHTML = ''; return; }
+    if (!schoolId) { gradeBox.innerHTML = ''; section.style.display = 'none'; box.innerHTML = ''; return; }
     const s = getSchool(schoolId);
+    gradeBox.innerHTML = role === 'print_operator' ? '' : renderGradeCheckboxesHtml('linkGradeCheckboxes', [], s);
+    if (role === 'print_operator') return;
     const discs = s && Array.isArray(s.disciplines) ? s.disciplines : [];
     if (!discs.length) { section.style.display = 'none'; box.innerHTML = ''; return; }
     section.style.display = '';
@@ -695,6 +787,7 @@
           admin_email: adminEmail || null,
           logo_data_url: newSchoolLogoDataUrl || null,
           disciplines: newSchoolDisciplines.length ? newSchoolDisciplines : [],
+          classes: newSchoolClasses.length ? newSchoolClasses : [],
         }),
       });
       document.getElementById('schoolNameInput').value = '';
@@ -705,7 +798,9 @@
       document.getElementById('logoFileInput').value = '';
       newSchoolLogoDataUrl = '';
       newSchoolDisciplines = [];
+      newSchoolClasses = [];
       renderNewSchoolTags();
+      renderNewSchoolClassTags();
       showToast('Escola cadastrada com sucesso!');
       await loadSchools();
     } catch (err) {
@@ -747,7 +842,7 @@
         const schoolDiscs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
         const canChangeSchool = canChangeTeamSchool(p);
         const schoolControl = canChangeSchool ? renderProfileSchoolSelect(p.id, p.school_id) : '';
-        const gradeCheckboxes = renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades);
+        const gradeCheckboxes = renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades, school);
         const discCheckboxes = schoolDiscs.map(d =>
           `<label class="disc-check-label"><input type="checkbox" value="${esc(d)}" ${discs.includes(d) ? 'checked' : ''} />${esc(d)}</label>`
         ).join('');
@@ -876,6 +971,7 @@
     const discs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
     const wrap = document.getElementById(`pe-discs-wrap-${profileId}`);
     const box = document.getElementById(`pe-discs-${profileId}`);
+    renderGradeCheckboxes(`pe-grades-${profileId}`, [], school);
     if (!box) return;
     if (wrap) wrap.style.display = discs.length ? '' : 'none';
     box.innerHTML = discs.map(d =>
@@ -1041,6 +1137,7 @@
 
     const hasSchool = schools.length > 0;
     const hasDisciplines = schools.some(s => Array.isArray(s.disciplines) && s.disciplines.length > 0);
+    const hasClasses = schools.some(s => Array.isArray(s.classes) && s.classes.length > 0);
     const hasCoordinator = teamProfiles.some(p => auth.normalizeRole(p.role) === 'coordinator' && p.school_id);
     const hasTeacher = teamProfiles.some(p => auth.normalizeRole(p.role) === 'teacher' && p.school_id && normalizeGrades(p.school_grade).length > 0 && Array.isArray(p.disciplines) && p.disciplines.length > 0);
     const hasActiveInvite = invites.some(invite => inviteStatus(invite).key === 'pending');
@@ -1048,6 +1145,7 @@
     const steps = [
       { done: hasSchool, title: 'Cadastro da escola', text: hasSchool ? `${schools.length} escola(s) cadastrada(s).` : 'Cadastre a escola com nome e cidade.' },
       { done: hasDisciplines, title: 'Definir disciplinas', text: hasDisciplines ? 'Ha disciplinas disponiveis para vincular aos professores.' : 'Adicione as disciplinas oferecidas pela escola.' },
+      { done: hasClasses, title: 'Definir turmas', text: hasClasses ? 'Ha turmas disponiveis para vincular aos usuarios.' : 'Cadastre as turmas da escola.' },
       { done: hasCoordinator, title: 'Vincular coordenacao', text: hasCoordinator ? 'Ha coordenacao vinculada a uma escola.' : 'Convide ou promova uma pessoa para revisar provas.' },
       { done: hasTeacher, title: 'Liberar professor', text: hasTeacher ? 'Ha professor com escola, serie e disciplina.' : 'Vincule pelo menos um professor com serie e disciplina.' },
       { done: hasActiveInvite, title: 'Gerar convite de acesso', text: hasActiveInvite ? 'Ha convite pendente pronto para envio.' : 'Gere um link de convite para o proximo usuario.' },
@@ -1312,16 +1410,16 @@
       .filter(Boolean);
   }
 
-  function renderGradeCheckboxesHtml(containerId, selected = []) {
+  function renderGradeCheckboxesHtml(containerId, selected = [], school = null) {
     const chosen = new Set(normalizeGrades(selected));
-    return GRADE_OPTIONS.map(g =>
+    return getSchoolClasses(school).map(g =>
       `<label class="disc-check-label"><input type="checkbox" value="${esc(g)}" ${chosen.has(g) ? 'checked' : ''} />${esc(g)}</label>`
     ).join('');
   }
 
-  function renderGradeCheckboxes(containerId, selected = []) {
+  function renderGradeCheckboxes(containerId, selected = [], school = null) {
     const el = document.getElementById(containerId);
-    if (el) el.innerHTML = renderGradeCheckboxesHtml(containerId, selected);
+    if (el) el.innerHTML = renderGradeCheckboxesHtml(containerId, selected, school);
   }
 
   function getCheckedValues(containerId) {

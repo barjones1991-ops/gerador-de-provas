@@ -483,6 +483,7 @@ async function main() {
     assert(sql.includes('DROP TRIGGER IF EXISTS on_auth_user_created'), 'trigger drop missing');
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
+    assert(sql.includes("classes JSONB DEFAULT '[]'") && sql.includes("ALTER TABLE schools ADD COLUMN IF NOT EXISTS classes JSONB DEFAULT '[]'"), 'schools classes column missing');
     assert(sql.includes('school_id'), 'school_id in profiles missing');
     assert(!/CREATE TABLE IF NOT EXISTS profiles[\s\S]*?\);[\s\S]*?school_name TEXT/.test(sql.split('-- 2. Tabela de provas')[0]), 'profiles should not keep legacy school_name column');
     assert(sql.includes('ALTER TABLE profiles DROP COLUMN IF EXISTS school_name'), 'setup SQL should drop legacy profile school_name');
@@ -772,8 +773,11 @@ async function main() {
     assert(page.includes('readCompressedLogo(file, (dataUrl) => {'), 'school logo upload should be compressed before preview/save');
     assert(page.includes('preview.src = dataUrl'), 'school logo change should update preview before save');
     assert(page.includes('MAX_LOGO_DATA_URL_BYTES'), 'school logo upload should have a compressed payload limit');
-    assert(page.includes('const GRADE_OPTIONS = ['), 'school page should centralize grade options');
+    assert(!page.includes('const GRADE_OPTIONS = ['), 'school page should not depend on fixed grade options');
     assert(page.includes('linkGradeCheckboxes'), 'link professor flow should allow multiple grade checkboxes');
+    assert(page.includes('newSchoolClassTags') && page.includes('addNewSchoolClass'), 'school page should manage school-level classes');
+    assert(page.includes('function saveSchoolClasses') && page.includes('JSON.stringify({ classes })'), 'school page should persist school classes');
+    assert(page.includes('function getSchoolClasses') && page.includes('renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades, school)'), 'user class choices should come from selected school');
     assert(page.includes('pe-grades-${p.id}'), 'professor edit should allow multiple grade checkboxes');
     assert(page.includes("getCheckedValues('linkGradeCheckboxes').join(', ')"), 'link professor should save multiple grades');
     assert(page.includes("getCheckedValues(`pe-grades-${profId}`).join(', ')"), 'professor edit should save multiple grades');
@@ -812,6 +816,8 @@ async function main() {
     assert(page.includes('schoolReadinessSection') && page.includes('schoolReadinessList'), 'school page should show readiness checklist');
     assert(page.includes('function renderSchoolReadiness'), 'school page should compute onboarding readiness');
     assert(page.includes('const hasDisciplines = schools.some'), 'readiness should check school disciplines');
+    assert(page.includes('const hasClasses = schools.some'), 'readiness should check school classes');
+    assert(page.includes("title: 'Definir turmas'"), 'readiness should include class setup step');
     assert(page.includes("auth.normalizeRole(p.role) === 'coordinator'"), 'readiness should check coordinator assignment');
     assert(page.includes("auth.normalizeRole(p.role) === 'teacher'"), 'readiness should check teacher assignment');
     assert(page.includes("inviteStatus(invite).key === 'pending'"), 'readiness should check active invites');

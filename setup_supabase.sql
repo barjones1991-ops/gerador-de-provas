@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS schools (
   name TEXT NOT NULL,
   city TEXT,
   admin_email TEXT,
+  classes JSONB DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -503,6 +504,7 @@ CREATE TABLE IF NOT EXISTS schools (
   name TEXT NOT NULL,
   city TEXT,
   admin_email TEXT,
+  classes JSONB DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -534,6 +536,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS disciplines JSONB DEFAULT '[]';
 -- 8. Colunas de logo e disciplinas na tabela de escolas
 ALTER TABLE schools ADD COLUMN IF NOT EXISTS logo_data_url TEXT;
 ALTER TABLE schools ADD COLUMN IF NOT EXISTS disciplines JSONB DEFAULT '[]';
+ALTER TABLE schools ADD COLUMN IF NOT EXISTS classes JSONB DEFAULT '[]';
 
 -- 9. Convites de usuarios para escolas
 CREATE TABLE IF NOT EXISTS user_invites (
