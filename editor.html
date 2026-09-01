@@ -6828,14 +6828,8 @@
         // Auto-fill teacher from profile
         if (shouldUseTeacher && profile.full_name) state.school.teacher = profile.full_name;
 
-        const profileClasses = normalizeClassList(profile.school_grade);
-        if (profileClasses.length) {
-          state.availableClasses = profileClasses;
-          const shouldUseClass = !state.school.className || state.school.className === defaultSchool.className;
-          if (shouldUseClass || (profileClasses.length === 1 && !profileClasses.includes(state.school.className))) {
-            state.school.className = profileClasses[0];
-          }
-        }
+        let profileClasses = normalizeClassList(profile.school_grade);
+        let schoolClasses = [];
 
         let disciplines = normalizeDisciplineList(profile.disciplines);
         disciplines = disciplines.length ? disciplines : null;
@@ -6844,18 +6838,33 @@
         if (profile.school_id) {
           try {
             const sd = await auth.authenticatedRequest(
-              `/schools?id=eq.${profile.school_id}&select=name,logo_data_url,disciplines`
+              `/schools?id=eq.${profile.school_id}&select=name,logo_data_url,disciplines,classes`
             );
             const school = Array.isArray(sd) ? sd[0] : null;
             if (school) {
               if (shouldUseSchool && school.name) state.school.schoolName = school.name;
               if (!state.logoDataUrl && school.logo_data_url) state.logoDataUrl = school.logo_data_url;
+              if (Array.isArray(school.classes) && school.classes.length) {
+                schoolClasses = normalizeClassList(school.classes);
+              }
               if (!disciplines && Array.isArray(school.disciplines) && school.disciplines.length) {
                 const schoolDisciplines = normalizeDisciplineList(school.disciplines);
                 disciplines = schoolDisciplines.length ? schoolDisciplines : null;
               }
             }
           } catch { /* escola opcional */ }
+        }
+
+        if (schoolClasses.length) {
+          const allowedClasses = new Set(schoolClasses.map(item => item.toLowerCase()));
+          profileClasses = profileClasses.filter(item => allowedClasses.has(item.toLowerCase()));
+        }
+        if (profileClasses.length) {
+          state.availableClasses = profileClasses;
+          const shouldUseClass = !state.school.className || state.school.className === defaultSchool.className;
+          if (shouldUseClass || (profileClasses.length === 1 && !profileClasses.includes(state.school.className))) {
+            state.school.className = profileClasses[0];
+          }
         }
 
         // Populate subject select

@@ -457,6 +457,7 @@
   let auth = null;
   let exams = [];
   let currentProfile = { full_name: '', role: 'professor', normalized_role: 'teacher', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
+  let currentSchool = null;
   let currentFilter = 'all';
   let currentSubject = '';
   let currentTerm = '';
@@ -490,6 +491,12 @@
       if (Array.isArray(ext) && ext[0]) {
         currentProfile = { ...currentProfile, ...ext[0], normalized_role: auth.normalizeRole(currentProfile.role) };
         auth.currentProfile = currentProfile;
+        if (currentProfile.school_id) {
+          try {
+            const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name,classes`);
+            currentSchool = Array.isArray(sd) ? (sd[0] || null) : null;
+          } catch {}
+        }
       }
     } catch {}
 
@@ -764,9 +771,22 @@
     return uniqueCleanList(currentProfile.disciplines, { discipline: true });
   }
 
+  function getCurrentSchoolClasses() {
+    return Array.isArray(currentSchool?.classes) ? uniqueCleanList(currentSchool.classes) : [];
+  }
+
+  function filterClassesByCurrentSchool(values) {
+    const classes = uniqueCleanList(values);
+    const officialClasses = getCurrentSchoolClasses();
+    if (!officialClasses.length) return classes;
+    const allowed = new Set(officialClasses.map(item => item.toLowerCase()));
+    return classes.filter(item => allowed.has(item.toLowerCase()));
+  }
+
   function getNewExamClasses() {
-    const fromProfile = uniqueCleanList(currentProfile.school_grade);
+    const fromProfile = filterClassesByCurrentSchool(currentProfile.school_grade);
     if (fromProfile.length) return fromProfile;
+    if (getCurrentSchoolClasses().length) return [];
     return uniqueCleanList(exams.map(e => e.class_name));
   }
 
@@ -985,7 +1005,8 @@
 
     // Série
     const gradeEl = document.getElementById('profileGradeValue');
-    if (currentProfile.school_grade) { gradeEl.textContent = currentProfile.school_grade; gradeEl.className = 'pib-value'; }
+    const visibleGrades = filterClassesByCurrentSchool(currentProfile.school_grade);
+    if (visibleGrades.length) { gradeEl.textContent = visibleGrades.join(', '); gradeEl.className = 'pib-value'; }
     else { gradeEl.textContent = 'Não informado'; gradeEl.className = 'pib-empty'; }
 
     // Disciplinas

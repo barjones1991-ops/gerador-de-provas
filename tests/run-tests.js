@@ -649,6 +649,7 @@ async function main() {
 
   await test('editor uses professor profile classes and keeps student date printable', () => {
     const editor = read('editor.html');
+    const dashboard = read('dashboard.html');
     const print = read('print.html');
     assert(editor.includes('<select id="className">'), 'class field should be a select in the editor');
     assert(editor.includes('currentProfile = await auth.loadCurrentProfile()'), 'editor should load current profile for school-scoped features');
@@ -658,6 +659,10 @@ async function main() {
     assert(editor.includes('school_id: currentProfile.school_id'), 'editor should save school scope on question bank items when available');
     assert(editor.includes('school_grade,disciplines'), 'editor profile query should fetch teacher grade/classes');
     assert(editor.includes('function normalizeClassList'), 'editor should normalize one or many profile classes');
+    assert(editor.includes('select=name,logo_data_url,disciplines,classes'), 'editor should fetch official school classes');
+    assert(editor.includes('profileClasses = profileClasses.filter(item => allowedClasses.has(item.toLowerCase()))'), 'editor should ignore profile classes removed from the school');
+    assert(dashboard.includes('function filterClassesByCurrentSchool'), 'dashboard should filter profile classes by official school classes');
+    assert(dashboard.includes('if (getCurrentSchoolClasses().length) return []'), 'dashboard should not fall back to old exam classes when school classes exist');
     assert(editor.includes('function setClassOptions'), 'editor should populate class options');
     assert(editor.includes('if (unique.length === 1 && !current) state.school.className = unique[0];'), 'single class should be selected automatically');
     assert(editor.includes("subject: '',"), 'default subject should be empty so the placeholder is not a selectable discipline');
@@ -776,7 +781,7 @@ async function main() {
     assert(!page.includes('const GRADE_OPTIONS = ['), 'school page should not depend on fixed grade options');
     assert(page.includes('linkGradeCheckboxes'), 'link professor flow should allow multiple grade checkboxes');
     assert(page.includes('newSchoolClassTags') && page.includes('addNewSchoolClass'), 'school page should manage school-level classes');
-    assert(page.includes('function saveSchoolClasses') && page.includes('JSON.stringify({ classes })'), 'school page should persist school classes');
+    assert(page.includes('function saveSchoolClasses') && page.includes('JSON.stringify({ classes: cleanClasses })'), 'school page should persist school classes');
     assert(page.includes('function getSchoolClasses') && page.includes('renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades, school)'), 'user class choices should come from selected school');
     assert(page.includes('pe-grades-${p.id}'), 'professor edit should allow multiple grade checkboxes');
     assert(page.includes("getCheckedValues('linkGradeCheckboxes').join(', ')"), 'link professor should save multiple grades');

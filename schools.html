@@ -671,15 +671,15 @@
     saveSchoolDisciplines(schoolId, discs);
   }
 
-  function removeSchoolClass(schoolId, idx) {
+  async function removeSchoolClass(schoolId, idx) {
     const s = getSchool(schoolId);
     if (!s) return;
     const classes = getSchoolClasses(s);
     classes.splice(idx, 1);
-    saveSchoolClasses(schoolId, classes);
+    await saveSchoolClasses(schoolId, classes);
   }
 
-  function addSchoolClass(schoolId) {
+  async function addSchoolClass(schoolId) {
     const inp = document.getElementById(`ci-${schoolId}`);
     const val = inp ? inp.value.trim() : '';
     if (!val) return;
@@ -688,25 +688,28 @@
     const classes = getSchoolClasses(s);
     if (!classes.includes(val)) classes.push(val);
     inp.value = '';
-    saveSchoolClasses(schoolId, classes);
+    await saveSchoolClasses(schoolId, classes);
   }
 
   async function saveSchoolClasses(schoolId, classes) {
     if (!auth.canManageSchools(currentProfile)) {
       showToast('Voce nao tem permissao para editar turmas da escola.', 'error');
-      return;
+      return false;
     }
     try {
+      const cleanClasses = getUniqueList(classes);
       await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ classes }),
+        body: JSON.stringify({ classes: cleanClasses }),
       });
       showToast('Turmas atualizadas!');
       await loadSchools();
       const el = document.getElementById(`ce-${schoolId}`);
       if (el) el.classList.add('open');
+      return true;
     } catch (err) {
       showToast('Erro ao salvar turmas: ' + err.message, 'error');
+      return false;
     }
   }
   async function saveSchoolDisciplines(schoolId, discs) {
