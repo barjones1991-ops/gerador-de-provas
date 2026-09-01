@@ -275,12 +275,12 @@ async function main() {
     });
     const qtypeSelect = editor.match(/<select id="qtypeSelect">([\s\S]*?)<\/select>/)[1];
     const creationTypes = [...qtypeSelect.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
-    assert(creationTypes.length === 13, 'question creation selector should expose consolidated types only');
-    ['vf', 'subitens', 'problema_matematico', 'interpretacao_imagem', 'relacione_imagens', 'associacao_imagem_imagem', 'associacao_setas', 'sequencia_imagens', 'comparar_imagens', 'legenda_imagens', 'grade_imagens', 'identificar_imagem', 'ordenacao', 'sequencia_numerica', 'leitura_escrita', 'expressao_matematica'].forEach((type) => {
+    assert(creationTypes.length === 12, 'question creation selector should expose consolidated types only');
+    ['multipla', 'vf', 'subitens', 'problema_matematico', 'interpretacao_imagem', 'relacione_imagens', 'associacao_imagem_imagem', 'associacao_setas', 'sequencia_imagens', 'comparar_imagens', 'legenda_imagens', 'grade_imagens', 'identificar_imagem', 'ordenacao', 'sequencia_numerica', 'leitura_escrita', 'expressao_matematica'].forEach((type) => {
       assert(!creationTypes.includes(type), `${type} should be integrated into consolidated creation options`);
     });
     assert(editor.includes("questionLabel.textContent = 'Questões'"), 'top question menu should support direct consolidated options');
-    assert(qtypeSelect.includes('Marcar itens') && !qtypeSelect.includes('Verdadeiro ou Falso'), 'mark-x and true/false should be unified as mark items');
+    assert(qtypeSelect.includes('Alternativas') && !qtypeSelect.includes('Múltipla escolha') && !qtypeSelect.includes('Verdadeiro ou Falso'), 'multiple choice, mark-x, and true/false should be unified as alternatives');
     assert(editor.includes('saveQuestionToBank'), 'question bank save function missing');
     assert(editor.includes('loadQuestionBank'), 'question bank search function missing');
     assert(editor.includes('questionBankModal'), 'question bank modal missing');
