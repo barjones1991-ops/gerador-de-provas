@@ -1968,6 +1968,7 @@
         type: 'marcarx',
         text: '',
         markLayout: 'lista',
+        markMode: 'multipla',
         items: [
           { text: '', checked: false },
           { text: '', checked: false },
@@ -3712,22 +3713,35 @@
               { text: '', checked: false },
             ];
           }
-          q.items = q.items.map((item) => typeof item === 'string' ? { text: item, checked: false } : item);
+          q.items = q.items.map((item) => typeof item === 'string' ? { text: item, checked: false, answer: '' } : { ...item, answer: item.answer || '' });
           if (!q.markLayout) q.markLayout = 'lista';
+          if (!q.markMode) q.markMode = 'multipla';
 
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = `<label>Itens</label><div class="small">Marque os itens corretos para gerar gabarito.</div>`;
-          const layout = document.createElement('div');
-          layout.innerHTML = `
-            <label>Layout dos itens</label>
-            <select data-k="markLayout">
-              <option value="lista" ${q.markLayout === 'lista' ? 'selected' : ''}>Lista simples</option>
-              <option value="duas_colunas" ${q.markLayout === 'duas_colunas' ? 'selected' : ''}>Duas colunas</option>
-              <option value="tabela" ${q.markLayout === 'tabela' ? 'selected' : ''}>Tabela</option>
-            </select>
+          block.innerHTML = `<label>Alternativas</label><div class="small">Escolha o modo de resposta e marque o gabarito.</div>`;
+          const modeRow = document.createElement('div');
+          modeRow.className = 'form-row';
+          modeRow.innerHTML = `
+            <div>
+              <label>Modo de resposta</label>
+              <select data-k="markMode">
+                <option value="unica" ${q.markMode === 'unica' ? 'selected' : ''}>Uma resposta correta</option>
+                <option value="multipla" ${q.markMode === 'multipla' ? 'selected' : ''}>Uma ou mais corretas</option>
+                <option value="vf" ${q.markMode === 'vf' ? 'selected' : ''}>Verdadeiro/Falso</option>
+                <option value="checklist" ${q.markMode === 'checklist' ? 'selected' : ''}>Checklist sem gabarito</option>
+              </select>
+            </div>
+            <div>
+              <label>Layout dos itens</label>
+              <select data-k="markLayout">
+                <option value="lista" ${q.markLayout === 'lista' ? 'selected' : ''}>Lista simples</option>
+                <option value="duas_colunas" ${q.markLayout === 'duas_colunas' ? 'selected' : ''}>Duas colunas</option>
+                <option value="tabela" ${q.markLayout === 'tabela' ? 'selected' : ''}>Tabela</option>
+              </select>
+            </div>
           `;
-          block.appendChild(layout);
+          block.appendChild(modeRow);
           const box = document.createElement('div');
           box.className = 'row';
           q.items.forEach((item, j) => {
@@ -3735,15 +3749,45 @@
             row.className = 'option-row';
             row.style.gridTemplateColumns = 'auto 1fr auto';
 
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = !!item.checked;
-            checkbox.title = 'Item correto';
-            checkbox.style.width = 'auto';
-            checkbox.addEventListener('change', () => {
-              item.checked = checkbox.checked;
-              renderPreview();
-            });
+            const answerControl = document.createElement('div');
+            answerControl.style.display = 'flex';
+            answerControl.style.gap = '6px';
+            answerControl.style.alignItems = 'center';
+            answerControl.style.width = 'auto';
+
+            if (q.markMode === 'vf') {
+              ['V', 'F'].forEach((value) => {
+                const label = document.createElement('label');
+                label.style.display = 'inline-flex';
+                label.style.alignItems = 'center';
+                label.style.gap = '3px';
+                label.style.margin = '0';
+                label.style.fontSize = '12px';
+                label.innerHTML = `<input type="radio" name="mark-vf-${idx}-${j}" value="${value}" ${item.answer === value ? 'checked' : ''} style="width:auto;" /> ${value}`;
+                label.querySelector('input').addEventListener('change', () => {
+                  item.answer = value;
+                  item.checked = value === 'V';
+                  renderPreview();
+                });
+                answerControl.appendChild(label);
+              });
+            } else {
+              const checkbox = document.createElement('input');
+              checkbox.type = q.markMode === 'unica' ? 'radio' : 'checkbox';
+              checkbox.name = `mark-${idx}`;
+              checkbox.checked = !!item.checked;
+              checkbox.disabled = q.markMode === 'checklist';
+              checkbox.title = q.markMode === 'checklist' ? 'Checklist sem gabarito' : 'Item correto';
+              checkbox.style.width = 'auto';
+              checkbox.addEventListener('change', () => {
+                if (q.markMode === 'unica' && checkbox.checked) {
+                  q.items.forEach((other) => { other.checked = false; });
+                }
+                item.checked = checkbox.checked;
+                renderAll();
+              });
+              answerControl.appendChild(checkbox);
+            }
 
             const inp = document.createElement('input');
             inp.value = item.text || '';
@@ -3763,7 +3807,7 @@
               renderAll();
             });
 
-            row.appendChild(checkbox);
+            row.appendChild(answerControl);
             row.appendChild(inp);
             row.appendChild(remove);
             box.appendChild(row);
@@ -3773,7 +3817,7 @@
           addItem.className = 'outline inline-add-btn';
           addItem.textContent = 'Adicionar item';
           addItem.addEventListener('click', () => {
-            q.items.push({ text: '', checked: false });
+            q.items.push({ text: '', checked: false, answer: '' });
             renderAll();
           });
           block.appendChild(box);
@@ -5247,7 +5291,7 @@
             } else if (key === 'gradeDisplayMode') {
               q.showCaptions = node.value === 'captions_lines' || node.value === 'captions';
               q.showAnswerLines = node.value === 'captions_lines' || node.value === 'lines';
-            } else if (key === 'imageAnswerType' || key === 'answerType' || key === 'exerciseType') {
+            } else if (key === 'imageAnswerType' || key === 'answerType' || key === 'exerciseType' || key === 'markMode') {
               q[key] = node.value;
               renderAll();
               return;
@@ -5388,10 +5432,11 @@
       if (q.type === 'marcarx') {
         const items = q.items.map((item, i) => {
           const text = typeof item === 'string' ? item : item.text;
+          const marker = q.markMode === 'vf' ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F' : '( &nbsp; )';
           if (q.markLayout === 'tabela') {
-            return `<tr><td>( &nbsp; )</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
+            return `<tr><td>${marker}</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
           }
-          return `<div class="option-item"><span>( )</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
+          return `<div class="option-item"><span>${marker}</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
         }).join('');
         if (q.markLayout === 'tabela') return `<table class="mark-table"><tbody>${items}</tbody></table>`;
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
@@ -5848,6 +5893,11 @@
       }
       if (tipo === 'marcarx' || (tipo === 'imagem' && q.imageAnswerType === 'marcarx')) {
         const items = q.items || [];
+        if (q.markMode === 'checklist') return null;
+        if (q.markMode === 'vf') {
+          const respostas = items.map((it, j) => `${j + 1}.${it.answer || '?'}`).join('  ');
+          return { tipo: 'objetivo', num, ans: respostas || '(incompleto)' };
+        }
         const certos = items.map((it, j) => it.checked ? String.fromCharCode(65 + j) : null).filter(Boolean);
         return { tipo: 'objetivo', num, ans: certos.length ? certos.join(', ') : '(nenhum marcado)' };
       }

@@ -314,6 +314,11 @@ async function main() {
     assert(editor.includes("item.answer = 'F'"), 'true/false answer F missing');
     assert(editor.includes('Adicionar item'), 'mark-x add item action missing');
     assert(editor.includes('item.checked'), 'mark-x checked answer missing');
+    assert(editor.includes('markMode'), 'alternatives answer mode setting missing');
+    assert(editor.includes('Uma resposta correta'), 'single-answer alternatives mode missing');
+    assert(editor.includes('Uma ou mais corretas'), 'multiple-answer alternatives mode missing');
+    assert(editor.includes('Checklist sem gabarito'), 'checklist alternatives mode missing');
+    assert(editor.includes("q.markMode === 'vf'"), 'true/false alternatives mode missing');
     assert(editor.includes('markLayout'), 'mark-x layout setting missing');
     assert(editor.includes('Duas colunas'), 'mark-x two-column option missing');
     assert(editor.includes('mark-grid two-columns'), 'mark-x two-column class missing');
@@ -417,6 +422,8 @@ async function main() {
     assert(print.includes("item.answer ? `${i + 1}-${item.answer}`"), 'print true/false answer key missing');
     assert(print.includes("q.type === 'marcarx'"), 'print mark-x renderer missing');
     assert(print.includes('!!item.checked'), 'print mark-x answer key missing');
+    assert(print.includes("q.markMode === 'vf'"), 'print alternatives true/false mode missing');
+    assert(print.includes("q.markMode === 'checklist'"), 'print alternatives checklist mode missing');
     assert(print.includes('mark-grid two-columns'), 'print mark-x two-column layout missing');
     assert(print.includes("q.type === 'relacione'"), 'print match-columns renderer missing');
     assert(print.includes('relacioneAnswer'), 'print match-columns answer key missing');

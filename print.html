@@ -761,14 +761,16 @@
         if (q.markLayout === 'tabela') {
           const rows = items.map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
-            return `<tr><td>( &nbsp; )</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
+            const marker = q.markMode === 'vf' ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F' : '( &nbsp; )';
+            return `<tr><td>${marker}</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
           }).join('');
           return `<table class="mark-table"><tbody>${rows}</tbody></table>`;
         }
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
         return `<div class="${layoutClass}">${items.map((item, i) => {
           const text = typeof item === 'string' ? item : item.text;
-          return `<div class="option-item"><span>( )</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
+          const marker = q.markMode === 'vf' ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F' : '( &nbsp; )';
+          return `<div class="option-item"><span>${marker}</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
         }).join('')}</div>`;
       }
       if (q.type === 'lacunas') {
@@ -1081,6 +1083,13 @@
         return answers.join('; ');
       }
       if (q.type === 'marcarx' && Array.isArray(q.items)) {
+        if (q.markMode === 'checklist') return '';
+        if (q.markMode === 'vf') {
+          const answers = q.items
+            .map((item, i) => item.answer ? `${i + 1}-${item.answer}` : '')
+            .filter(Boolean);
+          return answers.join('; ');
+        }
         const answers = q.items
           .map((item, i) => {
             const checked = typeof item === 'string' ? false : !!item.checked;
