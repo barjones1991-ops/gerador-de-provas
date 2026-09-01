@@ -651,6 +651,48 @@
     return [...classes];
   }
 
+  function getUniqueList(values) {
+    const source = Array.isArray(values) ? values : String(values || '').split(/[,;|/]+/);
+    const seen = new Set();
+    return source
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+      .filter((item) => {
+        const key = item.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function filterGradesBySchoolClasses(rawGrades, classes) {
+    const official = new Set(getUniqueList(classes).map(item => item.toLowerCase()));
+    const next = normalizeGrades(rawGrades).filter(item => official.has(item.toLowerCase()));
+    return next.length ? next.join(', ') : null;
+  }
+
+  async function cleanupRemovedSchoolClasses(schoolId, classes) {
+    const profileUpdates = teamProfiles
+      .filter(profile => profile.school_id === schoolId)
+      .map(profile => ({ profile, next: filterGradesBySchoolClasses(profile.school_grade, classes) }))
+      .filter(({ profile, next }) => (profile.school_grade || null) !== next);
+
+    const inviteUpdates = invites
+      .filter(invite => invite.school_id === schoolId && !invite.accepted_at && !invite.canceled_at)
+      .map(invite => ({ invite, next: filterGradesBySchoolClasses(invite.school_grade, classes) }))
+      .filter(({ invite, next }) => (invite.school_grade || null) !== next);
+
+    await Promise.all([
+      ...profileUpdates.map(({ profile, next }) => auth.authenticatedRequest(`/profiles?id=eq.${profile.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ school_grade: next }),
+      })),
+      ...inviteUpdates.map(({ invite, next }) => auth.authenticatedRequest(`/user_invites?id=eq.${invite.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ school_grade: next }),
+      })),
+    ]);
+  }
   function removeSchoolDisc(schoolId, idx) {
     const s = getSchool(schoolId);
     if (!s) return;
@@ -702,8 +744,9 @@
         method: 'PATCH',
         body: JSON.stringify({ classes: cleanClasses }),
       });
+      await cleanupRemovedSchoolClasses(schoolId, cleanClasses);
       showToast('Turmas atualizadas!');
-      await loadSchools();
+      await Promise.all([loadSchools(), loadProfessors(), loadInvites()]);
       const el = document.getElementById(`ce-${schoolId}`);
       if (el) el.classList.add('open');
       return true;

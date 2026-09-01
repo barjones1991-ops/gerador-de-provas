@@ -782,6 +782,8 @@ async function main() {
     assert(page.includes('linkGradeCheckboxes'), 'link professor flow should allow multiple grade checkboxes');
     assert(page.includes('newSchoolClassTags') && page.includes('addNewSchoolClass'), 'school page should manage school-level classes');
     assert(page.includes('function saveSchoolClasses') && page.includes('JSON.stringify({ classes: cleanClasses })'), 'school page should persist school classes');
+    assert(page.includes('function getUniqueList') && page.includes('function cleanupRemovedSchoolClasses'), 'school page should dedupe classes and permanently clean stale assignments');
+    assert(page.includes('/profiles?id=eq.') && page.includes('/user_invites?id=eq.'), 'school class cleanup should update profiles and pending invites');
     assert(page.includes('function getSchoolClasses') && page.includes('renderGradeCheckboxesHtml(`pe-grades-${p.id}`, profGrades, school)'), 'user class choices should come from selected school');
     assert(page.includes('pe-grades-${p.id}'), 'professor edit should allow multiple grade checkboxes');
     assert(page.includes("getCheckedValues('linkGradeCheckboxes').join(', ')"), 'link professor should save multiple grades');
