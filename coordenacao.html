@@ -128,6 +128,7 @@
     <a class="app-nav-link" href="dashboard.html">Minhas provas</a>
     <a class="app-nav-link active restricted" id="navReviewLink" href="coordenacao.html">Revisão pedagógica</a>
     <a class="app-nav-link restricted" id="navPrintLink" href="impressao.html">Fila de impressão</a>
+    <a class="app-nav-link restricted" id="navMasterLink" href="master.html">Master</a>
     <a class="app-nav-link restricted" id="navSchoolsLink" href="schools.html">Gestão escolar</a>
   </nav>
 </aside>
@@ -264,6 +265,7 @@
   function applyModuleNavigation() {
     document.getElementById('navReviewLink')?.classList.toggle('show', auth.canReviewExams(profile));
     document.getElementById('navPrintLink')?.classList.toggle('show', auth.canAccessPrintQueue(profile));
+    document.getElementById('navMasterLink')?.classList.toggle('show', auth.hasRole(['master'], profile));
     document.getElementById('navSchoolsLink')?.classList.toggle('show', auth.canManageSchools(profile) || auth.canManageUsers(profile));
   }
   async function loadReviews() {

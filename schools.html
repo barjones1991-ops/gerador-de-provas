@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gerenciar Escolas - Gerador de Provas</title>
+  <title>Gerenciar Escola - Gerador de Provas</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f1f5f9; color: #0f172a; min-height: 100vh; }
@@ -102,6 +102,13 @@
     .access-summary-label { font-size: 12px; font-weight: 700; color: #64748b; margin-top: 2px; }
     .access-alert-list { display: grid; gap: 6px; margin-top: 10px; }
     .access-alert-item { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; }
+    .readiness-list { display: grid; gap: 8px; }
+    .readiness-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    .readiness-item.done { border-color: #bbf7d0; background: #f0fdf4; }
+    .readiness-mark { width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 12px; font-weight: 900; }
+    .readiness-item.done .readiness-mark { background: #16a34a; color: #fff; }
+    .readiness-title { font-size: 13px; font-weight: 900; color: #0f172a; }
+    .readiness-text { font-size: 12px; color: #64748b; margin-top: 2px; line-height: 1.4; }
     .invite-link-row { display: flex; gap: 8px; margin-top: 8px; }
     .invite-link-row input { flex: 1; font-size: 12px; }
     @media (max-width: 600px) {
@@ -144,6 +151,7 @@
     <a class="app-nav-link" href="dashboard.html">Minhas provas</a>
     <a class="app-nav-link restricted" id="navReviewLink" href="coordenacao.html">Revisão pedagógica</a>
     <a class="app-nav-link restricted" id="navPrintLink" href="impressao.html">Fila de impressão</a>
+    <a class="app-nav-link restricted" id="navMasterLink" href="master.html">Master</a>
     <a class="app-nav-link active restricted" id="navSchoolsLink" href="schools.html">Gestão escolar</a>
   </nav>
 </aside>
@@ -157,13 +165,17 @@
 <main class="main">
   <div class="topbar">
     <div>
-      <h1>Gerenciar Escolas</h1>
-      <p class="muted">Cadastre escolas, gerencie disciplinas e vincule professores.</p>
+      <h1>Gerenciar Escola</h1>
+      <p class="muted">Gerencie os dados, disciplinas e usuarios desta escola.</p>
     </div>
   </div>
 
+  <div class="form-card" id="schoolReadinessSection" style="display:none;">
+    <h2>Checklist da escola</h2>
+    <div id="schoolReadinessList" class="readiness-list"></div>
+  </div>
   <!-- Formulário de nova escola -->
-  <div class="form-card">
+  <div class="form-card" id="newSchoolCard">
     <h2>Nova escola</h2>
     <div class="form-row">
       <div>
@@ -202,14 +214,14 @@
     </div>
   </div>
 
-  <!-- Lista de escolas -->
+  <!-- Dados da escola -->
   <div id="schoolsList">
     <div class="empty"><h2>Carregando...</h2></div>
   </div>
 
-  <!-- Convidar ou vincular usuario a escola -->
+  <!-- Convidar ou vincular usuario a esta escola -->
   <div class="form-card" id="linkProfessorCard" style="margin-top: 28px;">
-    <h2>Convidar ou vincular usuario a uma escola</h2>
+    <h2>Convidar ou vincular usuario a esta escola</h2>
     <div class="form-row">
       <div>
         <label>Escola</label>
@@ -370,7 +382,7 @@
       await auth.signOut();
       window.location.href = 'login.html';
     });
-    const schoolForm = document.querySelector('.form-card');
+    const schoolForm = document.getElementById('newSchoolCard');
     if (schoolForm && !auth.hasRole(['master'], currentProfile)) schoolForm.style.display = 'none';
     const linkCard = document.getElementById('linkProfessorCard');
     if (linkCard && !canManageInvites()) linkCard.style.display = 'none';
@@ -437,6 +449,7 @@
   function applyModuleNavigation() {
     document.getElementById('navReviewLink')?.classList.toggle('show', auth.canReviewExams(currentProfile));
     document.getElementById('navPrintLink')?.classList.toggle('show', auth.canAccessPrintQueue(currentProfile));
+    document.getElementById('navMasterLink')?.classList.toggle('show', auth.hasRole(['master'], currentProfile));
     document.getElementById('navSchoolsLink')?.classList.toggle('show', auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile));
   }
   async function loadSchools() {
@@ -445,9 +458,11 @@
       schools = Array.isArray(data) ? data : [];
       renderSchools();
       updateSchoolSelects();
+      renderSchoolReadiness();
     } catch (err) {
       schools = [];
       renderSchools();
+      renderSchoolReadiness();
       showToast('Erro ao carregar escolas: ' + err.message, 'error');
     }
   }
@@ -458,7 +473,7 @@
       el.innerHTML = '<div class="empty"><h2>Nenhuma escola cadastrada</h2><p>Use o formulário acima para cadastrar a primeira escola.</p></div>';
       return;
     }
-    el.innerHTML = `<p class="divider">Escolas cadastradas (${schools.length})</p><div class="schools-grid">` +
+    el.innerHTML = `<p class="divider">Escola cadastrada (${schools.length})</p><div class="schools-grid">` +
       schools.map(s => {
         const discs = Array.isArray(s.disciplines) ? s.disciplines : [];
         const logoHtml = isSafeImageDataUrl(s.logo_data_url)
@@ -1015,10 +1030,45 @@
     }
   }
 
+  function renderSchoolReadiness() {
+    const section = document.getElementById('schoolReadinessSection');
+    const list = document.getElementById('schoolReadinessList');
+    if (!section || !list) return;
+    if (!auth.canManageUsers(currentProfile) && !auth.canManageSchools(currentProfile)) {
+      section.style.display = 'none';
+      return;
+    }
+
+    const hasSchool = schools.length > 0;
+    const hasDisciplines = schools.some(s => Array.isArray(s.disciplines) && s.disciplines.length > 0);
+    const hasCoordinator = teamProfiles.some(p => auth.normalizeRole(p.role) === 'coordinator' && p.school_id);
+    const hasTeacher = teamProfiles.some(p => auth.normalizeRole(p.role) === 'teacher' && p.school_id && normalizeGrades(p.school_grade).length > 0 && Array.isArray(p.disciplines) && p.disciplines.length > 0);
+    const hasActiveInvite = invites.some(invite => inviteStatus(invite).key === 'pending');
+
+    const steps = [
+      { done: hasSchool, title: 'Cadastro da escola', text: hasSchool ? `${schools.length} escola(s) cadastrada(s).` : 'Cadastre a escola com nome e cidade.' },
+      { done: hasDisciplines, title: 'Definir disciplinas', text: hasDisciplines ? 'Ha disciplinas disponiveis para vincular aos professores.' : 'Adicione as disciplinas oferecidas pela escola.' },
+      { done: hasCoordinator, title: 'Vincular coordenacao', text: hasCoordinator ? 'Ha coordenacao vinculada a uma escola.' : 'Convide ou promova uma pessoa para revisar provas.' },
+      { done: hasTeacher, title: 'Liberar professor', text: hasTeacher ? 'Ha professor com escola, serie e disciplina.' : 'Vincule pelo menos um professor com serie e disciplina.' },
+      { done: hasActiveInvite, title: 'Gerar convite de acesso', text: hasActiveInvite ? 'Ha convite pendente pronto para envio.' : 'Gere um link de convite para o proximo usuario.' },
+    ];
+
+    section.style.display = '';
+    list.innerHTML = steps.map(step => `
+      <div class="readiness-item ${step.done ? 'done' : ''}">
+        <span class="readiness-mark">${step.done ? 'OK' : '!'}</span>
+        <div>
+          <div class="readiness-title">${esc(step.title)}</div>
+          <div class="readiness-text">${esc(step.text)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
   function renderAccessSummary() {
     const section = document.getElementById('accessSummarySection');
     const grid = document.getElementById('accessSummaryGrid');
     const alerts = document.getElementById('accessSummaryAlerts');
+    renderSchoolReadiness();
     if (!section || !grid || !alerts) return;
     if (!auth.canManageUsers(currentProfile) && !auth.canManageSchools(currentProfile)) {
       section.style.display = 'none';
@@ -1040,7 +1090,6 @@
 
     section.style.display = '';
     grid.innerHTML = [
-      ['Master', counts.master || 0],
       ['Donos', counts.school_owner || 0],
       ['Coordenacao', counts.coordinator || 0],
       ['Professores', counts.teacher || 0],

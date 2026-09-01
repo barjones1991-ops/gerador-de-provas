@@ -470,11 +470,11 @@ Pendencias restantes: validar manualmente uma devolucao com observacao, correcao
 
 Data: 2026-09-01.
 Perfil testado: gestao escolar por codigo e testes automatizados.
-Fluxo testado: convites de acesso passam a ter status persistente de cancelado; cancelar convite nao apaga historico, remove uso do link e o aceite rejeita convites cancelados.
+Fluxo testado: convites de acesso passam a ter status persistente de cancelado; cancelar convite nao apaga historico, remove uso do link e o aceite rejeita convites cancelados; gestao escolar mostra checklist de prontidao para cadastro da escola, disciplinas, coordenacao, professor e convite; aba Master separa a visao geral e atalhos globais do acesso master.
 Navegador usado: pendente de validacao manual do usuario no navegador local.
 Resultado do `npm test`: aprovado.
 Impacto no Supabase: sim; `user_invites` ganha `canceled_by` e `canceled_at`, e `accept_user_invite` passa a exigir `canceled_at IS NULL`.
-Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar: gerar convite, cancelar convite, confirmar que aparece como cancelado e que o link cancelado nao funciona.
+Pendencias restantes: validar no navegador o checklist de prontidao; aplicar `setup_supabase.sql` no Supabase real quando houver banco pendente e validar: gerar convite, cancelar convite, confirmar que aparece como cancelado e que o link cancelado nao funciona.
 ## Plano de Ajuste de Fluxo
 
 Status: implementado no commit `7908c76`.

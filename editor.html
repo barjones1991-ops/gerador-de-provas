@@ -1444,6 +1444,7 @@
       <a class="app-nav-link active" href="editor.html">Editor de provas</a>
       <a class="app-nav-link restricted" id="navReviewLink" href="coordenacao.html">Revisao pedagogica</a>
       <a class="app-nav-link restricted" id="navPrintLink" href="impressao.html">Fila de impressao</a>
+      <a class="app-nav-link restricted" id="navMasterLink" href="master.html">Master</a>
       <a class="app-nav-link restricted" id="navSchoolsLink" href="schools.html">Gestao escolar</a>
     </nav>
   </aside>
@@ -6391,6 +6392,7 @@
       const profile = currentProfile;
       document.getElementById('navReviewLink')?.classList.toggle('show', Boolean(auth?.canReviewExams?.(profile)));
       document.getElementById('navPrintLink')?.classList.toggle('show', Boolean(auth?.canAccessPrintQueue?.(profile)));
+      document.getElementById('navMasterLink')?.classList.toggle('show', Boolean(auth?.hasRole?.(['master'], profile)));
       document.getElementById('navSchoolsLink')?.classList.toggle('show', Boolean(auth?.canManageSchools?.(profile) || auth?.canManageUsers?.(profile)));
     }
 

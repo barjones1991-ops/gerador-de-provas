@@ -208,7 +208,8 @@
       try {
         const profile = await auth.loadCurrentProfile('id,role,school_id,force_password_change');
         const role = auth.getRole(profile);
-        if (['master', 'school_owner'].includes(role)) return 'schools.html';
+        if (role === 'master') return 'master.html';
+        if (role === 'school_owner') return 'schools.html';
         if (role === 'coordinator') return 'coordenacao.html';
         if (role === 'print_operator') return 'impressao.html';
       } catch (err) {

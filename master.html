@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Master - Gerador de Provas</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f8fb; color: #172033; }
+    .app-sidebar { position: fixed; inset: 0 auto 0 0; width: 230px; background: #111827; color: #f8fafc; padding: 22px 18px; z-index: 10; }
+    .app-brand { display: block; color: #fff; text-decoration: none; font-weight: 800; font-size: 18px; margin-bottom: 22px; }
+    .app-nav { display: grid; gap: 8px; }
+    .app-nav-link { display: block; color: #cbd5e1; text-decoration: none; padding: 11px 12px; border-radius: 8px; font-size: 14px; font-weight: 700; }
+    .app-nav-link:hover, .app-nav-link.active { background: #2563eb; color: #fff; }
+    .app-nav-link.restricted { display: none; }
+    .app-nav-link.restricted.show { display: block; }
+    header { position: sticky; top: 0; margin-left: 230px; height: 64px; padding: 0 26px; background: #fff; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; z-index: 5; }
+    .page-title { font-weight: 800; font-size: 18px; }
+    .btn { border: 1px solid #d7dce5; background: #fff; color: #1f2937; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; }
+    .btn:hover { border-color: #94a3b8; }
+    .btn.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .btn.green { background: #059669; color: #fff; border-color: #059669; }
+    .main { margin-left: 230px; padding: 28px; max-width: 1220px; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+    h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.15; color: #0f172a; }
+    h2 { margin: 0 0 14px; font-size: 18px; color: #111827; }
+    .muted { margin: 0; color: #64748b; font-size: 14px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+    .metric-card, .panel, .school-row { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+    .metric-card { padding: 16px; min-height: 98px; }
+    .metric-label { color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+    .metric-value { margin-top: 8px; font-size: 30px; font-weight: 900; color: #0f172a; }
+    .content-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 18px; align-items: start; }
+    .panel { padding: 18px; }
+    .action-list { display: grid; gap: 10px; }
+    .action-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa; }
+    .action-title { font-weight: 850; color: #172033; }
+    .action-text { margin-top: 2px; font-size: 13px; color: #64748b; }
+    .school-list { display: grid; gap: 10px; }
+    .school-row { padding: 14px; display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; }
+    .school-name { font-weight: 900; color: #111827; }
+    .school-meta, .school-counts { color: #64748b; font-size: 13px; margin-top: 4px; }
+    .pill-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .pill { display: inline-flex; align-items: center; border: 1px solid #dbe3ef; background: #f8fafc; color: #334155; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 800; }
+    .empty { padding: 18px; border: 1px dashed #cbd5e1; border-radius: 8px; color: #64748b; background: #f8fafc; }
+    .toast { position: fixed; right: 22px; bottom: 22px; max-width: 360px; background: #111827; color: #fff; padding: 12px 14px; border-radius: 8px; box-shadow: 0 14px 30px rgba(15, 23, 42, .25); z-index: 30; display: none; }
+    .toast.show { display: block; }
+    .toast.error { background: #b91c1c; }
+    @media (max-width: 920px) {
+      .app-sidebar { position: static; width: auto; }
+      header, .main { margin-left: 0; }
+      header { padding: 0 18px; }
+      .main { padding: 20px; }
+      .summary-grid, .content-grid { grid-template-columns: 1fr; }
+      .topbar { display: block; }
+      .school-row { grid-template-columns: 1fr; }
+      .pill-row { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="app-sidebar">
+    <a class="app-brand" href="dashboard.html">Gerador de Provas</a>
+    <nav class="app-nav" aria-label="Modulos do sistema">
+      <a class="app-nav-link" href="dashboard.html">Minhas provas</a>
+      <a class="app-nav-link restricted" id="navReviewLink" href="coordenacao.html">Revisao pedagogica</a>
+      <a class="app-nav-link restricted" id="navPrintLink" href="impressao.html">Fila de impressao</a>
+      <a class="app-nav-link active restricted" id="navMasterLink" href="master.html">Master</a>
+      <a class="app-nav-link restricted" id="navSchoolsLink" href="schools.html">Gestao escolar</a>
+    </nav>
+  </aside>
+
+  <header>
+    <div class="page-title">Master</div>
+    <button class="btn" id="logoutBtn" type="button">Sair</button>
+  </header>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Painel Master</h1>
+        <p class="muted">Visao geral do ambiente, escolas, perfis e convites.</p>
+      </div>
+      <a class="btn primary" href="schools.html#newSchoolCard">Cadastrar escola</a>
+    </div>
+
+    <section class="summary-grid" id="masterSummaryGrid" aria-label="Resumo master">
+      <div class="metric-card"><div class="metric-label">Carregando</div><div class="metric-value">...</div></div>
+    </section>
+
+    <div class="content-grid">
+      <section class="panel">
+        <h2>Acoes master</h2>
+        <div class="action-list">
+          <div class="action-item">
+            <div>
+              <div class="action-title">Cadastrar escola</div>
+              <div class="action-text">Crie uma escola, defina logo e disciplinas oferecidas.</div>
+            </div>
+            <a class="btn primary" href="schools.html#newSchoolCard">Abrir</a>
+          </div>
+          <div class="action-item">
+            <div>
+              <div class="action-title">Vincular usuario existente</div>
+              <div class="action-text">Associe uma conta ja criada a escola, perfil, series e disciplinas.</div>
+            </div>
+            <a class="btn" href="schools.html#linkProfessorCard">Abrir</a>
+          </div>
+          <div class="action-item">
+            <div>
+              <div class="action-title">Revisar acessos</div>
+              <div class="action-text">Confira donos, coordenacao, professores, impressao e convites.</div>
+            </div>
+            <a class="btn green" href="schools.html#accessSummarySection">Abrir</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Mapa de escolas</h2>
+        <div class="school-list" id="masterSchoolList">
+          <div class="empty">Carregando escolas...</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let auth = null;
+    let profile = null;
+    let schools = [];
+    let teamProfiles = [];
+    let invites = [];
+
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    function showToast(message, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast show ${type}`;
+      setTimeout(() => { toast.className = 'toast'; }, 3200);
+    }
+
+    function inviteStatus(invite) {
+      if (invite.canceled_at) return 'canceled';
+      if (invite.accepted_at) return 'accepted';
+      if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) return 'expired';
+      return 'pending';
+    }
+
+    function schoolProfiles(schoolId) {
+      return teamProfiles.filter(item => item.school_id === schoolId);
+    }
+
+    function countRole(items, role) {
+      return items.filter(item => auth.normalizeRole(item.role) === role).length;
+    }
+
+    function renderSummary() {
+      const counts = teamProfiles.reduce((acc, item) => {
+        const role = auth.normalizeRole(item.role);
+        acc[role] = (acc[role] || 0) + 1;
+        return acc;
+      }, {});
+      const pendingInvites = invites.filter(invite => inviteStatus(invite) === 'pending').length;
+      const canceledInvites = invites.filter(invite => inviteStatus(invite) === 'canceled').length;
+      const withoutSchool = teamProfiles.filter(item => auth.normalizeRole(item.role) !== 'master' && !item.school_id).length;
+      const metrics = [
+        ['Escolas', schools.length],
+        ['Donos', counts.school_owner || 0],
+        ['Coordenacao', counts.coordinator || 0],
+        ['Professores', counts.teacher || 0],
+        ['Impressao', counts.print_operator || 0],
+        ['Sem escola', withoutSchool],
+        ['Convites pendentes', pendingInvites],
+        ['Convites cancelados', canceledInvites],
+      ];
+      document.getElementById('masterSummaryGrid').innerHTML = metrics.map(([label, value]) => `
+        <div class="metric-card">
+          <div class="metric-label">${esc(label)}</div>
+          <div class="metric-value">${esc(value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderSchools() {
+      const el = document.getElementById('masterSchoolList');
+      if (!schools.length) {
+        el.innerHTML = '<div class="empty">Nenhuma escola cadastrada ainda.</div>';
+        return;
+      }
+      el.innerHTML = schools.map(school => {
+        const people = schoolProfiles(school.id);
+        const schoolInvites = invites.filter(invite => invite.school_id === school.id && inviteStatus(invite) === 'pending').length;
+        const disciplineCount = Array.isArray(school.disciplines) ? school.disciplines.length : 0;
+        return `
+          <div class="school-row">
+            <div>
+              <div class="school-name">${esc(school.name || 'Escola sem nome')}</div>
+              <div class="school-meta">${esc(school.city || 'Cidade nao informada')} | ${disciplineCount} disciplina(s)</div>
+              <div class="school-counts">${people.length} usuario(s) vinculado(s) | ${schoolInvites} convite(s) pendente(s)</div>
+            </div>
+            <div class="pill-row">
+              <span class="pill">Donos ${countRole(people, 'school_owner')}</span>
+              <span class="pill">Coord. ${countRole(people, 'coordinator')}</span>
+              <span class="pill">Prof. ${countRole(people, 'teacher')}</span>
+              <span class="pill">Imp. ${countRole(people, 'print_operator')}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function applyModuleNavigation() {
+      document.getElementById('navReviewLink')?.classList.toggle('show', auth.canReviewExams(profile));
+      document.getElementById('navPrintLink')?.classList.toggle('show', auth.canAccessPrintQueue(profile));
+      document.getElementById('navMasterLink')?.classList.toggle('show', auth.hasRole(['master'], profile));
+      document.getElementById('navSchoolsLink')?.classList.toggle('show', auth.canManageSchools(profile) || auth.canManageUsers(profile));
+    }
+
+    async function loadMasterData() {
+      const [schoolData, profileData, inviteData] = await Promise.all([
+        auth.authenticatedRequest('/schools?order=name.asc&select=*'),
+        auth.authenticatedRequest('/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)&order=full_name.asc&select=id,email,full_name,role,school_id,school_grade,disciplines'),
+        auth.authenticatedRequest('/user_invites?order=created_at.desc&select=*'),
+      ]);
+      schools = Array.isArray(schoolData) ? schoolData : [];
+      teamProfiles = Array.isArray(profileData) ? profileData : [];
+      invites = Array.isArray(inviteData) ? inviteData : [];
+      renderSummary();
+      renderSchools();
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      auth = initAuthManager();
+      if (!auth || !auth.isAuthenticated()) {
+        window.location.href = 'login.html?return_to=master.html';
+        return;
+      }
+
+      try {
+        profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
+        if (!auth.hasRole(['master'], profile)) {
+          showToast('Acesso restrito ao master.', 'error');
+          setTimeout(() => window.location.href = 'dashboard.html', 1200);
+          return;
+        }
+        applyModuleNavigation();
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+          await auth.signOut();
+          window.location.href = 'login.html';
+        });
+        await loadMasterData();
+      } catch (err) {
+        showToast('Erro ao carregar painel master: ' + err.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

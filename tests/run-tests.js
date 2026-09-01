@@ -4,7 +4,7 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
-const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html'];
+const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html'];
 const jsFiles = ['config.js', 'js/auth.js'];
 const questionTypes = [
   'multipla',
@@ -769,6 +769,21 @@ async function main() {
     assert(page.includes('Promover a coordenador(a)'), 'professor list should show promotion action');
     assert(page.includes("if (invite.canceled_at) return { key: 'canceled'"), 'school invites should show canceled status');
     assert(page.includes('Convites cancelados'), 'school access summary should count canceled invites');
+    assert(page.includes('Gerenciar Escola'), 'school page should use singular management title');
+    assert(page.includes('Checklist da escola'), 'school checklist title should focus on the current school');
+    assert(page.includes('Cadastro da escola'), 'school readiness should call the first step school registration');
+    assert(!page.includes('Definir responsavel'), 'school readiness should not ask the logged owner to define itself as responsible');
+    assert(page.includes('Escola cadastrada'), 'school list label should be singular in school management');
+    assert(page.includes('Convidar ou vincular usuario a esta escola'), 'invite section should refer to this school');
+    assert(!page.includes("['Master', counts.master || 0]"), 'school access summary should not count master users');
+    assert(page.includes('schoolReadinessSection') && page.includes('schoolReadinessList'), 'school page should show readiness checklist');
+    assert(page.includes('function renderSchoolReadiness'), 'school page should compute onboarding readiness');
+    assert(page.includes('const hasDisciplines = schools.some'), 'readiness should check school disciplines');
+    assert(page.includes("auth.normalizeRole(p.role) === 'coordinator'"), 'readiness should check coordinator assignment');
+    assert(page.includes("auth.normalizeRole(p.role) === 'teacher'"), 'readiness should check teacher assignment');
+    assert(page.includes("inviteStatus(invite).key === 'pending'"), 'readiness should check active invites');
+    assert(page.includes('newSchoolCard') && page.includes("document.getElementById('newSchoolCard')"), 'school page should keep new school form targeted by id');
+    assert(page.includes('navMasterLink'), 'school page should include master navigation tab');
     assert(page.includes('canceled_at:is.null') || page.includes('canceled_at=is.null'), 'cancel invite should target only active invites');
     assert(page.includes("method: 'PATCH'") && page.includes('canceled_by: auth.getCurrentUser().id'), 'cancel invite should persist cancellation instead of deleting history');
     assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
@@ -777,6 +792,27 @@ async function main() {
     assert(!page.includes('linkGradeSelect'), 'school page should not use a single grade select for linking');
   });
 
+  await test('master page separates global administration', () => {
+    const page = read('master.html');
+    const login = read('login.html');
+    const modules = ['dashboard.html', 'editor.html', 'coordenacao.html', 'impressao.html', 'schools.html'];
+    assert(page.includes('Painel Master'), 'master page title missing');
+    assert(page.includes("auth.hasRole(['master'], profile)"), 'master page should be restricted to master role');
+    assert(page.includes('/schools?order=name.asc&select=*'), 'master page should load schools');
+    assert(page.includes('/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)'), 'master page should load all managed profile roles');
+    assert(page.includes('/user_invites?order=created_at.desc&select=*'), 'master page should load invites');
+    assert(page.includes('masterSummaryGrid'), 'master page should render global summary');
+    assert(page.includes('masterSchoolList'), 'master page should render school map');
+    assert(page.includes('schools.html#newSchoolCard'), 'master page should link to school creation');
+    assert(page.includes('schools.html#linkProfessorCard'), 'master page should link to existing-user linking');
+    assert(page.includes('schools.html#accessSummarySection'), 'master page should link to access summary');
+    assert(login.includes("role === 'master'") && login.includes("return 'master.html'"), 'login should send master to master page');
+    modules.forEach((file) => {
+      const modulePage = read(file);
+      assert(modulePage.includes('navMasterLink'), `${file} should include master navigation tab`);
+      assert(modulePage.includes("['master']"), `${file} should only show master navigation for master role`);
+    });
+  });
   await test('login enforces password change after admin reset', () => {
     const page = read('login.html');
     const auth = read('js/auth.js');
@@ -794,7 +830,8 @@ async function main() {
 
   await test('login redirects by access role when no return target exists', () => {
     const page = read('login.html');
-    assert(page.includes("['master', 'school_owner'].includes(role)") && page.includes("return 'schools.html'"), 'master and school owner should default to schools page');
+    assert(page.includes("role === 'master'") && page.includes("return 'master.html'"), 'master should default to master page');
+    assert(page.includes("role === 'school_owner'") && page.includes("return 'schools.html'"), 'school owner should default to schools page');
     assert(page.includes("role === 'coordinator'") && page.includes("return 'coordenacao.html'"), 'coordinator should default to coordination page');
     assert(page.includes("role === 'print_operator'") && page.includes("return 'impressao.html'"), 'print operator should default to print queue');
     assert(page.includes("return 'dashboard.html'"), 'teacher and fallback should default to dashboard');
