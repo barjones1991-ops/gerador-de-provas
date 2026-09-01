@@ -154,7 +154,7 @@ function makeLocalStorage(initial = {}) {
 
 async function main() {
   await test('required project files exist', () => {
-    [...htmlFiles, ...jsFiles, 'setup_supabase.sql', 'CLAUDE.md'].forEach((file) => {
+    [...htmlFiles, ...jsFiles, 'setup_supabase.sql', 'CLAUDE.md', '.env.example', 'SEGURANCA_BACKUP_ESCALA.md'].forEach((file) => {
       assert(fs.existsSync(filePath(file)), `${file} is missing`);
     });
   });
@@ -206,6 +206,22 @@ async function main() {
     assert(config.SUPABASE_URL && config.SUPABASE_URL.includes('supabase.co'), 'SUPABASE_URL is not configured');
     assert(config.API_URL && config.AUTH_URL, 'API_URL or AUTH_URL missing');
     assert(!config.SUPABASE_URL.includes('seu-projeto'), 'placeholder Supabase URL still present');
+  });
+
+  await test('security operation files avoid private credentials', () => {
+    const envExample = read('.env.example');
+    const gitignore = read('.gitignore');
+    const guide = read('SEGURANCA_BACKUP_ESCALA.md');
+
+    assert(envExample.includes('SUPABASE_URL=https://seu-projeto.supabase.co'), '.env.example should use placeholder URL');
+    assert(envExample.includes('SUPABASE_ANON_KEY=cole-a-anon-key-publica-aqui'), '.env.example should use placeholder anon key');
+    assert(!/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(envExample), '.env.example should not contain JWT values');
+    assert(gitignore.split(/\r?\n/).includes('.env'), '.gitignore should ignore .env');
+    assert(gitignore.split(/\r?\n/).includes('.env.local'), '.gitignore should ignore .env.local');
+    assert(!gitignore.split(/\r?\n/).includes('.env.example'), '.gitignore should keep .env.example trackable');
+    assert(guide.includes('Seguranca') && guide.includes('Backup') && guide.includes('Escala'), 'security guide should cover security, backup and scale');
+    assert(guide.includes('SECURITY DEFINER'), 'security guide should call out SECURITY DEFINER review');
+    assert(guide.includes('select=*') && guide.includes('paginacao'), 'security guide should document scale risks');
   });
 
   await test('AuthManager loads, signs out, and handles empty authenticated response', async () => {
@@ -451,7 +467,7 @@ async function main() {
     assert(sql.includes('prevent_empty_exam_review_before_write'), 'empty exam review trigger missing');
     assert(sql.includes("COALESCE(NEW.review_status, 'rascunho') IN ('enviada', 'em_revisao', 'aprovada')"), 'empty exam trigger should guard review statuses');
     assert(sql.includes('public.exam_questions_count(NEW.questions) = 0'), 'empty exam trigger should count JSONB questions');
-    assert(sql.includes("UPDATE exams\nSET review_status = 'rascunho'"), 'setup SQL should reset already-sent empty exams');
+    assert(/UPDATE exams\r?\nSET review_status = 'rascunho'/.test(sql), 'setup SQL should reset already-sent empty exams');
     assert(sql.includes('DROP TRIGGER IF EXISTS on_auth_user_created'), 'trigger drop missing');
     assert(sql.includes('review_history'), 'review_history column missing');
     assert(sql.includes('CREATE TABLE IF NOT EXISTS schools'), 'schools table missing');
@@ -482,7 +498,7 @@ async function main() {
     assert(sql.includes('prevent_invalid_print_request_before_write'), 'invalid print request trigger missing');
     assert(sql.includes("COALESCE(NEW.print_status, 'nao_enviada') IN ('enviada', 'impressa')"), 'print trigger should guard printed/pending statuses');
     assert(sql.includes("COALESCE(NEW.review_status, 'rascunho') <> 'aprovada'"), 'print trigger should require approved exams');
-    assert(sql.includes("UPDATE exams\nSET print_status = 'nao_enviada'"), 'setup SQL should reset invalid print requests');
+    assert(/UPDATE exams\r?\nSET print_status = 'nao_enviada'/.test(sql), 'setup SQL should reset invalid print requests');
     assert(sql.includes('NEW.print_copies = GREATEST(1, COALESCE(NEW.print_copies, 1))'), 'print trigger should normalize copy count');
     assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'print queue access should include school owners and print operators');
     assert(sql.includes('force_password_change'), 'forced password change flag missing');

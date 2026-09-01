@@ -475,6 +475,15 @@ Navegador usado: pendente de validacao manual do usuario no navegador local.
 Resultado do `npm test`: aprovado.
 Impacto no Supabase: sim; `user_invites` ganha `canceled_by` e `canceled_at`, e `accept_user_invite` passa a exigir `canceled_at IS NULL`.
 Pendencias restantes: validar no navegador o checklist de prontidao; aplicar `setup_supabase.sql` no Supabase real quando houver banco pendente e validar: gerar convite, cancelar convite, confirmar que aparece como cancelado e que o link cancelado nao funciona.
+### Validacao Tecnica - Etapa 8
+
+Data: 2026-09-01.
+Perfil testado: seguranca operacional, backup e escala por codigo e testes automatizados.
+Fluxo testado: arquivos de exemplo nao carregam credenciais reais, `.gitignore` protege `.env` local e guia de seguranca/backup/escala documenta operacao minima antes de novas mudancas.
+Navegador usado: nao aplicavel nesta etapa documental.
+Resultado do `npm test`: aprovado.
+Impacto no Supabase: sem migracao; orienta backup e revisao antes de futuras mudancas em schema, RLS e RPC.
+Pendencias restantes: revisar paginacao e `select=*` nas telas com maior crescimento, e avaliar mover imagens para Supabase Storage quando houver volume real.
 ## Plano de Ajuste de Fluxo
 
 Status: implementado no commit `7908c76`.
