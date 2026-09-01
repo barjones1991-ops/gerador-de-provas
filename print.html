@@ -163,6 +163,7 @@
       margin: 0 auto 6px;
     }
     .option-item { display: grid; grid-template-columns: 1.6em 1fr; gap: 0 4px; align-items: start; line-height: 1.6; }
+    .option-item.wide-marker { grid-template-columns: auto 1fr; gap: 0 8px; }
     .mark-table { width: 100%; border-collapse: collapse; }
     .mark-table td { border: 1px solid #cbd5e1; padding: 7px 10px; }
     .texto-base-box { border-left: 4px solid #334155; background: #f8fafc; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
@@ -758,19 +759,41 @@
       }
       if (q.type === 'marcarx') {
         const items = q.items || [];
+        const markMode = ['unica', 'multipla', 'vf', 'checklist'].includes(q.markMode) ? q.markMode : 'multipla';
         if (q.markLayout === 'tabela') {
           const rows = items.map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
-            const marker = q.markMode === 'vf' ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F' : '( &nbsp; )';
-            return `<tr><td>${marker}</td><td>${esc(text || `Item ${i + 1}`)}</td></tr>`;
+            const letter = String.fromCharCode(65 + i);
+            const marker = markMode === 'vf'
+              ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F'
+              : markMode === 'checklist'
+                ? '( &nbsp; )'
+                : `${letter})`;
+            const fallback = markMode === 'vf'
+              ? `Afirmação ${i + 1}`
+              : markMode === 'checklist'
+                ? `Item ${i + 1}`
+                : `Alternativa ${letter}`;
+            return `<tr><td>${marker}</td><td>${esc(text || fallback)}</td></tr>`;
           }).join('');
           return `<table class="mark-table"><tbody>${rows}</tbody></table>`;
         }
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
         return `<div class="${layoutClass}">${items.map((item, i) => {
           const text = typeof item === 'string' ? item : item.text;
-          const marker = q.markMode === 'vf' ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F' : '( &nbsp; )';
-          return `<div class="option-item"><span>${marker}</span><span>${esc(text || `Item ${i + 1}`)}</span></div>`;
+          const letter = String.fromCharCode(65 + i);
+          const marker = markMode === 'vf'
+            ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F'
+            : markMode === 'checklist'
+              ? '( &nbsp; )'
+              : `${letter})`;
+          const fallback = markMode === 'vf'
+            ? `Afirmação ${i + 1}`
+            : markMode === 'checklist'
+              ? `Item ${i + 1}`
+              : `Alternativa ${letter}`;
+          const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
+          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}</span></div>`;
         }).join('')}</div>`;
       }
       if (q.type === 'lacunas') {
