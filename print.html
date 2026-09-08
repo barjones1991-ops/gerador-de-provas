@@ -387,6 +387,50 @@
       @page { size: A4 portrait; margin: 8mm 9mm 10mm; }
     }
   </style>
+
+  <style>
+
+      body { background: #fff; }
+
+      .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
+      .questions { display: block; }
+      .pv-header { gap: 12px; border-bottom-width: 2px; padding-bottom: 10px; }
+      .pv-kicker { font-size: 9px; letter-spacing: 0.18em; }
+      .pv-school { font-size: 22px; margin-top: 3px; }
+      .pv-title { font-size: 15px; margin-top: 3px; }
+      .logo { width: 58px; height: 58px; border-radius: 10px; }
+      .info-grid { gap: 6px; margin-top: 10px; }
+      .student-grid { gap: 6px; margin-top: 6px; }
+      .infobox { border-radius: 8px; padding: 6px 8px; }
+      .infobox .lbl { font-size: 9px; letter-spacing: 0.08em; margin-bottom: 2px; }
+      .infobox .val { font-size: 12px; }
+      .line { height: 18px; }
+      .instructions { margin-top: 8px; border-radius: 8px; padding: 7px 9px; font-size: 12px; }
+      .instructions .h { margin-bottom: 3px; font-size: 12px; }
+      .questions { margin-top: 12px; }
+      .question-block { margin: 0 0 12px; }
+      .qtitle { gap: 8px; }
+      .qtitle .n { font-size: 15px; }
+      .qtitle .p { font-size: 11px; }
+      .qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }
+      .qpreview { margin-top: 5px; font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
+      .spacey { gap: 5px; }
+      .hline { height: 16px; }
+      .two-cols { gap: 12px; }
+      .option-item { line-height: 1.35; }
+      .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
+      .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
+      .question-image { margin: 6px 0 8px; }
+      .question-image.small img { height: 80px; }
+      .question-image.medium img { height: 135px; }
+      .question-image.large img { height: 210px; }
+      .question-image.full img { max-height: 320px; }
+      .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
+    .page { width:192mm; max-width:none; min-height:279mm; padding:0; margin:8mm auto; }
+    .embedded-preview .toolbar { display:none; }
+    .embedded-preview .page { margin:0 auto; }
+    @media print { .page { width:auto; min-height:0; margin:0; } }
+  </style>
 </head>
 <body>
   <div class="toolbar no-print">
@@ -419,6 +463,7 @@
     let printAuth = null;
     let printProfile = null;
     let currentExam = null;
+    let previewAnswerKey = false;
 
     function isSafeImageDataUrl(dataUrl) {
       return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || ''));
@@ -639,7 +684,7 @@
     }
 
     function parsePtNumber(s) {
-      const n = Number(String(s || '').trim().replace('.', '').replace(',', '.'));
+      const n = ExamSafety.parseBrazilianNumber(s);
       return Number.isFinite(n) ? n : 0;
     }
 
@@ -1072,6 +1117,7 @@
     }
 
     function getQuestionAnswer(q) {
+      if (q.type === 'matematica_coluna') return (q.operations || []).map((op, i) => `${i + 1}. ${ExamSafety.operationAnswer(op)}`).join(' | ');
       if (q.type === 'multipla' && Number.isInteger(q.correctOption)) {
         return String.fromCharCode(65 + q.correctOption);
       }
@@ -1217,11 +1263,43 @@
       return exam;
     }
 
-    function renderExam(rawExam) {
+    function renderQuestionBlock(q, i, questionNumber) {
+      return `<div class="question-block">
+              <div class="qtitle">
+                ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
+              </div>
+              ${buildFreeImagesHtml(q)}
+              <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>
+              <div class="qpreview">${_buildHeaderHtml(q) + renderQuestionPreview(q)}</div>
+              <div class="free-image-clear"></div>
+            </div>`;
+    }
+
+    function patchPreviewQuestion(index, rawQuestion) {
+      if (!currentExam || !Number.isInteger(index) || index < 0 || index >= currentExam.questions.length) return;
+      const question = ExamSafety.normalizeQuestion(rawQuestion);
+      const previous = currentExam.questions[index];
+      currentExam.questions[index] = question;
+      if (!!previous.hideNumber !== !!question.hideNumber) { renderExam(currentExam, previewAnswerKey); return; }
+      const blocks = document.querySelectorAll('#root .questions > .question-block');
+      const target = blocks[index];
+      if (!target) { renderExam(currentExam, previewAnswerKey); return; }
+      const number = currentExam.questions.slice(0, index + 1).filter(q => !q.hideNumber).length;
+      const container = document.createElement('div'); container.innerHTML = renderQuestionBlock(question, index, number);
+      target.replaceWith(container.firstElementChild);
+      const key = document.querySelector('#root .answer-key');
+      if (previewAnswerKey) {
+        const answers = document.createElement('div'); answers.innerHTML = renderAnswerKey(currentExam.questions.map(ExamSafety.normalizeQuestion));
+        if (key) key.remove();
+        if (answers.firstElementChild) document.getElementById('root').appendChild(answers.firstElementChild);
+      }
+    }
+
+    function renderExam(rawExam, answerKey = null) {
       const exam = normalizeExam(rawExam);
       const questions = (Array.isArray(exam.questions) ? exam.questions : []).map(ExamSafety.normalizeQuestion);
       let questionNumber = 0;
-      const showAnswerKey = new URLSearchParams(window.location.search).get('gabarito') === '1';
+      const showAnswerKey = answerKey ?? (new URLSearchParams(window.location.search).get('gabarito') === '1');
       const sum = questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
       const logo = isSafeImageDataUrl(exam.logo_data_url)
         ? `<div class="logo has-image"><img ${safeImageAttr(exam.logo_data_url)} alt="Logo da escola" /></div>`
@@ -1254,17 +1332,7 @@
           <div class="nowrap">${esc(exam.instructions || '')}</div>
         </div>
         <div class="questions">
-          ${questions.map((q, i) => `
-            <div class="question-block">
-              <div class="qtitle">
-                ${q.hideNumber ? '' : `<div class="n">Questão ${++questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
-              </div>
-              ${buildFreeImagesHtml(q)}
-              <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>
-              <div class="qpreview">${_buildHeaderHtml(q) + renderQuestionPreview(q)}</div>
-              <div class="free-image-clear"></div>
-            </div>
-          `).join('')}
+          ${questions.map((q, i) => renderQuestionBlock(q, i, q.hideNumber ? null : ++questionNumber)).join('')}
         </div>
         ${showAnswerKey ? renderAnswerKey(questions) : ''}
       `;
@@ -1353,6 +1421,20 @@
         else url.searchParams.set('gabarito', '1');
         window.location.href = url.toString();
       });
+      if (new URLSearchParams(location.search).get('preview') === '1' && window.parent !== window) {
+        document.body.classList.add('embedded-preview');
+        window.addEventListener('message', event => {
+          if (event.origin !== location.origin || event.source !== window.parent) return;
+          try {
+            if (event.data?.type === 'exam-preview-patch') { patchPreviewQuestion(event.data.index, event.data.question); return; }
+            if (event.data?.type !== 'exam-preview') return;
+            currentExam = event.data.exam; previewAnswerKey = !!event.data.answerKey; renderExam(currentExam, previewAnswerKey);
+          }
+          catch { showMessage('Prévia indisponível', 'Confira os dados da questão.'); }
+        });
+        window.parent.postMessage({ type: 'exam-preview-ready' }, location.origin);
+        return;
+      }
       loadExam().catch((err) => showMessage('Erro ao carregar prova', err.message));
     });
   </script>

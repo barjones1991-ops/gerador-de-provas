@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js"></script>
+  <script src="js/editor-tools.js"></script>
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
@@ -1426,7 +1428,7 @@
     @media print {
       .wrap { max-width: none; padding: 0; }
       .grid { display: block; }
-      body { background: #fff; padding-top: 0; }
+      body { background: #fff; padding-top: 0; padding-left: 0; }
       .no-print { display: none !important; }
       .preview {
         box-shadow: none !important;
@@ -1512,9 +1514,10 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="css/editor-tools.css" />
 </head>
 <body>
-  <aside class="app-sidebar">
+  <aside class="app-sidebar no-print">
     <a class="app-brand" href="dashboard.html">Gerador de Provas</a>
     <nav class="app-nav" aria-label="Modulos do sistema">
       <a class="app-nav-link" href="dashboard.html">Minhas provas</a>
@@ -1543,10 +1546,10 @@
           <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
         </div>
         <div class="settings-wrap">
-          <button id="settingsBtn" class="outline gear-btn" type="button" aria-label="Menu de opcoes">&#9881;</button>
+          <button id="settingsBtn" class="outline gear-btn" type="button" aria-label="Opções de impressão">&#9881;</button>
           <div id="settingsMenu" class="settings-menu hidden">
-            <a id="printPageLink" href="print.html">PDF limpo</a>
-            <button id="printBtn" class="outline" type="button">Exportar PDF</button>
+            <a id="printPageLink" href="print.html">Abrir impressão</a>
+            <button id="printBtn" class="outline" type="button">Imprimir / PDF</button>
             <button id="gabaritoBtn" class="outline" type="button" title="Imprime a prova com o gabarito numa pagina separada">Com gabarito</button>
             <button id="printBtn2" class="outline" type="button">Imprimir</button>
           </div>
@@ -1612,7 +1615,7 @@
             <option value="relacione">Relacionar itens</option>
             <option value="imagem">Questão com imagem</option>
             <option value="matematica_coluna">Matemática</option>
-            <option value="tabela">Tabela / gráfico</option>
+            <option value="tabela">Tabela de dados</option>
             <option value="caca_palavras">Caça-palavras</option>
             <option value="cruzadinha">Cruzadinha</option>
             <option value="espaco_livre">Espaço de desenho</option>
@@ -1627,7 +1630,7 @@
       </div>
 
       <div>
-        <div id="previewRoot" class="preview">
+        <div id="previewRoot" class="preview" hidden>
           <div id="previewPaper" class="paper">
             <div class="pv-header">
               <div>
@@ -1685,7 +1688,7 @@
               <div id="pvChipQuestions" class="chip"></div>
               <div id="pvChipSum" class="chip"></div>
               <div id="pvChipScoreStatus" class="chip"></div>
-              <div class="chip">Pronto para impressão</div>
+              <div class="chip" id="readinessChip">Conferência pendente</div>
             </div>
 
             <div id="pvQuestions" class="questions"></div>
@@ -1697,10 +1700,10 @@
   </div>
 
   <div class="modal-overlay" id="questionBankModal">
-    <div class="bank-modal">
+    <div class="bank-modal" role="dialog" aria-modal="true" aria-labelledby="bankModalTitle" tabindex="-1">
       <div class="bank-modal-head">
         <div>
-          <div class="bank-modal-title">Banco de questões</div>
+          <div class="bank-modal-title" id="bankModalTitle">Banco de questões</div>
           <div class="small">Questões suas podem ser editadas ou excluídas. Questões públicas podem apenas ser usadas.</div>
         </div>
         <button class="icon-close" id="closeBankBtn" type="button">Fechar</button>
@@ -1743,7 +1746,7 @@
 
   <script>
     function parsePtNumber(s) {
-      const n = Number(String(s || '').trim().replace('.', '').replace(',', '.'));
+      const n = ExamSafety.parseBrazilianNumber(s);
       return Number.isFinite(n) ? n : 0;
     }
     function formatPt1(n) {
@@ -1981,7 +1984,7 @@
       ordenacao: 'Ordenação de frases',
       problema_matematico: 'Problema matemático',
       espaco_livre: 'Espaço de desenho',
-      tabela: 'Tabela / gráfico',
+      tabela: 'Tabela de dados',
       associacao_setas: 'Associação por setas',
       sequencia_numerica: 'Sequência numérica',
       leitura_escrita: 'Leitura e escrita',
@@ -2425,10 +2428,8 @@
     }
 
     function saveState() {
-      // Rascunho local automatico removido: a persistencia acontece apenas ao salvar na nuvem.
-      if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
+      EditorTools.changed();
     }
-
     function applyStateToInputs() {
       el('examTitle').value = state.school.examTitle || '';
       setClassOptions(state.availableClasses || [], state.school.className || '');
@@ -2469,7 +2470,7 @@
       if (current && !unique.includes(current)) unique.push(current);
       select.innerHTML = '<option value="">Selecionar turma</option>' +
         unique.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-      if (unique.length === 1 && !current) state.school.className = unique[0];
+
       select.value = state.school.className && unique.includes(state.school.className) ? state.school.className : '';
     }
 
@@ -2484,6 +2485,7 @@
     }
 
     function moveQuestion(idx, dir) {
+      if (!EditorTools.canEdit()) return;
       const newIdx = idx + dir;
       if (newIdx < 0 || newIdx >= state.questions.length) return;
       const tmp = state.questions[idx];
@@ -2497,6 +2499,7 @@
     }
 
     function duplicateQuestion(idx) {
+      if (!EditorTools.canEdit()) return;
       const copy = JSON.parse(JSON.stringify(state.questions[idx]));
       state.questions.splice(idx + 1, 0, copy);
       const nextCollapsed = {};
@@ -2612,7 +2615,7 @@
             window.alert(`Nao foi possivel reduzir esta imagem para ate ${formatBytes(maxOutputBytes)}.`);
             return;
           }
-          onReady(dataUrl, file.name, bytes);
+          if (EditorTools.canEdit()) onReady(dataUrl, file.name, bytes);
         };
         img.onerror = () => window.alert('Nao foi possivel carregar esta imagem.');
         img.src = String(reader.result || '');
@@ -2646,11 +2649,16 @@
     }
 
     function openCropModal(dataUrl, onConfirm) {
+      if (!EditorTools.canEdit()) return;
+      const events = new AbortController();
       const overlay = document.createElement('div');
       overlay.className = 'crop-modal-overlay';
 
       const box = document.createElement('div');
       box.className = 'crop-modal-box';
+      box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Recortar imagem');
+      const close = () => { events.abort(); overlay.remove(); EditorTools.closeModal(); };
+      overlay.dismiss = close;
 
       const title = document.createElement('div');
       title.className = 'crop-modal-title';
@@ -2692,12 +2700,12 @@
         };
       };
 
-      displayCanvas.addEventListener('mousedown', (e) => {
+      displayCanvas.addEventListener('pointerdown', (e) => {
         const p = getPos(e);
         startX = p.x; startY = p.y; isDragging = true;
         selDiv.style.display = 'block';
       });
-      document.addEventListener('mousemove', (e) => {
+      document.addEventListener('pointermove', (e) => {
         if (!isDragging) return;
         const p = getPos(e);
         cropX = Math.min(startX, p.x); cropY = Math.min(startY, p.y);
@@ -2709,8 +2717,8 @@
         selDiv.style.top = (cropY * scaleY) + 'px';
         selDiv.style.width = (cropW * scaleX) + 'px';
         selDiv.style.height = (cropH * scaleY) + 'px';
-      });
-      document.addEventListener('mouseup', () => { isDragging = false; });
+      }, { signal: events.signal });
+      document.addEventListener('pointerup', () => { isDragging = false; }, { signal: events.signal });
 
       const btnBar = document.createElement('div');
       btnBar.className = 'crop-modal-btns';
@@ -2737,8 +2745,8 @@
           cropCanvas.getContext('2d').drawImage(srcImg, origX, origY, origW, origH, 0, 0, origW, origH);
           let out = cropCanvas.toDataURL('image/webp', 0.82);
           if (!out.startsWith('data:image/webp')) out = cropCanvas.toDataURL('image/jpeg', 0.82);
-          document.body.removeChild(overlay);
-          onConfirm(out);
+          close();
+          if (EditorTools.canEdit()) onConfirm(out);
         };
         srcImg.src = dataUrl;
       });
@@ -2747,7 +2755,7 @@
       cancelBtn.className = 'outline';
       cancelBtn.textContent = 'Cancelar';
       cancelBtn.type = 'button';
-      cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+      cancelBtn.addEventListener('click', close);
 
       const hint = document.createElement('div');
       hint.className = 'small';
@@ -2758,10 +2766,27 @@
       box.appendChild(title);
       box.appendChild(hint);
       box.appendChild(canvasWrap);
+      const numeric = document.createElement('div'); numeric.className = 'row two';
+      const controls = {};
+      for (const [key, labelText, value] of [['x','Esquerda (%)',0], ['y','Topo (%)',0], ['w','Largura (%)',100], ['h','Altura (%)',100]]) {
+        const label = document.createElement('label'); label.textContent = labelText;
+        const input = document.createElement('input'); input.type = 'number'; input.min = 0; input.max = 100; input.value = value; controls[key] = input;
+        input.addEventListener('input', () => {
+          const val = name => Math.max(0, Math.min(100, Number(controls[name].value) || 0)) / 100;
+          cropX = val('x') * displayCanvas.width; cropY = val('y') * displayCanvas.height;
+          cropW = Math.min(val('w') * displayCanvas.width, displayCanvas.width - cropX);
+          cropH = Math.min(val('h') * displayCanvas.height, displayCanvas.height - cropY);
+          selDiv.style.display = 'block'; selDiv.style.left = `${val('x') * 100}%`; selDiv.style.top = `${val('y') * 100}%`;
+          selDiv.style.width = `${cropW / displayCanvas.width * 100}%`; selDiv.style.height = `${cropH / displayCanvas.height * 100}%`;
+        });
+        label.appendChild(input); numeric.appendChild(label);
+      }
+      box.appendChild(numeric);
       box.appendChild(btnBar);
       overlay.appendChild(box);
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
       document.body.appendChild(overlay);
+      EditorTools.openModal(overlay);
     }
 
     function createImagePicker({ getImage, setImage, clearImage }) {
@@ -2830,7 +2855,7 @@
         if (!img.dataUrl) return;
         rotateLeftBtn.disabled = true;
         rotateImageDataUrl(img.dataUrl, 270).then(out => {
-          setImage(out, img.fileName);
+          if (EditorTools.canEdit()) setImage(out, img.fileName);
           refresh(); renderPreview();
           rotateLeftBtn.disabled = false;
         });
@@ -2846,7 +2871,7 @@
         if (!img.dataUrl) return;
         rotateRightBtn.disabled = true;
         rotateImageDataUrl(img.dataUrl, 90).then(out => {
-          setImage(out, img.fileName);
+          if (EditorTools.canEdit()) setImage(out, img.fileName);
           refresh(); renderPreview();
           rotateRightBtn.disabled = false;
         });
@@ -2899,7 +2924,7 @@
           <div style="text-align:center; padding:32px 16px; border:2px dashed var(--border); border-radius:16px; color:var(--muted);">
             <div style="font-size:36px; margin-bottom:10px;">📋</div>
             <div style="font-weight:700; margin-bottom:4px;">Nenhuma questão ainda</div>
-            <div class="small">Selecione o tipo acima e clique em "Nova questão"</div>
+            <div class="small">Clique em "Nova questão" para escolher um modelo ou usar o banco.</div>
           </div>`;
         return;
       }
@@ -2989,6 +3014,7 @@
       removeBtn.title = 'Remover imagem';
         removeBtn.title = 'Remover questão';
         removeBtn.addEventListener('click', () => {
+          if (!EditorTools.canEdit()) return;
           state.questions.splice(idx, 1);
           const nextCollapsed = {};
           state.questions.forEach((_, i) => {
@@ -3050,6 +3076,9 @@
         head.appendChild(actions);
         wrap.appendChild(freeImageInput);
 
+        wrap.dataset.questionIndex = idx;
+        wrap.id = `question-${idx}`;
+        if (isCollapsed) { wrap.appendChild(head); root.appendChild(wrap); return; }
         const body = document.createElement('div');
         body.className = 'row';
         body.style.marginTop = '12px';
@@ -3091,8 +3120,8 @@
 
         if (q.type === 'multipla') {
           let actionRow = null;
-          if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', ''];
-          if (q.options.length > 6) q.options = q.options.slice(0, 6);
+          if (!Array.isArray(q.options)) q.options = [];
+          while (q.options.length < 2) q.options.push('');
           if (q.correctOption !== null && (q.correctOption < 0 || q.correctOption >= q.options.length)) {
             q.correctOption = null;
           }
@@ -3130,6 +3159,7 @@
             remove.textContent = 'Remover';
             remove.disabled = q.options.length <= 2;
             remove.addEventListener('click', () => {
+              if (q.options.length <= 2) return;
               q.options.splice(j, 1);
               if (q.correctOption === j) q.correctOption = null;
               else if (q.correctOption > j) q.correctOption -= 1;
@@ -3249,7 +3279,8 @@
             removeBtn.textContent = '❌';
             removeBtn.disabled = q.items.length <= 1;
             removeBtn.style.cssText = 'background:none; border:none; cursor:pointer; font-size:16px; padding:2px 4px; opacity:' + (q.items.length <= 1 ? '0.3' : '1') + '; line-height:1; flex-shrink:0; margin-top:4px;';
-            removeBtn.addEventListener('click', () => { q.items.splice(j, 1); renderAll(); });
+            removeBtn.addEventListener('click', () => { if (q.items.length <= 1) return;
+              q.items.splice(j, 1); renderAll(); });
 
             topRow.appendChild(lbl);
             topRow.appendChild(inp);
@@ -3404,6 +3435,7 @@
             remove.textContent = 'Remover';
             remove.disabled = q.items.length <= 1;
             remove.addEventListener('click', () => {
+              if (q.items.length <= 1) return;
               q.items.splice(j, 1);
               renderAll();
             });
@@ -3436,7 +3468,6 @@
           if (!q.imageAlign) q.imageAlign = 'center';
           if (typeof q.imageCaption !== 'string') q.imageCaption = '';
           if (!Array.isArray(q.options) || q.options.length < 2) q.options = ['', '', '', ''];
-          if (q.options.length > 6) q.options = q.options.slice(0, 6);
           if (q.correctOption !== null && (q.correctOption < 0 || q.correctOption >= q.options.length)) q.correctOption = null;
           if (!Array.isArray(q.items) || q.items.length === 0) {
             q.items = [
@@ -3544,7 +3575,8 @@
               remove.textContent = 'Remover';
               remove.disabled = q.options.length <= 2;
               remove.addEventListener('click', () => {
-                q.options.splice(j, 1);
+                if (q.options.length <= 2) return;
+              q.options.splice(j, 1);
                 if (q.correctOption === j) q.correctOption = null;
                 else if (q.correctOption > j) q.correctOption -= 1;
                 renderAll();
@@ -3597,7 +3629,8 @@
               remove.textContent = 'Remover';
               remove.disabled = q.items.length <= 1;
               remove.addEventListener('click', () => {
-                q.items.splice(j, 1);
+                if (q.items.length <= 1) return;
+              q.items.splice(j, 1);
                 renderAll();
               });
               row.appendChild(checkbox);
@@ -3715,7 +3748,7 @@
           ansOpts.innerHTML = `
             <div>
               <label>Linhas por pergunta</label>
-              <input type="number" data-k="lines" value="${q.lines || 3}" min="1" max="12" />
+              <input type="number" data-k="lines" value="${esc(q.lines || 3)}" min="1" max="12" />
             </div>
             <div>
               <label>Formato da resposta</label>
@@ -3890,6 +3923,7 @@
             remove.textContent = 'Remover';
             remove.disabled = q.items.length <= 1;
             remove.addEventListener('click', () => {
+              if (q.items.length <= 1) return;
               q.items.splice(j, 1);
               renderAll();
             });
@@ -3949,6 +3983,7 @@
             remove.disabled = q.items.length <= 1;
             remove.style.cssText = 'background:none; border:none; cursor:pointer; font-size:16px; padding:2px 4px; opacity:' + (q.items.length <= 1 ? '0.3' : '1') + '; line-height:1; flex-shrink:0; margin-top:2px;';
             remove.addEventListener('click', () => {
+              if (q.items.length <= 1) return;
               q.items.splice(j, 1);
               q.answers = q.items.map((current) => current.answer);
               renderAll();
@@ -4189,7 +4224,7 @@
               ${q.answerType === 'discursiva' ? `
               <div>
                 <label>Nº de linhas</label>
-                <input type="number" data-k="lines" value="${q.lines || 5}" min="2" max="15" />
+                <input type="number" data-k="lines" value="${esc(q.lines || 5)}" min="2" max="15" />
               </div>` : ''}
             </div>
           `;
@@ -4270,7 +4305,7 @@
             </div>
             <div>
               <label>Quadradinhos padrão</label>
-              <input data-k="answerBoxes" type="number" min="1" max="8" value="${q.answerBoxes||4}" />
+              <input data-k="answerBoxes" type="number" min="1" max="8" value="${esc(q.answerBoxes||4)}" />
               <div class="small" style="margin-top:2px;">Quando o resultado não está preenchido</div>
             </div>
             <div>
@@ -4419,7 +4454,7 @@
             </div>
             <div>
               <label>Nº de quadradinhos</label>
-              <input data-k="answerBoxes" type="number" min="1" max="8" value="${q.answerBoxes||3}" />
+              <input data-k="answerBoxes" type="number" min="1" max="8" value="${esc(q.answerBoxes||3)}" />
             </div>
           `;
           body.appendChild(cfgE);
@@ -4458,7 +4493,7 @@
 
           const tryKatexPreview = (latex) => {
             if (!latex) return '<span style="color:#94a3b8;font-size:13px;">pré-visualização aqui</span>';
-            if (typeof katex === 'undefined') return `<code>${latex}</code>`;
+            if (typeof katex === 'undefined') return `<code>${esc(latex)}</code>`;
             try { return katex.renderToString(latex, { throwOnError: false, displayMode: false }); }
             catch(e) { return `<span style="color:#ef4444;font-size:12px;">${esc(String(e).slice(0,60))}</span>`; }
           };
@@ -4541,7 +4576,7 @@
           block.innerHTML = `
             <div>
               <label>Número de palavras / linhas</label>
-              <input type="number" data-k="wordCount" value="${q.wordCount||10}" min="1" max="30" />
+              <input type="number" data-k="wordCount" value="${esc(q.wordCount||10)}" min="1" max="30" />
             </div>
             <div>
               <label>Lista de palavras (uso do professor — não aparece na prova)</label>
@@ -4594,11 +4629,11 @@
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
               <div>
                 <label>Linhas de resposta</label>
-                <input type="number" data-k="lines" value="${q.lines||4}" min="1" max="20" />
+                <input type="number" data-k="lines" value="${esc(q.lines||4)}" min="1" max="20" />
               </div>
               <div>
                 <label>Linhas de cálculo</label>
-                <input type="number" data-k="calcLines" value="${q.calcLines||6}" min="1" max="20" />
+                <input type="number" data-k="calcLines" value="${esc(q.calcLines||6)}" min="1" max="20" />
               </div>
               <div>
                 <label>Formato de resposta</label>
@@ -4619,7 +4654,7 @@
           block.innerHTML = `
             <div>
               <label>Altura do espaço (px)</label>
-              <input type="number" data-k="height" value="${q.height||120}" min="60" max="600" step="20" />
+              <input type="number" data-k="height" value="${esc(q.height||120)}" min="60" max="600" step="20" />
             </div>
             <div>
               <label>Borda</label>
@@ -4655,7 +4690,7 @@
             });
             const addColBtn = document.createElement('button'); addColBtn.type='button'; addColBtn.className='outline'; addColBtn.textContent='+ Col';
             addColBtn.style.cssText='padding:6px 10px;font-size:12px;';
-            addColBtn.addEventListener('click', () => { q.headers.push(`Col ${q.headers.length+1}`); q.rows.forEach(r=>r.push('')); renderTableEditor(); renderPreview(); });
+            addColBtn.addEventListener('click', () => { q.headers.push(`Col ${q.headers.length+1}`); q.rows.forEach(r=>r.push('')); renderAll(); });
             hcols.appendChild(addColBtn);
             hrow.appendChild(hcols);
             tblock.appendChild(hrow);
@@ -4671,19 +4706,39 @@
               });
               const rmBtn = document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕';
               rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
-              if (q.rows.length > 1) rmBtn.addEventListener('click', () => { q.rows.splice(ri,1); renderTableEditor(); renderPreview(); });
+              if (q.rows.length > 1) rmBtn.addEventListener('click', () => { q.rows.splice(ri,1); renderAll(); });
               else rmBtn.disabled = true;
               rrow.appendChild(rmBtn);
               tblock.appendChild(rrow);
             });
             const addRowBtn = document.createElement('button'); addRowBtn.type='button'; addRowBtn.className='secondary'; addRowBtn.textContent='+ Adicionar linha';
-            addRowBtn.addEventListener('click', () => { q.rows.push(q.headers.map(()=>'')); renderTableEditor(); renderPreview(); });
+            addRowBtn.addEventListener('click', () => { q.rows.push(q.headers.map(()=>'')); renderAll(); });
             tblock.appendChild(addRowBtn);
             const ansRow = document.createElement('div'); ansRow.className='row two'; ansRow.style.marginTop='8px';
-            ansRow.innerHTML=`<div><label>Tipo de resposta</label><select data-k="answerType"><option value="discursiva" ${q.answerType==='discursiva'?'selected':''}>Discursiva</option><option value="multipla" ${q.answerType==='multipla'?'selected':''}>Múltipla escolha</option><option value="nenhuma" ${q.answerType==='nenhuma'?'selected':''}>Sem resposta</option></select></div><div><label>Linhas</label><input type="number" data-k="lines" value="${q.lines||3}" min="1" max="15"/></div>`;
+            ansRow.innerHTML=`<div><label>Tipo de resposta</label><select data-k="answerType"><option value="discursiva" ${q.answerType==='discursiva'?'selected':''}>Discursiva</option><option value="multipla" ${q.answerType==='multipla'?'selected':''}>Múltipla escolha</option><option value="nenhuma" ${q.answerType==='nenhuma'?'selected':''}>Sem resposta</option></select></div><div><label>Linhas</label><input type="number" data-k="lines" value="${esc(q.lines||3)}" min="1" max="15"/></div>`;
             tblock.appendChild(ansRow);
           };
           renderTableEditor();
+          if (q.answerType === 'multipla') {
+            if (!Array.isArray(q.options)) q.options = ['', ''];
+            while (q.options.length < 2) q.options.push('');
+            const choices = document.createElement('div');
+            choices.className = 'row';
+            q.options.forEach((option, optionIndex) => {
+              const row = document.createElement('label');
+              row.textContent = `Alternativa ${String.fromCharCode(65 + optionIndex)} `;
+              const correct = document.createElement('input'); correct.type = 'radio'; correct.name = `table-answer-${idx}`;
+              correct.checked = q.correctOption === optionIndex;
+              correct.setAttribute('aria-label', `Alternativa correta ${String.fromCharCode(65 + optionIndex)}`);
+              correct.addEventListener('change', () => { q.correctOption = optionIndex; renderPreview(); });
+              const text = document.createElement('input'); text.value = option;
+              text.addEventListener('input', () => { q.options[optionIndex] = text.value; renderPreview(); });
+              row.append(correct, text); choices.appendChild(row);
+            });
+            const add = document.createElement('button'); add.type = 'button'; add.textContent = 'Adicionar alternativa'; add.disabled = q.options.length >= 6;
+            add.addEventListener('click', () => { if (q.options.length < 6) { q.options.push(''); renderAll(); } });
+            choices.appendChild(add); tblock.appendChild(choices);
+          }
           body.appendChild(tblock);
         }
 
@@ -4824,7 +4879,7 @@
             </div>
             <div>
               <label>Tamanho da grade</label>
-              <input type="number" data-k="gridSize" value="${q.gridSize || 12}" min="8" max="18" />
+              <input type="number" data-k="gridSize" value="${esc(q.gridSize || 12)}" min="8" max="18" />
               <div class="small">Use palavras curtas. A grade Ã© gerada automaticamente.</div>
             </div>
           `;
@@ -4942,7 +4997,7 @@
           const cap2=document.createElement('div'); cap2.innerHTML=`<label>Legenda B</label><input data-k="image2Caption" value="${esc(q.image2Caption||'Imagem B')}" />`;
           cblock.appendChild(cap2);
           const ansRow=document.createElement('div'); ansRow.className='row two'; ansRow.style.marginTop='8px';
-          ansRow.innerHTML=`<div><label>Linhas de resposta</label><input type="number" data-k="lines" value="${q.lines||4}" min="1" max="15"/></div><div><label>Formato</label><select data-k="answerStyle"><option value="linhas" ${q.answerStyle==='linhas'?'selected':''}>Linhas</option><option value="caixa" ${q.answerStyle==='caixa'?'selected':''}>Caixa</option><option value="espaco" ${q.answerStyle==='espaco'?'selected':''}>Espaço</option></select></div>`;
+          ansRow.innerHTML=`<div><label>Linhas de resposta</label><input type="number" data-k="lines" value="${esc(q.lines||4)}" min="1" max="15"/></div><div><label>Formato</label><select data-k="answerStyle"><option value="linhas" ${q.answerStyle==='linhas'?'selected':''}>Linhas</option><option value="caixa" ${q.answerStyle==='caixa'?'selected':''}>Caixa</option><option value="espaco" ${q.answerStyle==='espaco'?'selected':''}>Espaço</option></select></div>`;
           cblock.appendChild(ansRow);
           body.appendChild(cblock);
         }
@@ -5424,6 +5479,8 @@
         wrap.appendChild(body);
         root.appendChild(wrap);
       });
+      EditorTools.enhanceFields();
+      if (typeof applyReviewLock === 'function') { try { applyReviewLock(); } catch {} }
     }
 
     function buildHeaderImageHtml(q) {
@@ -5866,70 +5923,8 @@
     }
 
     function renderPreview() {
-      el('pvSchoolName').textContent = state.school.schoolName || 'Nome da Escola';
-      el('pvExamTitle').textContent = state.school.examTitle || 'Avaliação';
-      el('pvSubject').textContent = state.school.subject || 'Disciplina';
-      el('pvTeacher').textContent = state.school.teacher || 'Professor(a)';
-      el('pvClassName').textContent = state.school.className || 'Turma';
-      el('pvTerm').textContent = state.school.term || 'Etapa';
-      el('pvDate').textContent = state.school.date ? state.school.date : '____/____/______';
-      el('pvTotalValue').textContent = state.school.totalValue || '0,0';
-      el('pvInstructions').textContent = state.school.instructions || '';
-
-      const logo = el('pvLogo');
-      if (isSafeImageDataUrl(state.logoDataUrl)) {
-        logo.classList.add('has-image');
-        logo.innerHTML = `<img ${safeImageAttr(state.logoDataUrl)} alt="Logo da escola" />`;
-      } else {
-        logo.classList.remove('has-image');
-        logo.textContent = 'Logo da escola';
-      }
-
-      const totalQuestions = state.questions.length;
-      const scoreCheck = getScoreCheck();
-      el('pvChipQuestions').textContent = `${totalQuestions} questões`;
-      el('pvChipSum').textContent = `Soma configurada: ${formatPt1(scoreCheck.questionTotal)} pontos`;
-      const scoreStatus = el('pvChipScoreStatus');
-      scoreStatus.className = 'chip';
-      if (!scoreCheck.expectedTotal) {
-        scoreStatus.textContent = 'Valor total nao informado';
-        scoreStatus.classList.add('warn');
-      } else if (scoreCheck.isConsistent) {
-        scoreStatus.textContent = 'Pontuacao confere';
-        scoreStatus.classList.add('ok');
-      } else {
-        const direction = scoreCheck.difference > 0 ? 'acima' : 'abaixo';
-        scoreStatus.textContent = `Atencao: ${formatPt1(Math.abs(scoreCheck.difference))} ponto(s) ${direction} do total`;
-        scoreStatus.classList.add('warn');
-      }
-
-      const pvRoot = el('pvQuestions');
-      let qNum = 0;
-      pvRoot.innerHTML = state.questions.map((q, i) => {
-        if (!q.hideNumber) qNum++;
-        const text = q.text || 'Digite o enunciado da questão.';
-        const numLabel = q.hideNumber ? '' : `<div class="n">Questão ${qNum}</div>`;
-        const bnccBadge = q.bncc ? `<span class="bncc-badge no-print">${esc(q.bncc)}</span>` : '';
-        const preview = buildHeaderImageHtml(q) + renderQuestionPreview(q);
-        return `
-          <div class="question-block">
-            <div class="qtitle">
-              ${numLabel}
-              <div class="p">${q.hideNumber ? '' : `Valor: ${esc(q.points)}`}${bnccBadge}</div>
-            </div>
-            ${buildFreeImagesHtml(q, i, true)}
-            <div class="qtext">${esc(text)}</div>
-            <div class="qpreview">${preview}</div>
-            <div class="free-image-clear"></div>
-          </div>
-        `;
-      }).join('');
-
-      renderGabarito();
-      initFreeImageInteractions();
-      saveState();
+      EditorTools.changed();
     }
-
     function initFreeImageInteractions() {
       document.querySelectorAll('.free-image-remove').forEach((btn) => {
         btn.addEventListener('click', (event) => {
@@ -5938,7 +5933,7 @@
           const qi = Number(item?.dataset.questionIndex);
           const ii = Number(item?.dataset.imageIndex);
           const q = state.questions[qi];
-          if (!q || !Array.isArray(q.freeImages)) return;
+          if (!EditorTools.canEdit() || !q || !Array.isArray(q.freeImages)) return;
           q.freeImages.splice(ii, 1);
           renderAll();
         });
@@ -5952,6 +5947,7 @@
         if (!img) return;
 
         const startMove = (event, resizing = false) => {
+          if (!EditorTools.canEdit()) return;
           event.preventDefault();
           event.stopPropagation();
           const block = item.closest('.question-block');
@@ -5981,21 +5977,21 @@
           };
 
           const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
             saveState();
           };
 
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
+          document.addEventListener('pointermove', onMove);
+          document.addEventListener('pointerup', onUp);
         };
 
-        item.addEventListener('mousedown', (event) => {
+        item.addEventListener('pointerdown', (event) => {
           if (event.target.closest('.free-image-remove') || event.target.closest('.free-image-resize')) return;
           startMove(event, false);
         });
         const handle = item.querySelector('.free-image-resize');
-        if (handle) handle.addEventListener('mousedown', (event) => startMove(event, true));
+        if (handle) handle.addEventListener('pointerdown', (event) => startMove(event, true));
       });
     }
 
@@ -6058,16 +6054,7 @@
       }
       if (tipo === 'matematica_coluna') {
         const ops = q.operations || [];
-        const results = ops.map((op, i) => {
-          if (op.result && op.result.trim()) return `${i+1}. ${op.result.trim()}`;
-          const a = parseFloat(String(op.num1||op.expression||'').replace(',','.')), b = parseFloat(String(op.num2||'').replace(',','.'));
-          const operator = op.op || '+';
-          if (!isNaN(a) && !isNaN(b)) {
-            let r; if (operator==='+') r=a+b; else if (operator==='-') r=a-b; else if (operator==='×'||operator==='x') r=a*b; else if ((operator==='÷'||operator==='/')&&b) r=a/b;
-            if (r!=null) return `${i+1}. ${Number.isInteger(r)?r:r.toFixed(2).replace('.',',')}`;
-          }
-          return `${i+1}. ?`;
-        }).join(' | ');
+        const results = ops.map((op, i) => `${i+1}. ${ExamSafety.operationAnswer(op)}`).join(' | ');
         return { tipo: 'objetivo', num, ans: results || '(operações — sem resultado)' };
       }
       if (tipo === 'subitens') {
@@ -6211,68 +6198,22 @@
     }
 
     function renderAll() {
+      EditorTools.forceSnapshot = true;
+      const focused = document.activeElement;
+      const focusKey = focused?.getAttribute?.('data-k');
+      const focusIndex = focused?.closest?.('.qcard')?.dataset.questionIndex;
+      if (EditorTools.initialized) EditorTools.recordHistory();
       renderQuestionsEditor();
+      EditorTools.enhanceFields();
+      if (focusKey && focusIndex != null) document.querySelector(`[data-question-index="${focusIndex}"] [data-k="${focusKey}"]`)?.focus();
       renderPreview();
       setTimeout(renderA4BreakIndicators, 120);
     }
 
     // Indicadores visuais de quebra de página A4 no preview
     function renderA4BreakIndicators() {
-      const paper = el('previewPaper');
-      if (!paper) return;
-      // Remove indicadores anteriores
-      paper.querySelectorAll('.a4-break-indicator').forEach(el => el.remove());
-
-      const pvQ = el('pvQuestions');
-      if (!pvQ) return;
-      const paperRect = paper.getBoundingClientRect();
-      const paperTop = paperRect.top + window.scrollY;
-
-      // A4 a 96dpi: 297mm → ~1122px. Margem impresso: 22mm topo+baixo ≈ 83px.
-      // Conteúdo por página ≈ 1039px. Mas na tela o zoom varia, então usamos
-      // a proporção da largura do paper em relação a 794px (A4 width at 96dpi).
-      const paperWidth = paperRect.width || 794;
-      const scale = paperWidth / 794;
-      const pageHeightPx = Math.round(1039 * scale);
-
-      const blocks = pvQ.querySelectorAll('.question-block');
-      let markers = new Set();
-      blocks.forEach(block => {
-        const blockRect = block.getBoundingClientRect();
-        const blockTop = blockRect.top + window.scrollY - paperTop;
-        const blockBottom = blockTop + blockRect.height;
-        const pageStart = Math.floor(blockTop / pageHeightPx);
-        const pageEnd = Math.floor(blockBottom / pageHeightPx);
-        if (pageEnd > pageStart) {
-          // Esta questão cruza uma quebra de página
-          for (let p = pageStart + 1; p <= pageEnd; p++) {
-            markers.add(p);
-          }
-        }
-      });
-
-      // Insere marcadores nos pontos de quebra dentro da lista de questões
-      if (markers.size === 0) return;
-      const allBlocks = Array.from(pvQ.querySelectorAll('.question-block'));
-      markers.forEach(pageNum => {
-        const breakY = pageNum * pageHeightPx;
-        // Encontra o bloco logo antes do breakY
-        let insertBefore = null;
-        for (const block of allBlocks) {
-          const bRect = block.getBoundingClientRect();
-          const bTop = bRect.top + window.scrollY - paperTop;
-          if (bTop >= breakY) { insertBefore = block; break; }
-        }
-        const indicator = document.createElement('div');
-        indicator.className = 'a4-break-indicator no-print';
-        if (insertBefore) {
-          pvQ.insertBefore(indicator, insertBefore);
-        } else {
-          pvQ.appendChild(indicator);
-        }
-      });
+      // The canonical print frame provides fixed A4 width; browser controls pagination.
     }
-
     function wireSchoolInputs() {
       const ids = ['examTitle','term','totalValue','instructions'];
       ids.forEach((id) => {
@@ -6351,6 +6292,7 @@
     });
 
     function addQuestionOfType(type) {
+      if (!EditorTools.canEdit()) return;
       const t = type || selectedQType;
       state.questions.forEach((_, idx) => {
         state.collapsedQuestions[idx] = true;
@@ -6405,16 +6347,8 @@
     });
 
     function printCleanDocument() {
-      const problems = ExamSafety.wordSearchProblems(state.questions);
-      if (problems.length) { showToast(problems.join(' '), 'err'); return; }
-      const originalTitle = document.title;
-      document.title = ' ';
-      const restoreTitle = () => { document.title = originalTitle; };
-      window.addEventListener('afterprint', restoreTitle, { once: true });
-      window.print();
-      setTimeout(restoreTitle, 1000);
+      EditorTools.openPrint(false);
     }
-
     async function runAfterAutosave(action) {
       const ok = typeof flushAutoSaveBeforeAction === 'function'
         ? await flushAutoSaveBeforeAction()
@@ -6430,6 +6364,7 @@
             return;
           }
           event.preventDefault();
+          if (link.id === 'printPageLink') { await EditorTools.openPrint(false); return; }
           const destination = link.href;
           const ok = typeof flushAutoSaveBeforeAction === 'function'
             ? await flushAutoSaveBeforeAction({ navigation: true })
@@ -6439,32 +6374,17 @@
       });
     }
 
-    el('printBtn').addEventListener('click', () => {
-      const sec = el('gabaritoSection');
-      if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
-      runAfterAutosave(printCleanDocument);
-    });
-    el('printBtn2').addEventListener('click', () => {
-      const sec = el('gabaritoSection');
-      if (sec) { sec.dataset.show = 'false'; sec.style.display = 'none'; renderGabarito(); }
-      runAfterAutosave(printCleanDocument);
-    });
-    el('gabaritoBtn').addEventListener('click', async () => {
-      const sec = el('gabaritoSection');
-      if (!sec) return;
-      sec.dataset.show = 'true';
-      sec.style.display = 'block';
-      renderGabarito();
-      await runAfterAutosave(printCleanDocument);
-      // Oculta após impressão
-      setTimeout(() => { sec.style.display = 'none'; sec.dataset.show = 'false'; }, 500);
-    });
+    el('printBtn').addEventListener('click', () => EditorTools.openPrint(false));
+    el('printBtn2').addEventListener('click', () => EditorTools.openPrint(false));
+    el('gabaritoBtn').addEventListener('click', () => EditorTools.openPrint(true));
 
     wireAutosaveBeforeNavigation();
 
-    applyStateToInputs();
-    wireSchoolInputs();
-    renderAll();
+    document.addEventListener('DOMContentLoaded', () => {
+      applyStateToInputs();
+      wireSchoolInputs();
+      renderAll();
+    });
   </script>
 
   <script src="config.js"></script>
@@ -6476,7 +6396,7 @@
     const examIdFromUrl = editorParams.get('id');
     if (forceNewExam) localStorage.removeItem('editExamId');
     if (examIdFromUrl) localStorage.setItem('editExamId', examIdFromUrl);
-    let currentExamId = forceNewExam ? null : (examIdFromUrl || localStorage.getItem('editExamId') || null);
+    let currentExamId = (forceNewExam || EditorTools.bankId) ? null : (examIdFromUrl || localStorage.getItem('editExamId') || null);
     let toastTimer;
     let currentReviewStatus = 'rascunho';
     let currentExamOwnerId = null;
@@ -6499,7 +6419,7 @@
     }
 
     function pendingDraftKey() {
-      return `gerador-provas-pending-v2:${editorUserId}:${currentExamId}`;
+      return `gerador-provas-pending-v2:${editorUserId}:${currentExamId || `bank:${EditorTools.bankId}`}`;
     }
 
     function preservePendingDraft() {
@@ -6620,6 +6540,7 @@
     }
 
     async function saveQuestionToBank(idx) {
+      if (EditorTools.bankId) return EditorTools.saveBank();
       if (!auth || !auth.isAuthenticated()) {
         showToast('Entre na conta para usar o banco de questões.', 'err');
         return;
@@ -6770,6 +6691,7 @@
     }
 
     function insertBankQuestion(index) {
+      if (!EditorTools.canEdit()) return;
       const item = window.currentQuestionBankResults?.[index];
       if (!item?.question) return;
       state.questions.push(cloneQuestion(item.question));
@@ -6779,17 +6701,9 @@
 
     function editBankQuestion(index) {
       const item = window.currentQuestionBankResults?.[index];
-      if (!item?.question) return;
-      if (item.user_id !== auth?.getCurrentUser()?.id) {
-        showToast('Você só pode alterar questões criadas por você.', 'err');
-        return;
-      }
-      state.questions.push(cloneQuestion(item.question));
-      renderAll();
-      closeQuestionBankModal();
-      showToast('Questão aberta no editor. Depois de ajustar, salve novamente no banco.', 'ok');
+      if (!item?.id || item.user_id !== auth?.getCurrentUser()?.id) return;
+      window.open(`editor.html?bank=${encodeURIComponent(item.id)}`, '_blank', 'noopener');
     }
-
     async function deleteBankQuestion(index) {
       const item = window.currentQuestionBankResults?.[index];
       if (!item?.id) return;
@@ -6886,11 +6800,13 @@
 
     function openQuestionBankModal() {
       document.getElementById('questionBankModal').classList.add('show');
+      EditorTools.openModal(document.getElementById('questionBankModal'));
       loadQuestionBank();
     }
 
     function closeQuestionBankModal() {
       document.getElementById('questionBankModal').classList.remove('show');
+      EditorTools.closeModal();
     }
 
     function handleQuestionBankAction(event) {
@@ -6919,6 +6835,7 @@
         return;
       }
 
+      if (EditorTools.bankId) { await EditorTools.loadBank(); return; }
       if (!currentExamId) {
         window.location.href = 'dashboard.html?new=1';
         return;
@@ -6945,6 +6862,7 @@
       if (!await loadFromCloud(currentExamId)) return;
       await applyProfileDefaults();
       autoSaveReady = Boolean(currentExamId && currentExamVersion);
+      EditorTools.resetHistory();
       setEditorLoading(false);
       applyReviewLock();
       setAutoSaveHint('Alteracoes salvas automaticamente.');
@@ -6954,10 +6872,10 @@
     }
 
     function setEditorLoading(loading) {
+      EditorTools.loading = loading;
       document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button, #topNewQuestionBtn, #openBankBtn')
-        .forEach(node => { node.disabled = loading; });
+        .forEach(node => EditorTools.lockControl(node, loading || ['aprovada', 'bloqueada'].includes(currentReviewStatus)));
     }
-
     function updatePrintPageLink() {
       const link = document.getElementById('printPageLink');
       if (!link) return;
@@ -6989,7 +6907,7 @@
     }
 
     function applyReviewLock() {
-      const locked = ['aprovada', 'bloqueada'].includes(currentReviewStatus);
+      const locked = ['aprovada', 'bloqueada'].includes(currentReviewStatus) || auth?.getCurrentUser()?.id !== editorUserId;
       const labels = {
         rascunho: '',
         enviada: 'Status: enviada para coordenação',
@@ -7008,21 +6926,21 @@
       document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button')
         .forEach((node) => {
           if (['printBtn', 'printBtn2'].includes(node.id)) return;
-          node.disabled = locked;
+          EditorTools.lockControl(node, locked || EditorTools.loading);
         });
       ['topNewQuestionBtn', 'openBankBtn'].forEach((id) => {
         const node = document.getElementById(id);
-        if (node) node.disabled = locked;
+        if (node) EditorTools.lockControl(node, locked || EditorTools.loading);
       });
       document.querySelectorAll('#topQuestionMenu button, #questionBankModal button[data-bank-action], #questionBankModal select[data-bank-scope-action]')
-        .forEach((node) => { node.disabled = locked; });
+        .forEach((node) => { EditorTools.lockControl(node, locked || EditorTools.loading); });
       if (locked) {
         const topMenu = document.getElementById('topQuestionMenu');
         if (topMenu) topMenu.classList.add('hidden');
         const bankModal = document.getElementById('questionBankModal');
         if (bankModal) bankModal.classList.remove('show');
       }
-      if (locked) showToast('Esta prova foi aprovada/bloqueada pela coordenação e não pode mais ser alterada.', 'err');
+      EditorTools.refreshActions();
     }
 
     function initializeNewExamState() {
@@ -7071,7 +6989,7 @@
         const shouldUseTeacher = !state.school.teacher || state.school.teacher === defaultSchool.teacher;
 
         // Auto-fill teacher from profile
-        if (shouldUseTeacher && profile.full_name) state.school.teacher = profile.full_name;
+        if (!currentExamId && shouldUseTeacher && profile.full_name) state.school.teacher = profile.full_name;
 
         let profileClasses = normalizeClassList(profile.school_grade);
         let schoolClasses = [];
@@ -7087,8 +7005,8 @@
             );
             const school = Array.isArray(sd) ? sd[0] : null;
             if (school) {
-              if (shouldUseSchool && school.name) state.school.schoolName = school.name;
-              if (!state.logoDataUrl && school.logo_data_url) state.logoDataUrl = school.logo_data_url;
+              if (!currentExamId && shouldUseSchool && school.name) state.school.schoolName = school.name;
+              if (!currentExamId && !state.logoDataUrl && school.logo_data_url) state.logoDataUrl = school.logo_data_url;
               if (Array.isArray(school.classes) && school.classes.length) {
                 schoolClasses = normalizeClassList(school.classes);
               }
@@ -7108,7 +7026,7 @@
           state.availableClasses = profileClasses;
           const shouldUseClass = !state.school.className || state.school.className === defaultSchool.className;
           if (shouldUseClass || (profileClasses.length === 1 && !profileClasses.includes(state.school.className))) {
-            state.school.className = profileClasses[0];
+            if (!currentExamId) state.school.className = profileClasses[0];
           }
         }
 
@@ -7144,15 +7062,15 @@
         if (!exam.updated_at) throw new Error('Não foi possível verificar a versão desta prova.');
         currentExamOwnerId = exam.user_id || null;
         state.school = {
-          schoolName: exam.school_name || defaultSchool.schoolName,
-          examTitle: exam.title || defaultSchool.examTitle,
-          subject: exam.subject || defaultSchool.subject,
-          teacher: exam.teacher || defaultSchool.teacher,
-          className: exam.class_name || defaultSchool.className,
-          term: exam.term || defaultSchool.term,
+          schoolName: exam.school_name ?? defaultSchool.schoolName,
+          examTitle: exam.title ?? defaultSchool.examTitle,
+          subject: exam.subject ?? defaultSchool.subject,
+          teacher: exam.teacher ?? defaultSchool.teacher,
+          className: exam.class_name ?? defaultSchool.className,
+          term: exam.term ?? defaultSchool.term,
           date: exam.date || '',
-          totalValue: exam.total_value || defaultSchool.totalValue,
-          instructions: exam.instructions || defaultSchool.instructions,
+          totalValue: exam.total_value ?? defaultSchool.totalValue,
+          instructions: exam.instructions ?? defaultSchool.instructions,
         };
         state.questions = (Array.isArray(exam.questions) ? exam.questions : []).map(ExamSafety.normalizeQuestion);
         collapseAllQuestions();
@@ -7186,6 +7104,7 @@
     }
 
     function scheduleAutoSave() {
+      if (EditorTools.bankId) return;
       if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return;
       if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return;
       if (examFingerprint() === lastSavedFingerprint) return;
@@ -7211,6 +7130,7 @@
     async function flushAutoSaveBeforeAction(options = {}) {
       clearTimeout(autoSaveTimer);
       autoSaveQueued = false;
+      if (EditorTools.bankId && EditorTools.bankRecord) return EditorTools.saveBank();
 
       if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) {
         // Sem carga confirmada, permite voltar ao dashboard, mas nunca imprimir.
@@ -7226,6 +7146,8 @@
 
     async function saveToCloud(options = {}) {
       const isAuto = Boolean(options.auto);
+      if (EditorTools.bankId) return EditorTools.saveBank();
+      if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return false;
       if (!auth || !auth.isAuthenticated()) {
         showToast('Entre para salvar na nuvem.', 'err');
         return false;

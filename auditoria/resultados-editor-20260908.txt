@@ -1,0 +1,11 @@
+CONFIRMADO HTML: atributo adicional preservado em wordCount
+CONFIRMADO HTML: atributo adicional preservado em calcLines
+CONFIRMADO alinhamento: lado_esquerda vira left ao normalizar
+CONFIRMADO alinhamento: lado_direita vira left ao normalizar
+CONFIRMADO turma: prova salva em 5A muda para 6A ao aplicar perfil
+CONFIRMADO banco: Alterar insere questao na prova sem vinculo ao registro original
+CONFIRMADO bloqueio: imagem removida localmente em prova aprovada; fluxo permite imprimir
+CONFIRMADO controles: applyReviewLock reabilita botao desabilitado por limite de alternativas
+CONFIRMADO gabarito: 1.000 + 2 resulta em 1. 3 (esperado em notacao brasileira: 1.002)
+CONFIRMADO menu: 12 entradas; texto_base nao tem entrada direta
+Diagnostico concluido. Nenhum dado real foi lido ou alterado.

@@ -355,8 +355,8 @@ async function main() {
     assert(editor.includes('imageCaption'), 'image caption control missing');
     assert(editor.includes('Largura total'), 'image full width option missing');
     assert(editor.includes('pvChipScoreStatus'), 'score status chip missing');
-    assert(editor.includes('Pontuacao confere'), 'score match message missing');
-    assert(editor.includes('ponto(s) ${direction} do total'), 'score mismatch warning missing');
+    assert(read('js/editor-tools.js').includes('Conferência sem pendências'), 'readiness summary missing');
+    assert(read('js/exam-safety.js').includes('difere do valor total'), 'score mismatch warning missing');
     assert(editor.includes('collapsedQuestions'), 'collapsed questions state missing');
     assert(editor.includes('toggleQuestionCollapsed'), 'question collapse toggle missing');
     assert(editor.includes('collapseAllQuestions'), 'cloud-loaded exams should start with questions collapsed');
@@ -612,7 +612,7 @@ async function main() {
     assert(editor.includes('function printCleanDocument()'), 'editor should use clean print wrapper');
     assert(print.includes('function printCleanDocument()'), 'print page should use clean print wrapper');
     assert(print.includes('onclick="printCleanDocument()"'), 'print page button should call clean print wrapper');
-    assert(editor.includes("document.title = ' ';"), 'editor should clear title while printing');
+    assert(read('js/editor-tools.js').includes('location.href = `print.html?id='), 'editor should route printing through the canonical page');
     assert(print.includes("document.title = ' ';"), 'print page should clear title while printing');
     assert(editor.includes('margin: 8mm 9mm 10mm 9mm;'), 'editor should use compact printable page margins');
     assert(print.includes('@page { size: A4 portrait; margin: 8mm 9mm 10mm; }'), 'print page should use compact printable page margins');
@@ -708,7 +708,7 @@ async function main() {
     assert(dashboard.includes('function filterClassesByCurrentSchool'), 'dashboard should filter profile classes by official school classes');
     assert(dashboard.includes('if (getCurrentSchoolClasses().length) return []'), 'dashboard should not fall back to old exam classes when school classes exist');
     assert(editor.includes('function setClassOptions'), 'editor should populate class options');
-    assert(editor.includes('if (unique.length === 1 && !current) state.school.className = unique[0];'), 'single class should be selected automatically');
+    assert(editor.includes('if (!currentExamId) state.school.className = profileClasses[0];'), 'existing exam class must not be replaced by profile defaults');
     assert(editor.includes("subject: '',"), 'default subject should be empty so the placeholder is not a selectable discipline');
     assert(editor.includes('function isPlaceholderDiscipline'), 'editor should detect placeholder discipline names');
     assert(editor.includes("['disciplina', 'diciplina', 'selecionar disciplina']"), 'editor should filter placeholder and typo discipline labels');
@@ -718,7 +718,7 @@ async function main() {
     assert(!editor.includes('Dados incorretos? Atualize seu perfil'), 'editor should not show profile maintenance link inside the exam form');
     assert(!editor.includes('logoUploadFallback'), 'editor should not show logo fallback upload inside the removed profile summary');
     assert(!editor.includes('id="date"'), 'date should not be editable in the editor form');
-    assert(editor.includes("el('pvDate').textContent = state.school.date ? state.school.date : '____/____/______';"), 'editor preview should keep student date placeholder');
+    assert(read('js/editor-tools.js').includes('print.html?preview=1'), 'editor should use canonical print preview with student date placeholder');
     assert(print.includes("exam.date || '____/____/______'"), 'print page should keep student date placeholder');
     assert(editor.indexOf('<label>Valor total</label>') > editor.indexOf('<label>Bimestre/Etapa</label>'), 'total value should remain in the metadata editor after term');
   });
@@ -753,7 +753,7 @@ async function main() {
     assert(editor.includes('if (ok) window.location.href = destination'), 'editor should navigate only after successful flush save');
     assert(editor.includes('function getScoreCheck()'), 'editor should expose score consistency helper');
     assert(editor.includes("['enviada', 'em_revisao', 'aprovada'].includes(reviewPayload.review_status)"), 'editor should guard score divergence before review save');
-    assert(editor.includes('runAfterAutosave(printCleanDocument)'), 'editor print actions should save before printing');
+    assert(read('js/editor-tools.js').includes('if (!await flushAutoSaveBeforeAction()) return;'), 'editor print actions should save before printing');
     assert(!editor.includes('saveCloudBtn'), 'editor should not show a manual save button when autosave is active');
     assert(editor.includes('Salvando alteracoes...'), 'editor should show autosave progress in the status line');
     assert(editor.includes('function setAutoSaveHint'), 'editor should have a calm autosave hint helper');

@@ -1,0 +1,69 @@
+[hidden] { display: none !important; }
+body { padding-top: var(--editor-bar-height,155px); padding-left: 200px; }
+.app-sidebar { width: 200px; }
+.editor-actionbar { left: 200px; }
+.editor-actionbar-inner { max-width: 1600px; }
+.wrap { max-width: 1600px; }
+.grid { grid-template-columns: minmax(360px, 1fr) minmax(360px, 1.2fr); align-items: start; }
+.editor-primary-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:4px 0 10px; }
+.editor-primary-actions > div { display:flex; flex-wrap:wrap; gap:6px; }
+.editor-primary-actions button { min-height:40px; }
+#activeExamTitle { overflow-wrap:anywhere; }
+.topbar-panel { grid-template-columns:auto minmax(0,1fr) auto; }
+.topbar-status { min-width:0; }
+#cloudUser { font-size:11px; }
+#examDetails, #questionOverview, #readinessDetails { border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:12px 0; }
+summary { cursor:pointer; font-weight:700; padding:4px; }
+#examDetails > .row { margin-top:14px; }
+#questionOutline, #examIssues { display:grid; gap:6px; margin-top:10px; }
+#questionOutline button, #examIssues button { text-align:left; background:#f8fafc; color:#334155; overflow-wrap:anywhere; }
+.qcard { scroll-margin-top:calc(var(--editor-bar-height,155px) + 16px); }
+.preview-options { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+.preview-options label { letter-spacing:normal; text-transform:none; display:flex; align-items:center; gap:6px; }
+.preview-options input { width:auto; }
+#canonicalPreviewPanel { position:sticky; top:var(--editor-bar-height,155px); min-width:0; }
+.preview-scroll { overflow:auto; max-height:calc(100vh - 240px); border:1px solid #cbd5e1; background:#e2e8f0; border-radius:8px; }
+#canonicalPreview { width:794px; height:1100px; border:0; background:white; zoom:.8; }
+.top-question-menu { width:min(360px,85vw); }
+.top-question-menu small { display:block; white-space:normal; font-size:11px; font-weight:400; color:#475569; margin-top:4px; }
+.modal-overlay { z-index:200; }
+.dialog-open { overflow:hidden; }
+.free-image-fields { border:1px solid #cbd5e1; border-radius:8px; margin-top:12px; }
+.image-control-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
+.free-image-item { touch-action:none; }
+.crop-canvas-wrap canvas { touch-action:none; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+#saveBankRecordBtn { display:none; }
+.bank-mode #saveBankRecordBtn { display:inline-flex; }
+.bank-mode #examDetails,.bank-mode #questionOverview,.bank-mode #topNewQuestionBtn,.bank-mode #mainPrintBtn,.bank-mode .settings-wrap { display:none; }
+#bankEditFields { display:grid; gap:10px; border:1px solid #cbd5e1; border-radius:10px; }
+@media (max-width:1150px) {
+  body { padding-left:0; padding-top:0; }
+  .app-sidebar { position:static; width:auto; padding:10px 16px; gap:8px; }
+  .app-nav { display:flex; overflow:auto; white-space:nowrap; }
+  .editor-actionbar { position:sticky; left:0; top:0; }
+  .grid { grid-template-columns:minmax(0,1fr); }
+  #canonicalPreviewPanel { position:static; }
+  body[data-editor-view="edit"] #canonicalPreviewPanel { display:none; }
+  body[data-editor-view="preview"] #editorPanel { display:none; }
+  .preview-scroll { max-height:75vh; }
+  .editor-primary-actions { flex-direction:column; align-items:stretch; }
+  .editor-primary-actions > div { display:flex; }
+  #cloudBar, #cloudBar.visible { display:grid !important; grid-template-columns:auto minmax(0,1fr) auto !important; }
+  #cloudBar .topbar-actions { display:flex !important; }
+}
+@media (max-width:600px) {
+  .app-nav-link { padding:8px; font-size:12px; }
+  .app-brand { font-size:15px; }
+  .editor-primary-actions button { padding:8px; font-size:12px; }
+  #cloudBar, #cloudBar.visible { display:flex !important; flex-wrap:wrap; }
+  .topbar-status { flex:1; font-size:11px; }
+  #cloudBar .settings-wrap { width:auto; }
+  #settingsBtn { width:40px; min-width:40px; }
+  .image-control-row { grid-template-columns:1fr; }
+}
+@media print {
+  body { padding:0 !important; }
+  .app-sidebar,.editor-actionbar,#editorPanel,#canonicalPreviewPanel { display:none !important; }
+  body::after { content:'Use Imprimir / PDF na barra do editor para abrir a versão de impressão.'; display:block; font-size:18px; }
+}

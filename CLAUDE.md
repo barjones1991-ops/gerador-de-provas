@@ -16,7 +16,7 @@ Links:
 
 ## Correções da Auditoria de 08/09/2026
 
-O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com testes e deploy do Pages aprovados. O segundo lote (S08, escola permanente da prova) está implementado e testado localmente. A fonte de acompanhamento por achado é [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md). A análise original é histórica; para verificar as correções, executar `npm ci --ignore-scripts` e `npm test` (Node.js 22+).
+O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com testes e deploy do Pages aprovados. O segundo lote (S08, escola permanente da prova) foi publicado em `3cf5d23`. A fonte de acompanhamento por achado é [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md). A análise original é histórica; para verificar as correções, executar `npm ci --ignore-scripts` e `npm test` (Node.js 22+).
 
 - O editor somente abre provas já criadas no dashboard; links de nova prova convergem para `dashboard.html?new=1`.
 - Autosave exige carregamento e versão confirmados; PATCH com zero linhas é conflito, não sucesso.
@@ -27,6 +27,8 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 - Validação visual ainda pendente: as ferramentas não encontraram navegador disponível nesta sessão.
 
 ## Estado Atual
+
+O lote do editor (E01–E16), com publicação autorizada pelo usuário em 08/09/2026, está descrito em [auditoria/CORRECOES_EDITOR_2026-09-08.md](auditoria/CORRECOES_EDITOR_2026-09-08.md). `js/editor-tools.js` controla histórico, conferência, edição independente do banco e prévia; `css/editor-tools.css` contém os ajustes visuais. A prévia usa `print.html?preview=1` por mensagens da mesma origem. `editor.html?bank=ID` atualiza o registro original com PATCH por versão. Não exige SQL adicional; ainda falta validação visual em navegador.
 
 O projeto já tem a base principal implementada:
 

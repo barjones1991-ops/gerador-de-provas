@@ -30,6 +30,7 @@ function editor(request = async () => '') {
   };
   const context = {
     ExamSafety, Blob, URL, setTimeout, clearTimeout,
+    EditorTools: { loading:false, bankId:null, refreshActions() {}, lockControl(node, locked) { node.disabled = locked; } },
     document: { getElementById: node, querySelectorAll: () => [node('editorInput')] },
     auth: { isAuthenticated: () => true, getCurrentUser: () => ({ id: 'u1' }), authenticatedRequest: request },
     localStorage: storage(), state: { school: { examTitle: 'Original' }, questions: [], logoDataUrl: '' },
@@ -134,7 +135,7 @@ async function test(name, task) { await task(); checks++; console.log('OK REG', 
   });
   await test('PDF respeita numero oculto sem deslocar questao seguinte', () => {
     const node = { innerHTML: '' };
-    const ctx = functions(read('print.html'), ['esc','parsePtNumber','normalizeExam','renderExam'], {
+    const ctx = functions(read('print.html'), ['esc','parsePtNumber','normalizeExam','renderQuestionBlock','renderExam'], {
       ExamSafety, URLSearchParams, window: { location: { search: '' } }, document: { getElementById: () => node },
       isSafeImageDataUrl: () => false, buildFreeImagesHtml: () => '', _buildHeaderHtml: () => '', renderQuestionPreview: () => '',
     });
