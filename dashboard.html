@@ -263,6 +263,60 @@
       .app-sidebar { position: static; width: auto; min-height: auto; border-right: 0; border-bottom: 1px solid #e2e8f0; padding: 16px; }
       .app-nav { grid-template-columns: 1fr; }
     }
+    .btn-new, .avatar { background: #2563eb; }
+    .btn-new, .select-control, .search-wrap input, .review-note { border-radius: 8px; }
+    .btn-new:hover { transform: none; box-shadow: none; background: #1d4ed8; }
+    .exam-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #cbd5e1; margin-bottom: 20px; }
+    .exam-tab { font: inherit; font-size: 13px; padding: 12px 10px; border: 0; border-bottom: 3px solid transparent; background: none; color: #475569; cursor: pointer; }
+    .exam-tab[aria-pressed="true"] { border-bottom-color: #2563eb; color: #1d4ed8; font-weight: 800; }
+    .exam-tab span { display: inline-block; min-width: 24px; margin-left: 5px; font-variant-numeric: tabular-nums; }
+    .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; }
+    .search-wrap { grid-column: 1 / -1; min-width: 0; }
+    .search-wrap input { padding: 12px; }
+    .select-control { min-width: 0; width: 100%; }
+    .list-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; font-size: 13px; color: #475569; }
+    #showingInfo { margin-right: auto; }
+    #sortSelect { width: auto; max-width: 100%; }
+    .grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .exam-card { border-radius: 8px; overflow: visible; display: grid; gap: 12px; padding: 18px; }
+    .exam-card:hover { transform: none; box-shadow: none; border-color: #cbd5e1; }
+    .card-heading { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
+    .card-title { margin: 0; padding: 0; min-width: 0; overflow-wrap: anywhere; }
+    .card-badge { position: static; flex-shrink: 0; letter-spacing: 0; }
+    .badge-review { background: #e0f2fe; color: #075985; }
+    .badge-locked { background: #fee2e2; color: #991b1b; }
+    .card-meta { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 0; }
+    .meta-row { display: grid; gap: 4px; align-content: start; min-width: 0; }
+    .meta-label { color: #64748b; }
+    .meta-value { overflow-wrap: anywhere; }
+    .review-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .exam-context { font-size: 13px; color: #475569; }
+    .card-footer { align-items: center; flex-wrap: wrap; padding-top: 12px; margin: 0; }
+    .card-btn { flex: none; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 700; padding: 9px 12px; }
+    .card-btn.edit { background: #2563eb; color: white; }
+    .card-btn.edit:hover { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+    .card-btn.review { background: white; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .exam-menu { margin-left: auto; position: relative; }
+    .exam-menu summary { list-style: none; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 24px; }
+    .exam-menu summary::-webkit-details-marker { display: none; }
+    .exam-menu-items { position: absolute; right: 0; top: 42px; z-index: 5; width: 180px; padding: 6px; display: grid; gap: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; box-shadow: 0 6px 16px #0002; }
+    .exam-menu-items .card-btn { text-align: left; background: white; color: #334155; width: 100%; }
+    .exam-menu-items .delete { color: #b91c1c; }
+    .exam-menu-items .card-btn:hover { background: #f1f5f9; }
+    .load-error { color: #991b1b; margin-bottom: 16px; font-size: 14px; }
+    :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1000px) { .card-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 640px) {
+      .controls { grid-template-columns: minmax(0, 1fr); }
+      .card-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card-heading { flex-direction: column-reverse; }
+      .card-footer > .card-btn { flex: 1 1 130px; }
+      .header-right { flex-wrap: wrap; gap: 8px; }
+      .user-info { min-width: 0; }
+      .user-email, .user-name { overflow-wrap: anywhere; }
+      .exam-tab { padding: 10px 6px; }
+    }
   </style>
 </head>
 <body>
@@ -296,40 +350,13 @@
     <button class="btn-new" id="newExamBtn">＋ Nova Prova</button>
   </div>
 
-  <div class="stats">
-    <div class="stat-card" data-filter="all" title="Ver todas as provas">
-      <div class="stat-icon">📄</div>
-      <div>
-        <div class="stat-label">Total de provas</div>
-        <div class="stat-value" id="statTotal">—</div>
-      </div>
-    </div>
-    <div class="stat-card" data-filter="draft" title="Ver rascunhos">
-      <div class="stat-icon">✏️</div>
-      <div>
-        <div class="stat-label">Rascunhos</div>
-        <div class="stat-value" id="statDraft">—</div>
-      </div>
-    </div>
-    <div class="stat-card" data-filter="published" title="Ver publicadas">
-      <div class="stat-icon">✅</div>
-      <div>
-        <div class="stat-label">Publicadas</div>
-        <div class="stat-value" id="statPublished">—</div>
-      </div>
-    </div>
-  </div>
+  <div class="exam-tabs" id="examTabs" aria-label="Situação das provas"></div>
 
   <div class="controls">
     <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="Buscar por título, disciplina ou turma..." />
+      <input type="search" id="searchInput" aria-label="Buscar provas" placeholder="Buscar por título, disciplina ou turma..." />
     </div>
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all">Todas</button>
-      <button class="filter-btn" data-filter="draft">Rascunhos</button>
-      <button class="filter-btn" data-filter="published">Publicadas</button>
-    </div>
+    <select class="select-control" id="classFilter" aria-label="Filtrar por turma"><option value="">Todas as turmas</option></select>
     <select class="select-control" id="subjectFilter" aria-label="Filtrar por disciplina">
       <option value="">Todas as disciplinas</option>
     </select>
@@ -343,16 +370,14 @@
       <option value="2º Semestre">2º Semestre</option>
       <option value="Anual">Anual</option>
     </select>
-    <select class="select-control" id="reviewStatusFilter" aria-label="Filtrar por status de revisão">
-      <option value="">Todos os status</option>
-      <option value="rascunho">Rascunho</option>
-      <option value="enviada">Enviada para coordenação</option>
-      <option value="em_revisao">Em revisão</option>
-      <option value="aprovada">Aprovada</option>
-      <option value="devolvida">Devolvida para ajustes</option>
-      <option value="bloqueada">Bloqueada</option>
-    </select>
+  </div>
+  <div class="list-toolbar">
+    <span id="showingInfo" role="status" aria-live="polite"></span>
+    <button class="btn-profile" id="clearFiltersBtn" type="button" hidden>Limpar filtros</button>
+    <button class="btn-profile" id="reloadExamsBtn" type="button">Atualizar</button>
     <select class="select-control" id="sortSelect" aria-label="Ordenar provas">
+      <option value="priority">Precisam de atenção primeiro</option>
+      <option value="updated_desc">Última atualização</option>
       <option value="created_desc">Mais recentes</option>
       <option value="created_asc">Mais antigas</option>
       <option value="title_asc">Título A-Z</option>
@@ -360,7 +385,7 @@
     </select>
   </div>
 
-  <div id="showingInfo" style="font-size:13px;color:#64748b;margin-bottom:10px;min-height:18px;"></div>
+  <p id="examsLoadError" class="load-error" role="alert" hidden></p>
   <div class="grid" id="examsGrid">
     <div class="skeleton"></div>
     <div class="skeleton"></div>
@@ -461,8 +486,10 @@
   let currentFilter = 'all';
   let currentSubject = '';
   let currentTerm = '';
-  let currentReviewStatus = '';
-  let currentSort = 'created_desc';
+  let currentClass = '';
+  let currentSort = 'priority';
+  let examsLoading = false;
+  const teacherStages = [['attention', 'Precisam de atenção'], ['draft', 'Em elaboração'], ['review', 'Na coordenação'], ['approved', 'Aprovadas'], ['all', 'Todas']];
   let pendingDeleteId = null;
 
   const PLACEHOLDER_DISCIPLINES = new Set(['disciplina', 'diciplina', 'selecionar disciplina']);
@@ -521,8 +548,8 @@
       currentTerm = e.target.value;
       renderExams();
     });
-    document.getElementById('reviewStatusFilter').addEventListener('change', (e) => {
-      currentReviewStatus = e.target.value;
+    document.getElementById('classFilter').addEventListener('change', (e) => {
+      currentClass = e.target.value;
       renderExams();
     });
     document.getElementById('sortSelect').addEventListener('change', (e) => {
@@ -530,27 +557,28 @@
       renderExams();
     });
 
+    document.getElementById('examTabs').addEventListener('click', event => {
+      const button = event.target.closest('[data-stage]');
+      if (!button) return;
+      currentFilter = button.dataset.stage;
+      renderExams();
+      document.querySelector(`[data-stage="${currentFilter}"]`).focus();
+    });
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearExamFilters);
+    document.getElementById('reloadExamsBtn').addEventListener('click', loadExams);
+    document.addEventListener('click', event => {
+      document.querySelectorAll('.exam-menu[open]').forEach(menu => {
+        if (!menu.contains(event.target)) menu.open = false;
+      });
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      document.querySelectorAll('.exam-menu[open]').forEach(menu => {
+        menu.open = false;
+        menu.querySelector('summary').focus();
+      });
+    });
     await loadExams();
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.dataset.filter;
-        renderExams();
-      });
-    });
-    document.querySelectorAll('.stat-card[data-filter]').forEach(card => {
-      card.addEventListener('click', () => {
-        const f = card.dataset.filter;
-        currentFilter = f;
-        currentSubject = ''; currentTerm = ''; currentReviewStatus = '';
-        document.getElementById('subjectFilter').value = '';
-        document.getElementById('termFilter').value = '';
-        document.getElementById('reviewStatusFilter').value = '';
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
-        renderExams();
-      });
-    });
 
     if (requiresPasswordChange()) {
       await openProfileModal();
@@ -630,18 +658,60 @@
   }
 
   async function loadExams() {
+    if (examsLoading) return;
+    examsLoading = true;
+    document.getElementById('reloadExamsBtn').disabled = true;
+    document.getElementById('examsLoadError').hidden = true;
     try {
       const user = auth.getCurrentUser();
       const endpoint = `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`;
       const data = await auth.authenticatedRequest(endpoint);
       exams = (Array.isArray(data) ? data : []).filter((exam) => exam.user_id === user.id).map((exam) => ({ ...exam, questions: getExamQuestions(exam) }));
       renderSubjectOptions();
+      const classes = [...new Set(exams.map(exam => exam.class_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      if (!classes.includes(currentClass)) currentClass = '';
+      document.getElementById('classFilter').innerHTML = '<option value="">Todas as turmas</option>' + classes.map(value => `<option value="${esc(value)}"${value === currentClass ? ' selected' : ''}>${esc(value)}</option>`).join('');
       renderExams();
     } catch (err) {
-      exams = [];
-      renderExams();
+      const error = document.getElementById('examsLoadError');
+      error.textContent = 'Não foi possível carregar as provas. Tente novamente em Atualizar.';
+      error.hidden = false;
+      if (!exams.length) document.getElementById('examsGrid').innerHTML = '';
       showToast('Erro ao carregar provas: ' + err.message, 'error');
+    } finally {
+      examsLoading = false;
+      document.getElementById('reloadExamsBtn').disabled = false;
     }
+  }
+
+  function getTeacherExamState(exam) {
+    const review = exam.review_status || 'rascunho';
+    const history = Array.isArray(exam.review_history) ? exam.review_history : [];
+    const lastReturn = [...history].reverse().find(entry => entry.action === 'devolvida');
+    const returned = review === 'devolvida' || (review === 'rascunho' && Boolean(lastReturn));
+    const drafting = ['rascunho', 'devolvida'].includes(review);
+    const score = getExamScoreCheck(exam);
+    return {
+      review, returned, drafting,
+      attention: returned || review === 'bloqueada' || (drafting && hasExamQuestions(exam) && !score.isConsistent),
+      notes: returned ? exam.review_notes || lastReturn?.notes || '' : '',
+      label: returned ? 'Ajustes solicitados' : ({ rascunho: 'Em elaboração', enviada: 'Aguardando revisão', em_revisao: 'Em revisão', aprovada: 'Aprovada', bloqueada: 'Bloqueada' }[review] || 'Em elaboração'),
+    };
+  }
+
+  function matchesTeacherStage(exam, stage) {
+    const state = getTeacherExamState(exam);
+    if (stage === 'attention') return state.attention;
+    if (stage === 'draft') return state.drafting && !state.returned;
+    if (stage === 'review') return ['enviada', 'em_revisao'].includes(state.review);
+    if (stage === 'approved') return state.review === 'aprovada';
+    return true;
+  }
+
+  function clearExamFilters() {
+    currentSubject = ''; currentTerm = ''; currentClass = '';
+    ['searchInput', 'subjectFilter', 'termFilter', 'classFilter'].forEach(id => document.getElementById(id).value = '');
+    renderExams();
   }
 
   function renderExams() {
@@ -649,121 +719,93 @@
     const search = document.getElementById('searchInput').value.toLowerCase();
 
     let filtered = exams;
-    if (currentFilter === 'draft') filtered = exams.filter(e => e.is_draft);
-    else if (currentFilter === 'published') filtered = exams.filter(e => e.is_published);
     if (currentSubject) filtered = filtered.filter(e => (e.subject || '') === currentSubject);
     if (currentTerm) filtered = filtered.filter(e => (e.term || '') === currentTerm);
-    if (currentReviewStatus) filtered = filtered.filter(e => (e.review_status || 'rascunho') === currentReviewStatus);
+    if (currentClass) filtered = filtered.filter(e => (e.class_name || '') === currentClass);
     if (search) filtered = filtered.filter(e =>
       (e.title || '').toLowerCase().includes(search) ||
       (e.subject || '').toLowerCase().includes(search) ||
       (e.class_name || '').toLowerCase().includes(search) ||
       (e.teacher || '').toLowerCase().includes(search)
     );
-    filtered = sortExams(filtered);
+    document.getElementById('examTabs').innerHTML = teacherStages.map(([stage, label]) => `<button type="button" class="exam-tab" data-stage="${stage}" aria-pressed="${stage === currentFilter}">${label}<span>${filtered.filter(exam => matchesTeacherStage(exam, stage)).length}</span></button>`).join('');
+    filtered = sortExams(filtered.filter(exam => matchesTeacherStage(exam, currentFilter)));
 
-    // Atualizar stats
-    document.getElementById('statTotal').textContent = exams.length;
-    document.getElementById('statDraft').textContent = exams.filter(e => e.is_draft).length;
-    document.getElementById('statPublished').textContent = exams.filter(e => e.is_published).length;
-
-    // Highlight stat card ativo
-    document.querySelectorAll('.stat-card').forEach(c => {
-      c.classList.toggle('active-filter', c.dataset.filter === currentFilter);
-    });
-
-    const hasFilters = search || currentSubject || currentTerm || currentReviewStatus || currentFilter !== 'all';
+    const hasFilters = search || currentSubject || currentTerm || currentClass;
     const canCreateExam = !auth.hasRole(['print_operator'], currentProfile);
     const info = document.getElementById('showingInfo');
-    if (info) info.textContent = hasFilters && filtered.length !== exams.length ? `Mostrando ${filtered.length} de ${exams.length} prova${exams.length !== 1 ? 's' : ''} — filtros ativos` : '';
+    if (info) info.textContent = `${filtered.length} prova${filtered.length === 1 ? '' : 's'} · ${teacherStages.find(([stage]) => stage === currentFilter)[1]}`;
+    document.getElementById('clearFiltersBtn').hidden = !hasFilters;
 
     if (filtered.length === 0) {
       grid.innerHTML = `
           <div class="empty">
             <div class="empty-icon">${hasFilters ? '🔍' : '📄'}</div>
-          <h2>${hasFilters ? 'Nenhuma prova encontrada' : 'Nenhuma prova ainda'}</h2>
-          <p>${hasFilters ? 'Ajuste a busca ou os filtros para ver mais provas.' : 'Crie sua primeira prova clicando no botão acima.'}</p>
-          ${!hasFilters && canCreateExam ? `<button class="btn-new" onclick="openNewExamModal()">＋ Nova Prova</button>` : ''}
+          <h2>${hasFilters ? 'Nenhuma prova encontrada' : !exams.length ? 'Sua primeira prova começa aqui' : currentFilter === 'attention' ? 'Nenhum ajuste pendente' : 'Nenhuma prova nesta etapa'}</h2>
+          <p>${hasFilters ? 'Tente outra busca ou limpe os filtros.' : !exams.length ? 'Você ainda não criou provas.' : currentFilter === 'attention' ? 'Suas provas não têm ajustes pendentes nesta lista.' : 'As provas aparecerão aqui conforme o andamento.'}</p>
+          ${!hasFilters && !exams.length && canCreateExam ? `<button class="btn-new" onclick="openNewExamModal()">＋ Nova Prova</button>` : ''}
         </div>`;
       return;
     }
 
     grid.innerHTML = filtered.map(exam => {
-      const status = exam.is_published ? 'published' : 'draft';
-      const review = exam.review_status || (exam.is_published ? 'publicada' : 'rascunho');
-      const reviewLabels = {
-        rascunho: 'Rascunho',
-        enviada: 'Enviada',
-        em_revisao: 'Em revisão',
-        aprovada: 'Aprovada',
-        devolvida: 'Devolvida',
-        bloqueada: 'Bloqueada',
-        publicada: 'Publicada',
-      };
-      const label = reviewLabels[review] || (exam.is_published ? 'Publicada' : 'Rascunho');
+      const state = getTeacherExamState(exam);
+      const review = state.review;
+      const label = state.label;
       const badgeMap = {
         rascunho: 'badge-draft', publicada: 'badge-published',
         enviada: 'badge-sent', em_revisao: 'badge-review',
         aprovada: 'badge-approved', devolvida: 'badge-returned', bloqueada: 'badge-locked',
       };
-      const badgeClass = badgeMap[review] || (exam.is_published ? 'badge-published' : 'badge-draft');
+      const badgeClass = state.returned ? 'badge-returned' : badgeMap[review] || 'badge-draft';
       const locked = ['aprovada', 'bloqueada'].includes(review);
       const reviewInProgress = ['enviada', 'em_revisao'].includes(review);
-      const reviewButtonLabel = reviewInProgress ? 'Em revisão' : (locked ? label : 'Enviar revisão');
-      const date = exam.created_at ? new Date(exam.created_at).toLocaleDateString('pt-BR') : '—';
+      const date = exam.updated_at || exam.created_at;
+      const updated = date ? new Date(date).toLocaleDateString('pt-BR') : 'Não informada';
       const qCount = getExamQuestions(exam).length;
       const ownedByCurrentUser = exam.user_id === auth.getCurrentUser()?.id;
       const canEdit = auth.canEditExam(exam, currentProfile);
       const canDelete = auth.canDeleteExam(exam, currentProfile);
       const scoreCheck = getExamScoreCheck(exam);
       const canSendToReview = ownedByCurrentUser && qCount > 0 && scoreCheck.isConsistent && !locked && !reviewInProgress;
-      const reviewActionTitle = qCount === 0
-        ? 'Adicione pelo menos uma questao antes de enviar para revisao.'
-        : scoreCheck.isConsistent
-          ? ''
-          : scoreCheck.message;
-      const effectiveReviewButtonLabel = qCount === 0
-        ? 'Adicione questoes'
-        : scoreCheck.isConsistent
-          ? reviewButtonLabel
-          : 'Corrigir nota';
+      const primaryLabel = state.returned ? 'Corrigir prova' : qCount === 0 ? 'Adicionar questões' : !scoreCheck.isConsistent ? 'Corrigir nota' : 'Continuar editando';
+      const printLabel = { nao_enviada: 'Aguardando envio para impressão', enviada: 'Na fila de impressão', impressa: 'Impressa' }[exam.print_status || 'nao_enviada'];
+      const context = review === 'aprovada' ? printLabel : review === 'bloqueada' ? 'Entre em contato com a coordenação para liberar a prova.' : review === 'enviada' ? 'Aguardando análise da coordenação.' : review === 'em_revisao' ? 'A coordenação está revisando sua prova.' : state.returned ? 'Após os ajustes, reenvie a prova para revisão.' : '';
 
       return `
-        <div class="exam-card">
-          <div class="card-accent"></div>
+        <article class="exam-card">
+          <div class="card-heading"><h2 class="card-title">${esc(exam.title || 'Sem título')}</h2>
           <span class="card-badge ${badgeClass}">${label}</span>
-          <div class="card-title">${esc(exam.title || 'Sem título')}</div>
+          </div>
           <div class="card-meta">
             <div class="meta-row"><span class="meta-label">Disciplina</span><span class="meta-value">${esc(exam.subject || '—')}</span></div>
             <div class="meta-row"><span class="meta-label">Turma</span><span class="meta-value">${esc(exam.class_name || '—')}</span></div>
             <div class="meta-row"><span class="meta-label">Questões</span><span class="meta-value">${qCount}</span></div>
             <div class="meta-row"><span class="meta-label">Nota</span><span class="meta-value">${formatPt1(scoreCheck.questionTotal)} / ${formatPt1(scoreCheck.expectedTotal)}</span></div>
-            <div class="meta-row"><span class="meta-label">Criada em</span><span class="meta-value">${date}</span></div>
+            <div class="meta-row"><span class="meta-label">Atualizada em</span><span class="meta-value">${updated}</span></div>
           </div>
           ${qCount > 0 && !scoreCheck.isConsistent ? `<div class="review-note"><strong>Atenção</strong>${esc(scoreCheck.message)}</div>` : ''}
-          ${review === 'devolvida' && exam.review_notes ? `<div class="review-note"><strong>Devolutiva da coordenação</strong>${esc(exam.review_notes)}</div>` : ''}
+          ${state.returned && state.notes ? `<div class="review-note"><strong>Devolutiva da coordenação</strong>${esc(state.notes)}</div>` : ''}
+          ${context ? `<p class="exam-context">${esc(context)}</p>` : ''}
           <div class="card-footer">
-            <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
-            <button class="card-btn print" onclick="printExam('${exam.id}')">PDF</button>
-            <button class="card-btn duplicate" onclick="duplicateExam('${exam.id}')">⊕ Copiar</button>
-            <button class="card-btn review" onclick="sendToReview('${exam.id}')" title="${esc(reviewActionTitle)}" ${!canSendToReview ? 'disabled' : ''}>${effectiveReviewButtonLabel}</button>
-            <button class="card-btn delete" onclick="askDelete('${exam.id}')" ${!canDelete ? 'disabled' : ''}>🗑️ Deletar</button>
+            ${state.drafting && canEdit ? `<button class="card-btn edit" onclick="editExam('${exam.id}')">${primaryLabel}</button>` : `<button class="card-btn edit" onclick="printExam('${exam.id}')">Visualizar prova</button>`}
+            ${canSendToReview ? `<button class="card-btn review" onclick="sendToReview('${exam.id}')">${state.returned ? 'Reenviar para revisão' : 'Enviar revisão'}</button>` : ''}
+            <details class="exam-menu"><summary aria-label="Mais ações para ${esc(exam.title || 'prova')}" title="Mais ações">⋯</summary><div class="exam-menu-items">
+              <button class="card-btn" onclick="printExam('${exam.id}')">Abrir PDF</button>
+              ${reviewInProgress && canEdit ? `<button class="card-btn" onclick="editExam('${exam.id}')">Editar prova</button>` : ''}
+              <button class="card-btn" onclick="duplicateExam('${exam.id}')">Criar cópia</button>
+              ${canDelete ? `<button class="card-btn delete" onclick="askDelete('${exam.id}')">Excluir prova</button>` : ''}
+            </div></details>
           </div>
-        </div>`;
+        </article>`;
     }).join('');
   }
-
-  const STANDARD_DISCIPLINES = [
-    'Língua Portuguesa','Matemática','Ciências','História','Geografia',
-    'Arte','Educação Física','Inglês','Espanhol','Filosofia','Sociologia',
-    'Física','Química','Biologia','Religião','Tecnologia','Música',
-  ];
 
   function renderSubjectOptions() {
     const select = document.getElementById('subjectFilter');
     // Combina lista padrão com disciplinas reais dos exames (para retrocompatibilidade)
     const fromExams = exams.map(e => e.subject).filter(Boolean);
-    const combined = [...new Set([...STANDARD_DISCIPLINES, ...fromExams])]
+    const combined = [...new Set(fromExams)]
       .filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     const selected = combined.includes(currentSubject) ? currentSubject : '';
     currentSubject = selected;
@@ -781,7 +823,14 @@
       return dir === 'asc' ? dateA - dateB : dateB - dateA;
     };
 
-    if (currentSort === 'created_asc') sorted.sort(byDate('asc'));
+    const updatedTime = exam => Date.parse(exam.updated_at || exam.created_at || '') || 0;
+    const priority = exam => {
+      const state = getTeacherExamState(exam);
+      return state.returned ? 3 : state.review === 'bloqueada' ? 2 : state.attention ? 1 : 0;
+    };
+    if (currentSort === 'priority') sorted.sort((a, b) => priority(b) - priority(a) || updatedTime(b) - updatedTime(a));
+    else if (currentSort === 'updated_desc') sorted.sort((a, b) => updatedTime(b) - updatedTime(a));
+    else if (currentSort === 'created_asc') sorted.sort(byDate('asc'));
     else if (currentSort === 'title_asc') sorted.sort(byText('title'));
     else if (currentSort === 'subject_asc') sorted.sort(byText('subject'));
     else sorted.sort(byDate('desc'));

@@ -634,12 +634,13 @@ async function main() {
     assert(page.includes('returnModalOverlay'), 'return modal element missing');
   });
 
-  await test('dashboard has term and review status filters', () => {
+  await test('dashboard has a single stage navigation and school filters', () => {
     const dashboard = read('dashboard.html');
     assert(dashboard.includes('termFilter'), 'term filter missing');
-    assert(dashboard.includes('reviewStatusFilter'), 'review status filter missing');
+    assert(dashboard.includes('examTabs'), 'exam stage navigation missing');
+    assert(!dashboard.includes('id="reviewStatusFilter"'), 'duplicate status filter should be removed');
     assert(dashboard.includes('currentTerm'), 'currentTerm state missing');
-    assert(dashboard.includes('currentReviewStatus'), 'currentReviewStatus state missing');
+    assert(dashboard.includes('currentClass'), 'class filter state missing');
     assert(dashboard.includes('schools.html'), 'schools link missing in dashboard');
     assert(dashboard.includes('auth.loadCurrentProfile'), 'dashboard should load current profile through AuthManager');
     assert(dashboard.includes('auth.canReviewExams(currentProfile)'), 'dashboard should use role helper for coordination access');
@@ -668,6 +669,28 @@ async function main() {
     assert(dashboard.includes('Divergência de nota: soma das questões'), 'dashboard should warn about score divergence');
     assert(dashboard.includes('qCount > 0 && scoreCheck.isConsistent && !locked && !reviewInProgress'), 'dashboard should not send score-divergent exams to review');
     assert(dashboard.includes('if (!scoreCheck.isConsistent)'), 'send-to-review should block score divergence on click');
+  });
+
+  await test('teacher stages preserve feedback and prioritize pending corrections', () => {
+    const source = read('dashboard.html');
+    const context = vm.createContext({
+      currentSort:'priority', hasExamQuestions:exam => exam.questions?.length > 0,
+      getExamScoreCheck:exam => ({isConsistent:!exam.divergent}),
+    });
+    vm.runInContext(source.slice(source.indexOf('  function getTeacherExamState('), source.indexOf('  function renderExams(')), context);
+    vm.runInContext(source.slice(source.indexOf('  function sortExams('), source.indexOf('  function isPlaceholderDiscipline(')), context);
+    context.returned = {id:'return', review_status:'rascunho', review_notes:'', review_history:[{action:'devolvida',notes:'Rever questao 3'}],updated_at:'2026-01-01'};
+    context.sent = {id:'sent',review_status:'enviada',is_published:true,updated_at:'2026-09-08'};
+    context.draft = {id:'draft',review_status:'rascunho',updated_at:'2026-09-09'};
+    assert(vm.runInContext("getTeacherExamState(returned).notes === 'Rever questao 3'", context), 'feedback must survive draft save');
+    assert(vm.runInContext("matchesTeacherStage(returned,'attention')", context), 'returned drafts must remain actionable');
+    assert(!vm.runInContext("matchesTeacherStage(returned,'draft')", context), 'returned drafts should retain their correction stage');
+    assert(!vm.runInContext("matchesTeacherStage(sent,'approved')", context), 'publication flag does not mean approved');
+    assert(vm.runInContext("matchesTeacherStage(sent,'review')", context), 'sent exams should be with coordination');
+    assert(vm.runInContext("matchesTeacherStage({review_status:'rascunho',questions:[{}],divergent:true},'attention')", context), 'score divergence should need attention');
+    assert(!vm.runInContext("matchesTeacherStage({review_status:'aprovada',questions:[{}],divergent:true},'attention')", context), 'locked approvals should not invite teacher correction');
+    assert(vm.runInContext('sortExams([sent,draft,returned])[0].id',context) === 'return', 'old returned exams should precede newer drafts');
+    assert(vm.runInContext('sortExams([sent,draft,returned])[1].id',context) === 'draft', 'same priority should follow update time');
   });
 
   await test('editor uses professor profile classes and keeps student date printable', () => {
