@@ -6,6 +6,36 @@ const EditorTools = {
   forceSnapshot: true, previewQuestionCount: -1, dirtyQuestions: new Set(),
   reviewHistory: [], sending: false,
   isTeacher() { return Boolean(auth?.hasRole?.(['teacher'], currentProfile)); },
+  offerDraftRecovery(draft) {
+    autoSaveReady = false; setEditorLoading(true);
+    document.getElementById('draftRecoveryChoice')?.remove();
+    const choice = document.createElement('section'); choice.id = 'draftRecoveryChoice';
+    choice.setAttribute('aria-label', 'Recuperação de alterações');
+    const message = document.createElement('p');
+    message.textContent = 'Há alterações que não chegaram à nuvem. Escolha qual versão usar; decidir depois mantém sua cópia guardada.';
+    choice.appendChild(message);
+    const finish = () => { choice.remove(); autoSaveReady = true; setEditorLoading(false); applyReviewLock(); };
+    const recover = document.createElement('button'); recover.type = 'button'; recover.textContent = 'Recuperar alterações';
+    recover.onclick = () => {
+      if (auth.getCurrentUser()?.id !== editorUserId) return;
+      try {
+        const content = JSON.parse(draft.content);
+        const questions = content.questions.map(ExamSafety.normalizeQuestion);
+        if (this.bankId && questions.length !== 1) throw new Error('O rascunho do banco deve conter uma questão. Sua cópia foi mantida para conferência.');
+        if (!content.school || typeof content.school !== 'object') throw new Error('Dados da avaliação inválidos.');
+        state.school = content.school; state.questions = questions; state.logoDataUrl = content.logoDataUrl || '';
+        finish(); applyStateToInputs(); this.refreshBankFields(); renderAll();
+      } catch (error) { showToast(error.message || 'Não foi possível recuperar. Sua cópia foi mantida.', 'err'); }
+    };
+    const discard = document.createElement('button'); discard.type = 'button'; discard.textContent = 'Descartar rascunho e usar versão salva';
+    discard.onclick = () => {
+      if (auth.getCurrentUser()?.id !== editorUserId || !confirm('Descartar definitivamente estas alterações locais?')) return;
+      localStorage.removeItem(pendingDraftKey()); finish(); setAutoSaveHint('Versão salva mantida.');
+    };
+    const later = document.createElement('button'); later.type = 'button'; later.textContent = 'Decidir depois';
+    later.onclick = () => { window.location.href = 'dashboard.html'; };
+    choice.append(recover, discard, later); document.getElementById('lastSaved').after(choice); recover.focus();
+  },
   workflowLocked() {
     return ['aprovada', 'bloqueada'].includes(currentReviewStatus)
       || (this.isTeacher() && ['enviada', 'em_revisao'].includes(currentReviewStatus));
@@ -280,10 +310,11 @@ const EditorTools = {
     if (!this.canEdit() || !this.bankRecord || this.bankSaving) return false;
     const fingerprint = examFingerprint();
     if (fingerprint === lastSavedFingerprint) return true;
-    const question = ExamSafety.normalizeQuestion(state.questions[0]);
-    if (new Blob([JSON.stringify(question)]).size > 1700 * 1024) { showToast('Questão muito pesada para o banco.', 'err'); return false; }
     this.bankSaving = true; this.refreshActions(); preservePendingDraft();
     try {
+      if (state.questions.length !== 1) throw new Error('Este registro deve conter exatamente uma questão. Seu rascunho foi preservado.');
+      const question = ExamSafety.normalizeQuestion(state.questions[0]);
+      if (new Blob([JSON.stringify(question)]).size > 1700 * 1024) throw new Error('Questão muito pesada para o banco.');
       const payload = { title: state.school.bankTitle || questionTitle(question), subject: state.school.subject || '',
         grade: state.school.bankGrade || '', skill: state.school.bankSkill || '', difficulty: state.school.bankDifficulty || 'media',
         question_type: question.type, question, ...buildBankScopePayload(state.school.bankScope || 'private') };

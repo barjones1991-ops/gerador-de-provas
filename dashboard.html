@@ -477,6 +477,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
+<script src="js/exam-safety.js"></script>
 <script src="js/auth.js"></script>
 <script>
   let auth = null;
@@ -936,11 +937,18 @@
     btn.textContent = 'Criando...';
 
     let schoolName = '';
+    let schoolLogo = null;
     if (currentProfile.school_id) {
       try {
-        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name`);
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name,logo_data_url`);
+        if (!Array.isArray(sd) || !sd[0]) throw new Error('Escola indisponível.');
         schoolName = (Array.isArray(sd) && sd[0]) ? sd[0].name : '';
-      } catch {}
+        schoolLogo = (Array.isArray(sd) && sd[0]) ? sd[0].logo_data_url || null : null;
+      } catch (error) {
+        btn.disabled = false; btn.textContent = 'Criar prova';
+        showToast('Não foi possível carregar o cabeçalho da escola. Tente criar a prova novamente.', 'error');
+        return;
+      }
     }
 
     const payload = {
@@ -955,7 +963,7 @@
       total_value: '10,0',
       instructions: 'Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.',
       questions: [],
-      logo_data_url: null,
+      logo_data_url: schoolLogo,
       is_draft: true,
       is_published: false,
       review_status: 'rascunho',
@@ -1049,6 +1057,12 @@
     const scoreCheck = getExamScoreCheck(exam);
     if (!scoreCheck.isConsistent) {
       showToast(scoreCheck.message, 'error');
+      return;
+    }
+
+    const blockers = ExamSafety.inspectExam(exam).filter(issue => issue.blocking);
+    if (blockers.length) {
+      showToast(blockers.map(issue => issue.message).join(' '), 'error');
       return;
     }
 

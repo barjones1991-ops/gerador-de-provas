@@ -108,7 +108,7 @@ async function main() {
   await test('professor consulta prova aprovada sem comandos de impressao', async () => {
     const app = await boot({status:'aprovada',questions:[{type:'discursiva',text:'Original',points:'10,0',freeImages:[{dataUrl:'data:image/png;base64,AA==',width:180,height:120}]}]});
     assert.equal(app.ctx.EditorTools.canEdit(),false);
-    app.run('duplicateQuestion(0); addQuestionOfType("discursiva");');
+    app.run('addQuestionOfType("discursiva");');
     assert.equal(app.run('state.questions.length'),1);
     await app.run('saveToCloud()'); assert.equal(app.requests.filter(r=>r.options.method==='PATCH').length,0);
     await app.ctx.EditorTools.openPrint(false); assert.equal(app.document.body.dataset.editorView,'preview');

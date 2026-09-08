@@ -461,6 +461,8 @@
 
     const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
     let printAuth = null;
+    let printing = false;
+    let printViewerId = null;
     let printProfile = null;
     let currentExam = null;
     let previewAnswerKey = false;
@@ -477,15 +479,33 @@
       const src = safeImageSrc(dataUrl);
       return src ? `src="${src}"` : '';
     }
-    function printCleanDocument() {
-      const problems = ExamSafety.wordSearchProblems(currentExam?.questions || []);
-      if (problems.length) { alert(problems.join('\n')); return; }
-      const originalTitle = document.title;
-      document.title = ' ';
-      const restoreTitle = () => { document.title = originalTitle; };
-      window.addEventListener('afterprint', restoreTitle, { once: true });
-      window.print();
-      setTimeout(restoreTitle, 1000);
+    async function printCleanDocument() {
+      if (printing || !currentExam?.id || !printAuth) return;
+      printing = true;
+      try {
+        if (!printViewerId || printAuth.getCurrentUser()?.id !== printViewerId) throw new Error('A conta mudou. Reabra a prova antes de imprimir.');
+        const rows = await printAuth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(currentExam.id)}&select=*`);
+        const profile = await printAuth.loadCurrentProfile('id,role,school_id');
+        if (printAuth.getCurrentUser()?.id !== printViewerId || !profile || printAuth.hasRole(['teacher'], profile)) throw new Error('Seu acesso mudou. Reabra a prova na conta responsável pela impressão.');
+        const fresh = Array.isArray(rows) && rows[0];
+        if (!fresh) throw new Error('Esta prova não está mais disponível para impressão. Atualize a fila.');
+        if ((isFromPrintQueue() || printAuth.hasRole(['print_operator'], profile))
+          && (fresh.review_status !== 'aprovada' || fresh.print_status !== 'enviada')) {
+          throw new Error('O pedido foi retirado ou já foi concluído. Atualize a fila de impressão.');
+        }
+        const problems = ExamSafety.wordSearchProblems(fresh.questions || []);
+        if (problems.length) throw new Error(problems.join('\n'));
+        currentExam = fresh; printProfile = profile; renderExam(currentExam); updatePrintToolbar(currentExam, printAuth, profile);
+        await Promise.all([...document.querySelectorAll('#root img')].map(img => img.decode ? img.decode() : Promise.resolve()));
+        if (document.fonts?.ready) await document.fonts.ready;
+        if (printAuth.getCurrentUser()?.id !== printViewerId) throw new Error('A conta mudou durante a preparação. Reabra a prova.');
+        const originalTitle = document.title;
+        document.title = ' ';
+        const restoreTitle = () => { document.title = originalTitle; };
+        window.addEventListener('afterprint', restoreTitle, { once: true });
+        window.print(); setTimeout(restoreTitle, 1000);
+      } catch (error) { alert(error.message || 'Não foi possível conferir a prova. Tente novamente.'); }
+      finally { printing = false; }
     }
 
     function normalizeRelacioneQuestion(q) {
@@ -1390,6 +1410,7 @@
 
       const auth = initAuthManager();
       printAuth = auth;
+      printViewerId = auth?.getCurrentUser()?.id || null;
       if (!auth || !auth.isAuthenticated()) {
         localStorage.setItem('editExamId', id);
         const returnTo = `print.html?id=${encodeURIComponent(id)}`;

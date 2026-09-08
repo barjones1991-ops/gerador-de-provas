@@ -1020,7 +1020,7 @@ async function main() {
     const exam = {id:'exam',review_status:'rascunho',is_draft:true,is_published:false,updated_at:'2026-09-01',review_history:[{action:'devolvida',notes:'Rever questao 3'}]};
     const requests = [];
     const context = vm.createContext({
-      exams:[exam], currentProfile:{full_name:'Professora'},
+      exams:[exam], currentProfile:{full_name:'Professora'}, ExamSafety:{inspectExam:()=>[]},
       hasExamQuestions:()=>true, getExamScoreCheck:()=>({isConsistent:true}), renderExams(){}, showToast(){},
       auth:{getCurrentUser:()=>({email:'teacher@example.test'}), authenticatedRequest:async (url, options)=>{
         requests.push({url,options});

@@ -2484,34 +2484,6 @@
       state.school.instructions = el('instructions').value;
     }
 
-    function moveQuestion(idx, dir) {
-      if (!EditorTools.canEdit()) return;
-      const newIdx = idx + dir;
-      if (newIdx < 0 || newIdx >= state.questions.length) return;
-      const tmp = state.questions[idx];
-      state.questions[idx] = state.questions[newIdx];
-      state.questions[newIdx] = tmp;
-      const currentCollapsed = !!state.collapsedQuestions[idx];
-      const targetCollapsed = !!state.collapsedQuestions[newIdx];
-      state.collapsedQuestions[idx] = targetCollapsed;
-      state.collapsedQuestions[newIdx] = currentCollapsed;
-      renderAll();
-    }
-
-    function duplicateQuestion(idx) {
-      if (!EditorTools.canEdit()) return;
-      const copy = JSON.parse(JSON.stringify(state.questions[idx]));
-      state.questions.splice(idx + 1, 0, copy);
-      const nextCollapsed = {};
-      state.questions.forEach((_, i) => {
-        if (i <= idx) nextCollapsed[i] = !!state.collapsedQuestions[i];
-        else if (i === idx + 1) nextCollapsed[i] = false;
-        else nextCollapsed[i] = !!state.collapsedQuestions[i - 1];
-      });
-      state.collapsedQuestions = nextCollapsed;
-      renderAll();
-    }
-
     function toggleQuestionCollapsed(idx) {
       state.collapsedQuestions[idx] = !state.collapsedQuestions[idx];
       renderAll();
@@ -2953,26 +2925,6 @@
         const actions = document.createElement('div');
         actions.className = 'qhead-actions';
 
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button'; upBtn.className = 'outline';
-        upBtn.title = 'Mover para cima';
-        upBtn.textContent = 'Subir';
-        upBtn.disabled = idx === 0;
-        upBtn.addEventListener('click', () => moveQuestion(idx, -1));
-
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button'; downBtn.className = 'outline';
-        downBtn.title = 'Mover para baixo';
-        downBtn.textContent = 'Descer';
-        downBtn.disabled = idx === state.questions.length - 1;
-        downBtn.addEventListener('click', () => moveQuestion(idx, 1));
-
-        const dupBtn = document.createElement('button');
-        dupBtn.type = 'button'; dupBtn.className = 'outline';
-        dupBtn.title = 'Duplicar questão';
-        dupBtn.textContent = 'Duplicar';
-        dupBtn.addEventListener('click', () => duplicateQuestion(idx));
-
         const bankBtn = document.createElement('button');
         bankBtn.type = 'button'; bankBtn.className = 'outline';
         bankBtn.title = 'Salvar no banco de questões';
@@ -3014,7 +2966,7 @@
       removeBtn.title = 'Remover imagem';
         removeBtn.title = 'Remover questão';
         removeBtn.addEventListener('click', () => {
-          if (!EditorTools.canEdit()) return;
+          if (!EditorTools.canEdit() || EditorTools.bankId) return;
           state.questions.splice(idx, 1);
           const nextCollapsed = {};
           state.questions.forEach((_, i) => {
@@ -3062,14 +3014,11 @@
           event.stopPropagation();
           toolsMenu.classList.toggle('hidden');
         });
-        toolsMenu.appendChild(upBtn);
-        toolsMenu.appendChild(downBtn);
-        toolsMenu.appendChild(dupBtn);
-        toolsMenu.appendChild(bankBtn);
+        if (!EditorTools.bankId) toolsMenu.appendChild(bankBtn);
         toolsMenu.appendChild(freeImageBtn);
         toolsMenu.appendChild(hideNumBtn);
         if (hasAnswerSpace) toolsMenu.appendChild(showSpaceBtn);
-        toolsMenu.appendChild(removeBtn);
+        if (!EditorTools.bankId) toolsMenu.appendChild(removeBtn);
         toolsWrap.appendChild(moreBtn);
         toolsWrap.appendChild(toolsMenu);
         actions.appendChild(toolsWrap);
@@ -6303,6 +6252,7 @@
     });
 
     function addQuestionOfType(type) {
+      if (EditorTools.bankId) return;
       if (!EditorTools.canEdit()) return;
       const t = type || selectedQType;
       state.questions.forEach((_, idx) => {
@@ -6471,15 +6421,7 @@
           link.after(discard);
           return;
         }
-        if (!confirm('Encontramos alterações que não chegaram à nuvem. OK recupera; Cancelar descarta o rascunho local e mantém a prova salva.')) {
-          localStorage.removeItem(pendingDraftKey()); return;
-        }
-        const content = JSON.parse(draft.content);
-        state.school = content.school;
-        state.questions = content.questions.map(ExamSafety.normalizeQuestion);
-        state.logoDataUrl = content.logoDataUrl || '';
-        applyStateToInputs();
-        renderAll();
+        EditorTools.offerDraftRecovery(draft);
       } catch { showToast('Não foi possível recuperar o rascunho local.', 'err'); }
     }
 
@@ -6702,6 +6644,7 @@
     }
 
     function insertBankQuestion(index) {
+      if (EditorTools.bankId) return;
       if (!EditorTools.canEdit()) return;
       const item = window.currentQuestionBankResults?.[index];
       if (!item?.question) return;
