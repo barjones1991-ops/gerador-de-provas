@@ -496,6 +496,9 @@ async function main() {
     assert(sql.includes('prevent_empty_exam_review_before_write'), 'empty exam review trigger missing');
     assert(sql.includes("COALESCE(NEW.review_status, 'rascunho') IN ('enviada', 'em_revisao', 'aprovada')"), 'empty exam trigger should guard review statuses');
     assert(sql.includes('public.exam_questions_count(NEW.questions) = 0'), 'empty exam trigger should count JSONB questions');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.exam_questions_score_total'), 'Supabase should total question scores');
+    assert(sql.includes('public.parse_score_value(NEW.total_value)'), 'Supabase should parse exam total score');
+    assert(sql.includes('Ha divergencia entre o valor total da prova e a soma das questoes.'), 'Supabase should reject review when scores diverge');
     assert(/UPDATE exams\r?\nSET review_status = 'rascunho'/.test(sql), 'setup SQL should reset already-sent empty exams');
     assert(sql.includes('DROP TRIGGER IF EXISTS on_auth_user_created'), 'trigger drop missing');
     assert(sql.includes('review_history'), 'review_history column missing');
@@ -661,7 +664,10 @@ async function main() {
     assert(dashboard.includes("typeof exam?.questions === 'string'"), 'dashboard should handle question payloads returned as JSON strings');
     assert(dashboard.includes('questions: getExamQuestions(exam)'), 'dashboard should normalize loaded exams before rendering actions');
     assert(dashboard.includes('if (!hasExamQuestions(exam))'), 'send-to-review should use normalized question count');
-    assert(dashboard.includes('qCount > 0 && !locked && !reviewInProgress'), 'dashboard should not send empty exams to review');
+    assert(dashboard.includes('function getExamScoreCheck(exam)'), 'dashboard should compare question score total before review');
+    assert(dashboard.includes('Divergência de nota: soma das questões'), 'dashboard should warn about score divergence');
+    assert(dashboard.includes('qCount > 0 && scoreCheck.isConsistent && !locked && !reviewInProgress'), 'dashboard should not send score-divergent exams to review');
+    assert(dashboard.includes('if (!scoreCheck.isConsistent)'), 'send-to-review should block score divergence on click');
   });
 
   await test('editor uses professor profile classes and keeps student date printable', () => {
@@ -724,6 +730,8 @@ async function main() {
     assert(editor.includes('function flushAutoSaveBeforeAction'), 'editor should expose a flush save before leaving/printing');
     assert(editor.includes("document.querySelectorAll('.app-sidebar a[href], #settingsMenu a[href]')"), 'editor navigation links should flush autosave before leaving');
     assert(editor.includes('if (ok) window.location.href = destination'), 'editor should navigate only after successful flush save');
+    assert(editor.includes('function getScoreCheck()'), 'editor should expose score consistency helper');
+    assert(editor.includes("['enviada', 'em_revisao', 'aprovada'].includes(reviewPayload.review_status)"), 'editor should guard score divergence before review save');
     assert(editor.includes('runAfterAutosave(printCleanDocument)'), 'editor print actions should save before printing');
     assert(!editor.includes('saveCloudBtn'), 'editor should not show a manual save button when autosave is active');
     assert(editor.includes('Salvando alteracoes...'), 'editor should show autosave progress in the status line');

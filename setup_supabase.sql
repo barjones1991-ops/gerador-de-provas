@@ -259,6 +259,38 @@ RETURNS INTEGER AS $$
   END;
 $$ LANGUAGE sql IMMUTABLE;
 
+CREATE OR REPLACE FUNCTION public.parse_score_value(raw_value TEXT)
+RETURNS NUMERIC AS $$
+DECLARE
+  cleaned TEXT;
+BEGIN
+  cleaned := regexp_replace(replace(replace(COALESCE(raw_value, ''), '.', ''), ',', '.'), '[^0-9.\-]', '', 'g');
+  IF cleaned = '' OR cleaned = '-' THEN
+    RETURN 0;
+  END IF;
+  RETURN cleaned::NUMERIC;
+EXCEPTION WHEN invalid_text_representation THEN
+  RETURN 0;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.exam_questions_score_total(raw_questions JSONB)
+RETURNS NUMERIC AS $$
+DECLARE
+  total NUMERIC;
+BEGIN
+  IF jsonb_typeof(COALESCE(raw_questions, '[]'::jsonb)) <> 'array' THEN
+    RETURN 0;
+  END IF;
+
+  SELECT COALESCE(SUM(public.parse_score_value(item->>'points')), 0)
+  INTO total
+  FROM jsonb_array_elements(COALESCE(raw_questions, '[]'::jsonb)) AS item;
+
+  RETURN total;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 CREATE OR REPLACE FUNCTION public.prevent_empty_exam_review()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -266,6 +298,12 @@ BEGIN
     AND public.exam_questions_count(NEW.questions) = 0
   THEN
     RAISE EXCEPTION 'Adicione pelo menos uma questao antes de enviar para revisao.';
+  END IF;
+
+  IF COALESCE(NEW.review_status, 'rascunho') IN ('enviada', 'em_revisao', 'aprovada')
+    AND ABS(public.exam_questions_score_total(NEW.questions) - public.parse_score_value(NEW.total_value)) >= 0.05
+  THEN
+    RAISE EXCEPTION 'Ha divergencia entre o valor total da prova e a soma das questoes.';
   END IF;
   RETURN NEW;
 END;

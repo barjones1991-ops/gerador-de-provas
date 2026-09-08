@@ -597,6 +597,34 @@
   function hasExamQuestions(exam) {
     return getExamQuestions(exam).length > 0;
   }
+
+  function parsePtNumber(value) {
+    const n = Number(String(value || '').trim().replace('.', '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function formatPt1(value) {
+    return (Math.round(value * 10) / 10).toFixed(1).replace('.', ',');
+  }
+
+  function getExamScoreCheck(exam) {
+    const questions = getExamQuestions(exam);
+    const questionTotal = questions.reduce((sum, question) => sum + parsePtNumber(question?.points), 0);
+    const expectedTotal = parsePtNumber(exam?.total_value);
+    const difference = Math.round((questionTotal - expectedTotal) * 10) / 10;
+    const isConsistent = Math.abs(difference) < 0.05;
+    const direction = difference > 0 ? 'acima' : 'abaixo';
+    return {
+      questionTotal,
+      expectedTotal,
+      difference,
+      isConsistent,
+      message: isConsistent
+        ? ''
+        : `Divergência de nota: soma das questões ${formatPt1(questionTotal)} e valor total ${formatPt1(expectedTotal)}. Ajuste antes de enviar para revisão (${formatPt1(Math.abs(difference))} ponto(s) ${direction}).`,
+    };
+  }
+
   function requiresPasswordChange() {
     return Boolean(currentProfile.force_password_change);
   }
@@ -687,9 +715,18 @@
       const ownedByCurrentUser = exam.user_id === auth.getCurrentUser()?.id;
       const canEdit = auth.canEditExam(exam, currentProfile);
       const canDelete = auth.canDeleteExam(exam, currentProfile);
-      const canSendToReview = ownedByCurrentUser && qCount > 0 && !locked && !reviewInProgress;
-      const reviewActionTitle = qCount === 0 ? 'Adicione pelo menos uma questao antes de enviar para revisao.' : '';
-      const effectiveReviewButtonLabel = qCount === 0 ? 'Adicione questoes' : reviewButtonLabel;
+      const scoreCheck = getExamScoreCheck(exam);
+      const canSendToReview = ownedByCurrentUser && qCount > 0 && scoreCheck.isConsistent && !locked && !reviewInProgress;
+      const reviewActionTitle = qCount === 0
+        ? 'Adicione pelo menos uma questao antes de enviar para revisao.'
+        : scoreCheck.isConsistent
+          ? ''
+          : scoreCheck.message;
+      const effectiveReviewButtonLabel = qCount === 0
+        ? 'Adicione questoes'
+        : scoreCheck.isConsistent
+          ? reviewButtonLabel
+          : 'Corrigir nota';
 
       return `
         <div class="exam-card">
@@ -700,8 +737,10 @@
             <div class="meta-row"><span class="meta-label">Disciplina</span><span class="meta-value">${esc(exam.subject || '—')}</span></div>
             <div class="meta-row"><span class="meta-label">Turma</span><span class="meta-value">${esc(exam.class_name || '—')}</span></div>
             <div class="meta-row"><span class="meta-label">Questões</span><span class="meta-value">${qCount}</span></div>
+            <div class="meta-row"><span class="meta-label">Nota</span><span class="meta-value">${formatPt1(scoreCheck.questionTotal)} / ${formatPt1(scoreCheck.expectedTotal)}</span></div>
             <div class="meta-row"><span class="meta-label">Criada em</span><span class="meta-value">${date}</span></div>
           </div>
+          ${qCount > 0 && !scoreCheck.isConsistent ? `<div class="review-note"><strong>Atenção</strong>${esc(scoreCheck.message)}</div>` : ''}
           ${review === 'devolvida' && exam.review_notes ? `<div class="review-note"><strong>Devolutiva da coordenação</strong>${esc(exam.review_notes)}</div>` : ''}
           <div class="card-footer">
             <button class="card-btn edit" onclick="editExam('${exam.id}')">${locked ? 'Ver' : '✏️ Editar'}</button>
@@ -954,6 +993,11 @@
     if (!exam) return;
     if (!hasExamQuestions(exam)) {
       showToast('Adicione pelo menos uma questao antes de enviar para revisao.', 'error');
+      return;
+    }
+    const scoreCheck = getExamScoreCheck(exam);
+    if (!scoreCheck.isConsistent) {
+      showToast(scoreCheck.message, 'error');
       return;
     }
 

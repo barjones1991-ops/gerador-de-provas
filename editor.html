@@ -2427,6 +2427,23 @@
       collapsedQuestions: {},
     };
 
+    function getScoreCheck() {
+      const questionTotal = state.questions.reduce((sum, question) => sum + parsePtNumber(question?.points), 0);
+      const expectedTotal = parsePtNumber(state.school.totalValue);
+      const difference = Math.round((questionTotal - expectedTotal) * 10) / 10;
+      const isConsistent = Math.abs(difference) < 0.05;
+      const direction = difference > 0 ? 'acima' : 'abaixo';
+      return {
+        questionTotal,
+        expectedTotal,
+        difference,
+        isConsistent,
+        message: isConsistent
+          ? ''
+          : `Divergência de nota: soma das questões ${formatPt1(questionTotal)} e valor total ${formatPt1(expectedTotal)}. Ajuste antes de enviar para revisão (${formatPt1(Math.abs(difference))} ponto(s) ${direction}).`,
+      };
+    }
+
     function resetStateToDefault() {
       state.school = { ...defaultSchool };
       state.availableClasses = [];
@@ -5898,22 +5915,20 @@
       }
 
       const totalQuestions = state.questions.length;
-      const sum = state.questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
-      const expectedTotal = parsePtNumber(state.school.totalValue);
-      const scoreDiff = Math.round((sum - expectedTotal) * 10) / 10;
+      const scoreCheck = getScoreCheck();
       el('pvChipQuestions').textContent = `${totalQuestions} questões`;
-      el('pvChipSum').textContent = `Soma configurada: ${formatPt1(sum)} pontos`;
+      el('pvChipSum').textContent = `Soma configurada: ${formatPt1(scoreCheck.questionTotal)} pontos`;
       const scoreStatus = el('pvChipScoreStatus');
       scoreStatus.className = 'chip';
-      if (!expectedTotal) {
+      if (!scoreCheck.expectedTotal) {
         scoreStatus.textContent = 'Valor total nao informado';
         scoreStatus.classList.add('warn');
-      } else if (Math.abs(scoreDiff) < 0.05) {
+      } else if (scoreCheck.isConsistent) {
         scoreStatus.textContent = 'Pontuacao confere';
         scoreStatus.classList.add('ok');
       } else {
-        const direction = scoreDiff > 0 ? 'acima' : 'abaixo';
-        scoreStatus.textContent = `Atencao: ${formatPt1(Math.abs(scoreDiff))} ponto(s) ${direction} do total`;
+        const direction = scoreCheck.difference > 0 ? 'acima' : 'abaixo';
+        scoreStatus.textContent = `Atencao: ${formatPt1(Math.abs(scoreCheck.difference))} ponto(s) ${direction} do total`;
         scoreStatus.classList.add('warn');
       }
 
@@ -7161,6 +7176,15 @@
           return false;
         }
 
+        const reviewPayload = getReviewPayloadForSave();
+        if (['enviada', 'em_revisao', 'aprovada'].includes(reviewPayload.review_status)) {
+          const scoreCheck = getScoreCheck();
+          if (!scoreCheck.isConsistent) {
+            if (!isAuto) showToast(scoreCheck.message, 'err');
+            return false;
+          }
+        }
+
         const payload = {
           title: state.school.examTitle || 'Sem título',
           school_name: state.school.schoolName,
@@ -7174,7 +7198,7 @@
           questions: state.questions,
           logo_data_url: state.logoDataUrl,
           is_draft: true,
-          ...getReviewPayloadForSave(),
+          ...reviewPayload,
           updated_at: new Date().toISOString(),
         };
 
