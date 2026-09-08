@@ -760,14 +760,10 @@ async function main() {
     assert(editor.includes('if (!response.ok)'), 'new exam save should check Supabase response.ok');
     assert(editor.includes('Supabase não retornou o ID da prova criada.'), 'new exam save should fail if Supabase does not return id');
     assert(coordination.includes("confirm('Aprovar esta prova"), 'approve action should require confirmation');
-    assert(coordination.includes("confirm('Desaprovar esta prova"), 'unapprove action should require confirmation');
+    assert(coordination.includes("confirm('Reabrir a revisão?"), 'unapprove action should require confirmation');
     assert(coordination.includes("confirm('Bloquear esta prova"), 'block action should require confirmation');
     assert(coordination.includes("confirm('Desbloquear esta prova"), 'unblock action should require confirmation');
-    assert(coordination.includes('const isLocked = Boolean(exam.locked_at) || isApproved || isBlocked;'), 'coordination should detect locked exams from locked_at or status');
-    assert(coordination.includes('const canApprove = !isApproved && !isLocked;'), 'coordination should hide incompatible approve action');
-    assert(coordination.includes('const canUnapprove = isApproved;'), 'coordination should show unapprove action for approved exams');
-    assert(coordination.includes('const canReturn = !isLocked;'), 'coordination should hide incompatible return action');
-    assert(coordination.includes('const canUnblock = isLocked;'), 'coordination should show unblock action for locked exams');
+    assert(coordination.includes("unapprove: exam.review_status === 'aprovada'"), 'coordination should show unapprove action for approved exams');
     assert(editor.includes("['topNewQuestionBtn', 'openBankBtn']"), 'review lock should cover top editor actions');
     assert(editor.includes('#topQuestionMenu button, #questionBankModal button[data-bank-action]'), 'review lock should cover menus and bank actions');
     assert(/try \{\r?\n        const totalImageBytes = imagePayloadBytes\(\);/.test(editor), 'autosave image payload limit should run inside try/finally');
@@ -944,7 +940,83 @@ async function main() {
     assert(page.includes("renderSelectFilter('subjectFilter', reviews.map(r => r.subject)") && page.includes("renderSelectFilter('classFilter', reviews.map(r => r.class_name)"), 'coordination should populate subject and class filters from reviews');
     assert(page.includes('if (subject) filtered = filtered.filter((exam) => exam.subject === subject);'), 'coordination should filter by subject');
     assert(page.includes('if (className) filtered = filtered.filter((exam) => exam.class_name === className);'), 'coordination should filter by class');
-    assert(page.includes('history-panel') && page.includes('he-notes') && page.includes('Historico de revisao'), 'coordination should render readable review history');
+    assert(page.includes('history-panel') && page.includes('he-notes') && page.includes('Histórico de revisão'), 'coordination should render readable review history');
+  });
+
+  await test('coordination separates pending work and saves review transitions safely', async () => {
+    const nodes = new Map();
+    const node = id => {
+      if (!nodes.has(id)) nodes.set(id, { value: '', innerHTML: '', textContent: '', hidden: false, classList: { remove() {} } });
+      return nodes.get(id);
+    };
+    const requests = [];
+    const context = vm.createContext({
+      document: { addEventListener() {}, getElementById: node },
+      setTimeout: () => 0, clearTimeout() {},
+      window: { location: {} }, localStorage: { setItem() {} },
+      requests, confirm: () => true,
+    });
+    const script = [...read('coordenacao.html').matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).join('\n');
+    vm.runInContext(script, context);
+    vm.runInContext(`
+      profile = { full_name: 'Coordenadora' };
+      auth = {
+        getCurrentUser: () => ({id:'coordinator'}),
+        authenticatedRequest: async (url, options) => {
+          requests.push({url, ...options});
+          return [{...reviews[0], ...JSON.parse(options.body)}];
+        }
+      };
+      reviews = [
+        {id:'sent', title:'Pendente', review_status:'enviada', updated_at:'2026-09-08T12:00:00Z', review_history:[]},
+        {id:'returned', title:'Com docente', review_status:'devolvida'},
+        {id:'approved', title:'Concluida', review_status:'aprovada', locked_at:'2026-09-08'},
+        {id:'blocked', title:'Bloqueada', review_status:'bloqueada', locked_at:'2026-09-08'}
+      ];
+      renderReviews();
+    `, context);
+    assert(node('reviewsGrid').innerHTML.includes('Pendente'), 'pending exam should be visible by default');
+    assert(!node('reviewsGrid').innerHTML.includes('Concluida'), 'approved exam should not clutter pending queue');
+    assert(!vm.runInContext('getReviewActions(reviews[1]).approve', context), 'returned exam must wait for resubmission');
+    assert(!vm.runInContext('getReviewActions(reviews[2]).unblock', context), 'approval must not expose unblock');
+    assert(vm.runInContext('getReviewActions(reviews[3]).unblock', context), 'blocked exam should expose unblock');
+    assert(vm.runInContext("matchesReviewStage({review_status:'rascunho',review_history:[{action:'devolvida'}]}, 'devolvida')", context), 'returned draft must remain with teacher until resubmission');
+    assert(!vm.runInContext("matchesReviewStage({review_status:'rascunho',review_history:[]}, 'devolvida')", context), 'new drafts must not appear as returned');
+    assert(vm.runInContext("getSubmissionDate({review_history:[{action:'enviada',date:'2026-09-01'},{action:'devolvida',date:'2026-09-02'},{action:'enviada',date:'2026-09-03'}]}) === '2026-09-03'", context), 'queue should use latest resubmission');
+    assert(await vm.runInContext("updateReviewStatus('sent','em_revisao',{},'Iniciada')", context), 'start review should save');
+    assert(requests[0].url.includes('updated_at=eq.'), 'stale updates should be conditional');
+    assert(JSON.parse(requests[0].body).review_history[0].action === 'em_revisao', 'start review should record history');
+    vm.runInContext('auth.authenticatedRequest = async () => []', context);
+    assert(!await vm.runInContext("updateReviewStatus('sent','aprovada',{},'Aprovada')", context), 'empty update should not report success');
+    assert(vm.runInContext("reviews[0].review_status === 'em_revisao'", context), 'failed action must preserve status');
+    assert(vm.runInContext('pendingActions.size === 0', context), 'failed action must release busy state');
+    vm.runInContext("auth.authenticatedRequest = async () => { throw new Error('Offline'); }", context);
+    assert(!await vm.runInContext("updateReviewStatus('sent','devolvida',{review_notes:'Corrigir questao 3'},'Devolvida')", context), 'network failure should be recoverable');
+    assert(vm.runInContext('reviews[0].review_history.length === 1', context), 'failed actions must not append history');
+  });
+
+  await test('teacher resubmission records history only after a confirmed save', async () => {
+    const exam = {id:'exam',review_status:'rascunho',is_draft:true,is_published:false,updated_at:'2026-09-01',review_history:[{action:'devolvida',notes:'Rever questao 3'}]};
+    const requests = [];
+    const context = vm.createContext({
+      exams:[exam], currentProfile:{full_name:'Professora'},
+      hasExamQuestions:()=>true, getExamScoreCheck:()=>({isConsistent:true}), renderExams(){}, showToast(){},
+      auth:{getCurrentUser:()=>({email:'teacher@example.test'}), authenticatedRequest:async (url, options)=>{
+        requests.push({url,options});
+        return [{...exam,...JSON.parse(options.body)}];
+      }},
+    });
+    const source = read('dashboard.html');
+    vm.runInContext(source.slice(source.indexOf('  async function sendToReview(id)'), source.indexOf('  async function openProfileModal()')), context);
+    await vm.runInContext("sendToReview('exam')", context);
+    assert(exam.review_history.length === 2 && exam.review_history[1].action === 'enviada', 'resubmission should append to existing return history');
+    assert(exam.review_history[1].date === exam.updated_at, 'submission timestamp should match saved update');
+    await vm.runInContext("sendToReview('exam')", context);
+    assert(requests.length === 1, 'already submitted exam should not create duplicate events');
+    exam.review_status = 'rascunho';
+    context.auth.authenticatedRequest = async () => [];
+    await vm.runInContext("sendToReview('exam')", context);
+    assert(exam.review_status === 'rascunho' && exam.review_history.length === 2, 'conflicting save must preserve draft and history');
   });
 
   await test('print queue page receives and completes print jobs', () => {

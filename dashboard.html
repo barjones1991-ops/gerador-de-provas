@@ -990,7 +990,7 @@
 
   async function sendToReview(id) {
     const exam = exams.find(e => e.id === id);
-    if (!exam) return;
+    if (!exam || ['enviada', 'em_revisao', 'aprovada', 'bloqueada'].includes(exam.review_status)) return;
     if (!hasExamQuestions(exam)) {
       showToast('Adicione pelo menos uma questao antes de enviar para revisao.', 'error');
       return;
@@ -1001,6 +1001,13 @@
       return;
     }
 
+    const sentAt = new Date().toISOString();
+    const reviewHistory = [...(Array.isArray(exam.review_history) ? exam.review_history : []), {
+      action: 'enviada',
+      reviewer: currentProfile.full_name || auth.getCurrentUser().email || 'Professor',
+      date: sentAt,
+      notes: '',
+    }];
     const previous = {
       review_status: exam.review_status,
       is_draft: exam.is_draft,
@@ -1012,15 +1019,20 @@
     renderExams();
 
     try {
-      await auth.authenticatedRequest(`/exams?id=eq.${id}`, {
+      const saved = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&updated_at=eq.${encodeURIComponent(exam.updated_at)}&select=*`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({
           review_status: 'enviada',
           is_draft: false,
           is_published: true,
-          updated_at: new Date().toISOString(),
+          updated_at: sentAt,
+          review_history: reviewHistory,
         }),
       });
+      if (!Array.isArray(saved) || !saved.length) throw new Error('A prova foi alterada ou não está mais disponível. Atualize a lista.');
+      Object.assign(exam, saved[0]);
+      renderExams();
       showToast('Prova enviada para a coordenação.', 'success');
     } catch (err) {
       exam.review_status = previous.review_status;

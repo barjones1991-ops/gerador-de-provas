@@ -33,16 +33,18 @@
       padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 11px; font: inherit; font-size: 14px;
       background: white; min-width: 190px;
     }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
     .exam-card {
-      background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px;
+      background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px;
       display: grid; gap: 12px; box-shadow: 0 1px 2px rgba(15,23,42,0.04);
     }
     .badge {
       width: fit-content; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 900;
       background: #dbeafe; color: #1d4ed8;
     }
-    .badge.aprovada, .badge.bloqueada { background: #e2e8f0; color: #475569; }
+    .badge.aprovada { background: #dcfce7; color: #166534; }
+    .badge.bloqueada { background: #fee2e2; color: #991b1b; }
+    .badge.em_revisao { background: #e0f2fe; color: #075985; }
     .badge.devolvida { background: #fef3c7; color: #92400e; }
     .card-title { font-size: 16px; font-weight: 900; line-height: 1.35; }
     .meta { display: grid; gap: 6px; color: #475569; font-size: 13px; }
@@ -118,6 +120,43 @@
       .app-sidebar { position: static; width: auto; min-height: auto; border-right: 0; border-bottom: 1px solid #e2e8f0; padding: 16px; }
       .app-nav { grid-template-columns: 1fr; }
     }
+    .btn, .controls input, .controls select, .return-modal, .review-note { border-radius: 8px; }
+    .btn:disabled { opacity: .55; cursor: wait; }
+    :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+    .review-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #cbd5e1; margin-bottom: 20px; }
+    .review-tab { border: 0; border-bottom: 3px solid transparent; padding: 12px 10px; background: none; color: #475569; font: inherit; font-size: 13px; cursor: pointer; }
+    .review-tab[aria-pressed="true"] { border-bottom-color: #2563eb; color: #1d4ed8; font-weight: 800; }
+    .review-tab span { display: inline-block; min-width: 24px; margin-left: 5px; font-variant-numeric: tabular-nums; }
+    .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .controls label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; color: #475569; min-width: 0; }
+    .controls .search-field { grid-column: 1 / -1; }
+    .controls input, .controls select { width: 100%; min-width: 0; }
+    .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: #475569; }
+    .list-toolbar select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; font: inherit; max-width: 100%; }
+    .card-heading { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .card-title, .meta strong, .review-note, .history-entry { overflow-wrap: anywhere; min-width: 0; }
+    .review-note, .he-notes { white-space: pre-wrap; }
+    .card-heading .badge { flex-shrink: 0; }
+    .meta { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .meta-row { display: grid; gap: 3px; align-content: start; }
+    .meta-row strong { text-align: left; }
+    .status-context { font-size: 13px; color: #475569; }
+    .exam-details { border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 13px; }
+    .exam-details summary { cursor: pointer; color: #1d4ed8; width: fit-content; }
+    .detail-content { display: grid; gap: 12px; margin-top: 12px; }
+    .history-panel { border: 0; border-radius: 0; border-left: 2px solid #cbd5e1; background: none; }
+    .actions { border-top: 0; padding-top: 0; }
+    .load-error { margin-bottom: 16px; color: #991b1b; font-size: 14px; }
+    .toast { max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1000px) { .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 640px) {
+      .controls { grid-template-columns: minmax(0, 1fr); }
+      .card-heading { flex-direction: column-reverse; }
+      .actions .btn { width: auto; flex: 1 1 140px; }
+      .review-tab { padding: 10px 6px; }
+      .list-toolbar label { display: grid; gap: 6px; width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -142,33 +181,30 @@
 <main class="main">
   <div class="topbar">
     <div>
-      <h1>Provas para revisão</h1>
-      <p class="muted">Acompanhe, corrija, aprove ou devolva provas enviadas pelos professores.</p>
+      <h1>Revisão pedagógica</h1>
     </div>
     <button class="btn blue" id="reloadBtn" type="button">Atualizar</button>
   </div>
 
+  <div class="review-tabs" id="reviewTabs" aria-label="Etapas da revisão"></div>
   <div class="controls">
-    <input id="searchInput" type="text" placeholder="Buscar por titulo, professor ou escola..." />
-    <select id="profFilter">
+    <label class="search-field">Buscar provas<input id="searchInput" type="search" placeholder="Título, professor, escola, disciplina ou turma" /></label>
+    <label>Professor<select id="profFilter" aria-label="Professor">
       <option value="">Todos os professores</option>
-    </select>
-    <select id="subjectFilter">
+    </select></label>
+    <label>Disciplina<select id="subjectFilter" aria-label="Disciplina">
       <option value="">Todas as disciplinas</option>
-    </select>
-    <select id="classFilter">
+    </select></label>
+    <label>Turma<select id="classFilter" aria-label="Turma">
       <option value="">Todas as turmas</option>
-    </select>
-    <select id="statusFilter">
-      <option value="">Todos os status</option>
-      <option value="enviada">Enviadas</option>
-      <option value="em_revisao">Em revisão</option>
-      <option value="aprovada">Aprovadas</option>
-      <option value="devolvida">Devolvidas</option>
-      <option value="bloqueada">Bloqueadas</option>
-    </select>
+    </select></label>
   </div>
-
+  <div class="list-toolbar">
+    <span id="resultCount" role="status" aria-live="polite"></span>
+    <button class="btn" id="clearFiltersBtn" type="button" hidden>Limpar filtros</button>
+    <label>Ordenar por <select id="sortFilter" aria-label="Ordenar por"><option value="oldest">Envio mais antigo</option><option value="newest">Envio mais recente</option><option value="updated">Última atualização</option></select></label>
+  </div>
+  <p class="load-error" id="loadError" role="alert" hidden></p>
   <div class="grid" id="reviewsGrid">
     <div class="empty"><h2>Carregando...</h2><p>Aguarde um instante.</p></div>
   </div>
@@ -176,10 +212,10 @@
 
 <!-- Modal de devolução com observações -->
 <div class="return-modal-overlay" id="returnModalOverlay">
-  <div class="return-modal">
-    <h3>Devolver prova ao professor</h3>
+  <div class="return-modal" role="dialog" aria-modal="true" aria-labelledby="returnModalTitle">
+    <h3 id="returnModalTitle">Devolver prova ao professor</h3>
     <p>Escreva as observações e orientações para o professor corrigir a prova:</p>
-    <textarea id="returnNotesInput" placeholder="Ex.: Revisar o enunciado da questão 3. Adicionar mais alternativas na questão 5..."></textarea>
+    <textarea id="returnNotesInput" aria-label="Orientações para o professor" required placeholder="Ex.: Revisar o enunciado da questão 3. Adicionar mais alternativas na questão 5..."></textarea>
     <div class="return-modal-btns">
       <button class="btn" type="button" onclick="closeReturnModal()">Cancelar</button>
       <button class="btn warn" type="button" id="confirmReturnBtn">Devolver prova</button>
@@ -200,7 +236,7 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
@@ -210,11 +246,15 @@
   let profile = null;
   let pendingReturnId = null;
   let pendingPrintId = null;
+  let activeReviewStatus = 'pendentes';
+  let loadingReviews = false;
+  const pendingActions = new Set();
+  const reviewStages = [['pendentes', 'Pendentes'], ['enviada', 'Aguardando revisão'], ['em_revisao', 'Em revisão'], ['devolvida', 'Com o professor'], ['aprovada', 'Aprovadas'], ['bloqueada', 'Bloqueadas'], ['', 'Todas']];
   const reviewLabels = {
-    enviada: 'Enviada',
+    enviada: 'Aguardando revisão',
     em_revisao: 'Em revisão',
     aprovada: 'Aprovada',
-    devolvida: 'Devolvida',
+    devolvida: 'Com o professor',
     bloqueada: 'Bloqueada',
   };
   const actionLabels = {
@@ -257,7 +297,15 @@
     document.getElementById('profFilter').addEventListener('change', renderReviews);
     document.getElementById('subjectFilter').addEventListener('change', renderReviews);
     document.getElementById('classFilter').addEventListener('change', renderReviews);
-    document.getElementById('statusFilter').addEventListener('change', renderReviews);
+    document.getElementById('sortFilter').addEventListener('change', renderReviews);
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearReviewFilters);
+    document.getElementById('reviewTabs').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-status]');
+      if (!button) return;
+      activeReviewStatus = button.dataset.status;
+      renderReviews();
+      document.querySelector(`[data-status="${activeReviewStatus}"]`).focus();
+    });
 
     await loadReviews();
   });
@@ -269,17 +317,30 @@
     document.getElementById('navSchoolsLink')?.classList.toggle('show', auth.canManageSchools(profile) || auth.canManageUsers(profile));
   }
   async function loadReviews() {
+    if (loadingReviews || pendingActions.size) return;
+    loadingReviews = true;
+    const reload = document.getElementById('reloadBtn');
+    reload.disabled = true;
+    reload.textContent = 'Atualizando...';
+    document.getElementById('loadError').hidden = true;
     try {
+      const returnedHistory = encodeURIComponent(JSON.stringify([{ action: 'devolvida' }]));
       const data = await auth.authenticatedRequest(
-        '/exams?review_status=in.(enviada,em_revisao,aprovada,devolvida,bloqueada)&order=updated_at.desc&select=*'
+        `/exams?or=(review_status.in.(enviada,em_revisao,aprovada,devolvida,bloqueada),and(review_status.eq.rascunho,review_history.cs.${returnedHistory}))&order=updated_at.desc&select=*`
       );
       reviews = (Array.isArray(data) ? data : []).filter(canCurrentProfileReviewExam);
       renderReviewFilters();
       renderReviews();
     } catch (err) {
-      reviews = [];
-      renderReviews();
+      const error = document.getElementById('loadError');
+      error.textContent = 'Não foi possível atualizar a lista. Tente novamente em Atualizar.';
+      error.hidden = false;
+      if (!reviews.length) document.getElementById('reviewsGrid').innerHTML = '';
       showToast('Erro ao carregar revisões: ' + err.message, 'error');
+    } finally {
+      loadingReviews = false;
+      reload.disabled = false;
+      reload.textContent = 'Atualizar';
     }
   }
 
@@ -329,16 +390,54 @@
     );
   }
 
+  function matchesReviewStage(exam, status) {
+    return !status || (status === 'pendentes'
+      ? ['enviada', 'em_revisao'].includes(exam.review_status)
+      : status === 'devolvida' ? isWithTeacher(exam) : exam.review_status === status);
+  }
+
+  function isWithTeacher(exam) {
+    return exam.review_status === 'devolvida' || (exam.review_status === 'rascunho'
+      && Array.isArray(exam.review_history) && exam.review_history.some(entry => entry.action === 'devolvida'));
+  }
+
+  function getSubmissionDate(exam) {
+    const history = Array.isArray(exam.review_history) ? exam.review_history : [];
+    return [...history].reverse().find(entry => entry.action === 'enviada' && entry.date)?.date || null;
+  }
+
+  function formatReviewDate(value) {
+    const date = value ? new Date(value) : null;
+    return date && Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não registrada';
+  }
+
+  function getReviewActions(exam) {
+    const pending = ['enviada', 'em_revisao'].includes(exam.review_status) && !exam.locked_at;
+    return {
+      review: pending,
+      approve: pending,
+      return: pending,
+      block: pending,
+      unapprove: exam.review_status === 'aprovada',
+      unblock: exam.review_status === 'bloqueada',
+      print: exam.review_status === 'aprovada' && exam.print_status !== 'enviada',
+    };
+  }
+
+  function clearReviewFilters() {
+    ['searchInput', 'profFilter', 'subjectFilter', 'classFilter'].forEach(id => document.getElementById(id).value = '');
+    renderReviews();
+  }
+
   function renderReviews() {
     const grid = document.getElementById('reviewsGrid');
     const search = document.getElementById('searchInput').value.toLowerCase();
-    const status = document.getElementById('statusFilter').value;
+    const status = activeReviewStatus;
     const prof = document.getElementById('profFilter').value;
     const subject = document.getElementById('subjectFilter').value;
     const className = document.getElementById('classFilter').value;
 
     let filtered = reviews;
-    if (status) filtered = filtered.filter((exam) => exam.review_status === status);
     if (prof) filtered = filtered.filter((exam) => exam.teacher === prof);
     if (subject) filtered = filtered.filter((exam) => exam.subject === subject);
     if (className) filtered = filtered.filter((exam) => exam.class_name === className);
@@ -347,35 +446,48 @@
         .some((value) => String(value || '').toLowerCase().includes(search))
     );
 
+    document.getElementById('reviewTabs').innerHTML = reviewStages.map(([value, label]) =>
+      `<button class="review-tab" type="button" data-status="${value}" aria-pressed="${status === value}">${label}<span>${filtered.filter(exam => matchesReviewStage(exam, value)).length}</span></button>`
+    ).join('');
+    filtered = filtered.filter(exam => matchesReviewStage(exam, status));
+    const sort = document.getElementById('sortFilter').value;
+    const timestamp = value => Date.parse(value || '') || 0;
+    filtered = [...filtered].sort((a, b) => sort === 'updated'
+      ? timestamp(b.updated_at) - timestamp(a.updated_at)
+      : (sort === 'newest' ? -1 : 1) * (timestamp(getSubmissionDate(a) || a.updated_at) - timestamp(getSubmissionDate(b) || b.updated_at)));
+    document.getElementById('resultCount').textContent = `${filtered.length} prova${filtered.length === 1 ? '' : 's'} · ${reviewStages.find(([value]) => value === status)[1]}`;
+    const hasFilters = Boolean(search || prof || subject || className);
+    document.getElementById('clearFiltersBtn').hidden = !hasFilters;
+
     if (!filtered.length) {
-      grid.innerHTML = '<div class="empty"><h2>Nenhuma prova encontrada</h2><p>As provas enviadas pelos professores aparecerão aqui.</p></div>';
+      grid.innerHTML = `<div class="empty"><h2>${hasFilters ? 'Nenhuma prova corresponde aos filtros' : status === 'pendentes' ? 'Nenhuma revisão pendente' : 'Nenhuma prova nesta etapa'}</h2><p>${hasFilters ? 'Tente outro termo ou limpe os filtros.' : status === 'pendentes' ? 'Novos envios e reenvios dos professores aparecerão aqui.' : 'Não há provas para exibir neste momento.'}</p></div>`;
       return;
     }
 
     grid.innerHTML = filtered.map((exam) => {
-      const statusLabel = reviewLabels[exam.review_status] || exam.review_status || 'Rascunho';
-      const updated = exam.updated_at ? new Date(exam.updated_at).toLocaleDateString('pt-BR') : '—';
+      const withTeacher = isWithTeacher(exam);
+      const statusLabel = withTeacher ? 'Com o professor' : reviewLabels[exam.review_status] || exam.review_status || 'Rascunho';
+      const updated = formatReviewDate(exam.updated_at);
       const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
       const history = Array.isArray(exam.review_history) ? exam.review_history : [];
+      const returnNotes = withTeacher ? exam.review_notes || [...history].reverse().find(entry => entry.action === 'devolvida')?.notes : exam.review_notes;
       const isApproved = exam.review_status === 'aprovada';
       const isBlocked = exam.review_status === 'bloqueada';
-      const isLocked = Boolean(exam.locked_at) || isApproved || isBlocked;
-      const canApprove = !isApproved && !isLocked;
-      const canUnapprove = isApproved;
-      const canReturn = !isLocked;
-      const canBlock = !isLocked;
-      const canUnblock = isLocked;
+      const actions = getReviewActions(exam);
+      const disabled = pendingActions.has(exam.id) ? 'disabled' : '';
       const printStatus = exam.print_status || 'nao_enviada';
-      const canSendToPrint = isApproved && printStatus !== 'enviada';
+      const canSendToPrint = actions.print;
       const printButtonLabel = printStatus === 'impressa' ? 'Reenviar para impressão' : 'Enviar para impressão';
+      const printLabel = { nao_enviada: 'Aguardando envio para impressão', enviada: 'Na fila de impressão', impressa: 'Impressa' }[printStatus] || printStatus;
+      const context = isApproved ? printLabel : isBlocked ? 'Edição bloqueada' : withTeacher ? 'Devolvida para ajustes · aguardando reenvio' : exam.review_status === 'em_revisao' ? 'Revisão iniciada pela coordenação' : history.some(entry => entry.action === 'devolvida') ? 'Reenviada pelo professor' : 'Aguardando análise da coordenação';
       const historyHtml = history.length ? `
         <div class="history-panel">
-          <button class="history-toggle" type="button" onclick="toggleHistory('${exam.id}')">Historico de revisao (${history.length} entrada${history.length > 1 ? 's' : ''})</button>
+          <button class="history-toggle" type="button" aria-expanded="false" aria-controls="history-${exam.id}" onclick="toggleHistory('${exam.id}', this)">Histórico de revisão (${history.length})</button>
           <div class="history-log" id="history-${exam.id}">
             ${[...history].reverse().map(h => `
               <div class="history-entry">
                 <span class="he-action">${esc(actionLabels[h.action] || h.action)}</span>
-                <span class="he-date">${esc(h.reviewer || 'Coordenacao')} - ${h.date ? new Date(h.date).toLocaleString('pt-BR') : '-'}</span>
+                <span class="he-date">${esc(h.reviewer || 'Coordenação')} · ${esc(formatReviewDate(h.date))}</span>
                 ${h.notes ? `<div class="he-notes">${esc(h.notes)}</div>` : ''}
               </div>
             `).join('')}
@@ -383,29 +495,35 @@
         </div>
       ` : '';
       return `
-        <div class="exam-card">
-          <span class="badge ${esc(exam.review_status)}">${esc(statusLabel)}</span>
-          <div class="card-title">${esc(exam.title || 'Sem título')}</div>
+        <article class="exam-card" aria-busy="${pendingActions.has(exam.id)}">
+          <div class="card-heading"><h2 class="card-title">${esc(exam.title || 'Sem título')}</h2>
+          <span class="badge ${withTeacher ? 'devolvida' : esc(exam.review_status)}">${esc(statusLabel)}</span></div>
           <div class="meta">
             <div class="meta-row"><span>Professor</span><strong>${esc(exam.teacher || '—')}</strong></div>
             <div class="meta-row"><span>Disciplina</span><strong>${esc(exam.subject || '—')}</strong></div>
             <div class="meta-row"><span>Turma</span><strong>${esc(exam.class_name || '—')}</strong></div>
-            <div class="meta-row"><span>Questões</span><strong>${qCount}</strong></div>
-            <div class="meta-row"><span>Atualizada</span><strong>${updated}</strong></div>
+            <div class="meta-row"><span>${getSubmissionDate(exam) ? 'Último envio' : 'Última atualização'}</span><strong>${esc(formatReviewDate(getSubmissionDate(exam) || exam.updated_at))}</strong></div>
           </div>
-          ${exam.review_notes ? `<div class="review-note"><strong>Observação registrada</strong>${esc(exam.review_notes)}</div>` : ''}
-          ${historyHtml}
+          <p class="status-context">${esc(context)}${isApproved && printStatus !== 'nao_enviada' && exam.print_copies ? ` · ${Number(exam.print_copies)} cópias` : ''}</p>
           <div class="actions">
-            <button class="btn primary" type="button" onclick="openEditor('${exam.id}')">${isLocked ? 'Ver' : 'Corrigir'}</button>
-            <button class="btn" type="button" onclick="openPrint('${exam.id}')">PDF</button>
-            ${canApprove ? `<button class="btn green" type="button" onclick="approveExam('${exam.id}')">Aprovar</button>` : ''}
-            ${canUnapprove ? `<button class="btn" type="button" onclick="unapproveExam('${exam.id}')">Desaprovar</button>` : ''}
-            ${canReturn ? `<button class="btn warn" type="button" onclick="openReturnModal('${exam.id}')">Devolver</button>` : ''}
-            ${canSendToPrint ? `<button class="btn blue" type="button" onclick="openPrintModal('${exam.id}')">${printButtonLabel}</button>` : ''}
-            ${canBlock ? `<button class="btn danger" type="button" onclick="blockExam('${exam.id}')">Bloquear</button>` : ''}
-            ${canUnblock ? `<button class="btn" type="button" onclick="unblockExam('${exam.id}')">Desbloquear</button>` : ''}
+            ${actions.review ? `<button class="btn blue" type="button" ${disabled} onclick="startReview('${exam.id}')">${exam.review_status === 'enviada' ? 'Iniciar revisão' : 'Continuar revisão'}</button>` : `<button class="btn" type="button" ${disabled} onclick="openPrint('${exam.id}')">Visualizar prova</button>`}
+            ${actions.approve ? `<button class="btn green" type="button" ${disabled} onclick="approveExam('${exam.id}')">Aprovar</button>` : ''}
+            ${actions.return ? `<button class="btn" type="button" ${disabled} onclick="openReturnModal('${exam.id}')">Devolver para ajustes</button>` : ''}
+            ${canSendToPrint ? `<button class="btn blue" type="button" ${disabled} onclick="openPrintModal('${exam.id}')">${printButtonLabel}</button>` : ''}
           </div>
-        </div>
+          <details class="exam-details"><summary>Detalhes e histórico</summary><div class="detail-content">
+            <p>${qCount} questões · Valor: ${esc(exam.total_value || 'Não informado')} · Atualizada: ${esc(updated)}</p>
+            <p>Escola: ${esc(exam.school_name || 'Não informada')}</p>
+            ${returnNotes ? `<div class="review-note"><strong>${withTeacher ? 'Ajustes solicitados ao professor' : 'Observação registrada anteriormente'}</strong>${esc(returnNotes)}</div>` : ''}
+            ${historyHtml || '<p>Sem histórico registrado.</p>'}
+            <div class="actions">
+              ${actions.review ? `<button class="btn" type="button" ${disabled} onclick="openPrint('${exam.id}')">Visualizar PDF</button>` : ''}
+              ${actions.unapprove ? `<button class="btn" type="button" ${disabled} onclick="unapproveExam('${exam.id}')">Reabrir revisão</button>` : ''}
+              ${actions.block ? `<button class="btn danger" type="button" ${disabled} onclick="blockExam('${exam.id}')">Bloquear prova</button>` : ''}
+              ${actions.unblock ? `<button class="btn" type="button" ${disabled} onclick="unblockExam('${exam.id}')">Desbloquear prova</button>` : ''}
+            </div>
+          </div></details>
+        </article>
       `;
     }).join('');
   }
@@ -415,27 +533,40 @@
     window.location.href = 'editor.html';
   }
 
+  async function startReview(id) {
+    const exam = reviews.find(item => item.id === id);
+    if (!exam || !getReviewActions(exam).review || pendingActions.has(id)) return;
+    if (exam.review_status === 'enviada' && !await updateReviewStatus(id, 'em_revisao', {}, 'Revisão iniciada.')) return;
+    openEditor(id);
+  }
+
   function openPrint(id) {
     window.location.href = `print.html?id=${encodeURIComponent(id)}`;
   }
 
-  function toggleHistory(id) {
+  function toggleHistory(id, button) {
     const el = document.getElementById('history-' + id);
-    if (el) el.classList.toggle('open');
+    if (el) button?.setAttribute('aria-expanded', String(el.classList.toggle('open')));
   }
 
   function openReturnModal(id) {
+    const exam = reviews.find(item => item.id === id);
+    if (!exam || !getReviewActions(exam).return || pendingActions.has(id)) return;
     pendingReturnId = id;
     document.getElementById('returnNotesInput').value = '';
     document.getElementById('returnModalOverlay').classList.add('show');
+    document.getElementById('returnNotesInput').focus();
   }
 
   function closeReturnModal() {
+    if (pendingActions.has(pendingReturnId)) return;
     pendingReturnId = null;
     document.getElementById('returnModalOverlay').classList.remove('show');
   }
 
   function openPrintModal(id) {
+    const exam = reviews.find(item => item.id === id);
+    if (!exam || !getReviewActions(exam).print || pendingActions.has(id)) return;
     pendingPrintId = id;
     document.getElementById('printCopiesInput').value = '1';
     document.getElementById('printNotesInput').value = '';
@@ -443,6 +574,7 @@
   }
 
   function closePrintModal() {
+    if (pendingActions.has(pendingPrintId)) return;
     pendingPrintId = null;
     document.getElementById('printModalOverlay').classList.remove('show');
   }
@@ -451,9 +583,16 @@
     document.getElementById('confirmReturnBtn').addEventListener('click', async () => {
       const notes = document.getElementById('returnNotesInput').value.trim();
       const examId = pendingReturnId;
-      closeReturnModal();
+      if (!notes) {
+        showToast('Informe os ajustes que o professor precisa fazer.', 'error');
+        document.getElementById('returnNotesInput').focus();
+        return;
+      }
       if (examId) {
-        await updateReviewStatus(examId, 'devolvida', { review_notes: notes, locked_at: null }, 'Prova devolvida ao professor.');
+        const button = document.getElementById('confirmReturnBtn');
+        button.disabled = true;
+        if (await updateReviewStatus(examId, 'devolvida', { review_notes: notes, locked_at: null }, 'Prova devolvida ao professor.')) closeReturnModal();
+        button.disabled = false;
       }
     });
     document.getElementById('returnModalOverlay').addEventListener('click', (e) => {
@@ -471,8 +610,11 @@
   }
 
   async function unapproveExam(id) {
-    if (!confirm('Desaprovar esta prova e liberar a edição do professor?')) return;
-    await updateReviewStatus(id, 'em_revisao', { locked_at: null }, 'Aprovação revertida. A prova voltou para revisão.', 'desaprovada');
+    if (!confirm('Reabrir a revisão? A aprovação será revertida e o pedido atual de impressão será retirado.')) return;
+    await updateReviewStatus(id, 'em_revisao', {
+      locked_at: null, print_status: 'nao_enviada', print_copies: null, print_notes: null,
+      print_requested_by: null, print_requested_at: null, printed_by: null, printed_at: null,
+    }, 'A prova voltou para revisão.', 'desaprovada');
   }
 
   async function blockExam(id) {
@@ -492,16 +634,15 @@
     const exam = reviews.find((item) => item.id === examId);
     const copies = Math.max(1, Number.parseInt(document.getElementById('printCopiesInput').value, 10) || 1);
     const notes = document.getElementById('printNotesInput').value.trim();
-    closePrintModal();
     if (!exam || exam.review_status !== 'aprovada') {
       showToast('Apenas provas aprovadas podem ser enviadas para impressão.', 'error');
       return;
     }
+    if (pendingActions.has(examId) || !getReviewActions(exam).print) return;
 
-    const previous = { ...exam };
     const now = new Date().toISOString();
     const user = auth.getCurrentUser();
-    Object.assign(exam, {
+    const payload = {
       print_status: 'enviada',
       print_copies: copies,
       print_notes: notes,
@@ -510,34 +651,40 @@
       printed_by: null,
       printed_at: null,
       updated_at: now,
-    });
+    };
+    pendingActions.add(examId);
+    document.getElementById('confirmPrintBtn').disabled = true;
     renderReviews();
 
     try {
-      await auth.authenticatedRequest(`/exams?id=eq.${examId}`, {
+      const saved = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(examId)}&updated_at=eq.${encodeURIComponent(exam.updated_at)}&select=*`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          print_status: 'enviada',
-          print_copies: copies,
-          print_notes: notes,
-          print_requested_by: user.id,
-          print_requested_at: now,
-          printed_by: null,
-          printed_at: null,
-          updated_at: now,
-        }),
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
       });
+      if (!Array.isArray(saved) || !saved.length) throw new Error('A prova foi alterada ou não está mais disponível. Atualize a lista.');
+      Object.assign(exam, saved[0]);
+      pendingActions.delete(examId);
+      closePrintModal();
       showToast('Prova enviada para impressão.');
     } catch (err) {
-      Object.assign(exam, previous);
-      renderReviews();
       showToast('Erro ao enviar para impressão: ' + err.message, 'error');
+    } finally {
+      pendingActions.delete(examId);
+      document.getElementById('confirmPrintBtn').disabled = false;
+      renderReviews();
     }
   }
 
   async function updateReviewStatus(id, status, extra, message, historyAction = status) {
     const exam = reviews.find((item) => item.id === id);
-    if (!exam) return;
+    if (!exam || pendingActions.has(id) || loadingReviews) return false;
+    const actions = getReviewActions(exam);
+    const allowed = status === 'aprovada' ? actions.approve
+      : status === 'devolvida' ? actions.return
+      : status === 'bloqueada' ? actions.block
+      : status === 'em_revisao' && (actions.review || actions.unapprove || actions.unblock);
+    if (!allowed) return false;
 
     const now = new Date().toISOString();
     const user = auth.getCurrentUser();
@@ -550,34 +697,34 @@
     const currentHistory = Array.isArray(exam.review_history) ? exam.review_history : [];
     const newHistory = [...currentHistory, historyEntry];
 
-    const previous = { ...exam };
-    Object.assign(exam, {
+    const payload = {
       review_status: status,
       reviewed_by: user.id,
       reviewed_at: now,
       updated_at: now,
       review_history: newHistory,
       ...extra,
-    });
+    };
+    pendingActions.add(id);
     renderReviews();
 
     try {
-      await auth.authenticatedRequest(`/exams?id=eq.${id}`, {
+      // Evita sobrescrever uma prova salva por outra pessoa durante a revisão.
+      const saved = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&updated_at=eq.${encodeURIComponent(exam.updated_at)}&select=*`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          review_status: status,
-          reviewed_by: user.id,
-          reviewed_at: now,
-          updated_at: now,
-          review_history: newHistory,
-          ...extra,
-        }),
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
       });
+      if (!Array.isArray(saved) || !saved.length) throw new Error('A prova foi alterada ou não está mais disponível. Atualize a lista.');
+      Object.assign(exam, saved[0]);
       showToast(message, 'success');
+      return true;
     } catch (err) {
-      Object.assign(exam, previous);
-      renderReviews();
       showToast('Erro ao atualizar revisão: ' + err.message, 'error');
+      return false;
+    } finally {
+      pendingActions.delete(id);
+      renderReviews();
     }
   }
 
