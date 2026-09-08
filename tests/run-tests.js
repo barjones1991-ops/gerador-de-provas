@@ -306,7 +306,7 @@ async function main() {
     assert(!editor.includes('defaultQuestions'), 'new exams should start empty without default example questions');
     assert(!editor.includes('Exemplo de questão'), 'editor should not seed example questions');
     assert(editor.includes('applyReviewLock'), 'review lock helper missing');
-    assert(editor.includes("['aprovada', 'bloqueada']"), 'approved/blocked lock statuses missing');
+    assert(fs.readFileSync(path.join(root, 'js/editor-tools.js'), 'utf8').includes("['aprovada', 'bloqueada']"), 'approved/blocked lock statuses missing');
     assert(editor.includes('correctOption'), 'multiple choice correct option missing');
     assert(editor.includes('Adicionar alternativa'), 'multiple choice add option action missing');
     assert(editor.includes('Adicionar afirmação'), 'true/false add item action missing');
@@ -651,7 +651,7 @@ async function main() {
     assert(dashboard.includes("auth.hasRole(['print_operator'], currentProfile)") && dashboard.includes("newExamBtn').style.display = 'none'"), 'print operators should not create exams from dashboard');
     assert(dashboard.includes('const canCreateExam = !auth.hasRole([\'print_operator\'], currentProfile)'), 'empty dashboard state should also hide creation for print operators');
     assert(!dashboard.includes('gerador-provas-state-v1'), 'new exam should not clear local browser drafts');
-    assert(dashboard.includes('Enviar revisão'), 'dashboard should use a clear review action label');
+    assert(dashboard.includes('Enviar para coordenação'), 'dashboard should use a clear review action label');
     assert(!dashboard.includes('>Coord.</button>'), 'dashboard should not use abbreviated Coord. action');
     assert(!dashboard.includes('Publicar</button>'), 'dashboard should not expose a parallel publish action');
     assert(dashboard.includes("Provas aprovadas ou bloqueadas não podem ser deletadas."), 'dashboard should guard locked exam delete');
@@ -665,7 +665,7 @@ async function main() {
     assert(dashboard.includes('if (!hasExamQuestions(exam))'), 'send-to-review should use normalized question count');
     assert(dashboard.includes('function getExamScoreCheck(exam)'), 'dashboard should compare question score total before review');
     assert(dashboard.includes('Divergência de nota: soma das questões'), 'dashboard should warn about score divergence');
-    assert(dashboard.includes('qCount > 0 && scoreCheck.isConsistent && !locked && !reviewInProgress'), 'dashboard should not send score-divergent exams to review');
+    assert(dashboard.includes('const sendReady = qCount > 0 && scoreCheck.isConsistent') && dashboard.includes("sendReady ? '' : 'disabled'"), 'dashboard should explain but disable incomplete submissions');
     assert(dashboard.includes('if (!scoreCheck.isConsistent)'), 'send-to-review should block score divergence on click');
   });
 
@@ -1038,6 +1038,26 @@ async function main() {
     context.auth.authenticatedRequest = async () => [];
     await vm.runInContext("sendToReview('exam')", context);
     assert(exam.review_status === 'rascunho' && exam.review_history.length === 2, 'conflicting save must preserve draft and history');
+  });
+
+  await test('delete keeps the exam visible unless the server confirms removal', async () => {
+    const messages = [];
+    const context = vm.createContext({
+      pendingDeleteId:'exam', exams:[{id:'exam'}], renderExams(){},
+      closeDeleteModal(){ context.pendingDeleteId = null; }, showToast(message,type){ messages.push({message,type}); },
+      auth:{authenticatedRequest:async () => []},
+    });
+    const source = read('dashboard.html');
+    vm.runInContext(source.slice(source.indexOf('  async function confirmDelete()'),source.indexOf('  function esc(s)')),context);
+    await vm.runInContext('confirmDelete()',context);
+    assert(context.exams.length === 1 && messages.at(-1).type === 'error', 'zero deleted rows must not announce success');
+    context.pendingDeleteId = 'exam';
+    context.auth.authenticatedRequest = async (url,options) => {
+      assert(options.headers.Prefer === 'return=representation', 'delete must request confirmation');
+      return [{id:'exam'}];
+    };
+    await vm.runInContext('confirmDelete()',context);
+    assert(context.exams.length === 0 && messages.at(-1).type === 'success', 'confirmed removal should update list');
   });
 
   await test('print queue page receives and completes print jobs', () => {

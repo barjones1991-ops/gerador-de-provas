@@ -1,5 +1,7 @@
 # Correções da auditoria
 
+Refinamento do professor: fluxo reorganizado para elaborar, conferir e enviar à coordenação, com publicação autorizada pelo usuário em 08/09/2026. Consulte [o registro do refinamento](REFINAMENTO_PROFESSOR_2026-09-08.md). Testes aprovados: 16 fluxos do editor, 15 regressões e 39 verificações SQL, além da suíte geral. Migração 03 aplicada no Supabase conforme relato do usuário em 08/09/2026, sem verificação administrativa independente; validação visual e ciclo com contas reais ainda pendentes.
+
 Atualizado em 08/09/2026. Primeiro lote publicado em `main`, commit [`a518f8c`](https://github.com/barjones1991-ops/gerador-de-provas/commit/a518f8c46f075815a5d452e11bec727455ef2671), por autorização do usuário. [Testes no GitHub](https://github.com/barjones1991-ops/gerador-de-provas/actions/runs/34234772887) e [publicação no Pages](https://github.com/barjones1991-ops/gerador-de-provas/actions/runs/34234771238) concluídos com sucesso.
 
 Segundo lote: S08 publicado em `3cf5d23` e coberto pelos testes SQL. Em 08/09/2026, o usuário informou que executou os scripts no Supabase e autorizou a publicação de todas as alterações. A aplicação foi informada pelo usuário, sem verificação administrativa independente pelo agente; validação visual e testes com contas reais permanecem sem confirmação.

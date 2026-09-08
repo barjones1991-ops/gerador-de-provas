@@ -298,14 +298,14 @@ class AuthManager {
     if (!exam) return false;
     const user = this.getCurrentUser();
     if (this.canReviewExams(profile)) return true;
-    return user?.id === exam.user_id && !['aprovada', 'bloqueada'].includes(exam.review_status || 'rascunho');
+    return user?.id === exam.user_id && !['enviada', 'em_revisao', 'aprovada', 'bloqueada'].includes(exam.review_status || 'rascunho');
   }
 
   canDeleteExam(exam, profile = this.currentProfile) {
     if (!exam) return false;
     const user = this.getCurrentUser();
     if (this.hasRole(['master', 'school_owner'], profile)) return true;
-    return user?.id === exam.user_id && !['aprovada', 'bloqueada'].includes(exam.review_status || 'rascunho');
+    return user?.id === exam.user_id && !['enviada', 'em_revisao', 'aprovada', 'bloqueada'].includes(exam.review_status || 'rascunho');
   }
 
   canManageQuestionBank(profile = this.currentProfile) {

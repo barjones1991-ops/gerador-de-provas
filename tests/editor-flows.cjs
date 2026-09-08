@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const Safety = require('../js/exam-safety.js');
 
-async function boot({ bank = false, status = 'rascunho', questions = [{ type:'discursiva', text:'Questão original', points:'10,0', lines:5 }], grade = '6A' } = {}) {
+async function boot({ bank = false, loggedIn = true, preview = false, status = 'rascunho', questions = [{ type:'discursiva', text:'Questão original', points:'10,0', lines:5 }], grade = '6A' } = {}) {
   const { document, window: dom } = parseHTML(read('editor.html'));
   // linkedom implementa DOM, não navegação, layout ou temporização de um navegador.
   const selectProto = dom.HTMLSelectElement.prototype;
@@ -21,6 +21,7 @@ async function boot({ bank = false, status = 'rascunho', questions = [{ type:'di
   const storage = new Map(), timers = new Map(), requests = [];
   let timerId = 0;
   const location = { origin:'https://example.invalid', href:'https://example.invalid/app/editor.html' + (bank ? '?bank=b1' : '?id=e1'), search:bank ? '?bank=b1' : '?id=e1' };
+  if (preview) location.search += '&view=preview';
   const ctx = { document, location, console, URL, URLSearchParams, Blob, Event:dom.Event, CustomEvent:dom.CustomEvent,
     setTimeout(fn) { timers.set(++timerId, fn); return timerId; }, clearTimeout(id) { timers.delete(id); },
     setInterval() {}, clearInterval() {}, confirm:() => true, alert() {}, navigator:{},
@@ -30,7 +31,7 @@ async function boot({ bank = false, status = 'rascunho', questions = [{ type:'di
   ctx.window = ctx; ctx.globalThis = ctx;
   const exam = { id:'e1', user_id:'u1', title:'Prova preservada', school_name:'Escola A', teacher:'Autor original', class_name:'5A',
     subject:'Matemática', instructions:'', term:'', total_value:'10,0', questions, updated_at:'v1', review_status:status, logo_data_url:'' };
-  const auth = { isAuthenticated:() => true, getCurrentUser:() => ({ id:'u1', email:'teste@example.invalid' }),
+  const auth = { isAuthenticated:() => loggedIn, getCurrentUser:() => ({ id:'u1', email:'teste@example.invalid' }),
     loadCurrentProfile:async () => ({ id:'u1', role:'teacher', school_id:null, school_grade:grade }),
     hasRole:roles => roles.includes('teacher'), canReviewExams:() => false, canAccessPrintQueue:() => false, canManageSchools:() => false, canManageUsers:() => false,
     authenticatedRequest:async (url, options = {}) => {
@@ -56,6 +57,13 @@ async function boot({ bank = false, status = 'rascunho', questions = [{ type:'di
 async function main() {
   let count = 0;
   const test = async (name, fn) => { await fn(); console.log('OK EDITOR',name); count++; };
+  await test('login conserva destino de banco e consulta', async () => {
+    for (const options of [{bank:true,loggedIn:false},{preview:true,loggedIn:false}]) {
+      const app = await boot(options);
+      const target = new URLSearchParams(app.ctx.location.href.split('?')[1]).get('return_to');
+      assert.equal(target,options.bank ? 'editor.html?bank=b1' : 'editor.html?id=e1&view=preview');
+    }
+  });
   await test('carregar preserva turma, autor e campos vazios; sem PATCH involuntario', async () => {
     const app = await boot();
     assert.equal(app.run('state.school.className'),'5A');
@@ -97,13 +105,14 @@ async function main() {
     assert.equal(app.run('state.questions[0].answerType'),'multipla');
     assert(app.document.querySelector('input[name="table-answer-0"]'));
   });
-  await test('prova aprovada recusa alteracao e imprime apenas versao persistida', async () => {
+  await test('professor consulta prova aprovada sem comandos de impressao', async () => {
     const app = await boot({status:'aprovada',questions:[{type:'discursiva',text:'Original',points:'10,0',freeImages:[{dataUrl:'data:image/png;base64,AA==',width:180,height:120}]}]});
     assert.equal(app.ctx.EditorTools.canEdit(),false);
     app.run('duplicateQuestion(0); addQuestionOfType("discursiva");');
     assert.equal(app.run('state.questions.length'),1);
     await app.run('saveToCloud()'); assert.equal(app.requests.filter(r=>r.options.method==='PATCH').length,0);
-    await app.ctx.EditorTools.openPrint(false); assert(app.ctx.location.href.includes('print.html?id=e1'));
+    await app.ctx.EditorTools.openPrint(false); assert.equal(app.document.body.dataset.editorView,'preview');
+    assert.equal(app.document.getElementById('mainPrintBtn').hidden,true);
   });
   await test('editar banco abre modo separado e PATCH atualiza registro original com versao', async () => {
     const app = await boot();
@@ -169,6 +178,37 @@ async function main() {
     assert.equal(await app.ctx.EditorTools.saveBank(),false);
     assert([...app.storage.entries()].some(([key,value])=>key.includes('bank:b1')&&value.includes('Minha alteração')));
     assert.equal(app.run('currentExamVersion'),'v1');
+  });
+  await test('envio confirmado bloqueia edicao e preserva historico', async () => {
+    const app = await boot();
+    await app.ctx.EditorTools.sendToCoordination();
+    assert.equal(app.run('currentReviewStatus'),'enviada');
+    assert.equal(app.ctx.EditorTools.canEdit(),false);
+    const sent = app.requests.filter(r => r.options.method === 'PATCH').map(r => JSON.parse(r.options.body));
+    assert.equal(sent.at(-1).review_status,'enviada');
+    assert.equal(sent.at(-1).review_history.at(-1).action,'enviada');
+  });
+  await test('falha de envio conserva edicao e estado anterior', async () => {
+    const app = await boot();
+    app.auth.authenticatedRequest = async () => [];
+    await app.ctx.EditorTools.sendToCoordination();
+    assert.equal(app.run('currentReviewStatus'),'rascunho');
+    assert.equal(app.ctx.EditorTools.canEdit(),true);
+  });
+  await test('revisao impede escrita e devolucao conserva orientacao ao salvar', async () => {
+    for (const status of ['enviada','em_revisao']) {
+      const app = await boot({status});
+      assert.equal(app.ctx.EditorTools.canEdit(),false);
+      assert(app.document.getElementById('lastSaved').textContent.includes('consulta'));
+      assert.equal(await app.run('saveToCloud()'),false);
+      assert.equal(app.requests.filter(r=>r.options.method==='PATCH').length,0);
+    }
+    const app = await boot({status:'devolvida'});
+    app.run("currentReviewNotes='Rever enunciado'; state.questions[0].text='Corrigida'");
+    await app.run('saveToCloud()');
+    assert.equal(app.run('currentReviewStatus'),'devolvida');
+    assert.equal(app.run('currentReviewNotes'),'Rever enunciado');
+    assert(app.document.getElementById('teacherFeedback').textContent.includes('Rever enunciado'));
   });
   console.log(`${count} fluxos do editor aprovados em DOM isolado.`);
 }

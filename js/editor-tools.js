@@ -4,9 +4,38 @@ const EditorTools = {
   bankId: new URLSearchParams(window.location.search).get('bank'), bankRecord: null,
   previewTimer: null, persistTimer: null, historyTimer: null, previewReady: false,
   forceSnapshot: true, previewQuestionCount: -1, dirtyQuestions: new Set(),
+  reviewHistory: [], sending: false,
+  isTeacher() { return Boolean(auth?.hasRole?.(['teacher'], currentProfile)); },
+  workflowLocked() {
+    return ['aprovada', 'bloqueada'].includes(currentReviewStatus)
+      || (this.isTeacher() && ['enviada', 'em_revisao'].includes(currentReviewStatus));
+  },
+  async sendToCoordination() {
+    if (this.sending || !this.canEdit() || this.bankId || currentExamOwnerId !== editorUserId) return;
+    if (!await flushAutoSaveBeforeAction()) return;
+    if (this.sending || !this.canEdit()) return;
+    if (examFingerprint() !== lastSavedFingerprint) { showToast('Aguarde o salvamento das últimas alterações e envie novamente.', 'err'); return; }
+    const score = getScoreCheck();
+    if (!state.questions.length || !score.isConsistent || ExamSafety.inspectExam(state).some(issue => issue.blocking)) {
+      document.getElementById('readinessDetails').open = true;
+      this.updatePreview(); return;
+    }
+    this.sending = true; applyReviewLock(); this.refreshActions();
+    const history = [...this.reviewHistory, { action:'enviada', reviewer:currentProfile.full_name || auth.getCurrentUser().email, date:new Date().toISOString(), notes:'' }];
+    try {
+      const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(currentExamId)}&updated_at=eq.${encodeURIComponent(currentExamVersion)}&select=id,updated_at`, {
+        method:'PATCH', headers:{Prefer:'return=representation'},
+        body:JSON.stringify({ review_status:'enviada', is_draft:false, is_published:true, review_history:history }),
+      });
+      if (!Array.isArray(rows) || rows.length !== 1 || !rows[0].updated_at) throw new Error('A prova mudou. Reabra para conferir antes de enviar.');
+      currentExamVersion = rows[0].updated_at; currentReviewStatus = 'enviada'; this.reviewHistory = history;
+      applyReviewLock(); setAutoSaveHint('Prova enviada. Aguarde a revisão da coordenação.');
+    } catch (error) { showToast(error.message, 'err'); }
+    finally { this.sending = false; applyReviewLock(); this.refreshActions(); }
+  },
   canEdit() {
     try {
-      return !this.loading && autoSaveReady && !['aprovada', 'bloqueada'].includes(currentReviewStatus)
+      return !this.loading && !this.sending && autoSaveReady && !this.workflowLocked()
         && auth?.getCurrentUser()?.id === editorUserId;
     } catch { return false; }
   },
@@ -77,6 +106,21 @@ const EditorTools = {
   refreshActions() {
     if (!this.initialized) return;
     const enabled = this.canEdit();
+    const send = document.getElementById('sendCoordinationBtn');
+    if (send) {
+      send.hidden = Boolean(this.bankId) || currentExamOwnerId !== editorUserId || this.workflowLocked();
+      send.disabled = !enabled;
+      send.textContent = this.sending ? 'Enviando…' : currentReviewStatus === 'devolvida' ? 'Reenviar para coordenação' : 'Enviar para coordenação';
+    }
+    const teacher = this.isTeacher();
+    document.getElementById('viewEditBtn').textContent = this.workflowLocked() ? 'Consultar questões' : 'Editar';
+    document.getElementById('mainPrintBtn').hidden = teacher;
+    document.querySelector('.settings-wrap').hidden = teacher;
+    const note = document.getElementById('teacherFeedback');
+    if (note) {
+      note.hidden = !['rascunho','devolvida'].includes(currentReviewStatus) || !currentReviewNotes;
+      note.textContent = `Ajustes solicitados pela coordenação: ${currentReviewNotes}`;
+    }
     const undo = document.getElementById('undoBtn'), redo = document.getElementById('redoBtn');
     if (undo) undo.disabled = !enabled || this.historyIndex <= 0;
     if (redo) redo.disabled = !enabled || this.historyIndex >= this.history.length - 1;
@@ -180,6 +224,7 @@ const EditorTools = {
     card?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); card?.querySelector('textarea,input,button')?.focus();
   },
   async openPrint(answerKey) {
+    if (this.isTeacher()) { document.body.dataset.editorView = 'preview'; this.updatePreview(); return; }
     if (this.bankId) { showToast('Use Inserir na prova para imprimir esta questão em uma avaliação.', 'err'); return; }
     if (auth?.getCurrentUser()?.id !== editorUserId) { showToast('A conta mudou. Reabra a prova na conta correta.', 'err'); return; }
     this.recordHistory();
@@ -254,17 +299,20 @@ const EditorTools = {
   },
   init() {
     this.initialized = true;
-    document.body.dataset.editorView = 'edit';
+    document.body.dataset.editorView = new URLSearchParams(location.search).get('view') === 'preview' ? 'preview' : 'edit';
     if (this.bankId) document.body.classList.add('bank-mode');
     const panel = document.querySelector('.card.no-print');
     panel.id = 'editorPanel';
     const heading = panel.querySelector('h2');
     const general = heading.nextElementSibling;
-    const details = document.createElement('details'); details.id = 'examDetails'; details.open = true;
+    const details = document.createElement('details'); details.id = 'examDetails'; details.open = false;
     const summary = document.createElement('summary'); summary.textContent = 'Dados da avaliação'; details.append(summary, general); heading.after(details);
     const top = document.createElement('div'); top.className = 'editor-primary-actions';
-    top.innerHTML = '<strong id="activeExamTitle">Editor da prova</strong><div><button id="undoBtn" type="button" disabled>Desfazer</button><button id="redoBtn" type="button" disabled>Refazer</button><button id="viewEditBtn" type="button">Editar</button><button id="viewPreviewBtn" type="button">Prévia A4</button><button id="mainPrintBtn" type="button" class="primary">Imprimir / PDF</button><button id="saveBankRecordBtn" type="button" class="primary">Salvar no banco</button></div>';
+    top.innerHTML = '<strong id="activeExamTitle">Editor da prova</strong><div><button id="undoBtn" type="button" disabled>Desfazer</button><button id="redoBtn" type="button" disabled>Refazer</button><button id="viewEditBtn" type="button">Editar</button><button id="viewPreviewBtn" type="button">Prévia da prova</button><button id="mainPrintBtn" type="button" class="primary">Imprimir / PDF</button><button id="saveBankRecordBtn" type="button" class="primary">Salvar no banco</button></div>';
     document.querySelector('.editor-actionbar-inner').prepend(top);
+    const send = document.createElement('button'); send.id = 'sendCoordinationBtn'; send.type = 'button'; send.className = 'primary';
+    send.textContent = 'Enviar para coordenação'; send.onclick = () => this.sendToCoordination(); top.lastElementChild.appendChild(send);
+    const feedback = document.createElement('p'); feedback.id = 'teacherFeedback'; feedback.hidden = true; details.before(feedback);
     if (typeof ResizeObserver !== 'undefined') {
       const bar = document.querySelector('.editor-actionbar');
       new ResizeObserver(() => document.documentElement.style.setProperty('--editor-bar-height', `${Math.ceil(bar.getBoundingClientRect().height)}px`)).observe(bar);
@@ -282,7 +330,7 @@ const EditorTools = {
     readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><div id="examIssues"></div>';
     overview.after(readiness);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-options"><strong>Prévia A4</strong><label><input type="checkbox" id="previewAnswerKey"> Mostrar gabarito</label><label>Zoom <select id="previewZoom"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><p class="small">Mesma diagramação da impressão. As quebras finais são calculadas pelo navegador ao imprimir.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey"> Mostrar gabarito</label><label>Zoom <select id="previewZoom"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewAnswerKey').onchange = () => { this.forceSnapshot = true; this.updatePreview(); };
     document.getElementById('previewZoom').onchange = event => { document.getElementById('canonicalPreview').style.zoom = event.target.value; };

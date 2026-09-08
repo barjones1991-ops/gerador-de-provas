@@ -25,12 +25,12 @@ function storage() {
 function editor(request = async () => '') {
   const nodes = new Map();
   const node = id => {
-    if (!nodes.has(id)) nodes.set(id, { textContent: '', hidden: false, disabled: false, classList: { add() {}, remove() {} } });
+    if (!nodes.has(id)) nodes.set(id, { textContent: '', hidden: false, disabled: false, classList: { add() {}, remove() {}, contains() { return false; } } });
     return nodes.get(id);
   };
   const context = {
     ExamSafety, Blob, URL, setTimeout, clearTimeout,
-    EditorTools: { loading:false, bankId:null, refreshActions() {}, lockControl(node, locked) { node.disabled = locked; } },
+    EditorTools: { loading:false, bankId:null, workflowLocked() { return ['aprovada','bloqueada'].includes(context.currentReviewStatus); }, refreshActions() {}, lockControl(node, locked) { node.disabled = locked; } },
     document: { getElementById: node, querySelectorAll: () => [node('editorInput')] },
     auth: { isAuthenticated: () => true, getCurrentUser: () => ({ id: 'u1' }), authenticatedRequest: request },
     localStorage: storage(), state: { school: { examTitle: 'Original' }, questions: [], logoDataUrl: '' },
@@ -78,7 +78,7 @@ async function test(name, task) { await task(); checks++; console.log('OK REG', 
     const ctx = editor(async () => [{ id: 'e1', user_id: 'u1', updated_at: 'v2', review_status: 'devolvida', review_notes: marker, review_history: [{ date: '2026-09-08T12:00:00Z' }], questions: [] }]);
     ctx.state.questions = [{ text: 'Antiga' }];
     assert.equal(await ctx.loadFromCloud('e1'), true);
-    assert(ctx.node('reviewInfo').textContent.includes(marker));
+    assert.equal(ctx.currentReviewNotes, marker);
     assert.equal(ctx.node('reviewInfo').innerHTML, undefined);
     assert.equal(ctx.state.questions.length, 0);
   });

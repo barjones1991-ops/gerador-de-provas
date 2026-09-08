@@ -6,6 +6,14 @@ A migração 01 acompanha o frontend publicado em `a518f8c`. A migração 02 int
 
 ## Atualizar um ambiente existente
 
+### Refinamento do fluxo do professor (migração 03)
+
+Após as migrações 01/02, execute [20260908_03_fluxo_professor.sql](20260908_03_fluxo_professor.sql) inteiro no SQL Editor. Impede o professor de alterar ou excluir provas enviadas, em revisão, aprovadas ou bloqueadas. A coordenação mantém suas permissões; após devolução, o professor pode editar e reenviar. Não altera os dados das provas. Está incorporada ao setup para instalações novas. Execução no Supabase informada pelo usuário em 08/09/2026; sem verificação administrativa independente pelo agente.
+
+Conferir com contas de teste: professor envia; tentativa de edição/exclusão é recusada; coordenação devolve; professor corrige e reenvia; coordenação aprova e encaminha para impressão.
+
+### Procedimento inicial
+
 1. Faça backup dos dados e do schema por uma ferramenta administrativa. Uma cópia do SQL do projeto não substitui backup de provas e usuários.
 2. No SQL Editor do projeto correto, execute `20260908_01_seguranca.sql` inteiro. O script usa uma transação e registra a versão em `public.schema_migrations`.
 3. Em Authentication, ative **Confirm email**. Configure SMTP e permita o retorno ao `login.html` do site publicado e ao endereço local usado na validação. A confirmação não é ativada por SQL.

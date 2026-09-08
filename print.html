@@ -1403,6 +1403,7 @@
         return;
       }
       const profile = await auth.loadCurrentProfile('id,role,school_id');
+      if (auth.hasRole(['teacher'], profile)) { location.replace(`editor.html?id=${encodeURIComponent(id)}&view=preview`); return; }
       printProfile = profile;
       currentExam = data[0];
       updatePrintToolbar(currentExam, auth, profile);

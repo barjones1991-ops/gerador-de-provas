@@ -623,7 +623,7 @@
   }
 
   async function unblockExam(id) {
-    if (!confirm('Desbloquear esta prova e liberar novas alterações?')) return;
+    if (!confirm('Desbloquear esta prova e voltar à revisão? Para liberar a edição do professor, devolva a prova para ajustes.')) return;
     await updateReviewStatus(id, 'em_revisao', { locked_at: null }, 'Bloqueio revertido. A prova voltou para revisão.', 'desbloqueada');
   }
 

@@ -12,6 +12,16 @@ body { padding-top: var(--editor-bar-height,155px); padding-left: 200px; }
 .topbar-panel { grid-template-columns:auto minmax(0,1fr) auto; }
 .topbar-status { min-width:0; }
 #cloudUser { font-size:11px; }
+#teacherFeedback { padding:14px; border-left:4px solid #b45309; background:#fffbeb; color:#78350f; white-space:pre-wrap; }
+.editor-primary-actions #mainPrintBtn { background:#fff; color:#334155; border-color:#cbd5e1; }
+.qhead-actions { gap:8px; }
+.question-essentials textarea { min-height:90px; }
+.q-head-field label { text-transform:none; letter-spacing:normal; }
+.question-scoring { border-top:1px solid #e2e8f0; padding-top:12px; }
+.question-scoring .q-head-field { width:120px; }
+.question-settings { padding:8px; background:#f8fafc; border-radius:8px; }
+.question-settings .bncc { margin-top:8px; }
+#lastSaved { color:#334155; }
 #examDetails, #questionOverview, #readinessDetails { border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:12px 0; }
 summary { cursor:pointer; font-weight:700; padding:4px; }
 #examDetails > .row { margin-top:14px; }
@@ -65,5 +75,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media print {
   body { padding:0 !important; }
   .app-sidebar,.editor-actionbar,#editorPanel,#canonicalPreviewPanel { display:none !important; }
-  body::after { content:'Use Imprimir / PDF na barra do editor para abrir a versão de impressão.'; display:block; font-size:18px; }
+  body::after { content:'Professor: confira a prévia e envie a prova para a coordenação. A impressão é realizada pelo setor responsável.'; display:block; font-size:18px; }
 }

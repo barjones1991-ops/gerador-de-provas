@@ -609,8 +609,6 @@
     if (auth.hasRole(['print_operator'], currentProfile)) document.getElementById('newExamBtn').style.display = 'none';
     document.getElementById('navSchoolsLink').classList.toggle('show', auth.canManageSchools(currentProfile) || auth.canManageUsers(currentProfile));
   }
-
-
   function getExamQuestions(exam) {
     if (Array.isArray(exam?.questions)) return exam.questions;
     if (typeof exam?.questions === 'string') {
@@ -769,10 +767,11 @@
       const canEdit = auth.canEditExam(exam, currentProfile);
       const canDelete = auth.canDeleteExam(exam, currentProfile);
       const scoreCheck = getExamScoreCheck(exam);
-      const canSendToReview = ownedByCurrentUser && qCount > 0 && scoreCheck.isConsistent && !locked && !reviewInProgress;
+      const canSendToReview = ownedByCurrentUser && !locked && !reviewInProgress;
+      const sendReady = qCount > 0 && scoreCheck.isConsistent;
       const primaryLabel = state.returned ? 'Corrigir prova' : qCount === 0 ? 'Adicionar questões' : !scoreCheck.isConsistent ? 'Corrigir nota' : 'Continuar editando';
       const printLabel = { nao_enviada: 'Aguardando envio para impressão', enviada: 'Na fila de impressão', impressa: 'Impressa' }[exam.print_status || 'nao_enviada'];
-      const context = review === 'aprovada' ? printLabel : review === 'bloqueada' ? 'Entre em contato com a coordenação para liberar a prova.' : review === 'enviada' ? 'Aguardando análise da coordenação.' : review === 'em_revisao' ? 'A coordenação está revisando sua prova.' : state.returned ? 'Após os ajustes, reenvie a prova para revisão.' : '';
+      const context = review === 'aprovada' ? printLabel : review === 'bloqueada' ? 'Entre em contato com a coordenação para liberar a prova.' : review === 'enviada' ? 'Aguardando análise da coordenação.' : review === 'em_revisao' ? 'A coordenação está revisando sua prova.' : state.returned ? 'Após os ajustes, reenvie a prova para coordenação.' : '';
 
       return `
         <article class="exam-card">
@@ -791,10 +790,11 @@
           ${context ? `<p class="exam-context">${esc(context)}</p>` : ''}
           <div class="card-footer">
             ${state.drafting && canEdit ? `<button class="card-btn edit" onclick="editExam('${exam.id}')">${primaryLabel}</button>` : `<button class="card-btn edit" onclick="printExam('${exam.id}')">Visualizar prova</button>`}
-            ${canSendToReview ? `<button class="card-btn review" onclick="sendToReview('${exam.id}')">${state.returned ? 'Reenviar para revisão' : 'Enviar revisão'}</button>` : ''}
+            ${canSendToReview && !sendReady ? `<p class="small">${qCount ? esc(scoreCheck.message) : 'Adicione questões antes de enviar para coordenação.'}</p>` : ''}
+            ${canSendToReview ? `<button class="card-btn review" ${sendReady ? '' : 'disabled'} onclick="sendToReview('${exam.id}')">${state.returned ? 'Reenviar para coordenação' : 'Enviar para coordenação'}</button>` : ''}
             <details class="exam-menu"><summary aria-label="Mais ações para ${esc(exam.title || 'prova')}" title="Mais ações">⋯</summary><div class="exam-menu-items">
-              <button class="card-btn" onclick="printExam('${exam.id}')">Abrir PDF</button>
-              ${reviewInProgress && canEdit ? `<button class="card-btn" onclick="editExam('${exam.id}')">Editar prova</button>` : ''}
+
+
               <button class="card-btn" onclick="duplicateExam('${exam.id}')">Criar cópia</button>
               ${canDelete ? `<button class="card-btn delete" onclick="askDelete('${exam.id}')">Excluir prova</button>` : ''}
             </div></details>
@@ -987,7 +987,7 @@
   }
 
   function printExam(id) {
-    window.location.href = `print.html?id=${encodeURIComponent(id)}`;
+    window.location.href = `editor.html?id=${encodeURIComponent(id)}&view=preview`;
   }
 
   async function duplicateExam(id) {
@@ -1271,7 +1271,12 @@
     const id = pendingDeleteId;
     closeDeleteModal();
     try {
-      await auth.authenticatedRequest(`/exams?id=eq.${id}`, { method: 'DELETE' });
+      const removed = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&select=id`, {
+        method: 'DELETE', headers: { Prefer: 'return=representation' },
+      });
+      if (!Array.isArray(removed) || removed.length !== 1 || removed[0].id !== id) {
+        throw new Error('A exclusão não foi confirmada. Atualize a lista: a prova pode ter sido enviada ou seu acesso pode ter mudado.');
+      }
       exams = exams.filter(e => e.id !== id);
       renderExams();
       showToast('Prova deletada.', 'success');

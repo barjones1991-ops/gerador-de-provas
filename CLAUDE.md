@@ -2,7 +2,7 @@
 
 ## Objetivo do Projeto
 
-Plataforma web para professores criarem, salvarem, revisarem e imprimirem provas escolares.
+Plataforma web para professores elaborarem provas e enviarem à coordenação. A coordenação revisa e encaminha ao setor de impressão; o professor consulta a prévia, sem comandos de impressão.
 
 - Frontend em HTML, CSS e JavaScript puro.
 - Backend, autenticação e banco de dados via Supabase.
@@ -27,6 +27,8 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 - Validação visual ainda pendente: as ferramentas não encontraram navegador disponível nesta sessão.
 
 ## Estado Atual
+
+Refinamento local do fluxo do professor: envio/reenvio no editor, consulta durante revisão, devolutiva preservada e impressão fora da interface do professor. Requer `migrations/20260908_03_fluxo_professor.sql` no Supabase para impedir edição/exclusão durante revisão também no servidor. A migração está incorporada ao setup, mas o usuário informou sua execução no Supabase em 08/09/2026, sem verificação administrativa independente pelo agente. Consulte `auditoria/REFINAMENTO_PROFESSOR_2026-09-08.md`.
 
 O lote do editor (E01–E16), com publicação autorizada pelo usuário em 08/09/2026, está descrito em [auditoria/CORRECOES_EDITOR_2026-09-08.md](auditoria/CORRECOES_EDITOR_2026-09-08.md). `js/editor-tools.js` controla histórico, conferência, edição independente do banco e prévia; `css/editor-tools.css` contém os ajustes visuais. A prévia usa `print.html?preview=1` por mensagens da mesma origem. `editor.html?bank=ID` atualiza o registro original com PATCH por versão. Não exige SQL adicional; ainda falta validação visual em navegador.
 

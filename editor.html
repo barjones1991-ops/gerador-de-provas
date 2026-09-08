@@ -1534,7 +1534,7 @@
       <div id="cloudBar" class="topbar-panel">
         <div class="topbar-actions">
           <div class="top-new-question">
-            <button id="topNewQuestionBtn" class="primary" type="button">Nova questao</button>
+            <button id="topNewQuestionBtn" class="primary" type="button">Nova questão</button>
             <div id="topQuestionMenu" class="top-question-menu hidden" aria-label="Tipos de nova questao"></div>
           </div>
         </div>
@@ -2976,7 +2976,7 @@
         const bankBtn = document.createElement('button');
         bankBtn.type = 'button'; bankBtn.className = 'outline';
         bankBtn.title = 'Salvar no banco de questões';
-        bankBtn.textContent = 'Banco';
+        bankBtn.textContent = 'Salvar no banco';
         bankBtn.addEventListener('click', () => saveQuestionToBank(idx));
 
         const freeImageInput = document.createElement('input');
@@ -3116,7 +3116,8 @@
         body.appendChild(metaRow);
 
         const secContent = document.createElement('div');
-        secContent.className = 'prop-sec'; secContent.textContent = 'Opcoes da questao';
+        secContent.className = 'prop-sec'; secContent.textContent = 'Conteúdo e respostas';
+        body.appendChild(secContent);
 
         if (q.type === 'multipla') {
           let actionRow = null;
@@ -5418,6 +5419,11 @@
           body.appendChild(imgSection);
         }
 
+        const scoring = document.createElement('div'); scoring.className = 'question-scoring';
+        scoring.appendChild(points); body.appendChild(scoring);
+        const settings = document.createElement('details'); settings.className = 'question-settings';
+        const settingsTitle = document.createElement('summary'); settingsTitle.textContent = 'Habilidade da questão';
+        settings.append(settingsTitle, bnccDiv); body.appendChild(settings);
         [head, body].forEach((scope) => scope.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
@@ -6205,7 +6211,12 @@
       if (EditorTools.initialized) EditorTools.recordHistory();
       renderQuestionsEditor();
       EditorTools.enhanceFields();
-      if (focusKey && focusIndex != null) document.querySelector(`[data-question-index="${focusIndex}"] [data-k="${focusKey}"]`)?.focus();
+      if (focusKey && focusIndex != null) {
+        const replacement = document.querySelector(`[data-question-index="${focusIndex}"] [data-k="${focusKey}"]`);
+        const section = replacement?.closest('details'); if (section) section.open = true;
+        replacement?.focus({ preventScroll:true });
+        if (typeof focused.selectionStart === 'number' && replacement?.setSelectionRange) replacement.setSelectionRange(focused.selectionStart, focused.selectionEnd);
+      }
       renderPreview();
       setTimeout(renderA4BreakIndicators, 120);
     }
@@ -6828,9 +6839,11 @@
 
       if (!auth || !auth.isAuthenticated()) {
         // Não logado: mostra link de login, esconde barra de nuvem
-        const returnTo = currentExamId && !forceNewExam
-          ? `editor.html?id=${encodeURIComponent(currentExamId)}`
-          : 'editor.html?new=1';
+        const returnTo = EditorTools.bankId
+          ? `editor.html?bank=${encodeURIComponent(EditorTools.bankId)}`
+          : currentExamId && !forceNewExam
+            ? `editor.html?id=${encodeURIComponent(currentExamId)}${new URLSearchParams(location.search).get('view') === 'preview' ? '&view=preview' : ''}`
+            : 'editor.html?new=1';
         window.location.href = `login.html?return_to=${encodeURIComponent(returnTo)}`;
         return;
       }
@@ -6865,8 +6878,8 @@
       EditorTools.resetHistory();
       setEditorLoading(false);
       applyReviewLock();
-      setAutoSaveHint('Alteracoes salvas automaticamente.');
-      if (!['aprovada', 'bloqueada'].includes(currentReviewStatus)) restorePendingDraft();
+      setAutoSaveHint(EditorTools.workflowLocked() ? 'Modo de consulta. A edição depende da devolução pela coordenação.' : 'Alterações salvas automaticamente.');
+      if (!EditorTools.workflowLocked()) restorePendingDraft();
       scheduleAutoSave();
       updatePrintPageLink();
     }
@@ -6874,7 +6887,7 @@
     function setEditorLoading(loading) {
       EditorTools.loading = loading;
       document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button, #topNewQuestionBtn, #openBankBtn')
-        .forEach(node => EditorTools.lockControl(node, loading || ['aprovada', 'bloqueada'].includes(currentReviewStatus)));
+        .forEach(node => EditorTools.lockControl(node, loading || EditorTools.workflowLocked()));
     }
     function updatePrintPageLink() {
       const link = document.getElementById('printPageLink');
@@ -6883,7 +6896,7 @@
     }
 
     function getNextReviewStatusForSave() {
-      if (currentReviewStatus === 'devolvida') return 'rascunho';
+      if (currentReviewStatus === 'devolvida') return 'devolvida';
       if (
         currentReviewStatus === 'enviada' &&
         currentExamOwnerId &&
@@ -6895,36 +6908,26 @@
     }
 
     function getReviewPayloadForSave() {
-      const nextStatus = getNextReviewStatusForSave();
-      const payload = { review_status: nextStatus };
-      if (currentReviewStatus === 'devolvida' && nextStatus === 'rascunho') {
-        payload.review_notes = '';
-        payload.reviewed_by = null;
-        payload.reviewed_at = null;
-        payload.locked_at = null;
-      }
-      return payload;
+      return { review_status: getNextReviewStatusForSave() };
     }
 
     function applyReviewLock() {
-      const locked = ['aprovada', 'bloqueada'].includes(currentReviewStatus) || auth?.getCurrentUser()?.id !== editorUserId;
+      const locked = EditorTools.sending || EditorTools.workflowLocked() || auth?.getCurrentUser()?.id !== editorUserId;
       const labels = {
-        rascunho: '',
+        rascunho: 'Em elaboração',
         enviada: 'Status: enviada para coordenação',
         em_revisao: 'Status: em revisão pela coordenação',
-        aprovada: 'Status: aprovada e bloqueada',
+        aprovada: 'Aprovada pela coordenação — disponível para consulta',
         devolvida: 'Status: devolvida para ajustes',
         bloqueada: 'Status: bloqueada pela coordenação',
       };
       const info = document.getElementById('reviewInfo');
       if (info) {
-        const note = currentReviewStatus === 'devolvida' && currentReviewNotes
-          ? ` | Devolutiva: ${currentReviewNotes}`
-          : '';
-        info.textContent = `${labels[currentReviewStatus] || ''}${note}`;
+        info.textContent = labels[currentReviewStatus] || '';
       }
       document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button')
         .forEach((node) => {
+          if (node.classList.contains('qnum')) { EditorTools.lockControl(node, EditorTools.loading); return; }
           if (['printBtn', 'printBtn2'].includes(node.id)) return;
           EditorTools.lockControl(node, locked || EditorTools.loading);
         });
@@ -7075,7 +7078,8 @@
         state.questions = (Array.isArray(exam.questions) ? exam.questions : []).map(ExamSafety.normalizeQuestion);
         collapseAllQuestions();
         currentReviewStatus = exam.review_status || 'rascunho';
-        currentReviewNotes = exam.review_notes || '';
+        EditorTools.reviewHistory = Array.isArray(exam.review_history) ? exam.review_history : [];
+        currentReviewNotes = exam.review_notes || (['rascunho','devolvida'].includes(currentReviewStatus) ? [...EditorTools.reviewHistory].reverse().find(entry => entry.action === 'devolvida')?.notes : '') || '';
         state.logoDataUrl = exam.logo_data_url || '';
         state.logoFileName = exam.logo_data_url ? 'Logo carregada da nuvem.' : '';
         applyStateToInputs();
@@ -7106,7 +7110,7 @@
     function scheduleAutoSave() {
       if (EditorTools.bankId) return;
       if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return;
-      if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return;
+      if (EditorTools.workflowLocked()) return;
       if (examFingerprint() === lastSavedFingerprint) return;
       preservePendingDraft();
       if (pendingDraftAvailable) setAutoSaveHint('Alterações pendentes — cópia de recuperação neste navegador.');
@@ -7136,7 +7140,7 @@
         // Sem carga confirmada, permite voltar ao dashboard, mas nunca imprimir.
         return Boolean(options.navigation && !currentExamVersion);
       }
-      if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return true;
+      if (EditorTools.workflowLocked()) return true;
 
       await waitForAutoSaveIdle();
       clearTimeout(autoSaveTimer);
@@ -7147,7 +7151,7 @@
     async function saveToCloud(options = {}) {
       const isAuto = Boolean(options.auto);
       if (EditorTools.bankId) return EditorTools.saveBank();
-      if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return false;
+      if (EditorTools.workflowLocked()) return false;
       if (!auth || !auth.isAuthenticated()) {
         showToast('Entre para salvar na nuvem.', 'err');
         return false;
@@ -7251,7 +7255,7 @@
     document.getElementById('retryLoadBtn').addEventListener('click', initCloud);
     window.addEventListener('online', () => scheduleAutoSave());
     window.addEventListener('beforeunload', event => {
-      if (currentExamVersion && !['aprovada', 'bloqueada'].includes(currentReviewStatus) && examFingerprint() !== lastSavedFingerprint) {
+      if (currentExamVersion && !EditorTools.workflowLocked() && examFingerprint() !== lastSavedFingerprint) {
         preservePendingDraft();
         event.preventDefault(); event.returnValue = '';
       }
