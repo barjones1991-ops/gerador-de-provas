@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
+  <script src="js/exam-safety.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
@@ -432,6 +433,8 @@
       return src ? `src="${src}"` : '';
     }
     function printCleanDocument() {
+      const problems = ExamSafety.wordSearchProblems(currentExam?.questions || []);
+      if (problems.length) { alert(problems.join('\n')); return; }
       const originalTitle = document.title;
       document.title = ' ';
       const restoreTitle = () => { document.title = originalTitle; };
@@ -539,41 +542,12 @@
       return String(text || '').split(/[\n,;]+/).map((word) => word.trim()).filter(Boolean);
     }
     function buildWordSearch(words, size = 12) {
-      const cleanWords = words.map(normalizePuzzleWord).filter(Boolean);
-      const gridSize = Math.max(8, Math.min(18, Number(size) || 12));
-      const grid = Array.from({ length: gridSize }, () => Array.from({ length: gridSize }, () => ''));
-      const placements = [];
-      const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }];
-      cleanWords.forEach((word, wi) => {
-        const trimmed = word.slice(0, gridSize);
-        let placed = false;
-        for (let attempt = 0; attempt < gridSize * gridSize && !placed; attempt += 1) {
-          const dir = directions[(attempt + wi) % directions.length];
-          const row = (attempt * 3 + wi * 5) % gridSize;
-          const col = (attempt * 7 + wi * 2) % gridSize;
-          const endRow = row + dir.dr * (trimmed.length - 1);
-          const endCol = col + dir.dc * (trimmed.length - 1);
-          if (endRow >= gridSize || endCol >= gridSize) continue;
-          let fits = true;
-          for (let i = 0; i < trimmed.length; i += 1) {
-            const cell = grid[row + dir.dr * i][col + dir.dc * i];
-            if (cell && cell !== trimmed[i]) fits = false;
-          }
-          if (!fits) continue;
-          for (let i = 0; i < trimmed.length; i += 1) grid[row + dir.dr * i][col + dir.dc * i] = trimmed[i];
-          placements.push(`${word}: linha ${row + 1}, coluna ${col + 1}`);
-          placed = true;
-        }
-      });
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      for (let r = 0; r < gridSize; r += 1) {
-        for (let c = 0; c < gridSize; c += 1) if (!grid[r][c]) grid[r][c] = letters[(r * 7 + c * 11) % letters.length];
-      }
-      return { grid, placements };
+      return ExamSafety.buildWordSearch(words, size);
     }
     function renderWordSearch(q) {
       const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
       const built = buildWordSearch(words, q.gridSize || 12);
+      if (built.unplaced.length) return `<p role="alert">Palavras fora da grade: ${esc(built.unplaced.join(", "))}. Reduza a lista antes de imprimir.</p>`;
       const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
       const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
       const wordList = q.showWordList === false ? '' : `<div class="word-search-list">${list}</div>`;
@@ -729,6 +703,7 @@
         return `<div class="spacey">${opts}</div>`;
       }
       if (q.type === 'discursiva') {
+        if (q.showAnswerSpace === false) return '';
         const titleLine = q.titlePrompt ? `<div style="margin-bottom:12px;"><div style="font-size:12px;color:#64748b;margin-bottom:4px;">Título:</div><div class="hline"></div></div>` : '';
         return `${titleLine}${answerArea(q)}`;
       }
@@ -863,6 +838,7 @@
       }
       if (q.type === 'texto_base') {
         const textBox = q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}</div>` : '';
+        if (q.showAnswerSpace === false) return textBox;
         if (q.answerType === 'multipla') {
           const opts = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
@@ -1207,15 +1183,16 @@
     }
 
     function renderAnswerKey(questions) {
+      let questionNumber = 0;
       const rows = questions
-        .map((q, i) => ({ number: i + 1, answer: getQuestionAnswer(q) }))
+        .map((q, i) => ({ number: q.hideNumber ? `Bloco ${i + 1} (sem número)` : `Questão ${++questionNumber}`, answer: getQuestionAnswer(q) }))
         .filter((item) => item.answer);
       if (!rows.length) return '';
       return `
         <section class="answer-key">
           <h2>Gabarito</h2>
           <div class="answer-grid">
-            ${rows.map((item) => `<div class="answer-row"><strong>Questão ${item.number}</strong><span>${esc(item.answer)}</span></div>`).join('')}
+            ${rows.map((item) => `<div class="answer-row"><strong>${esc(item.number)}</strong><span>${esc(item.answer)}</span></div>`).join('')}
           </div>
         </section>
       `;
@@ -1242,7 +1219,8 @@
 
     function renderExam(rawExam) {
       const exam = normalizeExam(rawExam);
-      const questions = (Array.isArray(exam.questions) ? exam.questions : []).map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
+      const questions = (Array.isArray(exam.questions) ? exam.questions : []).map(ExamSafety.normalizeQuestion);
+      let questionNumber = 0;
       const showAnswerKey = new URLSearchParams(window.location.search).get('gabarito') === '1';
       const sum = questions.reduce((acc, q) => acc + parsePtNumber(q.points), 0);
       const logo = isSafeImageDataUrl(exam.logo_data_url)
@@ -1279,8 +1257,7 @@
           ${questions.map((q, i) => `
             <div class="question-block">
               <div class="qtitle">
-                <div class="n">Questão ${i + 1}</div>
-                <div class="p">Valor: ${esc(q.points)}${q.bncc ? ` <span class="bncc-badge">${esc(q.bncc)}</span>` : ''}</div>
+                ${q.hideNumber ? '' : `<div class="n">Questão ${++questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
               </div>
               ${buildFreeImagesHtml(q)}
               <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>

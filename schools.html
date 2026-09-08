@@ -895,7 +895,7 @@
         ).join('');
         const canEditProfile = canEditTeamProfile(p);
         const canChangeRole = canChangeTeamRole(p);
-        const canUnlink = canEditProfile && p.school_id && role !== 'master';
+        const canUnlink = canEditProfile && p.school_id && role === 'teacher';
         const roleControl = canChangeRole ? renderRoleSelect(p.id, role) : `<span class="tag">${esc(roleLabel(role))}</span>`;
         return `
         <div class="professor-row" style="flex-direction:column; align-items:stretch;">
@@ -908,7 +908,7 @@
             </div>
             <div class="prof-actions">
               ${canEditProfile ? `<button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Editar</button>` : ''}
-              ${canEditProfile ? `<button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Resetar senha</button>` : ''}
+              ${canEditProfile ? `<button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Enviar recuperação</button>` : ''}
               ${canChangeRole && role === 'teacher' ? `<button class="btn sm primary" type="button" onclick="promoteProfessor('${p.id}')">Promover a coordenador(a)</button>` : ''}
               ${canUnlink ? `<button class="btn sm danger" type="button" onclick="unlinkProfessor('${p.id}')">Desvincular</button>` : ''}
             </div>
@@ -1122,13 +1122,11 @@
       showToast('Voce nao tem permissao para resetar este usuario.', 'error');
       return;
     }
-    if (!confirm('Resetar a senha deste usuario para 123456? No proximo acesso ele sera obrigado a cadastrar uma nova senha.')) return;
+    if (!confirm('Enviar um link de recuperação de senha para o e-mail deste usuário?')) return;
     try {
-      await auth.authenticatedRequest('/rpc/admin_reset_user_password', {
-        method: 'POST',
-        body: JSON.stringify({ target_profile_id: profId }),
-      });
-      showToast('Senha resetada para 123456. O usuario devera cadastrar uma nova senha no proximo acesso.');
+      const result = await auth.resetPassword(profile.email, new URL('login.html', window.location.href).href);
+      if (!result.success) throw new Error(result.error);
+      showToast('Instruções de recuperação enviadas. A senha atual continua válida até a troca.');
     } catch (err) {
       showToast('Erro ao resetar senha: ' + err.message, 'error');
     }

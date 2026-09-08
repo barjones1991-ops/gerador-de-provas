@@ -1,0 +1,77 @@
+﻿✓ Sessão carregada: audit@example.invalid
+✓ Logout realizado
+{
+  "executed": 11,
+  "results": [
+    {
+      "name": "Retorno do login aceita protocolo javascript",
+      "evidence": "javascript:void(0)"
+    },
+    {
+      "name": "Observacao chega sem escape ao innerHTML",
+      "evidence": "Status: devolvida para ajustes | Devolutiva: <strong data-audit=\"review\">MARCADOR</strong> | 📋 1 entrada no histórico (última: 07/09/2026)"
+    },
+    {
+      "name": "Falha de GET conserva ID e permite PATCH com estado inicial",
+      "evidence": {
+        "endpoint": "/exams?id=eq.prova-ficticia",
+        "payload": {
+          "title": "Estado inicial",
+          "total_value": "10,0",
+          "questions": [],
+          "logo_data_url": "",
+          "is_draft": true,
+          "review_status": "rascunho",
+          "updated_at": "2026-09-08T12:02:56.393Z"
+        }
+      }
+    },
+    {
+      "name": "PATCH vazio e tratado como salvamento confirmado",
+      "evidence": "Ultimo salvamento: 09:02"
+    },
+    {
+      "name": "Limite de tamanho deixa status permanente de salvando",
+      "evidence": "Salvando alteracoes..."
+    },
+    {
+      "name": "Caca-palavras declara palavra maior que a grade como posicionada",
+      "evidence": {
+        "word": "RESPONSABILIDADE",
+        "length": 16,
+        "grid": 12,
+        "placement": "RESPONSABILIDADE: linha 1, coluna 1"
+      }
+    },
+    {
+      "name": "PDF limpo ignora hideNumber",
+      "evidence": "hideNumber=true produz Questão 1"
+    },
+    {
+      "name": "Busca do banco nao encontra item depois dos 30 primeiros",
+      "evidence": {
+        "total": 31,
+        "returned": 0,
+        "endpoint": "/question_bank?select=*&order=created_at.desc&limit=30"
+      }
+    },
+    {
+      "name": "Configuracao gerada pelo setup nao expoe window.CONFIG",
+      "evidence": "undefined"
+    },
+    {
+      "name": "Token vencido e aceito localmente; sem refresh e sem logout remoto",
+      "evidence": {
+        "requestsIncludingLogout": 1
+      }
+    },
+    {
+      "name": "Contraste calculado do aviso de salvamento",
+      "evidence": {
+        "foreground": "#4ade80",
+        "background": "#f0fdf4",
+        "ratio": 1.66
+      }
+    }
+  ]
+}

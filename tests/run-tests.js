@@ -4,8 +4,8 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
-const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html'];
-const jsFiles = ['config.js', 'js/auth.js'];
+const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html', 'setup.html'];
+const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js'];
 const questionTypes = [
   'multipla',
   'discursiva',
@@ -402,11 +402,9 @@ async function main() {
 
   await test('editor does not overwrite exam owner when saving existing exam', () => {
     const editor = read('editor.html');
-    const patchIndex = editor.indexOf('if (currentExamId)');
     const createIndex = editor.indexOf('payload.user_id = auth.getCurrentUser().id');
-    assert(patchIndex !== -1, 'currentExamId save branch missing');
-    assert(createIndex !== -1, 'new exam user_id assignment missing');
-    assert(createIndex > patchIndex, 'user_id should only be assigned inside new exam branch');
+    assert(editor.includes('currentExamVersion'), 'editor should save an existing versioned exam');
+    assert(createIndex === -1, 'editor must not assign or change exam ownership');
     assert(editor.includes('currentExamOwnerId'), 'current exam owner tracking missing');
     assert(editor.includes('currentReviewNotes'), 'review notes state missing');
     assert(editor.includes('getReviewPayloadForSave'), 'review payload helper missing');
@@ -539,8 +537,8 @@ async function main() {
     assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'print queue access should include school owners and print operators');
     assert(sql.includes('force_password_change'), 'forced password change flag missing');
     assert(sql.includes('admin_reset_user_password'), 'admin password reset RPC missing');
-    assert(sql.includes("extensions.crypt('123456', extensions.gen_salt('bf'))"), 'admin password reset should set temporary password 123456 with Supabase pgcrypto schema');
-    assert(sql.includes('raw_user_meta_data') && sql.includes('"force_password_change": true'), 'admin password reset should mark Auth metadata for forced password change');
+    assert(!sql.includes("crypt('123456'"), 'SQL must never set a shared password');
+    assert(sql.includes('DROP FUNCTION IF EXISTS public.admin_reset_user_password(UUID)'), 'legacy shared password RPC must be removed');
     assert(sql.includes("FOR DELETE USING (") && sql.includes("COALESCE(review_status, 'rascunho') NOT IN ('aprovada', 'bloqueada')"), 'approved/blocked exams should not be deletable by teacher');
     assert(sql.includes('protect_profile_managed_fields'), 'profile managed fields protection trigger missing');
     assert(sql.includes('NEW.school_id = OLD.school_id'), 'profile school_id should be protected from self updates');
@@ -548,7 +546,7 @@ async function main() {
     assert(sql.includes('NEW.disciplines = OLD.disciplines'), 'profile disciplines should be protected from self updates');
     assert(sql.includes('FOR INSERT WITH CHECK (public.is_master())'), 'only master should create schools');
     assert(sql.includes('FOR DELETE USING (public.is_master())'), 'only master should delete schools');
-    assert(sql.includes("SET role = 'master'") && sql.includes("WHERE email = 'yesley@msn.com'"), 'initial owner should be promoted to master');
+    assert(!sql.includes("WHERE email = 'yesley@msn.com'"), 'recurring setup must never promote a mutable profile email');
   });
 
   await test('AuthManager exposes access profile helpers', () => {
@@ -725,13 +723,13 @@ async function main() {
     assert(editor.indexOf('<label>Valor total</label>') > editor.indexOf('<label>Bimestre/Etapa</label>'), 'total value should remain in the metadata editor after term');
   });
 
-  await test('new exam flow does not use local browser drafts', () => {
+  await test('new exam starts in dashboard and pending saved-exam edits are recoverable', () => {
     const editor = read('editor.html');
     const dashboard = read('dashboard.html');
     const index = read('index.html');
     const login = read('login.html');
     const print = read('print.html');
-    assert(index.includes('href="login.html?return_to=editor.html%3Fnew%3D1"'), 'home create action should require login with editor return');
+    assert(index.includes('href="login.html?return_to=dashboard.html%3Fnew%3D1"'), 'home create action must use the dashboard creation flow');
     assert(dashboard.includes('id="newExamModal"'), 'dashboard should ask for subject/class before creating a new exam');
     assert(dashboard.includes('id="newExamSubject"') && dashboard.includes('id="newExamClass"'), 'new exam modal should collect subject and class');
     assert(dashboard.includes('return uniqueCleanList(currentProfile.disciplines, { discipline: true });'), 'new exam modal should only list disciplines linked to the logged-in profile');
@@ -749,7 +747,7 @@ async function main() {
     assert(editor.includes('if (forceNewExam) localStorage.removeItem(\'editExamId\')'), 'forced new exam should clear editExamId');
     assert(editor.includes('function scheduleAutoSave'), 'editor should autosave saved exams after edits');
     assert(editor.includes('saveToCloud({ auto: true })'), 'autosave should reuse cloud save');
-    assert(editor.includes('autoSaveReady = Boolean(currentExamId)'), 'autosave should only start after a cloud exam is loaded');
+    assert(editor.includes('autoSaveReady = Boolean(currentExamId && currentExamVersion)'), 'autosave requires a confirmed cloud version');
     assert(editor.includes('function flushAutoSaveBeforeAction'), 'editor should expose a flush save before leaving/printing');
     assert(editor.includes("document.querySelectorAll('.app-sidebar a[href], #settingsMenu a[href]')"), 'editor navigation links should flush autosave before leaving');
     assert(editor.includes('if (ok) window.location.href = destination'), 'editor should navigate only after successful flush save');
@@ -780,8 +778,8 @@ async function main() {
     assert(coordination.includes('const examId = pendingReturnId;'), 'return modal should capture pending id before closing');
     assert(coordination.indexOf('const examId = pendingReturnId;') < coordination.indexOf('closeReturnModal();'), 'return id should be captured before modal close');
     assert(coordination.includes("updateReviewStatus(examId, 'devolvida'"), 'return action should use captured id');
-    assert(editor.includes('if (!response.ok)'), 'new exam save should check Supabase response.ok');
-    assert(editor.includes('Supabase não retornou o ID da prova criada.'), 'new exam save should fail if Supabase does not return id');
+    assert(editor.includes('saved.length !== 1'), 'editor save must confirm exactly one affected row');
+    assert(!editor.includes('payload.user_id = auth.getCurrentUser().id'), 'editor should only save an exam already created in dashboard');
     assert(coordination.includes("confirm('Aprovar esta prova"), 'approve action should require confirmation');
     assert(coordination.includes("confirm('Reabrir a revisão?"), 'unapprove action should require confirmation');
     assert(coordination.includes("confirm('Bloquear esta prova"), 'block action should require confirmation');
@@ -877,8 +875,8 @@ async function main() {
     assert(page.includes('canceled_at:is.null') || page.includes('canceled_at=is.null'), 'cancel invite should target only active invites');
     assert(page.includes("method: 'PATCH'") && page.includes('canceled_by: auth.getCurrentUser().id'), 'cancel invite should persist cancellation instead of deleting history');
     assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
-    assert(page.includes('/rpc/admin_reset_user_password'), 'password reset should call admin reset RPC');
-    assert(page.includes('target_profile_id: profId'), 'password reset should send target profile id');
+    assert(page.includes('auth.resetPassword(profile.email'), 'password recovery must use an individual email link');
+    assert(!page.includes('/rpc/admin_reset_user_password'), 'UI must not call the legacy shared-password RPC');
     assert(!page.includes('linkGradeSelect'), 'school page should not use a single grade select for linking');
   });
 

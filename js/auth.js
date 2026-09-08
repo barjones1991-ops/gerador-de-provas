@@ -9,7 +9,19 @@ class AuthManager {
     this.currentUser = null;
     this.currentProfile = null;
     this.session = null;
+    this.refreshPromise = null;
+    this.sessionGeneration = 0;
     this.loadSession();
+    if (typeof window !== 'undefined') window.addEventListener('storage', (event) => {
+      if (event.key !== 'supabase.auth.token') return;
+      const previousUserId = this.currentUser?.id;
+      this.session = null;
+      this.currentUser = null;
+      this.currentProfile = null;
+      this.loadSession();
+      if (!this.currentUser || this.currentUser.id !== previousUserId) this.sessionGeneration += 1;
+      window.dispatchEvent(new Event('auth-session-changed'));
+    });
   }
 
   /**
@@ -26,7 +38,6 @@ class AuthManager {
           this.session = session;
           this.currentUser = session.user;
           this.currentProfile = session.profile || null;
-          console.log('✓ Sessão carregada:', this.currentUser.email);
         }
       }
     } catch (error) {
@@ -36,12 +47,69 @@ class AuthManager {
     }
   }
 
+  async fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    if (options.signal?.aborted) controller.abort();
+    options.signal?.addEventListener('abort', cancel, { once: true });
+    const timer = setTimeout(cancel, this.config.TIMEOUT || 10000);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('A conexão demorou demais. Suas alterações continuam pendentes; tente novamente.');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', cancel);
+    }
+  }
+
+  saveSession(data) {
+    this.session = { ...data, expires_at: data.expires_at || (data.expires_in ? Math.floor(Date.now() / 1000) + data.expires_in : undefined) };
+    this.currentUser = data.user || this.currentUser;
+    this.currentProfile = data.profile || this.currentProfile;
+    localStorage.setItem('supabase.auth.token', JSON.stringify(this.session));
+  }
+
+  async ensureAccessToken(force = false) {
+    if (!this.session?.access_token) throw new Error('Entre novamente para continuar.');
+    const expiresSoon = this.session.expires_at && this.session.expires_at * 1000 < Date.now() + 30000;
+    if (!force && !expiresSoon) return this.session.access_token;
+    if (this.refreshPromise) return this.refreshPromise;
+    if (!this.session.refresh_token) throw new Error('Sessão expirada. Entre novamente para salvar suas alterações.');
+    const oldToken = this.session.access_token;
+    const generation = this.sessionGeneration;
+    const refresh = async () => {
+      // Outra aba pode ter renovado enquanto esta esperava pelo lock.
+      const stored = JSON.parse(localStorage.getItem('supabase.auth.token') || 'null');
+      if (generation !== this.sessionGeneration || !this.session) throw new Error('A sessão foi encerrada.');
+      if (stored?.user?.id !== this.currentUser?.id) throw new Error('A conta foi alterada. Entre novamente.');
+      if (stored?.access_token && stored.access_token !== oldToken) {
+        this.saveSession(stored);
+        return this.session.access_token;
+      }
+      const response = await this.fetchWithTimeout(`${this.config.AUTH_URL}/token?grant_type=refresh_token`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: this.config.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ refresh_token: this.session.refresh_token }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.access_token) throw new Error('Não foi possível renovar a sessão. Entre novamente para salvar suas alterações.');
+      if (generation !== this.sessionGeneration || !this.session) throw new Error('A sessão foi encerrada.');
+      this.saveSession({ ...data, profile: this.currentProfile });
+      return data.access_token;
+    };
+    this.refreshPromise = (typeof navigator !== 'undefined' && navigator.locks
+      ? navigator.locks.request('gerador-provas-auth-refresh', refresh) : refresh());
+    try { return await this.refreshPromise; }
+    finally { this.refreshPromise = null; }
+  }
+
   /**
    * Fazer login com email e senha
    */
   async signIn(email, password) {
     try {
-      const response = await fetch(`${this.config.AUTH_URL}/token?grant_type=password`, {
+      const response = await this.fetchWithTimeout(`${this.config.AUTH_URL}/token?grant_type=password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,12 +128,10 @@ class AuthManager {
       }
 
       // Salvar sessão
-      this.session = data;
-      this.currentUser = data.user;
+      this.sessionGeneration += 1;
       this.currentProfile = null;
-      localStorage.setItem('supabase.auth.token', JSON.stringify(data));
+      this.saveSession(data);
 
-      console.log('✓ Login bem-sucedido:', email);
       return { success: true, user: data.user };
     } catch (error) {
       console.error('Erro no login:', error.message);
@@ -78,7 +144,7 @@ class AuthManager {
    */
   async signUp(email, password, metadata = {}) {
     try {
-      const response = await fetch(`${this.config.AUTH_URL}/signup`, {
+      const response = await this.fetchWithTimeout(`${this.config.AUTH_URL}/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +163,6 @@ class AuthManager {
         throw new Error(data.error?.message || 'Erro ao criar conta');
       }
 
-      console.log('✓ Conta criada:', email);
       return { success: true, user: data.user };
     } catch (error) {
       console.error('Erro ao criar conta:', error.message);
@@ -114,7 +179,7 @@ class AuthManager {
         throw new Error('Usuário não autenticado');
       }
 
-      const response = await fetch(`${this.config.API_URL}/profiles`, {
+      const response = await this.fetchWithTimeout(`${this.config.API_URL}/profiles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,19 +209,30 @@ class AuthManager {
    * Fazer logout
    */
   async signOut() {
+    const token = this.session?.access_token;
+    this.sessionGeneration += 1;
     this.session = null;
     this.currentUser = null;
     this.currentProfile = null;
     localStorage.removeItem('supabase.auth.token');
-    console.log('✓ Logout realizado');
-    return { success: true };
+    let serverRevoked = !token;
+    if (token) {
+      try {
+        const response = await this.fetchWithTimeout(`${this.config.AUTH_URL}/logout?scope=local`, {
+          method: 'POST', headers: { apikey: this.config.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+        });
+        serverRevoked = response.ok;
+      } catch { /* A sessão local deve ser encerrada mesmo sem conexão. */ }
+    }
+    return { success: true, serverRevoked };
   }
 
   /**
    * Verificar se está autenticado
    */
   isAuthenticated() {
-    return !!this.session && !!this.currentUser;
+    return Boolean(this.session?.access_token && this.currentUser &&
+      (!this.session.expires_at || this.session.expires_at * 1000 > Date.now() || this.session.refresh_token));
   }
 
   /**
@@ -180,6 +256,7 @@ class AuthManager {
     const user = this.getCurrentUser();
     if (!user?.id) return null;
     const data = await this.authenticatedRequest(`/profiles?id=eq.${user.id}&select=${select}`);
+    if (this.currentUser?.id !== user.id) throw new Error('A conta foi alterada durante o carregamento.');
     const profile = Array.isArray(data) ? data[0] : null;
     this.currentProfile = profile ? { ...profile, normalized_role: this.normalizeRole(profile.role) } : null;
     if (this.session) {
@@ -263,7 +340,7 @@ class AuthManager {
         throw new Error('Sessão de recuperação inválida');
       }
 
-      const response = await fetch(`${this.config.AUTH_URL}/user`, {
+      const response = await this.fetchWithTimeout(`${this.config.AUTH_URL}/user`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -312,6 +389,7 @@ class AuthManager {
       throw new Error('Usuário não autenticado');
     }
 
+    await this.ensureAccessToken();
     const headers = {
       'Content-Type': 'application/json',
       'apikey': this.config.SUPABASE_ANON_KEY,
@@ -319,10 +397,15 @@ class AuthManager {
       ...options.headers,
     };
 
-    const response = await fetch(`${this.config.API_URL}${endpoint}`, {
+    let response = await this.fetchWithTimeout(`${this.config.API_URL}${endpoint}`, {
       ...options,
       headers,
     });
+
+    if (response.status === 401 && this.session?.refresh_token) {
+      headers.Authorization = `Bearer ${await this.ensureAccessToken(true)}`;
+      response = await this.fetchWithTimeout(`${this.config.API_URL}${endpoint}`, { ...options, headers });
+    }
 
     if (!response.ok) {
       let detail = response.statusText || `HTTP ${response.status}`;
@@ -343,12 +426,9 @@ class AuthManager {
     }
 
     // Alguns endpoints retornam texto vazio
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return response.json();
-    }
-
-    return response.text();
+    const body = await response.text();
+    if (!body) return '';
+    return response.headers.get('content-type')?.includes('application/json') ? JSON.parse(body) : body;
   }
 
   /**
@@ -359,7 +439,7 @@ class AuthManager {
       const url = redirectTo
         ? `${this.config.AUTH_URL}/recover?redirect_to=${encodeURIComponent(redirectTo)}`
         : `${this.config.AUTH_URL}/recover`;
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

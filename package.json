@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/run-tests.js",
+    "test": "node tests/run-tests.js && node tests/safety-regressions.cjs && node tests/security-sql.cjs",
+    "test:sql": "node tests/security-sql.cjs",
     "serve": "python -m http.server 8000 --bind 127.0.0.1",
     "start": "npm run serve"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
   }
 }

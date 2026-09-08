@@ -8,7 +8,8 @@ Este arquivo registra as regras minimas da Etapa 8 para manter o Gerador de Prov
 - A anon key do Supabase e publica por natureza, mas deve depender das policies RLS. Ela nao substitui regra de seguranca no banco.
 - Toda funcao `SECURITY DEFINER` precisa ter uma verificacao explicita de permissao antes de alterar dados sensiveis.
 - Alteracoes em `profiles.role`, `profiles.school_id`, `profiles.school_grade`, `profiles.disciplines`, `exams.review_status`, `exams.print_status` e `user_invites` precisam de teste ou revisao manual antes de publicar.
-- O reset administrativo de senha deve continuar marcando `force_password_change = TRUE` e proibindo manter `123456` como senha definitiva.
+- Recuperação administrativa usa link individual enviado pelo Auth. Não recriar RPC de senha compartilhada. Conferir confirmação de e-mail e SMTP no painel; revisar contas criadas sob configurações antigas.
+- Para este lote, seguir [migrations/README.md](migrations/README.md). Testes SQL isolados não comprovam que a migração já está aplicada no Supabase real.
 
 ## Keepalive no Plano Free
 
@@ -21,6 +22,7 @@ Este arquivo registra as regras minimas da Etapa 8 para manter o Gerador de Prov
 
 - Antes de mexer em schema, RLS ou funcoes RPC, salvar uma copia do `setup_supabase.sql` no historico do Git.
 - No Supabase, antes de grandes mudancas, exportar o schema pelo painel ou CLI e guardar fora do navegador.
+- Exportar também os dados. Git e schema não recuperam o conteúdo das provas. A rotina automatizada de backup, retenção e ensaio de restauração ainda está pendente no acompanhamento da auditoria.
 - Depois de aplicar SQL no Supabase, validar login, convite, revisao, impressao e dashboard com pelo menos um perfil real.
 - Para restaurar rapidamente a estrutura do projeto, usar o ultimo commit estavel do GitHub e reaplicar `setup_supabase.sql` no SQL Editor.
 

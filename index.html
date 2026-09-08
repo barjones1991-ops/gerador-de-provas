@@ -69,12 +69,12 @@
     <div id="statusBadge" class="status warn">⏳ Verificando...</div>
 
     <div class="btns">
-      <a href="login.html?return_to=editor.html%3Fnew%3D1" class="btn btn-green">✏️ Criar Prova Agora</a>
+      <a href="login.html?return_to=dashboard.html%3Fnew%3D1" class="btn btn-green">✏️ Criar Prova Agora</a>
       <a href="login.html" class="btn btn-purple">🔐 Entrar / Criar Conta</a>
     </div>
 
     <div class="features">
-      <div class="feature-item"><span>📋</span> 6 tipos de questão</div>
+      <div class="feature-item"><span>📋</span> 30 tipos de questão</div>
       <div class="feature-item"><span>☁️</span> Salva na nuvem</div>
       <div class="feature-item"><span>🖨️</span> Exporta em PDF</div>
       <div class="feature-item"><span>🏫</span> Logo da escola</div>
@@ -89,7 +89,7 @@
       const badge = document.getElementById('statusBadge');
       if (window.CONFIG && window.CONFIG.SUPABASE_URL && !window.CONFIG.SUPABASE_URL.includes('seu-projeto')) {
         badge.className = 'status ok';
-        badge.textContent = '✓ Plataforma pronta';
+        badge.textContent = '✓ Configuração encontrada';
       } else {
         badge.className = 'status warn';
         badge.textContent = '⚙️ Configure o Supabase para salvar na nuvem';

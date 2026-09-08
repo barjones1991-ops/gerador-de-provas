@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
+  <script src="js/exam-safety.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
@@ -1536,7 +1537,9 @@
         </div>
         <div class="topbar-status">
           <div style="font-weight:700; font-size:13px; color:#166534;">Conectado: <span id="cloudUser" style="font-weight:500;"></span></div>
-          <div id="lastSaved" style="font-size:12px; color:#4ade80; margin-top:2px;"></div>
+          <div id="lastSaved" role="status" aria-live="polite" style="font-size:12px; color:#166534; margin-top:2px;"></div>
+          <button id="retrySaveBtn" type="button" class="outline" hidden>Tentar salvar novamente</button>
+          <button id="retryLoadBtn" type="button" class="outline" hidden>Tentar carregar novamente</button>
           <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
         </div>
         <div class="settings-wrap">
@@ -1729,6 +1732,11 @@
       </div>
       <div class="bank-modal-body">
         <div id="questionBankList" class="row"></div>
+        <div class="btnbar">
+          <button id="bankPreviousBtn" class="outline" type="button" disabled>Anterior</button>
+          <span id="bankPageInfo" role="status" aria-live="polite"></span>
+          <button id="bankNextBtn" class="outline" type="button" disabled>Próxima</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1850,49 +1858,12 @@
         .filter(Boolean);
     }
     function buildWordSearch(words, size = 12) {
-      const cleanWords = words.map(normalizePuzzleWord).filter(Boolean);
-      const gridSize = Math.max(8, Math.min(18, Number(size) || 12));
-      const grid = Array.from({ length: gridSize }, () => Array.from({ length: gridSize }, () => ''));
-      const placements = [];
-      const directions = [
-        { dr: 0, dc: 1 },
-        { dr: 1, dc: 0 },
-        { dr: 1, dc: 1 },
-      ];
-      cleanWords.forEach((word, wi) => {
-        const trimmed = word.slice(0, gridSize);
-        let placed = false;
-        for (let attempt = 0; attempt < gridSize * gridSize && !placed; attempt += 1) {
-          const dir = directions[(attempt + wi) % directions.length];
-          const row = (attempt * 3 + wi * 5) % gridSize;
-          const col = (attempt * 7 + wi * 2) % gridSize;
-          const endRow = row + dir.dr * (trimmed.length - 1);
-          const endCol = col + dir.dc * (trimmed.length - 1);
-          if (endRow >= gridSize || endCol >= gridSize) continue;
-          let fits = true;
-          for (let i = 0; i < trimmed.length; i += 1) {
-            const cell = grid[row + dir.dr * i][col + dir.dc * i];
-            if (cell && cell !== trimmed[i]) fits = false;
-          }
-          if (!fits) continue;
-          for (let i = 0; i < trimmed.length; i += 1) {
-            grid[row + dir.dr * i][col + dir.dc * i] = trimmed[i];
-          }
-          placements.push(`${word}: linha ${row + 1}, coluna ${col + 1}`);
-          placed = true;
-        }
-      });
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      for (let r = 0; r < gridSize; r += 1) {
-        for (let c = 0; c < gridSize; c += 1) {
-          if (!grid[r][c]) grid[r][c] = letters[(r * 7 + c * 11) % letters.length];
-        }
-      }
-      return { grid, placements };
+      return ExamSafety.buildWordSearch(words, size);
     }
     function renderWordSearch(q) {
       const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
       const built = buildWordSearch(words, q.gridSize || 12);
+      if (built.unplaced.length) return `<p role="alert">Palavras fora da grade: ${esc(built.unplaced.join(", "))}. Reduza a lista antes de imprimir.</p>`;
       const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
       const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
       const wordList = q.showWordList === false ? '' : `<div class="word-search-list">${list}</div>`;
@@ -6207,9 +6178,11 @@
 
       const school = state.school;
       let qNum = 0;
-      const itens = state.questions.map((q) => {
+      const itens = state.questions.map((q, index) => {
         if (!q.hideNumber) qNum++;
-        return gerarGabaritoQuestao(q, qNum);
+        const item = gerarGabaritoQuestao(q, qNum);
+        if (item && q.hideNumber) item.num = ` — bloco ${index + 1} (sem número)`;
+        return item;
       }).filter(Boolean);
 
       const objetivos = itens.filter(it => it.tipo === 'objetivo');
@@ -6432,6 +6405,8 @@
     });
 
     function printCleanDocument() {
+      const problems = ExamSafety.wordSearchProblems(state.questions);
+      if (problems.length) { showToast(problems.join(' '), 'err'); return; }
       const originalTitle = document.title;
       document.title = ' ';
       const restoreTitle = () => { document.title = originalTitle; };
@@ -6457,7 +6432,7 @@
           event.preventDefault();
           const destination = link.href;
           const ok = typeof flushAutoSaveBeforeAction === 'function'
-            ? await flushAutoSaveBeforeAction()
+            ? await flushAutoSaveBeforeAction({ navigation: true })
             : true;
           if (ok) window.location.href = destination;
         });
@@ -6511,6 +6486,71 @@
     let autoSaveTimer = null;
     let autoSaveInFlight = false;
     let autoSaveQueued = false;
+    let currentExamVersion = null;
+    let editorUserId = null;
+    let lastSavedFingerprint = '';
+    let pendingDraftAvailable = false;
+    let bankPageOffset = 0;
+    let bankLastQuery = '';
+    let bankRequestSequence = 0;
+
+    function examFingerprint() {
+      return JSON.stringify({ school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl });
+    }
+
+    function pendingDraftKey() {
+      return `gerador-provas-pending-v2:${editorUserId}:${currentExamId}`;
+    }
+
+    function preservePendingDraft() {
+      try {
+        localStorage.setItem(pendingDraftKey(), JSON.stringify({ version: currentExamVersion, content: examFingerprint() }));
+        pendingDraftAvailable = true;
+      } catch {
+        pendingDraftAvailable = false;
+        setAutoSaveHint('Alterações pendentes. Sem espaço para recuperação local; mantenha esta aba aberta até salvar.');
+      }
+    }
+
+    function restorePendingDraft() {
+      try {
+        const raw = localStorage.getItem(pendingDraftKey());
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        if (draft.content === lastSavedFingerprint) { localStorage.removeItem(pendingDraftKey()); return; }
+        if (draft.version !== currentExamVersion) {
+          autoSaveReady = false;
+          setEditorLoading(true);
+          showToast('Há um rascunho local de outra versão. Baixe a cópia para comparar antes de continuar.', 'err');
+          const blob = new Blob([raw], { type: 'application/json' });
+          const link = document.createElement('a');
+          link.textContent = 'Baixar rascunho para comparação';
+          link.download = 'rascunho-recuperado.json';
+          link.href = URL.createObjectURL(blob);
+          document.getElementById('lastSaved').after(link);
+          const discard = document.createElement('button');
+          discard.type = 'button';
+          discard.textContent = 'Usar versão da nuvem e descartar rascunho';
+          discard.addEventListener('click', () => {
+            if (!confirm('Descartar apenas este rascunho local? Baixe a cópia antes se quiser guardar suas alterações.')) return;
+            localStorage.removeItem(pendingDraftKey());
+            URL.revokeObjectURL(link.href); link.remove(); discard.remove();
+            autoSaveReady = true; setEditorLoading(false); applyReviewLock(); scheduleAutoSave();
+          });
+          link.after(discard);
+          return;
+        }
+        if (!confirm('Encontramos alterações que não chegaram à nuvem. OK recupera; Cancelar descarta o rascunho local e mantém a prova salva.')) {
+          localStorage.removeItem(pendingDraftKey()); return;
+        }
+        const content = JSON.parse(draft.content);
+        state.school = content.school;
+        state.questions = content.questions.map(ExamSafety.normalizeQuestion);
+        state.logoDataUrl = content.logoDataUrl || '';
+        applyStateToInputs();
+        renderAll();
+      } catch { showToast('Não foi possível recuperar o rascunho local.', 'err'); }
+    }
 
     function waitForAutoSaveIdle() {
       if (!autoSaveInFlight) return Promise.resolve();
@@ -6538,7 +6578,7 @@
     }
 
     function cloneQuestion(question) {
-      return JSON.parse(JSON.stringify(question || {}));
+      return ExamSafety.normalizeQuestion(question || {});
     }
 
     function questionTitle(question) {
@@ -6670,6 +6710,10 @@
     }
 
     async function loadQuestionBank() {
+      return loadQuestionBankPage(0);
+    }
+
+    async function loadQuestionBankPage(requestedOffset) {
       const root = document.getElementById('questionBankList');
       if (!auth || !auth.isAuthenticated()) {
         if (root) root.innerHTML = '<div class="small">Entre na conta para pesquisar o banco de questões.</div>';
@@ -6682,6 +6726,12 @@
       const skill = document.getElementById('bankSkill').value.trim().toLowerCase();
       const difficulty = document.getElementById('bankDifficulty').value;
       const scopeFilter = document.getElementById('bankScopeFilter')?.value || '';
+      const signature = JSON.stringify([search, grade, skill, difficulty, scopeFilter]);
+      const offset = signature === bankLastQuery ? Math.max(0, requestedOffset) : 0;
+      const sequence = ++bankRequestSequence;
+      const previousBtn = document.getElementById('bankPreviousBtn');
+      const nextBtn = document.getElementById('bankNextBtn');
+      previousBtn.disabled = true; nextBtn.disabled = true;
 
       root.innerHTML = '<div class="small">Buscando questões...</div>';
       window.currentQuestionBankResults = [];
@@ -6689,34 +6739,31 @@
       try {
         const params = [
           'select=*',
-          'order=created_at.desc',
-          'limit=30',
+          'order=created_at.desc,id.desc',
+          'limit=31',
+          `offset=${offset}`,
         ];
-        if (grade) params.push(`grade=ilike.*${encodeURIComponent(grade)}*`);
+        const contains = value => encodeURIComponent(JSON.stringify(`*${value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}*`));
+        if (grade) params.push(`grade=ilike.${contains(grade)}`);
         if (difficulty) params.push(`difficulty=eq.${encodeURIComponent(difficulty)}`);
+        if (search) params.push(`or=(${['title', 'subject', 'grade', 'skill', 'difficulty', 'question->>text'].map(column => `${column}.ilike.${contains(search)}`).join(',')})`);
+        if (skill) params.push(`skill=ilike.${contains(skill)}`);
+        if (scopeFilter === 'mine') params.push(`user_id=eq.${encodeURIComponent(auth.getCurrentUser().id)}`);
+        if (scopeFilter === 'school') {
+          if (!currentProfile?.school_id) { renderQuestionBank([]); document.getElementById('bankPageInfo').textContent = 'Seu perfil não tem escola vinculada.'; return; }
+          params.push(`school_id=eq.${encodeURIComponent(currentProfile.school_id)}`, 'is_public=eq.false');
+        }
+        if (scopeFilter === 'public') params.push('is_public=eq.true');
 
         const data = await auth.authenticatedRequest(`/question_bank?${params.join('&')}`);
-        let items = Array.isArray(data) ? data : [];
-        if (search) {
-          items = items.filter((item) => {
-            const q = item.question || {};
-            return [item.title, item.subject, item.grade, item.skill, item.difficulty, q.text]
-              .some(value => String(value || '').toLowerCase().includes(search));
-          });
-        }
-        if (skill) {
-          items = items.filter((item) => String(item.skill || '').toLowerCase().includes(skill));
-        }
-        if (scopeFilter === 'mine') {
-          const currentUserId = auth.getCurrentUser()?.id || '';
-          items = items.filter((item) => item.user_id === currentUserId);
-        } else if (scopeFilter === 'school') {
-          items = items.filter((item) => getBankItemScope(item) === 'school');
-        } else if (scopeFilter === 'public') {
-          items = items.filter((item) => getBankItemScope(item) === 'public');
-        }
-        renderQuestionBank(items);
+        if (sequence !== bankRequestSequence) return;
+        const items = Array.isArray(data) ? data : [];
+        bankPageOffset = offset; bankLastQuery = signature;
+        previousBtn.disabled = offset === 0; nextBtn.disabled = items.length <= 30;
+        document.getElementById('bankPageInfo').textContent = items.length ? `Página ${offset / 30 + 1}` : 'Nenhuma questão encontrada.';
+        renderQuestionBank(items.slice(0, 30));
       } catch (err) {
+        if (sequence !== bankRequestSequence) return;
         root.innerHTML = `<div class="small">Não foi possível buscar as questões. ${esc(err.message)}</div>`;
         showToast('Erro ao buscar banco: ' + err.message, 'err');
       }
@@ -6872,12 +6919,22 @@
         return;
       }
 
+      if (!currentExamId) {
+        window.location.href = 'dashboard.html?new=1';
+        return;
+      }
+
       // Logado: mostra barra de nuvem, esconde link de login
       const user = auth.getCurrentUser();
+      editorUserId = user.id;
+      setEditorLoading(true);
       try {
         currentProfile = await auth.loadCurrentProfile();
-      } catch {
-        currentProfile = null;
+        if (!currentProfile) throw new Error('Perfil indisponível.');
+      } catch (error) {
+        setAutoSaveHint('Não foi possível verificar seu acesso. Tente carregar novamente.');
+        document.getElementById('retryLoadBtn').hidden = false;
+        return;
       }
       applyModuleNavigation();
       initializeNewExamState();
@@ -6885,15 +6942,20 @@
       document.getElementById('loginLink').classList.add('hidden');
       document.getElementById('cloudUser').textContent = user.email;
 
-      if (currentExamId) {
-        await loadFromCloud(currentExamId);
-        await applyProfileDefaults();
-      } else {
-        await applyProfileDefaults();
-      }
-      autoSaveReady = Boolean(currentExamId);
-      setAutoSaveHint(autoSaveReady ? 'Alteracoes salvas automaticamente.' : 'Abra uma prova criada no dashboard para ativar o autosave.');
+      if (!await loadFromCloud(currentExamId)) return;
+      await applyProfileDefaults();
+      autoSaveReady = Boolean(currentExamId && currentExamVersion);
+      setEditorLoading(false);
+      applyReviewLock();
+      setAutoSaveHint('Alteracoes salvas automaticamente.');
+      if (!['aprovada', 'bloqueada'].includes(currentReviewStatus)) restorePendingDraft();
+      scheduleAutoSave();
       updatePrintPageLink();
+    }
+
+    function setEditorLoading(loading) {
+      document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button, #topNewQuestionBtn, #openBankBtn')
+        .forEach(node => { node.disabled = loading; });
     }
 
     function updatePrintPageLink() {
@@ -7069,18 +7131,17 @@
     }
 
     async function loadFromCloud(examId) {
+      autoSaveReady = false;
+      currentExamVersion = null;
+      document.getElementById('retryLoadBtn').hidden = true;
+      setEditorLoading(true);
       try {
-        const data = await auth.authenticatedRequest(`/exams?id=eq.${examId}&select=*`);
+        const data = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(examId)}&select=*`);
         if (!Array.isArray(data) || !data[0]) {
-          currentExamId = null;
-          localStorage.removeItem('editExamId');
-          resetStateToDefault();
-          applyStateToInputs();
-          renderAll();
-          showToast('Prova não encontrada para este usuário. Abrindo uma nova prova.', 'err');
-          return;
+          throw new Error('Prova não encontrada ou sem permissão. Volte a Minhas provas para selecionar outra.');
         }
         const exam = data[0];
+        if (!exam.updated_at) throw new Error('Não foi possível verificar a versão desta prova.');
         currentExamOwnerId = exam.user_id || null;
         state.school = {
           schoolName: exam.school_name || defaultSchool.schoolName,
@@ -7093,9 +7154,7 @@
           totalValue: exam.total_value || defaultSchool.totalValue,
           instructions: exam.instructions || defaultSchool.instructions,
         };
-        if (Array.isArray(exam.questions) && exam.questions.length > 0) {
-          state.questions = exam.questions.map(q => q.type === 'producao_textual' ? { ...q, type: 'discursiva', titlePrompt: q.titlePrompt !== false } : q);
-        }
+        state.questions = (Array.isArray(exam.questions) ? exam.questions : []).map(ExamSafety.normalizeQuestion);
         collapseAllQuestions();
         currentReviewStatus = exam.review_status || 'rascunho';
         currentReviewNotes = exam.review_notes || '';
@@ -7110,17 +7169,28 @@
           const last = history[history.length - 1];
           const lastDate = last.date ? new Date(last.date).toLocaleDateString('pt-BR') : '';
           const existing = info ? info.textContent : '';
-          if (info) info.innerHTML = `${existing ? existing + ' | ' : ''}📋 ${history.length} entrada${history.length > 1 ? 's' : ''} no histórico (última: ${lastDate})`;
+          if (info) info.textContent = `${existing ? existing + ' | ' : ''}📋 ${history.length} entrada${history.length > 1 ? 's' : ''} no histórico (última: ${lastDate})`;
         }
+        currentExamVersion = exam.updated_at;
+        lastSavedFingerprint = examFingerprint();
+        setEditorLoading(true);
         setAutoSaveHint('Prova carregada. Alteracoes salvas automaticamente.');
         showToast('Prova carregada da nuvem', 'ok');
+        return true;
       } catch (err) {
-        showToast('Erro ao carregar prova da nuvem', 'err');
+        setAutoSaveHint('Carregamento interrompido. A edição está protegida até carregar a prova.');
+        document.getElementById('retryLoadBtn').hidden = false;
+        showToast(err.message || 'Erro ao carregar prova da nuvem', 'err');
+        return false;
       }
     }
 
     function scheduleAutoSave() {
       if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return;
+      if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return;
+      if (examFingerprint() === lastSavedFingerprint) return;
+      preservePendingDraft();
+      if (pendingDraftAvailable) setAutoSaveHint('Alterações pendentes — cópia de recuperação neste navegador.');
       clearTimeout(autoSaveTimer);
       autoSaveTimer = setTimeout(() => {
         saveToCloud({ auto: true });
@@ -7138,11 +7208,14 @@
       if (status) status.textContent = message || 'Alteracoes salvas automaticamente.';
     }
 
-    async function flushAutoSaveBeforeAction() {
+    async function flushAutoSaveBeforeAction(options = {}) {
       clearTimeout(autoSaveTimer);
       autoSaveQueued = false;
 
-      if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return true;
+      if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) {
+        // Sem carga confirmada, permite voltar ao dashboard, mas nunca imprimir.
+        return Boolean(options.navigation && !currentExamVersion);
+      }
       if (['aprovada', 'bloqueada'].includes(currentReviewStatus)) return true;
 
       await waitForAutoSaveIdle();
@@ -7158,6 +7231,13 @@
         return false;
       }
 
+      if (!autoSaveReady || !currentExamId || !currentExamVersion) return false;
+      if (auth.getCurrentUser()?.id !== editorUserId) {
+        showToast('A conta foi alterada em outra aba. Volte à conta original para salvar esta prova.', 'err');
+        return false;
+      }
+      if (examFingerprint() === lastSavedFingerprint) return true;
+
       if (isAuto && autoSaveInFlight) {
         autoSaveQueued = true;
         return true;
@@ -7166,22 +7246,22 @@
       autoSaveInFlight = true;
       setAutoSaveStatus(true);
       syncSchoolFromInputs();
+      const sentFingerprint = examFingerprint();
+      preservePendingDraft();
 
       if (!isAuto && !state.school.subject) showToast('Nenhuma disciplina selecionada — a prova será salva sem disciplina.', 'warn');
 
       try {
         const totalImageBytes = imagePayloadBytes();
         if (totalImageBytes > MAX_EXAM_IMAGE_BYTES) {
-          showToast(`Prova com imagens muito pesada (${formatBytes(totalImageBytes)}). Remova ou reduza imagens.`, 'err');
-          return false;
+          throw new Error(`Prova com imagens muito pesada (${formatBytes(totalImageBytes)}). Remova ou reduza imagens.`);
         }
 
         const reviewPayload = getReviewPayloadForSave();
         if (['enviada', 'em_revisao', 'aprovada'].includes(reviewPayload.review_status)) {
           const scoreCheck = getScoreCheck();
           if (!scoreCheck.isConsistent) {
-            if (!isAuto) showToast(scoreCheck.message, 'err');
-            return false;
+            throw new Error(scoreCheck.message);
           }
         }
 
@@ -7202,50 +7282,25 @@
           updated_at: new Date().toISOString(),
         };
 
-        if (currentExamId) {
-          await auth.authenticatedRequest(`/exams?id=eq.${currentExamId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-          });
-        } else {
-          payload.user_id = auth.getCurrentUser().id;
-          const response = await fetch(`${window.CONFIG.API_URL}/exams`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': window.CONFIG.SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${auth.getAccessToken()}`,
-              'Prefer': 'return=representation',
-            },
-            body: JSON.stringify(payload),
-          });
-          const responseText = await response.text();
-          let data = null;
-          if (responseText) {
-            try {
-              data = JSON.parse(responseText);
-            } catch {
-              data = null;
-            }
-          }
-          if (!response.ok) {
-            const detail = Array.isArray(data)
-              ? data[0]?.message
-              : (data?.message || data?.error_description || data?.details || data?.hint || responseText);
-            throw new Error(detail || `HTTP ${response.status}`);
-          }
-          if (Array.isArray(data) && data[0]?.id) {
-            currentExamId = data[0].id;
-            currentExamOwnerId = auth.getCurrentUser().id;
-            autoSaveReady = true;
-            localStorage.setItem('editExamId', currentExamId);
-            updatePrintPageLink();
-          } else {
-            throw new Error('Supabase não retornou o ID da prova criada.');
-          }
+        const saved = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(currentExamId)}&updated_at=eq.${encodeURIComponent(currentExamVersion)}&select=id,updated_at,review_status`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(payload),
+        });
+        if (!Array.isArray(saved) || saved.length !== 1 || !saved[0].updated_at) {
+          autoSaveReady = false;
+          setEditorLoading(true);
+          throw new Error(pendingDraftAvailable
+            ? 'A prova mudou em outra aba ou seu acesso foi alterado. Suas alterações locais foram preservadas. Reabra a prova para comparar as versões.'
+            : 'A prova mudou e não há espaço para a cópia local. Mantenha esta aba aberta e copie seu conteúdo antes de recarregar.');
         }
+        currentExamVersion = saved[0].updated_at;
 
         const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        lastSavedFingerprint = sentFingerprint;
+        if (examFingerprint() === sentFingerprint) localStorage.removeItem(pendingDraftKey());
+        else { preservePendingDraft(); autoSaveQueued = true; }
+        document.getElementById('retrySaveBtn').hidden = true;
         setAutoSaveHint(`Ultimo salvamento: ${hora}`);
         currentReviewStatus = payload.review_status || currentReviewStatus;
         currentReviewNotes = payload.review_notes ?? currentReviewNotes;
@@ -7256,6 +7311,7 @@
       } catch (err) {
         const status = document.getElementById('lastSaved');
         if (status) status.textContent = 'Erro ao salvar alterações.';
+        document.getElementById('retrySaveBtn').hidden = !autoSaveReady;
         showToast('Erro ao salvar: ' + err.message, 'err');
         return false;
       } finally {
@@ -7269,8 +7325,19 @@
     }
 
     document.getElementById('openBankBtn').addEventListener('click', openQuestionBankModal);
+    document.getElementById('retrySaveBtn').addEventListener('click', () => saveToCloud({ auto: true }));
+    document.getElementById('retryLoadBtn').addEventListener('click', initCloud);
+    window.addEventListener('online', () => scheduleAutoSave());
+    window.addEventListener('beforeunload', event => {
+      if (currentExamVersion && !['aprovada', 'bloqueada'].includes(currentReviewStatus) && examFingerprint() !== lastSavedFingerprint) {
+        preservePendingDraft();
+        event.preventDefault(); event.returnValue = '';
+      }
+    });
     document.getElementById('closeBankBtn').addEventListener('click', closeQuestionBankModal);
     document.getElementById('loadBankBtn').addEventListener('click', loadQuestionBank);
+    document.getElementById('bankPreviousBtn').addEventListener('click', () => loadQuestionBankPage(bankPageOffset - 30));
+    document.getElementById('bankNextBtn').addEventListener('click', () => loadQuestionBankPage(bankPageOffset + 30));
     document.getElementById('bankScopeFilter').addEventListener('change', loadQuestionBank);
     document.getElementById('questionBankList').addEventListener('click', handleQuestionBankAction);
     window.addEventListener('DOMContentLoaded', initCloud);

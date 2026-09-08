@@ -138,10 +138,15 @@
     document.addEventListener('DOMContentLoaded', async () => {
       auth = initAuthManager();
       const recovery = getRecoveryParams();
-      if (recovery.accessToken && auth) {
+      if (recovery.accessToken && recovery.type === 'recovery' && auth) {
         auth.startRecoverySession(recovery.accessToken, recovery.refreshToken);
+        window.history.replaceState({}, document.title, window.location.pathname);
         enableRecoveryMode();
         return;
+      }
+      if (recovery.accessToken) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showAlert('E-mail confirmado. Entre com sua senha para continuar.', 'success');
       }
       if (auth && auth.isAuthenticated()) {
         if (await requiresPasswordChange()) {
@@ -177,11 +182,12 @@
 
     function getSafeReturnTo() {
       const value = new URLSearchParams(window.location.search).get('return_to') || '';
-      if (!value) return '';
-      if (/^(https?:)?\/\//i.test(value) || value.includes('\\')) return '';
-      const normalized = value.replace(/^\/+/, '');
-      if (!normalized || normalized.startsWith('../') || normalized.includes('/../')) return '';
-      return normalized;
+      // Nomes relativos conhecidos: preserva a subpasta do GitHub Pages.
+      if (!/^(dashboard|editor|print|coordenacao|impressao|schools|master)\.html(?:\?[^#\s\\]*)?$/.test(value)) return '';
+      const destination = new URL(value, window.location.href);
+      const base = new URL('.', window.location.href);
+      if (destination.origin !== base.origin || !destination.pathname.startsWith(base.pathname)) return '';
+      return value;
     }
 
     function getInviteToken() {
@@ -380,8 +386,8 @@
             showAlert('✓ Conta criada! Redirecionando...', 'success');
             setTimeout(() => goAfterAuth(), 1200);
           } else {
-            showAlert('✓ Conta criada! Faça login para continuar.', 'success');
             setMode('login');
+            showAlert('Conta criada. Confira seu e-mail para confirmar o cadastro e depois entre com sua senha.', 'success');
           }
         }
       } catch (err) {

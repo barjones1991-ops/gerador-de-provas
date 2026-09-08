@@ -38,11 +38,16 @@ http://127.0.0.1:8000/login.html
 
 ## Testes
 
+Use Node.js 22 ou superior. A instalação abaixo inclui PostgreSQL/PGlite somente para os testes; a aplicação continua estática e sem build.
+
 ```bash
+npm ci --ignore-scripts
 npm test
 ```
 
-Antes de entregar qualquer mudanca, rode os testes e valide manualmente o fluxo afetado.
+Os testes incluem contratos HTML/JS, regressões de salvamento/login e permissões em PostgreSQL isolado. Nenhum teste altera o Supabase real. Antes de entregar qualquer mudança, valide também o fluxo no navegador.
+
+O acompanhamento da auditoria está em [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md).
 
 ## Configuracao Supabase
 
@@ -72,6 +77,10 @@ Use `setup_supabase.sql` como fonte oficial do schema. Ele cria/atualiza:
 - policies RLS
 
 Para um ambiente novo, execute todo o arquivo no SQL Editor do Supabase.
+
+Para atualizar um ambiente existente com o primeiro lote da auditoria, faça backup e execute apenas [migrations/20260908_01_seguranca.sql](migrations/20260908_01_seguranca.sql). Aplique antes de publicar o frontend atualizado. A criação inicial do master deve ser feita por UUID conferido em `auth.users`, conforme [o guia da migração](migrations/README.md).
+
+Em Auth, ative a confirmação de e-mail e configure SMTP e URLs de retorno. A migração SQL não muda essas configurações. A recuperação administrativa envia um link individual; nenhuma senha compartilhada é criada.
 
 ## Perfis
 

@@ -14,6 +14,17 @@ Links:
 - Site: https://barjones1991-ops.github.io/gerador-de-provas/
 - Repositório: https://github.com/barjones1991-ops/gerador-de-provas
 
+## Correções da Auditoria de 08/09/2026
+
+O primeiro lote está implementado localmente. A fonte de acompanhamento por achado é [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md). A análise original é histórica; para verificar as correções, executar `npm ci --ignore-scripts` e `npm test` (Node.js 22+).
+
+- O editor somente abre provas já criadas no dashboard; links de nova prova convergem para `dashboard.html?new=1`.
+- Autosave exige carregamento e versão confirmados; PATCH com zero linhas é conflito, não sucesso.
+- Alterações pendentes de provas existentes têm cópia por usuário/prova em `gerador-provas-pending-v2:<userId>:<examId>`, removida após confirmação do salvamento. Não confundir com o antigo rascunho de nova prova.
+- O reset para senha compartilhada foi removido. Recuperação usa link individual do Auth.
+- `migrations/20260908_01_seguranca.sql` foi testada em PostgreSQL/PGlite isolado, mas ainda precisa ser aplicada no Supabase real. A confirmação de e-mail também precisa ser ativada no painel.
+- Validação visual ainda pendente: as ferramentas não encontraram navegador disponível nesta sessão. Não houve publicação.
+
 ## Estado Atual
 
 O projeto já tem a base principal implementada:
@@ -95,9 +106,9 @@ Se for necessário recriar o backend, executar `setup_supabase.sql` no SQL Edito
 - `config.js` precisa definir `window.CONFIG`; `const CONFIG` sozinho não basta no navegador.
 - Redirects devem ser relativos, como `dashboard.html`, por causa do GitHub Pages em subpasta.
 - A sessão fica em `localStorage` na chave `supabase.auth.token`.
-- O rascunho local do editor deve existir apenas para prova nova ainda não salva e usuário logado: `gerador-provas-state-v1:<userId>`.
-- Ao criar nova prova, limpar `editExamId` e o rascunho local daquele usuário antes de abrir o editor.
-- Depois que uma prova nova é salva na nuvem, apagar o rascunho local para ela não voltar ao clicar em "Nova Prova".
+- Uma nova prova é criada no dashboard antes de abrir o editor; não reabrir rascunhos antigos nessa ação.
+- A recuperação local usa `gerador-provas-pending-v2:<userId>:<examId>` apenas para alterações pendentes de uma prova existente e carregada.
+- Limpar essa cópia somente após confirmar o salvamento da mesma versão ou descarte explícito do usuário.
 - Ao editar prova existente, não enviar `user_id`; isso evita trocar o dono quando a coordenação salva ajustes.
 - `DELETE` no Supabase pode retornar `204` sem corpo; `AuthManager.authenticatedRequest()` deve aceitar resposta vazia.
 - Provas `aprovada` ou `bloqueada` não devem ser editáveis pelo professor.
