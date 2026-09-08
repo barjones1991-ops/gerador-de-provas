@@ -78,7 +78,7 @@ Use `setup_supabase.sql` como fonte oficial do schema. Ele cria/atualiza:
 
 Para um ambiente novo, execute todo o arquivo no SQL Editor do Supabase.
 
-Para atualizar um ambiente existente com o primeiro lote da auditoria, faça backup e execute apenas [migrations/20260908_01_seguranca.sql](migrations/20260908_01_seguranca.sql). Aplique antes de publicar o frontend atualizado. A criação inicial do master deve ser feita por UUID conferido em `auth.users`, conforme [o guia da migração](migrations/README.md).
+Para atualizar um ambiente existente, faça backup e siga [o guia das migrações](migrations/README.md): execute a migração 01 de segurança e, após conferir o acervo legado, a migração 02 de escola permanente da prova. O usuário informou a execução dos scripts no Supabase em 08/09/2026. A criação inicial do master deve ser feita por UUID conferido em `auth.users`, conforme o mesmo guia.
 
 Em Auth, ative a confirmação de e-mail e configure SMTP e URLs de retorno. A migração SQL não muda essas configurações. A recuperação administrativa envia um link individual; nenhuma senha compartilhada é criada.
 

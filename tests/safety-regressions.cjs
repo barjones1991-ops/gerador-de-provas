@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const ExamSafety = require('../js/exam-safety.js');
 const { AuthManager } = require('../js/auth.js');
 const root = path.resolve(__dirname, '..');
-const read = name => fs.readFileSync(path.join(root, name), 'utf8');
+const read = name => fs.readFileSync(path.join(root, name), 'utf8').replace(/\r\n/g, '\n');
 let checks = 0;
 function functions(source, names, context) {
   const code = names.map(name => {

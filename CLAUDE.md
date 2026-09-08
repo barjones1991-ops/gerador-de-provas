@@ -16,14 +16,15 @@ Links:
 
 ## Correções da Auditoria de 08/09/2026
 
-O primeiro lote está implementado localmente. A fonte de acompanhamento por achado é [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md). A análise original é histórica; para verificar as correções, executar `npm ci --ignore-scripts` e `npm test` (Node.js 22+).
+O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com testes e deploy do Pages aprovados. O segundo lote (S08, escola permanente da prova) está implementado e testado localmente. A fonte de acompanhamento por achado é [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md). A análise original é histórica; para verificar as correções, executar `npm ci --ignore-scripts` e `npm test` (Node.js 22+).
 
 - O editor somente abre provas já criadas no dashboard; links de nova prova convergem para `dashboard.html?new=1`.
 - Autosave exige carregamento e versão confirmados; PATCH com zero linhas é conflito, não sucesso.
 - Alterações pendentes de provas existentes têm cópia por usuário/prova em `gerador-provas-pending-v2:<userId>:<examId>`, removida após confirmação do salvamento. Não confundir com o antigo rascunho de nova prova.
 - O reset para senha compartilhada foi removido. Recuperação usa link individual do Auth.
-- `migrations/20260908_01_seguranca.sql` foi testada em PostgreSQL/PGlite isolado, mas ainda precisa ser aplicada no Supabase real. A confirmação de e-mail também precisa ser ativada no painel.
-- Validação visual ainda pendente: as ferramentas não encontraram navegador disponível nesta sessão. Não houve publicação.
+- Em 08/09/2026, o usuário informou que executou os scripts no Supabase e autorizou publicar todo o segundo lote. As migrações 01 e 02 foram testadas em PostgreSQL/PGlite isolado; a execução no ambiente real foi informada pelo usuário. Configuração de confirmação de e-mail/SMTP e testes reais dos cinco perfis ainda não foram confirmados.
+- `migrations/20260908_02_escola_da_prova.sql` fixa a escola no momento da criação, sem transferir provas antigas quando o professor muda de escola. Conferir os vínculos legados antes de aplicar; veja `migrations/README.md`.
+- Validação visual ainda pendente: as ferramentas não encontraram navegador disponível nesta sessão.
 
 ## Estado Atual
 
@@ -110,6 +111,7 @@ Se for necessário recriar o backend, executar `setup_supabase.sql` no SQL Edito
 - A recuperação local usa `gerador-provas-pending-v2:<userId>:<examId>` apenas para alterações pendentes de uma prova existente e carregada.
 - Limpar essa cópia somente após confirmar o salvamento da mesma versão ou descarte explícito do usuário.
 - Ao editar prova existente, não enviar `user_id`; isso evita trocar o dono quando a coordenação salva ajustes.
+- Não enviar `school_id` ao editar ou copiar uma prova. Na criação, o servidor atribui a escola atual do autor; provas antigas preservam sua escola, inclusive quando pessoal (`NULL`).
 - `DELETE` no Supabase pode retornar `204` sem corpo; `AuthManager.authenticatedRequest()` deve aceitar resposta vazia.
 - Provas `aprovada` ou `bloqueada` não devem ser editáveis pelo professor.
 - Questões do banco são privadas por padrão (`is_public: false`).
