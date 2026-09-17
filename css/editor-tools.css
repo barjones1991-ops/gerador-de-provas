@@ -175,6 +175,70 @@ body[data-editor-view="preview"] #canonicalPreviewPanel { width:100%; max-width:
 .compact-question-editor .content-add-action { background:#e8f3ed; color:#185b38; border-color:#a9d1ba; font-weight:700; }
 .compact-question-editor .content-add-action:hover { background:#d9ebdf; border-color:#82ba99; }
 
+/* Operações matemáticas: a conta é montada e conferida em uma única linha. */
+.math-editor { gap:8px; }
+.math-editor-heading { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; }
+.math-editor-heading strong { font-size:14px; color:#24364a; }
+.math-editor-heading span { font-size:12px; color:#64748b; }
+.math-editor-list { display:grid; gap:8px; }
+.math-editor-card { border:1px solid #dce4ec; border-radius:10px; background:#f8fafc; overflow:hidden; }
+.math-editor-card-head { min-height:32px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 8px 3px 11px; }
+.math-editor-card-head strong { font-size:12px; color:#526477; }
+.math-editor-remove {
+  width:28px; min-width:28px; height:28px; padding:0; display:grid; place-items:center;
+  border:0; background:transparent; color:#8b3a3a; font-size:20px; line-height:1;
+}
+.math-editor-remove:hover:not(:disabled) { background:#fff1f1; color:#a52828; }
+.math-editor-equation {
+  display:grid; grid-template-columns:minmax(90px,1fr) 58px minmax(90px,1fr) auto minmax(118px,.9fr);
+  align-items:end; gap:7px; padding:3px 11px 11px;
+}
+.math-editor-field { min-width:0; margin:0 !important; }
+.math-editor-field > span { display:block; margin-bottom:4px; font-size:11px; font-weight:600; color:#64748b; }
+.math-editor-field input,.math-editor-field select {
+  min-width:0; height:38px; padding:7px 9px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:16px; font-weight:700; text-align:center;
+}
+.math-editor-operator select { font-size:19px; padding:3px; }
+.math-editor-equals { align-self:center; margin-top:17px; color:#526477; font-size:20px; font-weight:800; }
+.math-editor-result {
+  min-height:38px; display:flex; align-items:center; justify-content:center; padding:7px 9px;
+  border:1px solid #b7d7c3; border-radius:8px; background:#eef8f1; color:#185b38;
+  font-size:12px; font-weight:800; text-align:center; line-height:1.25;
+}
+.math-editor-result.is-manual { border-color:#a9c8e5; background:#eff6fc; color:#315b83; }
+.math-editor-result.is-error { border-color:#edc98b; background:#fff8e8; color:#87570b; }
+.math-editor-override { border-top:1px solid #e3e9ef; background:#fff; padding:3px 11px 5px; }
+.math-editor-override > summary { width:max-content; max-width:100%; padding:6px 0; color:#49627a; font-size:12px; font-weight:700; }
+.math-editor-override-grid { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; padding:4px 0 7px; }
+.math-editor-override-grid button { min-height:38px; white-space:nowrap; }
+.math-editor > .inline-add-btn { background:#e8f3ed; color:#185b38; border-color:#a9d1ba; font-weight:700; }
+.math-editor > .inline-add-btn:hover { background:#d9ebdf; border-color:#82ba99; }
+
+/* Expressões matemáticas: escrita comum primeiro; LaTeX fica como recurso avançado. */
+.expression-editor { gap:8px; }
+.expression-editor-heading { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; }
+.expression-editor-heading strong { font-size:14px; color:#24364a; }
+.expression-editor-heading span { font-size:12px; color:#64748b; }
+.expression-editor-card { border:1px solid #dce4ec; border-radius:10px; background:#f8fafc; overflow:hidden; }
+.expression-editor-card-head { min-height:32px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 8px 3px 11px; }
+.expression-editor-card-head strong { font-size:12px; color:#526477; }
+.expression-editor-field { display:block; margin:0; padding:3px 11px 7px; }
+.expression-editor-field > span { display:block; margin-bottom:4px; font-size:11px; font-weight:700; color:#526477; }
+.expression-editor-field input { font-size:16px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+.expression-editor-tools { display:flex; flex-wrap:wrap; gap:5px; padding:0 11px 9px; }
+.expression-editor-tools button { min-height:28px; padding:3px 9px; border-radius:6px; font-size:11px; color:#40556a; background:#fff; }
+.expression-editor-preview { min-height:48px; display:flex; align-items:center; padding:8px 11px; border-top:1px solid #e2e8f0; background:#fff; font-size:20px; }
+.expression-editor-preview::before { content:'Na prova'; align-self:flex-start; margin:2px 10px 0 0; color:#8491a0; font:700 10px/1.2 Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; }
+.expression-editor-answer { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:8px; padding:7px 11px; border-top:1px solid #e2e8f0; background:#fff; }
+.expression-editor-answer label { margin:0; color:#187143; font-size:11px; font-weight:700; white-space:nowrap; }
+.expression-editor-answer input { background:#f0fdf4; border-color:#86efac; }
+.expression-editor-advanced { border-top:1px solid #e2e8f0; background:#fff; padding:2px 11px 6px; }
+.expression-editor-advanced > summary { width:max-content; max-width:100%; padding:6px 0; color:#64748b; font-size:11px; font-weight:700; }
+.expression-editor-advanced input { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; }
+.expression-editor > .inline-add-btn { background:#e8f3ed; color:#185b38; border-color:#a9d1ba; font-weight:700; }
+.expression-editor > .inline-add-btn:hover { background:#d9ebdf; border-color:#82ba99; }
+
 /* Alternativas: conteúdo principal primeiro; aparência e imagens sob demanda. */
 .alternatives-editor .qhead { grid-template-columns:minmax(0,1fr) auto; }
 .alternatives-editor .alternatives-head-actions { display:flex !important; width:auto; align-items:center; gap:7px; }
@@ -240,6 +304,11 @@ body[data-editor-view="preview"] #canonicalPreviewPanel { width:100%; max-width:
 .subitem-card .subitem-image-tools[hidden] { display:none; }
 
 @media (max-width:600px) {
+  .math-editor-equation { grid-template-columns:minmax(80px,1fr) 54px minmax(80px,1fr) auto; }
+  .math-editor-result { grid-column:1 / -1; justify-content:flex-start; text-align:left; }
+  .math-editor-override-grid { grid-template-columns:1fr; }
+  .math-editor-override-grid button { width:100%; }
+  .expression-editor-answer { grid-template-columns:1fr; gap:4px; }
   .compact-question-editor .qhead { grid-template-columns:minmax(0,1fr) auto; }
   .compact-question-editor .question-head-actions { display:flex !important; width:auto; grid-template-columns:none; }
   .compact-question-editor .question-head-actions button { width:34px; min-height:34px; }

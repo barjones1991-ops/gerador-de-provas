@@ -10,6 +10,44 @@
     imageSize: ['small', 'medium', 'large', 'full'], imageAlign: ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'],
     size: ['small', 'medium', 'large', 'full'], align: ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'],
   };
+  function mathExpressionToLatex(input) {
+    const value = String(input ?? '').trim();
+    if (!value) return '';
+    if (/\\(?:frac|dfrac|tfrac|sqrt|times|div|pm|neq|leq|geq|left|right|cdot|overline|begin|text)\b/.test(value)) return value;
+    let latex = value
+      .replace(/(?:raiz|sqrt)\s*\(([^()]*)\)/gi, '\\sqrt{$1}')
+      .replace(/√\s*\(([^()]*)\)/g, '\\sqrt{$1}')
+      .replace(/√\s*([\dA-Za-z.,]+)/g, '\\sqrt{$1}')
+      .replace(/\s+[xX]\s+/g, ' \\times ')
+      .replace(/\s*×\s*/g, ' \\times ')
+      .replace(/\s*÷\s*/g, ' \\div ')
+      .replace(/\s*≤\s*/g, ' \\leq ')
+      .replace(/\s*≥\s*/g, ' \\geq ')
+      .replace(/\s*≠\s*/g, ' \\neq ')
+      .replace(/\s*±\s*/g, ' \\pm ');
+    latex = latex.replace(/(^|[\s(=+\-])([\dA-Za-z]+(?:[.,][\d]+)?)\s*\/\s*([\dA-Za-z]+(?:[.,][\d]+)?)(?=$|[\s)=+\-])/g, '$1\\frac{$2}{$3}');
+    return latex.replace(/\s{2,}/g, ' ').trim();
+  }
+  function latexToMathExpression(input) {
+    let value = String(input ?? '').trim();
+    if (!value) return '';
+    let previous;
+    do {
+      previous = value;
+      value = value.replace(/\\(?:dfrac|tfrac|frac)\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2');
+    } while (value !== previous);
+    return value
+      .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+      .replace(/\\times\b/g, '×')
+      .replace(/\\div\b/g, '÷')
+      .replace(/\\pm\b/g, '±')
+      .replace(/\\neq\b/g, '≠')
+      .replace(/\\leq\b/g, '≤')
+      .replace(/\\geq\b/g, '≥')
+      .replace(/\\left|\\right/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
   function normalizeQuestion(input) {
     function clean(value, key = '', depth = 0) {
       if (depth > 12) throw new Error('Questão com estrutura muito complexa.');
@@ -261,7 +299,7 @@
         : unplaced.length ? [`Questão ${i + 1}: não couberam na grade: ${unplaced.join(', ')}.`] : [];
     });
   }
-  const api = { markerPosition, hasManualAnswer, manualAnswer, choiceAnswer, answerLineCount, renderAnswerSpace, normalizeQuestion, buildWordSearch, wordSearchProblems, parseBrazilianNumber, operationAnswer, operationIssue, inspectExam };
+  const api = { markerPosition, hasManualAnswer, manualAnswer, choiceAnswer, answerLineCount, renderAnswerSpace, normalizeQuestion, buildWordSearch, wordSearchProblems, parseBrazilianNumber, operationAnswer, operationIssue, mathExpressionToLatex, latexToMathExpression, inspectExam };
   root.ExamSafety = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

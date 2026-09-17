@@ -28,9 +28,11 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 
 ## Estado Atual
 
-Correção local do foco da prévia: atualização imediata cancela timer atrasado; rolagem ocorre dentro do iframe com contêiner externo no topo, inclusive para última questão. Sem publicação. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
+Em 17/09/2026, usuário autorizou publicar o lote de refinamento matemático. Operações matemáticas: no editor, cada conta aparece em uma linha com os dois números, operador e resultado automático; resposta manual fica recolhida e abre automaticamente quando já existe. Na prova, o padrão agora é sem molduras, com numeração junto da conta, sinal e números agrupados, traço proporcional à quantidade de algarismos e divisão compacta no formato escolar; quatro operações com máximo de três colunas são equilibradas em grade 2×2. Moldura e quadradinhos continuam opcionais. Expressões matemáticas passam a aceitar escrita comum como `1/2`, `√(25)`, `3^2`, `×` e `÷`, mantendo LaTeX recolhido como opção avançada. npm test e validação visual local aprovados; sem mudança de banco ou Supabase.
 
-Refinamento local da questão única: selecionar uma questão recolhe Questões da prova e sincroniza Ir à questão na prévia, mantendo o editor aberto. A prévia recebe o mesmo destino após carregar. Sem publicação ou mudança no conteúdo salvo.
+Correção do foco da prévia incluída no lote autorizado: atualização imediata cancela timer atrasado; rolagem ocorre dentro do iframe com contêiner externo no topo, inclusive para última questão. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
+
+Refinamento da questão única incluído no lote autorizado: selecionar uma questão recolhe Questões da prova e sincroniza Ir à questão na prévia, mantendo o editor aberto. A prévia recebe o mesmo destino após carregar. Sem mudança no conteúdo salvo.
 
 Ajuste local após publicação 78a6940, solicitado pelo usuário: lista Questões da prova é a navegação; cartões ficam ocultos até seleção, com apenas uma questão visível e expandida. Nova questão e inserção pelo banco selecionam o item; fechar/excluir limpa seleção. Registro individual do banco continua aberto. Não altera conteúdo persistido/SQL. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
 

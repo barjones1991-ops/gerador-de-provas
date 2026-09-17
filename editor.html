@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js?v=20260917-r2"></script>
-  <script src="js/editor-tools.js?v=20260917-ux17"></script>
+  <script src="js/exam-safety.js?v=20260917-r3"></script>
+  <script src="js/editor-tools.js?v=20260917-ux24"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -348,48 +348,59 @@
     /* Operações matemáticas em coluna */
     .math-ops-grid {
       display: grid;
-      gap: 20px 28px;
+      gap: 12px 28px;
       margin-top: 10px;
       align-items: start;
     }
     .math-op-box {
+      position: relative;
+      display: flex;
+      flex-direction: column;
       border: 1.5px solid #cbd5e1;
       border-radius: 10px;
       padding: 12px 16px 8px;
-      min-width: 100px;
+      min-width: 0;
+      min-height: 100px;
       font-family: 'Courier New', monospace;
       font-size: 18px;
       text-align: right;
       background: #fff;
     }
-    .math-op-box.fs-large { font-size: 24px; padding: 14px 20px 10px; }
+    .math-op-box.fs-large { min-height: 124px; font-size: 24px; padding: 14px 20px 10px; }
+    .math-op-layout { width: 100%; display: flex; align-items: flex-start; justify-content: center; gap: 10px; }
+    .math-op-index { flex: 0 0 auto; margin-top: 2px; font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; color: #64748b; }
+    .math-op-stack { width: max-content; max-width: 100%; margin: 0; line-height: 1.35; font-weight: 600; color: #0f172a; }
     .math-op-num { display: block; }
-    .math-op-with-sym { display: grid; grid-template-columns: auto 1fr; gap: 4px; }
-    .math-op-sym { font-weight: 900; }
-    .math-op-divider { border-top: 2.5px solid #0f172a; margin: 6px 0; }
-    .math-op-answer { height: 34px; border-bottom: 1.5px dashed #94a3b8; margin-bottom: 4px; }
+    .math-op-with-sym { display: grid; grid-template-columns: 1ch var(--math-number-width, 3ch); justify-content: end; column-gap: .6ch; }
+    .math-op-with-sym > span { white-space: nowrap; }
+    .math-op-sym { font-weight: inherit; text-align: center; }
+    .math-op-divider { border-top: 1.5px solid #0f172a; margin: 3px 0 0; }
+    .math-op-answer { height: 34px; }
     .math-op-calc-space { margin-top: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; height: 52px; background: repeating-linear-gradient(transparent, transparent 17px, #e2e8f0 17px, #e2e8f0 18px); }
     .math-op-carry { height: 18px; margin-bottom: 2px; }
     .math-op-answer-boxes { display: flex; justify-content: flex-end; gap: 3px; padding: 4px 0 2px; }
     .digit-box { width: 26px; height: 32px; border: 1.5px solid #334155; border-radius: 2px; display: inline-block; }
     .fs-large .digit-box { width: 34px; height: 40px; }
-    .math-op-box.estilo-minimo { border: none; border-radius: 0; background: transparent; padding: 8px 0 4px; }
+    .math-op-box.estilo-minimo { border: none; border-radius: 0; background: transparent; padding: 10px 8px 6px; }
     .math-division-box {
-      min-width: 150px;
-      width: max-content;
+      min-width: 0;
+      width: auto;
       max-width: 100%;
       text-align: left;
+      align-items: center;
+      justify-content: flex-start;
     }
     .math-division-svg {
       width: auto;
       max-width: 100%;
       height: auto;
       display: block;
+      margin: 0;
       overflow: visible;
     }
     .math-division-text {
       font-family: 'Courier New', monospace;
-      font-weight: 800;
+      font-weight: 600;
       fill: #0f172a;
     }
     .math-division-line {
@@ -1481,7 +1492,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-ux14" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-ux16" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -2111,7 +2122,7 @@
         ],
         columns: 3,
         fontSize: 'normal',
-        boxStyle: 'completo',
+        boxStyle: 'minimo',
         answerStyle: 'linha',
         answerBoxes: 4,
         showCarry: false,
@@ -2122,11 +2133,7 @@
       expressao_matematica: () => ({
         type: 'expressao_matematica',
         text: 'Resolva:',
-        expressions: [
-          { latex: '\\frac{1}{2} + \\frac{1}{4} =', answer: '' },
-          { latex: '3^2 + 4^2 =', answer: '' },
-          { latex: '\\sqrt{25} =', answer: '' },
-        ],
+        expressions: [{ source: '', latex: '', answer: '' }],
         columns: 2,
         fontSize: 'normal',
         boxStyle: 'completo',
@@ -4267,7 +4274,7 @@
             }
           });
 
-          if (!q.boxStyle) q.boxStyle = 'completo';
+          if (!q.boxStyle) q.boxStyle = 'minimo';
           if (!q.answerStyle) q.answerStyle = 'linha';
           if (!q.answerBoxes) q.answerBoxes = 4;
 
@@ -4275,7 +4282,7 @@
           cfgBlock.className = 'row two';
           cfgBlock.innerHTML = `
             <div>
-              <label>Colunas por linha</label>
+              <label>Máximo de colunas</label>
               <select data-k="columns">
                 <option value="1" ${q.columns==1?'selected':''}>1 por linha</option>
                 <option value="2" ${q.columns==2?'selected':''}>2 por linha</option>
@@ -4293,8 +4300,8 @@
             <div>
               <label>Estilo da caixa</label>
               <select data-k="boxStyle">
-                <option value="completo" ${q.boxStyle!=='minimo'?'selected':''}>Com moldura arredondada</option>
-                <option value="minimo" ${q.boxStyle==='minimo'?'selected':''}>Só o traço (minimalista)</option>
+                <option value="minimo" ${q.boxStyle==='minimo'?'selected':''}>Sem moldura (recomendado)</option>
+                <option value="completo" ${q.boxStyle!=='minimo'?'selected':''}>Com moldura</option>
               </select>
             </div>
             <div>
@@ -4330,84 +4337,108 @@
           mathAppearance.appendChild(cfgBlock);
 
           const block = document.createElement('div');
-          block.className = 'row';
-          block.innerHTML = '<label>Operações <span style="font-weight:400;color:#94a3b8;">— o resultado é só para o gabarito, não aparece na prova</span></label>';
+          block.className = 'row math-editor';
+          block.innerHTML = `
+            <div class="math-editor-heading">
+              <strong>Operações</strong>
+              <span>O resultado é calculado automaticamente e aparece apenas no gabarito.</span>
+            </div>
+          `;
           const opsBox = document.createElement('div');
-          opsBox.className = 'row';
+          opsBox.className = 'math-editor-list';
 
           const renderOps = () => {
             opsBox.innerHTML = '';
             (q.operations || []).forEach((op, j) => {
               const card = document.createElement('div');
-              card.style.cssText = 'margin-bottom:8px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;';
+              card.className = 'math-editor-card';
 
-              // Num1 + ❌
-              const r1 = document.createElement('div');
-              r1.style.cssText = 'display:flex; align-items:center; gap:6px; padding:8px 10px 4px;';
-              const numLbl = document.createElement('span');
-              numLbl.textContent = 'N1'; numLbl.style.cssText = 'font-size:11px;color:#94a3b8;font-weight:600;width:22px;';
+              const cardHead = document.createElement('div');
+              cardHead.className = 'math-editor-card-head';
+              const indexLabel = document.createElement('strong');
+              indexLabel.textContent = `Operação ${j + 1}`;
+              const rmv = document.createElement('button');
+              rmv.type='button'; rmv.textContent='×'; rmv.disabled=(q.operations||[]).length<=1;
+              rmv.className = 'math-editor-remove';
+              rmv.title = `Remover operação ${j + 1}`;
+              rmv.setAttribute('aria-label', `Remover operação ${j + 1}`);
+              rmv.addEventListener('click', () => { q.operations.splice(j,1); renderAll(); });
+              cardHead.append(indexLabel, rmv);
+
+              const equation = document.createElement('div');
+              equation.className = 'math-editor-equation';
+              const firstField = document.createElement('label');
+              firstField.className = 'math-editor-field';
+              firstField.innerHTML = '<span>Primeiro número</span>';
               const n1 = document.createElement('input'); n1.value = op.num1??''; n1.placeholder = '0';
-              n1.style.cssText = 'flex:1; text-align:right; font-family:monospace; font-size:16px; font-weight:700;';
+              n1.inputMode = 'decimal';
               n1.setAttribute('aria-label', `Operação ${j + 1}: primeiro número`);
               n1.addEventListener('input', () => { op.num1=n1.value; updateAnswer(); renderPreview(); });
-              const rmv = document.createElement('button');
-              rmv.type='button'; rmv.textContent='❌'; rmv.disabled=(q.operations||[]).length<=1;
-              rmv.style.cssText='background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+((q.operations||[]).length<=1?'0.3':'1');
-              rmv.addEventListener('click', () => { q.operations.splice(j,1); renderAll(); });
-              r1.appendChild(numLbl); r1.appendChild(n1); r1.appendChild(rmv);
+              firstField.appendChild(n1);
 
-              // Op + Num2
-              const r2 = document.createElement('div');
-              r2.style.cssText = 'display:flex; align-items:center; gap:6px; padding:0 10px 6px;';
+              const operatorField = document.createElement('label');
+              operatorField.className = 'math-editor-field math-editor-operator';
+              operatorField.innerHTML = '<span>Operador</span>';
               const opSel = document.createElement('select');
-              opSel.style.cssText = 'width:44px; text-align:center; font-size:18px; font-weight:900; padding:2px; border-radius:6px;';
               ['+','-','×','÷'].forEach(sym => {
                 const o=document.createElement('option'); o.value=sym; o.textContent=sym;
                 if ((op.op||'+')===sym) o.selected=true;
                 opSel.appendChild(o);
               });
-              const n2 = document.createElement('input'); n2.value=op.num2??''; n2.placeholder='0';
-              n2.style.cssText='flex:1; text-align:right; font-family:monospace; font-size:16px; font-weight:700;';
-              n2.setAttribute('aria-label', `Operação ${j + 1}: segundo número`);
               opSel.setAttribute('aria-label', `Operação ${j + 1}: operador`);
+              operatorField.appendChild(opSel);
+
+              const secondField = document.createElement('label');
+              secondField.className = 'math-editor-field';
+              secondField.innerHTML = '<span>Segundo número</span>';
+              const n2 = document.createElement('input'); n2.value=op.num2??''; n2.placeholder='0';
+              n2.inputMode = 'decimal';
+              n2.setAttribute('aria-label', `Operação ${j + 1}: segundo número`);
               n2.addEventListener('input', () => { op.num2=n2.value; updateAnswer(); renderPreview(); });
               opSel.addEventListener('change', () => { op.op=opSel.value; updateAnswer(); renderPreview(); });
-              r2.appendChild(opSel); r2.appendChild(n2);
+              secondField.appendChild(n2);
 
-              // Divider visual
-              const divLine = document.createElement('div');
-              divLine.style.cssText = 'border-top:2px solid #334155; margin:0 10px;';
+              const equals = document.createElement('span');
+              equals.className = 'math-editor-equals';
+              equals.textContent = '=';
+              equals.setAttribute('aria-hidden', 'true');
+              const answerStatus = document.createElement('div');
+              answerStatus.className = 'math-editor-result';
+              answerStatus.setAttribute('role', 'status');
 
-              // Resultado
-              const r3 = document.createElement('div');
-              r3.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:5px 10px 8px; background:#fff; border-top:1px solid #e2e8f0;';
-              const resLbl = document.createElement('span');
-              resLbl.textContent = 'Resposta manual (opcional):'; resLbl.style.cssText='font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
+              const manualDetails = document.createElement('details');
+              manualDetails.className = 'math-editor-override';
+              manualDetails.open = Boolean(String(op.result ?? '').trim());
+              const manualSummary = document.createElement('summary');
+              const manualGrid = document.createElement('div');
+              manualGrid.className = 'math-editor-override-grid';
+              const manualField = document.createElement('label');
+              manualField.className = 'math-editor-field';
+              manualField.innerHTML = '<span>Resposta correta para o gabarito</span>';
               const res = document.createElement('input'); res.value=op.result??'';
               res.setAttribute('aria-label', `Operação ${j + 1}: resposta manual`);
-              res.style.cssText='flex:1;text-align:right;font-family:monospace;background:#f0fdf4;border-color:#86efac;';
               res.addEventListener('input', () => { op.result=res.value; updateAnswer(); renderPreview(); });
-              const answerStatus = document.createElement('div');
-              answerStatus.className = 'small'; answerStatus.setAttribute('role', 'status');
-              answerStatus.style.cssText = 'padding:6px 10px;';
+              manualField.appendChild(res);
               const automatic = document.createElement('button'); automatic.type = 'button';
-              automatic.className = 'outline'; automatic.textContent = 'Usar cálculo automático';
+              automatic.className = 'outline'; automatic.textContent = 'Voltar ao cálculo automático';
               automatic.setAttribute('aria-label', `Operação ${j + 1}: usar cálculo automático`);
               automatic.addEventListener('click', () => { op.result=''; res.value=''; updateAnswer(); renderPreview(); });
               function updateAnswer() {
                 const calculated = ExamSafety.operationAnswer({ ...op, result:'' });
                 const manual = String(op.result ?? '').trim();
-                res.placeholder = calculated.startsWith('?') ? 'Automático: confira a conta' : calculated;
+                res.placeholder = calculated.startsWith('?') ? 'Digite a resposta correta' : calculated;
                 const warning = ExamSafety.operationIssue(op);
-                answerStatus.textContent = warning || (manual
-                  ? 'Gabarito manual: ' + manual + '. Será mantido ao alterar a conta.'
-                  : 'Gabarito automático: ' + calculated);
+                answerStatus.classList.toggle('is-error', Boolean(warning));
+                answerStatus.classList.toggle('is-manual', Boolean(manual) && !warning);
+                answerStatus.textContent = warning || (manual ? `Gabarito: ${manual} (manual)` : `Resultado: ${calculated}`);
+                manualSummary.textContent = manual ? 'Resposta manual ativa' : 'Ajustar resposta do gabarito';
+                automatic.hidden = !manual;
               }
               updateAnswer();
-              r3.append(resLbl, res, automatic);
-              card.appendChild(answerStatus);
-
-              card.appendChild(r1); card.appendChild(r2); card.appendChild(divLine); card.appendChild(r3);
+              equation.append(firstField, operatorField, secondField, equals, answerStatus);
+              manualGrid.append(manualField, automatic);
+              manualDetails.append(manualSummary, manualGrid);
+              card.append(cardHead, equation, manualDetails);
               opsBox.appendChild(card);
             });
           };
@@ -4429,7 +4460,7 @@
 
         if (q.type === 'expressao_matematica') {
           if (!Array.isArray(q.expressions) || q.expressions.length === 0) {
-            q.expressions = [{ latex: '', answer: '' }];
+            q.expressions = [{ source: '', latex: '', answer: '' }];
           }
           if (!q.boxStyle) q.boxStyle = 'completo';
           if (!q.answerStyle) q.answerStyle = 'linha';
@@ -4473,36 +4504,13 @@
               <input data-k="answerBoxes" type="number" min="1" max="8" value="${esc(q.answerBoxes||3)}" />
             </div>
           `;
-          body.appendChild(cfgE);
-
-          // Toolbar KaTeX
-          const tbWrap = document.createElement('div');
-          tbWrap.style.cssText = 'margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px;';
-          const toolbar = [
-            { label: 'a/b', ins: '\\frac{}{} ', tip: 'Fração' },
-            { label: '√', ins: '\\sqrt{} ', tip: 'Raiz quadrada' },
-            { label: 'aⁿ', ins: '^{} ', tip: 'Potência' },
-            { label: '×', ins: '\\times ', tip: 'Multiplicação' },
-            { label: '÷', ins: '\\div ', tip: 'Divisão' },
-            { label: '±', ins: '\\pm ', tip: 'Mais ou menos' },
-            { label: '≠', ins: '\\neq ', tip: 'Diferente' },
-            { label: '≤', ins: '\\leq ', tip: 'Menor ou igual' },
-            { label: '≥', ins: '\\geq ', tip: 'Maior ou igual' },
-            { label: '(  )', ins: '\\left( \\right) ', tip: 'Parênteses' },
-            { label: '|x|', ins: '\\left| \\right| ', tip: 'Módulo' },
-          ];
-          toolbar.forEach(t => {
-            const btn = document.createElement('button');
-            btn.type = 'button'; btn.title = t.tip; btn.textContent = t.label;
-            btn.style.cssText = 'font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-family:monospace;';
-            btn.dataset.ins = t.ins;
-            tbWrap.appendChild(btn);
-          });
-
           const exprBlock = document.createElement('div');
-          exprBlock.className = 'row';
-          exprBlock.innerHTML = '<label>Expressões <span style="font-weight:400;color:#94a3b8;">— use LaTeX: \\frac{1}{2}, \\sqrt{4}, 3^2</span></label>';
-          exprBlock.appendChild(tbWrap);
+          exprBlock.className = 'row expression-editor';
+          exprBlock.innerHTML = `
+            <div class="expression-editor-heading">
+              <strong>Contas e expressões</strong>
+              <span>Digite como você escreveria no papel: 1/2, √(25), 3^2, × ou ÷.</span>
+            </div>`;
 
           const exprBox = document.createElement('div');
           exprBox.className = 'row';
@@ -4517,60 +4525,105 @@
           const renderExprs = () => {
             exprBox.innerHTML = '';
             q.expressions.forEach((expr, j) => {
+              if (expr.source == null) expr.source = ExamSafety.latexToMathExpression(expr.latex || '');
               const card = document.createElement('div');
-              card.style.cssText = 'margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc;';
+              card.className = 'expression-editor-card';
 
-              // Linha de input + preview
-              const top = document.createElement('div');
-              top.style.cssText = 'display:flex;gap:6px;align-items:flex-start;padding:8px 10px 6px;';
+              const head = document.createElement('div');
+              head.className = 'expression-editor-card-head';
+              const title = document.createElement('strong');
+              title.textContent = `Expressão ${j + 1}`;
 
               const inp = document.createElement('input');
-              inp.value = expr.latex || '';
-              inp.placeholder = 'Ex.: \\frac{1}{2} + \\frac{1}{4} =';
-              inp.style.cssText = 'flex:1;font-family:monospace;font-size:13px;';
+              inp.value = expr.source || '';
+              inp.placeholder = 'Ex.: 1/2 + 1/4 =';
+              inp.setAttribute('aria-label', `Expressão ${j + 1}: conta`);
 
               const rmv = document.createElement('button');
-              rmv.type = 'button'; rmv.textContent = '❌'; rmv.disabled = q.expressions.length <= 1;
-              rmv.style.cssText = 'background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(q.expressions.length<=1?'0.3':'1');
+              rmv.type = 'button'; rmv.textContent = '×'; rmv.title = `Remover expressão ${j + 1}`;
+              rmv.setAttribute('aria-label', `Remover expressão ${j + 1}`);
+              rmv.className = 'math-editor-remove'; rmv.disabled = q.expressions.length <= 1;
               rmv.addEventListener('click', () => { q.expressions.splice(j,1); renderAll(); });
 
+              head.appendChild(title); head.appendChild(rmv);
+
+              const field = document.createElement('label');
+              field.className = 'expression-editor-field';
+              field.innerHTML = '<span>Conta ou expressão</span>';
+              field.appendChild(inp);
+
+              const tools = document.createElement('div');
+              tools.className = 'expression-editor-tools';
+              const toolbar = [
+                { label: 'Fração', value: '1/2', select: [0, 1] },
+                { label: 'Raiz', value: '√()', cursor: 2 },
+                { label: 'Potência', value: '^2', select: [1, 2] },
+                { label: '×', value: ' × ' },
+                { label: '÷', value: ' ÷ ' },
+                { label: '( )', value: '()', cursor: 1 },
+              ];
+
               const preview = document.createElement('div');
-              preview.style.cssText = 'padding:6px 10px 8px;background:#fff;border-top:1px solid #e2e8f0;font-size:20px;min-height:40px;';
+              preview.className = 'expression-editor-preview';
               preview.innerHTML = tryKatexPreview(expr.latex);
 
               const updatePrev = () => {
-                expr.latex = inp.value;
-                preview.innerHTML = tryKatexPreview(inp.value);
+                expr.source = inp.value;
+                expr.latex = ExamSafety.mathExpressionToLatex(inp.value);
+                preview.innerHTML = tryKatexPreview(expr.latex);
                 renderPreview();
               };
               inp.addEventListener('input', updatePrev);
 
-              // Conectar toolbar ao input ativo
-              inp.addEventListener('focus', () => {
-                tbWrap.querySelectorAll('button[data-ins]').forEach(btn => {
-                  btn.onclick = () => {
-                    const s = inp.selectionStart, e2 = inp.selectionEnd;
-                    const v = inp.value;
-                    inp.value = v.slice(0,s) + btn.dataset.ins + v.slice(e2);
-                    inp.selectionStart = inp.selectionEnd = s + btn.dataset.ins.length;
-                    inp.focus();
-                    updatePrev();
-                  };
+              toolbar.forEach(tool => {
+                const btn = document.createElement('button');
+                btn.type = 'button'; btn.className = 'outline'; btn.textContent = tool.label;
+                btn.addEventListener('click', () => {
+                  const start = Number.isInteger(inp.selectionStart) ? inp.selectionStart : inp.value.length;
+                  const end = Number.isInteger(inp.selectionEnd) ? inp.selectionEnd : start;
+                  const selected = inp.value.slice(start, end);
+                  const insertion = tool.label === 'Raiz' && selected ? `√(${selected})`
+                    : tool.label === '( )' && selected ? `(${selected})`
+                    : tool.label === 'Potência' && selected ? `${selected}^2`
+                    : tool.value;
+                  inp.value = inp.value.slice(0, start) + insertion + inp.value.slice(end);
+                  const selectionStart = tool.select ? start + tool.select[0] : start + (tool.cursor ?? insertion.length);
+                  const selectionEnd = tool.select ? start + tool.select[1] : selectionStart;
+                  inp.focus(); inp.setSelectionRange(selectionStart, selectionEnd);
+                  updatePrev();
                 });
+                tools.appendChild(btn);
               });
 
               const gabRow = document.createElement('div');
-              gabRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 10px 6px;background:#fff;border-top:1px solid #e2e8f0;';
-              const gabLbl = document.createElement('span');
-              gabLbl.textContent = '= Gabarito:'; gabLbl.style.cssText = 'font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
+              gabRow.className = 'expression-editor-answer';
+              const gabLbl = document.createElement('label');
+              gabLbl.textContent = 'Resposta correta'; gabLbl.htmlFor = `expression-answer-${idx}-${j}`;
               const gabInp = document.createElement('input');
+              gabInp.id = `expression-answer-${idx}-${j}`;
               gabInp.value = expr.answer || ''; gabInp.placeholder = 'resposta esperada';
-              gabInp.style.cssText = 'flex:1;background:#f0fdf4;border-color:#86efac;';
+              gabInp.setAttribute('aria-label', `Expressão ${j + 1}: resposta`);
               gabInp.addEventListener('input', () => { expr.answer = gabInp.value; saveState(); });
               gabRow.appendChild(gabLbl); gabRow.appendChild(gabInp);
 
-              top.appendChild(inp); top.appendChild(rmv);
-              card.appendChild(top); card.appendChild(preview); card.appendChild(gabRow);
+              const advanced = document.createElement('details');
+              advanced.className = 'expression-editor-advanced';
+              advanced.innerHTML = '<summary>Fórmula avançada (LaTeX)</summary>';
+              const advancedInput = document.createElement('input');
+              advancedInput.value = expr.latex || '';
+              advancedInput.placeholder = 'Ex.: \\frac{1}{2} + \\sqrt{4}';
+              advancedInput.setAttribute('aria-label', `Expressão ${j + 1}: fórmula avançada`);
+              advancedInput.addEventListener('input', () => {
+                expr.latex = advancedInput.value;
+                expr.source = ExamSafety.latexToMathExpression(advancedInput.value);
+                inp.value = expr.source;
+                preview.innerHTML = tryKatexPreview(expr.latex);
+                renderPreview();
+              });
+              advanced.appendChild(advancedInput);
+
+              card.appendChild(head); card.appendChild(field); card.appendChild(tools);
+              card.appendChild(preview); card.appendChild(gabRow); card.appendChild(advanced);
               exprBox.appendChild(card);
             });
           };
@@ -4579,11 +4632,17 @@
           const addExpr = document.createElement('button');
           addExpr.type = 'button'; addExpr.className = 'outline inline-add-btn';
           addExpr.textContent = '＋ Adicionar expressão';
-          addExpr.addEventListener('click', () => { q.expressions.push({ latex: '', answer: '' }); renderExprs(); renderPreview(); });
+          addExpr.addEventListener('click', () => { q.expressions.push({ source: '', latex: '', answer: '' }); renderExprs(); renderPreview(); });
 
           exprBlock.appendChild(exprBox);
           exprBlock.appendChild(addExpr);
           body.appendChild(exprBlock);
+
+          const appearance = document.createElement('details');
+          appearance.className = 'appearance-settings';
+          appearance.innerHTML = '<summary>Aparência na prova</summary>';
+          appearance.appendChild(cfgE);
+          body.appendChild(appearance);
         }
 
         if (q.type === 'ditado') {
@@ -5787,6 +5846,8 @@
       }
       if (q.type === 'matematica_coluna') {
         const cols = Math.max(1, Math.min(4, Number(q.columns) || 3));
+        const operationCount = (q.operations || []).length;
+        const displayCols = cols > 2 && operationCount === cols + 1 ? Math.ceil(operationCount / 2) : cols;
         const fsClass = q.fontSize === 'large' ? ' fs-large' : '';
         const boxClass = `math-op-box${fsClass}${q.boxStyle === 'minimo' ? ' estilo-minimo' : ''}`;
         const calcSpace = q.showCalcSpace ? '<div class="math-op-calc-space"></div>' : '';
@@ -5802,36 +5863,41 @@
           const value = String(symbol || '').trim();
           return value === '\u00f7' || value === '/' || value === ':';
         };
-        const divisionOp = (n1, n2, op) => {
+        const divisionOp = (n1, n2, op, index) => {
           const dividend = String(n1 || '').trim();
           const divisor = String(n2 || '').trim();
-          const font = q.fontSize === 'large' ? 24 : 19;
-          const digitWidth = q.fontSize === 'large' ? 14 : 11;
+          const font = q.fontSize === 'large' ? 24 : 18;
+          const digitWidth = font * .6;
           const answerDigits = Math.max(1, Math.min(8, op.result ? String(op.result).replace(/[^0-9]/g, '').length || (q.answerBoxes || 4) : (q.answerBoxes || 4)));
-          const leftW = Math.max(78, Math.min(170, dividend.length * digitWidth + 34));
-          const rightW = Math.max(82, Math.min(170, Math.max(divisor.length * digitWidth + 34, answerDigits * 20 + 18)));
+          const answerWidth = q.answerStyle === 'boxes' ? answerDigits * 19 + 18 : 3 * digitWidth + 20;
+          const leftW = Math.max(1, dividend.length) * digitWidth + 14;
+          const rightW = Math.max(divisor.length * digitWidth + 20, answerWidth);
           const width = leftW + rightW;
           const height = q.showCalcSpace ? 126 : 86;
           const rightX = leftW + 12;
           const answer = q.answerStyle === 'boxes'
             ? Array.from({ length: answerDigits }, (_, i) => `<rect x="${rightX + i * 19}" y="48" width="16" height="24" fill="none" stroke="#334155" stroke-width="1.5" />`).join('')
-            : `<line class="math-division-guide" x1="${rightX}" y1="64" x2="${width - 10}" y2="64" />`;
+            : '';
           const scratch = q.showCalcSpace
             ? [64, 86, 108].map((y) => `<line class="math-division-guide" x1="12" y1="${y}" x2="${leftW - 14}" y2="${y}" />`).join('')
             : '';
-          return `<div class="${boxClass} math-division-box"><svg class="math-division-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(dividend)} dividido por ${esc(divisor)}"><text class="math-division-text" x="${leftW - 12}" y="28" font-size="${font}" text-anchor="end">${esc(dividend)}</text><line class="math-division-line" x1="${leftW}" y1="8" x2="${leftW}" y2="38" /><text class="math-division-text" x="${rightX}" y="28" font-size="${font}">${esc(divisor)}</text><line class="math-division-line" x1="${leftW}" y1="38" x2="${width - 10}" y2="38" />${answer}${scratch}</svg></div>`;
+          return `<div class="${boxClass} math-division-box"><div class="math-op-layout"><span class="math-op-index" aria-hidden="true">${index + 1}.</span><svg class="math-division-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(dividend)} dividido por ${esc(divisor)}"><text class="math-division-text" x="${leftW - 12}" y="28" font-size="${font}" text-anchor="end">${esc(dividend)}</text><line class="math-division-line" x1="${leftW}" y1="8" x2="${leftW}" y2="38" /><text class="math-division-text" x="${rightX}" y="28" font-size="${font}">${esc(divisor)}</text><line class="math-division-line" x1="${leftW}" y1="38" x2="${width - 10}" y2="38" />${answer}${scratch}</svg></div></div>`;
         };
-        const ops = (q.operations || []).map((op) => {
+        const ops = (q.operations || []).map((op, index) => {
           let n1 = op.num1, sym = op.op || '+', n2 = op.num2;
           if ((!n1 && !n2) && op.expression) {
             const m = String(op.expression).trim().match(/^([\d.,\s]+)([+\-×xX÷:/])\s*([\d.,\s]+)$/);
             if (m) { n1=m[1].trim(); sym=m[2]; n2=m[3].trim(); } else { n1=op.expression; n2=''; }
           }
-          if (!n1 && !n2) return `<div class="${boxClass}"><span class="small">—</span></div>`;
-          if (isDivision(sym)) return divisionOp(n1, n2, op);
-          return `<div class="${boxClass}">${carryRow}<span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div>${answerArea(op)}${calcSpace}</div>`;
+          const maxChars = Math.max(String(n1 || '').trim().length, String(n2 || '').trim().length, 1);
+          const answerCount = Math.max(1, Math.min(8, op.result ? String(op.result).replace(/[^0-9]/g, '').length || (q.answerBoxes || 4) : (q.answerBoxes || 4)));
+          const boxesWidth = q.answerStyle === 'boxes' ? answerCount * (q.fontSize === 'large' ? 37 : 29) - 3 : 0;
+          const stackWidth = `max(${maxChars + 1.8}ch, ${boxesWidth}px)`;
+          if (!n1 && !n2) return `<div class="${boxClass}"><div class="math-op-layout"><span class="math-op-index" aria-hidden="true">${index + 1}.</span><div class="math-op-stack"><span class="small">—</span></div></div></div>`;
+          if (isDivision(sym)) return divisionOp(n1, n2, op, index);
+          return `<div class="${boxClass}"><div class="math-op-layout"><span class="math-op-index" aria-hidden="true">${index + 1}.</span><div class="math-op-stack" style="width:${stackWidth};--math-number-width:${maxChars}ch">${carryRow}<span class="math-op-num">${esc(n1||'')}</span><div class="math-op-with-sym"><span class="math-op-sym">${esc(sym)}</span><span>${esc(n2||'')}</span></div><div class="math-op-divider"></div>${answerArea(op)}</div></div>${calcSpace}</div>`;
         }).join('');
-        return `<div class="math-ops-grid" style="grid-template-columns:repeat(${cols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
+        return `<div class="math-ops-grid" style="grid-template-columns:repeat(${displayCols},1fr)">${ops || '<span class="small">Nenhuma operação adicionada.</span>'}</div>`;
       }
       if (q.type === 'expressao_matematica') {
         const tryKatex = (latex) => {

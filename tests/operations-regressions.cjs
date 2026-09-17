@@ -20,6 +20,12 @@ async function open(op) {
  assert.equal(a.operation().result,'');
  assert.equal(safety.operationAnswer(a.operation()),'5');
  assert(a.app.document.querySelector('.qcard [role="status"]').textContent.includes('5'));
+ const mathEditor=a.app.document.querySelector('.math-editor');
+ assert(mathEditor,'editor compacto de operações existe');
+ assert.equal(mathEditor.querySelectorAll('.math-editor-card').length,1);
+ assert(mathEditor.querySelector('.math-editor-equation'),'conta aparece em uma única expressão');
+ const override=mathEditor.querySelector('.math-editor-override');
+ assert(override && !override.open,'resposta manual começa recolhida');
  for(const [n1,symbol,n2,expected] of [['5','-','2','3'],['2','×','2','4'],['6','÷','2','3'],['1,5','+','2,25','3,75'],['-2','×','3','-6'],['1.000','+','2','1.002'],['1','÷','3','≈ 0,333333']]){
   a.edit('primeiro número',n1);a.edit('segundo número',n2);a.edit('operador',symbol,'change');
   assert.equal(safety.operationAnswer(a.operation()),expected);
@@ -36,6 +42,8 @@ async function open(op) {
  assert.equal(safety.operationAnswer(reopened.operation()),'5');
  console.log('OK OPERACOES edicao, operador, decimais, negativos, invalidos e reabertura');
  const manual=await open({num1:'2',op:'+',num2:'3',result:'569'});
+ assert(manual.app.document.querySelector('.math-editor-override').open,'resposta manual existente fica visível');
+ assert(manual.app.document.querySelector('.math-editor-result').classList.contains('is-error'));
  assert.equal(manual.operation().result,'569','resposta legada nunca e apagada ao carregar');
  assert(safety.operationIssue(manual.operation()).includes('Cálculo automático: 5'));
  const issues=safety.inspectExam({title:'Teste',subject:'Matemática',class_name:'1A',total_value:'10,0',questions:[makeQuestion(manual.operation())]});
