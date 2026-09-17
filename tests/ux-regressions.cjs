@@ -16,6 +16,7 @@ assert.equal(app.document.getElementById('previewZoom').value,'fit');
  assert(app.document.querySelector('.editor-back-link'));assert(!app.document.getElementById('undoBtn'));assert(!app.document.getElementById('redoBtn'));
  assert.equal(app.document.querySelector('.editor-panel-heading h2').textContent,'Edição da prova');assert(app.document.querySelector('.editor-column > #editorPanel'));
  assert(app.document.querySelector('.editor-work-actions .topbar-status'));assert(app.document.querySelector('#sendCoordinationBtn + .topbar-status'));
+ assert.equal(typeof app.ctx.EditorTools.syncPreviewHeight,'function','prévia acompanha a altura da coluna de edição');
  app.document.getElementById('viewPreviewBtn').onclick();assert.equal(app.document.body.dataset.editorView,'preview');app.document.getElementById('viewEditBtn').onclick();assert.equal(app.document.body.dataset.editorView,'edit');
  const text=card.querySelector('[data-k="text"]');text.value='Conta nova';app.event(text,'input');assert(app.ctx.EditorTools.persistTimer,'edição real agenda salvamento');
  console.log('OK UX busca, categorias, navegação sem salvamento, edição, aparência matemática e modos');

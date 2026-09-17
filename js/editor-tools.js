@@ -678,7 +678,10 @@ const EditorTools = {
     document.getElementById('previewNext').onclick = () => this.previewQuestion(this.previewSelection + 1);
     document.getElementById('previewAnswerKey').onchange = () => { this.forceSnapshot = true; this.updatePreview(); };
     document.getElementById('previewZoom').onchange = () => this.resizePreview();
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.resizePreview()).observe(preview);
+    if (typeof ResizeObserver !== 'undefined') {
+      const workspaceObserver = new ResizeObserver(() => this.resizePreview());
+      workspaceObserver.observe(preview); workspaceObserver.observe(editorColumn);
+    }
     window.addEventListener('resize', () => this.resizePreview());
     window.addEventListener('message', event => {
       if (event.origin === location.origin && event.source === document.getElementById('canonicalPreview').contentWindow && event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); }
@@ -740,14 +743,29 @@ const EditorTools = {
     window.addEventListener('auth-session-changed', () => { this.refreshActions(); try { applyReviewLock(); } catch {} });
     this.enhanceFields(); this.updatePreview();
   },
+  syncPreviewHeight() {
+    const preview = document.getElementById('canonicalPreviewPanel');
+    const editor = document.querySelector('.editor-column');
+    if (!preview) return;
+    if (document.body.dataset.editorView !== 'edit' || window.innerWidth <= 1150 || !editor) {
+      preview.style.removeProperty('--editor-column-height'); return;
+    }
+    const editorHeight = Math.ceil(editor.getBoundingClientRect().height);
+    const hasOpenQuestion = Boolean(this.bankId) || Number.isInteger(state.activeQuestionIndex);
+    const viewportHeight = Math.max(360, Math.floor(window.innerHeight - preview.getBoundingClientRect().top - 24));
+    const height = hasOpenQuestion ? editorHeight : Math.max(editorHeight, viewportHeight);
+    if (height > 0) preview.style.setProperty('--editor-column-height', `${height}px`);
+  },
   resizePreview() {
     const frame = document.getElementById('canonicalPreview');
     const viewport = frame?.parentElement;
     if (!viewport?.clientWidth) return;
+    this.syncPreviewHeight();
     const fit = Math.min(1, (viewport.clientWidth - 2) / 850);
     const zoom = document.getElementById('previewZoom').value === 'fit' ? fit : Number(document.getElementById('previewZoom').value);
     frame.style.zoom = String(zoom);
-    frame.style.height = `${Math.max(260, window.innerHeight - viewport.getBoundingClientRect().top - 24) / zoom}px`;
+    const availableHeight = Math.max(260, viewport.clientHeight, window.innerHeight - viewport.getBoundingClientRect().top - 24);
+    frame.style.height = `${availableHeight / zoom}px`;
     viewport.style.maxHeight = 'none';
     document.getElementById('viewEditBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'edit'));
     document.getElementById('viewPreviewBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'preview'));

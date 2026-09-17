@@ -409,6 +409,16 @@ body[data-editor-view="preview"] .preview-options .preview-answer-key { display:
 body[data-editor-view="edit"] .preview-toolbar { margin-bottom:6px; }
 body[data-editor-view="preview"] .editor-column { display:none; }
 
+@media(min-width:1151px) {
+  body[data-editor-view="edit"] #canonicalPreviewPanel {
+    display:flex; flex-direction:column; height:var(--editor-column-height,auto); min-height:0;
+  }
+  body[data-editor-view="edit"] #canonicalPreviewPanel .preview-toolbar { flex:0 0 auto; }
+  body[data-editor-view="edit"] #canonicalPreviewPanel .preview-scroll {
+    flex:1 1 auto; min-height:0; max-height:none;
+  }
+}
+
 @media(max-width:1150px) {
   .editor-actionbar { left:0; }
 }
