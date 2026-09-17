@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/run-tests.js && node tests/safety-regressions.cjs && node tests/security-sql.cjs && node tests/editor-flows.cjs && node tests/flow-refinements.cjs",
+    "test": "node tests/run-tests.js && node tests/safety-regressions.cjs && node tests/security-sql.cjs && node tests/editor-flows.cjs && node tests/flow-refinements.cjs && node tests/operations-regressions.cjs && node tests/answer-key-regressions.cjs && node tests/readiness-regressions.cjs && node tests/answer-space-regressions.cjs && node tests/mixed-answer-regressions.cjs && node tests/manual-answer-regressions.cjs && node tests/interface-regressions.cjs && node tests/preview-navigation-regressions.cjs && node tests/batch-images-regressions.cjs && node tests/marker-regressions.cjs",
     "test:sql": "node tests/security-sql.cjs",
     "serve": "python -m http.server 8000 --bind 127.0.0.1",
     "start": "npm run serve"

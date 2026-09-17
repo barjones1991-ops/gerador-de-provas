@@ -34,8 +34,8 @@
     if (question.type === 'producao_textual') { question.type = 'discursiva'; question.titlePrompt = question.titlePrompt !== false; }
     const collections = {
       multipla: ['options'], discursiva: [], vf: ['items'], marcarx: ['items'], subitens: ['items'],
-      lacunas: [], relacione: [], imagem: ['options','items','extraImages'], interpretacao_imagem: ['prompts'],
-      relacione_imagens: [], texto_base: ['options'], matematica_coluna: ['operations'], expressao_matematica: ['expressions'],
+      lacunas: ['items','answers'], relacione: ['pairs'], imagem: ['options','items','extraImages'], interpretacao_imagem: ['prompts'],
+      relacione_imagens: ['pairs'], texto_base: ['options'], matematica_coluna: ['operations'], expressao_matematica: ['expressions'],
       ditado: [], ordenacao: ['items'], problema_matematico: [], espaco_livre: [], tabela: ['headers','rows','options'],
       associacao_setas: ['leftItems','rightItems'], sequencia_numerica: ['sequences'], leitura_escrita: ['words'], silabas: ['words'],
       sequencia_imagens: ['items'], comparar_imagens: [], legenda_imagens: ['items'], associacao_imagem_imagem: ['leftItems','rightItems'],
@@ -50,11 +50,111 @@
       if (Array.isArray(question[key]) && question[key].some(item => item == null)) throw new Error(`Item vazio ou inválido em ${key}.`);
     }
     if (question.rows?.some(row => !Array.isArray(row))) throw new Error('Linha de tabela inválida.');
-    if (question.correctOption != null) question.correctOption = Number.isInteger(Number(question.correctOption)) ? Number(question.correctOption) : null;
+    if (question.correctOption != null) question.correctOption = String(question.correctOption).trim() && Number.isInteger(Number(question.correctOption)) ? Number(question.correctOption) : null;
     for (const key of ['text','points','bncc','expectedAnswer','wordList','wordsText','textBase','imageCaption','image1Caption','image2Caption']) {
       if (question[key] != null) question[key] = String(question[key]);
     }
     return question;
+  }
+  // Checks registered content, not pedagogical correctness. Never mutates a question.
+  function inspectQuestionContent(q, raw, add) {
+    const filled = value => String(value ?? '').trim().length > 0;
+    const list = key => Array.isArray(q[key]) ? q[key] : [];
+    const requireItems = (key, fields, label) => {
+      const items = list(key);
+      if (!items.length) add('Adicione ' + label + '.');
+      items.forEach((item, i) => fields.forEach(([field, name]) => {
+        if (!filled(field ? item?.[field] : item)) add(name + ' do item ' + (i + 1) + ': preencha o campo.');
+      }));
+    };
+    const permutation = (order, size, start, label) => {
+      if (!Array.isArray(order) || order.length !== size || new Set(order).size !== size ||
+          order.some(n => !Number.isInteger(n) || n < start || n >= size + start))
+        add(label + ': use cada número de ' + start + ' a ' + (size + start - 1) + ' uma única vez.', true);
+    };
+    if (q.type === 'vf') {
+      requireItems('items', [['text','Texto']], 'afirmações');
+      if (list('items').some(item => !['V','F'].includes(item.answer))) add('Complete o gabarito V/F.');
+    }
+    if (q.type === 'marcarx' && q.markMode === 'unica' && q.items.filter(item => item.checked).length > 1)
+      add('Resposta única: marque somente uma alternativa.');
+    if (q.type === 'imagem' && q.imageAnswerType === 'marcarx') {
+      requireItems('items', [['text','Texto']], 'alternativas');
+      if (!q.items.some(item => item.checked)) add('Marque a resposta correta.');
+    }
+    if (q.type === 'expressao_matematica') requireItems('expressions', [['latex','Expressão'],['answer','Resposta']], 'expressões');
+    if (q.type === 'sequencia_numerica') requireItems('sequences', [['items','Sequência'],['answer','Resposta']], 'sequências');
+    if (q.type === 'silabas') requireItems('words', [['word','Palavra'],['answer','Resposta']], 'palavras');
+    if (q.type === 'leitura_escrita') requireItems('words', [['','Palavra']], 'palavras');
+    if (q.type === 'legenda_imagens') requireItems('items', [['answer','Resposta']], 'itens');
+    if (q.type === 'grade_imagens' && q.showAnswerLines !== false && list('items').some(item => !filled(item.answer)))
+      add('Há imagens sem resposta de referência; confira a correção manual.');
+    if (q.type === 'identificar_imagem') {
+      requireItems('markers', q.showAnswerList === false ? [] : [['answer','Resposta']], 'marcadores');
+    }
+    if (q.type === 'matematica_coluna' && !q.operations.length) add('Adicione pelo menos uma operação.');
+    if (q.type === 'subitens') {
+      if (!q.items.length) add('Adicione os subitens.');
+      q.items.forEach((item,i) => { if (!filled(item.text) && !filled(item.imageDataUrl)) add('Subitem ' + (i+1) + ': adicione texto ou imagem.'); });
+    }
+    if (q.type === 'lacunas') {
+      const items = list('items').length ? q.items : (q.text.includes('_') ? [{text:q.text,answer:q.answers?.[0]}] : []);
+      if (!items.length) add('Adicione as frases com lacunas.');
+      items.forEach((item,i) => {
+        const text = typeof item === 'string' ? item : item.text;
+        if (!filled(text) || !String(text).includes('_')) add('Item ' + (i+1) + ': indique a lacuna com sublinhados.');
+        if (!filled(item.answer ?? q.answers?.[i])) add('Resposta do item ' + (i+1) + ': preencha o campo.');
+      });
+    }
+    if (['ordenacao','sequencia_imagens'].includes(q.type)) {
+      requireItems('items', q.type === 'ordenacao' ? [['text','Texto']] : [], 'itens para ordenar');
+      if (q.items.length) permutation(raw.items.map(item => item.order), q.items.length, 1, 'Ordem dos itens');
+    }
+    if (['relacione','relacione_imagens'].includes(q.type)) {
+      requireItems('pairs', q.type === 'relacione' ? [['left','Texto esquerdo'],['right','Texto direito']] : [['imageDataUrl','Imagem'],['word','Palavra']], 'pares');
+      const key = q.type === 'relacione' ? 'rightOrder' : 'wordOrder';
+      if (q[key] != null && list('pairs').length) permutation(q[key], q.pairs.length, 0, 'Correspondência dos pares');
+    }
+    if (['associacao_setas','associacao_imagem_imagem'].includes(q.type)) {
+      const fields = q.type === 'associacao_setas' ? [['','Texto']] : [['imageDataUrl','Imagem']];
+      requireItems('leftItems', fields, 'itens à esquerda');
+      requireItems('rightItems', fields, 'itens à direita');
+      if (q.leftItems.length !== q.rightItems.length) add('As duas colunas precisam ter a mesma quantidade de itens.', true);
+      if (q.rightOrder != null && q.rightItems.length) permutation(q.rightOrder, q.leftItems.length, 0, 'Correspondência dos pares');
+    }
+    if (q.type === 'tabela') {
+      if (!q.headers.length || !q.rows.length) add('Preencha cabeçalhos e linhas da tabela.');
+      if (q.rows.some(row => row.length !== q.headers.length)) add('Confira a quantidade de células das linhas da tabela.', true);
+    }
+  }
+  function markerPosition(value) {
+    return Math.max(0,Math.min(100,Number.isFinite(Number(value)) ? Math.round(Number(value)) : 50));
+  }
+  function hasManualAnswer(question) {
+    if (['discursiva','subitens','interpretacao_imagem','problema_matematico','espaco_livre','comparar_imagens'].includes(question.type)) return true;
+    if (['texto_base','tabela'].includes(question.type)) return !question.answerType || question.answerType === 'discursiva';
+    return question.type === 'imagem' && (!question.imageAnswerType || question.imageAnswerType === 'discursiva');
+  }
+  function manualAnswer(question) {
+    return String(question.expectedAnswer ?? '').trim() || '(correção manual — resposta esperada não cadastrada)';
+  }
+  function choiceAnswer(question) {
+    const index = question.correctOption;
+    return Number.isInteger(index) && index >= 0 && index < (question.options || []).length
+      ? String.fromCharCode(65 + index) : '(não marcado)';
+  }
+  function answerLineCount(value, fallback = 5) {
+    const n = Number(value);
+    return Math.max(1, Math.min(40, Math.round(Number.isFinite(n) && n > 0 ? n : fallback)));
+  }
+  function renderAnswerSpace(question) {
+    if (question.showAnswerSpace === false) return '';
+    const count = answerLineCount(question.lines);
+    const style = ['linhas','caixa','espaco'].includes(question.answerStyle) ? question.answerStyle : 'linhas';
+    if (style === 'linhas') return '<div class="answer-space answer-space-lines" style="margin-top:8px;">' +
+      Array.from({length:count}, () => '<div class="hline" style="height:24px;box-sizing:border-box;"></div>').join('') + '</div>';
+    return '<div class="answer-space answer-space-' + style + '" style="height:' + count * 24 +
+      'px;box-sizing:border-box;margin-top:8px;' + (style === 'caixa' ? 'border:1px solid #94a3b8;border-radius:6px;' : '') + '"></div>';
   }
   function inspectExam(rawExam) {
     const school = rawExam.school || {};
@@ -73,6 +173,7 @@
       if (!Number.isFinite(score) || score < 0) add(index, 'Valor inválido. Use números como 1,5.', true); else sum += score;
       const choices = q.type === 'multipla' || ['texto_base','tabela'].includes(q.type) && q.answerType === 'multipla' || q.type === 'imagem' && q.imageAnswerType === 'multipla';
       if (choices) {
+        if (q.options.length < 2) add(index, 'Adicione pelo menos duas alternativas.');
         if (!q.options?.length || q.options.some(option => !String(option).trim())) add(index, 'Preencha as alternativas.');
         if (!Number.isInteger(q.correctOption) || q.correctOption < 0 || q.correctOption >= q.options.length) add(index, 'Marque a alternativa correta.');
       }
@@ -85,8 +186,12 @@
       if (['imagem','interpretacao_imagem','identificar_imagem'].includes(q.type) && !q.imageDataUrl) add(index, 'Adicione a imagem.');
       if (q.type === 'comparar_imagens' && (!q.image1DataUrl || !q.image2DataUrl)) add(index, 'Adicione as duas imagens.');
       if (['grade_imagens','sequencia_imagens','legenda_imagens'].includes(q.type) && (!q.items.length || q.items.some(item => !item.imageDataUrl))) add(index, 'Complete as imagens dos itens.');
-      if (q.type === 'matematica_coluna' && q.operations.some(op => operationAnswer(op).startsWith('?'))) add(index, 'Confira os números e as operações do gabarito.');
+      if (q.type === 'matematica_coluna') q.operations.forEach((op, i) => {
+        const issue = operationIssue(op);
+        if (issue) add(index, `Operação ${i + 1}: ${issue}`);
+      });
       if (q.type === 'cruzadinha' && (!q.clues.length || q.clues.some(item => !item.answer || !item.clue))) add(index, 'Preencha pistas e respostas da cruzadinha.');
+      inspectQuestionContent(q, raw, (message, blocking) => add(index, message, blocking));
       if (q.type === 'caca_palavras') wordSearchProblems([q]).forEach(message => add(index, message.replace(/^Questão 1: /, ''), true));
     });
     const total = parseBrazilianNumber(school.totalValue ?? rawExam.total_value);
@@ -112,6 +217,17 @@
     const rounded = Math.round((result + Number.EPSILON) * 1000000) / 1000000;
     const approximate = Math.abs(result - rounded) > 1e-10;
     return (approximate ? '≈ ' : '') + rounded.toLocaleString('pt-BR', { maximumFractionDigits: 6 });
+  }
+  function operationIssue(op) {
+    const calculated = operationAnswer({ ...op, result:'' });
+    if (calculated.startsWith('?')) return 'Confira os números e a operação: ' + calculated.slice(2);
+    const manual = String(op.result ?? '').trim();
+    if (manual && manual !== calculated) {
+      const a = parseBrazilianNumber(manual), b = parseBrazilianNumber(calculated);
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a !== b)
+        return 'Resposta salva/manual: ' + manual + '. Cálculo automático: ' + calculated + '. Confira ou use o cálculo automático.';
+    }
+    return '';
   }
   function buildWordSearch(words, size = 12) {
     const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/gi, '').toUpperCase();
@@ -145,7 +261,7 @@
         : unplaced.length ? [`Questão ${i + 1}: não couberam na grade: ${unplaced.join(', ')}.`] : [];
     });
   }
-  const api = { normalizeQuestion, buildWordSearch, wordSearchProblems, parseBrazilianNumber, operationAnswer, inspectExam };
+  const api = { markerPosition, hasManualAnswer, manualAnswer, choiceAnswer, answerLineCount, renderAnswerSpace, normalizeQuestion, buildWordSearch, wordSearchProblems, parseBrazilianNumber, operationAnswer, operationIssue, inspectExam };
   root.ExamSafety = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

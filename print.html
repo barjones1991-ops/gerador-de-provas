@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js"></script>
+  <script src="js/exam-safety.js?v=20260917-r2"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
@@ -322,6 +322,7 @@
     }
     .answer-key h2 { font-size: 20px; margin-bottom: 12px; }
     .answer-grid { display: grid; gap: 8px; }
+    .answer-row > span { white-space: pre-wrap; overflow-wrap: anywhere; }
     .answer-row {
       display: flex;
       justify-content: space-between;
@@ -386,6 +387,7 @@
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
       @page { size: A4 portrait; margin: 8mm 9mm 10mm; }
     }
+    @media screen { .embedded-preview .preview-focused { outline:2px solid #2563eb; outline-offset:4px; scroll-margin-top:12px; } }
   </style>
 
   <style>
@@ -743,17 +745,7 @@
           ? `<div class="question-image ${size} ${align}"><img ${safeImageAttr(question.imageDataUrl)} alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
           : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
       };
-      const answerArea = (question) => {
-        const lines = Math.max(2, Math.min(15, Number(question.lines) || 5));
-        const style = question.answerStyle || 'linhas';
-        if (style === 'caixa') {
-          return `<div style="height:${lines * 24}px; border:1px solid #cbd5e1; border-radius:6px; margin-top:8px;"></div>`;
-        }
-        if (style === 'espaco') {
-          return `<div style="height:${lines * 24}px;"></div>`;
-        }
-        return answerLines(lines);
-      };
+      const answerArea = ExamSafety.renderAnswerSpace;
       if (q.type === 'multipla') {
         const hasOptImgs = q.headerImage?.mode === 'alternativas' && Array.isArray(q.optionImages);
         const opts = (q.options || []).map((op, i) => {
@@ -903,7 +895,7 @@
       }
       if (q.type === 'texto_base') {
         const textBox = q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}</div>` : '';
-        if (q.showAnswerSpace === false) return textBox;
+
         if (q.answerType === 'multipla') {
           const opts = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
@@ -997,14 +989,16 @@
         ).join('')}</div>`;
       }
       if (q.type === 'problema_matematico') {
-        const calcCount = Math.max(2, Math.min(20, Number(q.calcLines) || 6));
-        const calcBox = `<div class="prob-calc-box"><div class="prob-calc-label">Área de cálculo</div>${answerLines(calcCount)}</div>`;
+        if (q.showAnswerSpace === false) return '';
+        const calcCount = ExamSafety.answerLineCount(q.calcLines, 6);
+        const calcBox = `<div class="prob-calc-box"><div class="prob-calc-label">Área de cálculo</div>${answerArea({lines:calcCount,answerStyle:'linhas'})}</div>`;
         const resposta = `<div style="margin-top:10px;"><div style="font-size:12px;color:#64748b;margin-bottom:4px;">Resposta:</div>${answerArea(q)}</div>`;
         return `${calcBox}${resposta}`;
       }
       if (q.type === 'espaco_livre') {
+        if (q.showAnswerSpace === false) return '';
         const h = Math.max(60, Math.min(600, Number(q.height) || 120));
-        const border = q.borderStyle || 'solida';
+        const border = ['solida','tracejada','pontilhada','nenhuma'].includes(q.borderStyle) ? q.borderStyle : 'solida';
         return `<div class="espaco-livre-box ${border}" style="height:${h}px;"></div>`;
       }
       if (q.type === 'tabela') {
@@ -1013,6 +1007,11 @@
         const thead = `<tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
         const tbody = rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
         const table = `<table class="q-tabela"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        if (q.answerType === 'multipla') {
+          const options = (q.options || []).map((option, i) => '<div class="option-item"><span>' +
+            String.fromCharCode(65 + i) + ')</span><span>' + esc(option || 'Alternativa ' + String.fromCharCode(65 + i)) + '</span></div>').join('');
+          return table + '<div class="spacey">' + options + '</div>';
+        }
         if (q.answerType === 'nenhuma' || q.showAnswerSpace === false) return table;
         return `${table}${answerArea(q)}`;
       }
@@ -1095,8 +1094,8 @@
       if (q.type === 'identificar_imagem') {
         const markers = Array.isArray(q.markers) && q.markers.length ? q.markers : [];
         const markerHtml = markers.map((marker, i) => {
-          const x = Math.max(0, Math.min(100, Number(marker.x) || 50));
-          const y = Math.max(0, Math.min(100, Number(marker.y) || 50));
+          const x = ExamSafety.markerPosition(marker.x);
+          const y = ExamSafety.markerPosition(marker.y);
           return `<span class="identify-marker" style="left:${x}%;top:${y}%;">${i + 1}</span>`;
         }).join('');
         const image = q.imageDataUrl
@@ -1137,6 +1136,28 @@
     }
 
     function getQuestionAnswer(q) {
+      if (ExamSafety.hasManualAnswer(q)) return ExamSafety.manualAnswer(q);
+      if (q.type === 'discursiva') {
+        return String(q.expectedAnswer ?? '').trim() || '(correção manual — resposta esperada não cadastrada)';
+      }
+      if (q.type === 'expressao_matematica') {
+        const expressions = Array.isArray(q.expressions) ? q.expressions : [];
+        return expressions.length
+          ? expressions.map((item, i) => `${i + 1}: ${String(item.answer ?? '').trim() || '?'}`).join('; ')
+          : '(respostas não cadastradas)';
+      }
+      if (q.type === 'sequencia_imagens' && Array.isArray(q.items) && q.items.length) {
+        return q.items.map((item, i) => `Imagem ${i + 1}: ${Number.isInteger(Number(item.order)) && Number(item.order) > 0 ? Number(item.order) : '?'}`).join('; ');
+      }
+      if (q.type === 'legenda_imagens' && Array.isArray(q.items) && q.items.length) {
+        return q.items.map((item, i) => `${i + 1}: ${String(item.answer ?? '').trim() || '?'}`).join('; ');
+      }
+      if (q.type === 'associacao_imagem_imagem' && Array.isArray(q.rightItems) && q.rightItems.length) {
+        const right = q.rightItems;
+        // Mesma ordem usada nas figuras da seção "Escreva a letra".
+        const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_, i) => i);
+        return order.map((index, i) => `${i + 1}-${Number.isInteger(index) && index >= 0 && index < (q.leftItems || []).length ? String.fromCharCode(65 + index) : '?'}`).join('; ');
+      }
       if (q.type === 'matematica_coluna') return (q.operations || []).map((op, i) => `${i + 1}. ${ExamSafety.operationAnswer(op)}`).join(' | ');
       if (q.type === 'multipla' && Number.isInteger(q.correctOption)) {
         return String.fromCharCode(65 + q.correctOption);
@@ -1158,7 +1179,7 @@
         const answers = q.items
           .map((item, i) => {
             const checked = typeof item === 'string' ? false : !!item.checked;
-            return checked ? String(i + 1) : '';
+            return checked ? String.fromCharCode(65 + i) : '';
           })
           .filter(Boolean);
         return answers.join(', ');
@@ -1191,8 +1212,10 @@
       if (q.type === 'relacione_imagens') {
         return relacioneImagensAnswer(q);
       }
-      if (q.type === 'texto_base' && q.answerType === 'multipla' && Number.isInteger(q.correctOption)) {
-        return String.fromCharCode(65 + q.correctOption);
+      if (['texto_base','tabela'].includes(q.type)) {
+        if (q.answerType === 'multipla') return ExamSafety.choiceAnswer(q);
+        if (q.answerType === 'nenhuma') return '';
+        return String(q.expectedAnswer || '').trim() || '(correção manual)';
       }
       if (q.type === 'ditado' && q.wordList && q.wordList.trim()) {
         return q.wordList.split('\n').map(w => w.trim()).filter(Boolean).join(', ');
@@ -1295,6 +1318,16 @@
             </div>`;
     }
 
+    function focusPreviewQuestion(index) {
+      if (!Number.isInteger(index) || index < 0) return;
+      const blocks = document.querySelectorAll('#root .questions > .question-block');
+      const target = blocks[index]; if (!target) return;
+      document.querySelectorAll('.preview-focused').forEach(node => node.classList.remove('preview-focused'));
+      target.classList.add('preview-focused');
+      target.setAttribute('tabindex','-1');
+      target.focus({preventScroll:true});
+      target.scrollIntoView?.({behavior:'smooth',block:'start'});
+    }
     function patchPreviewQuestion(index, rawQuestion) {
       if (!currentExam || !Number.isInteger(index) || index < 0 || index >= currentExam.questions.length) return;
       const question = ExamSafety.normalizeQuestion(rawQuestion);
@@ -1448,6 +1481,7 @@
         window.addEventListener('message', event => {
           if (event.origin !== location.origin || event.source !== window.parent) return;
           try {
+            if (event.data?.type === 'exam-preview-focus') { focusPreviewQuestion(event.data.index); return; }
             if (event.data?.type === 'exam-preview-patch') { patchPreviewQuestion(event.data.index, event.data.question); return; }
             if (event.data?.type !== 'exam-preview') return;
             currentExam = event.data.exam; previewAnswerKey = !!event.data.answerKey; renderExam(currentExam, previewAnswerKey);

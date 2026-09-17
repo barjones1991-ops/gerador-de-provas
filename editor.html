@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js"></script>
-  <script src="js/editor-tools.js"></script>
+  <script src="js/exam-safety.js?v=20260917-r2"></script>
+  <script src="js/editor-tools.js?v=20260917-r2"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1484,7 +1484,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-markers2" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -2522,13 +2522,90 @@
       });
     }
 
+    function createMarkerPositioner(q, index, onChange) {
+      const area = document.createElement('div'); area.className = 'marker-positioner';
+      // Keep the coordinate surface self-contained, including with an older cached stylesheet.
+      area.style.cssText = 'position:relative;display:block;max-width:600px;margin:16px;padding:0;border:0;line-height:0;';
+      if (!isSafeImageDataUrl(q.imageDataUrl)) { area.textContent = 'Selecione uma imagem para posicionar os marcadores.'; return area; }
+      const img = document.createElement('img'); img.src = q.imageDataUrl; img.alt = 'Imagem para posicionar os marcadores'; img.draggable = false; img.style.cssText = 'display:block;width:100%;height:auto;max-height:none;margin:0;padding:0;border:0;'; area.appendChild(img);
+      q.markers.forEach((marker, mi) => {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'marker-drag';
+        button.style.cssText = 'position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);width:32px;height:32px;min-width:32px;max-width:32px;margin:0;padding:0;border:2px solid white;border-radius:50%;background:#0f172a;color:white;line-height:1;touch-action:none;transition:none;z-index:2;';
+        button.textContent = String(mi+1);
+        button.setAttribute('aria-label','Questão ' + (index+1) + ': mover marcador ' + (mi+1));
+        const place = (x,y) => { button.style.left = x + '%'; button.style.top = y + '%'; button.title = 'Arraste o número ' + (mi+1) + ' até a parte da imagem'; };
+        const allowed = () => EditorTools.canEdit() && state.questions.includes(q) && q.markers.includes(marker);
+        const commit = (x,y) => { if (!allowed()) return; marker.x = ExamSafety.markerPosition(x); marker.y = ExamSafety.markerPosition(y); place(marker.x,marker.y); onChange(mi,marker); renderPreview(); };
+        place(ExamSafety.markerPosition(marker.x),ExamSafety.markerPosition(marker.y));
+        let drag = null;
+        button.addEventListener('pointerdown',event => {
+          if (!allowed() || event.button !== 0) return;
+          event.preventDefault(); event.stopPropagation(); button.focus({preventScroll:true}); button.classList.add('is-dragging');
+          drag = {id:event.pointerId,x:marker.x,y:marker.y}; button.setPointerCapture?.(event.pointerId);
+        });
+        button.addEventListener('pointermove',event => {
+          if (!drag || event.pointerId !== drag.id) return;
+          const rect = img.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+          drag.x = ExamSafety.markerPosition((event.clientX-rect.left)/rect.width*100);
+          drag.y = ExamSafety.markerPosition((event.clientY-rect.top)/rect.height*100); place(drag.x,drag.y);
+        });
+        button.addEventListener('pointerup',event => {
+          if (!drag || event.pointerId !== drag.id) return;
+          const done = drag; drag = null;
+          commit(done.x,done.y); button.classList.remove('is-dragging');
+          if (button.hasPointerCapture?.(event.pointerId)) button.releasePointerCapture(event.pointerId);
+        });
+        const cancel = () => { drag = null; button.classList.remove('is-dragging'); place(ExamSafety.markerPosition(marker.x),ExamSafety.markerPosition(marker.y)); };
+        button.addEventListener('pointercancel',cancel); button.addEventListener('lostpointercapture',cancel);
+        button.addEventListener('keydown',event => {
+          if (event.key === 'Escape') { cancel(); return; }
+          const delta = {ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[event.key];
+          if (!delta || !allowed()) return; event.preventDefault();
+          const step = 1;
+          commit(ExamSafety.markerPosition(marker.x)+delta[0]*step,ExamSafety.markerPosition(marker.y)+delta[1]*step);
+        });
+        area.appendChild(button);
+      }); return area;
+    }
+
+    async function importQuestionImages(q, files, read = (file) => new Promise((resolve,reject) => {
+      readImageFile(file, (dataUrl,fileName) => resolve({imageDataUrl:dataUrl,imageFileName:fileName}), {onError:reject});
+    })) {
+      if (!files.length) return 0;
+      if (files.length > 20) throw new Error('Selecione até 20 imagens por vez.');
+      if (!['grade_imagens','sequencia_imagens','legenda_imagens','relacione_imagens'].includes(q.type)) throw new Error('Tipo de questão sem importação em lote.');
+      const owner = auth.getCurrentUser()?.id;
+      const key = q.type === 'relacione_imagens' ? 'pairs' : 'items';
+      const original = JSON.stringify(q[key] || []);
+      const order = JSON.stringify(q.wordOrder);
+      const converted = [];
+      for (const file of files) converted.push(await read(file));
+      if (!EditorTools.canEdit() || auth.getCurrentUser()?.id !== owner || !state.questions.includes(q)) throw new Error('A questão ou a conta mudou. Selecione as imagens novamente.');
+      if (JSON.stringify(q[key] || []) !== original || JSON.stringify(q.wordOrder) !== order) throw new Error('A questão foi alterada durante a leitura. Selecione as imagens novamente.');
+      const items = (q[key] || []).map(item => ({...item}));
+      const oldLength = items.length;
+      for (const image of converted) {
+        let index = items.findIndex(item => !item.imageDataUrl);
+        if (index < 0) { index = items.length; items.push(q.type === 'sequencia_imagens' ? {order:index+1,caption:''} : q.type === 'relacione_imagens' ? {word:''} : {caption:'',answer:''}); }
+        Object.assign(items[index],image);
+      }
+      if (items.length > 500) throw new Error('Divida as imagens em mais de uma questão.');
+      q[key] = items;
+      if (q.type === 'relacione_imagens') {
+        const previous = Array.isArray(q.wordOrder) ? [...q.wordOrder] : Array.from({length:oldLength},(_,i)=>i);
+        q.wordOrder = previous.concat(Array.from({length:items.length-oldLength},(_,i)=>oldLength+i));
+      }
+      renderAll(); renderPreview(); return files.length;
+    }
+
     function readImageFile(file, onReady, options = {}) {
+      const fail = message => { if (options.onError) options.onError(new Error(message)); else window.alert(message); };
       if (!isAllowedImageFile(file)) {
-        window.alert('Selecione uma imagem PNG, JPG, WebP ou GIF.');
+        fail('Selecione uma imagem PNG, JPG, WebP ou GIF.');
         return;
       }
       if (file.size > MAX_IMAGE_FILE_BYTES) {
-        window.alert(`Imagem muito grande. Use um arquivo de ate ${formatBytes(MAX_IMAGE_FILE_BYTES)}.`);
+        fail(`Imagem muito grande. Use um arquivo de ate ${formatBytes(MAX_IMAGE_FILE_BYTES)}.`);
         return;
       }
       const reader = new FileReader();
@@ -2554,14 +2631,17 @@
           }
           const bytes = dataUrlBytes(dataUrl);
           if (!isSafeImageDataUrl(dataUrl) || bytes > maxOutputBytes) {
-            window.alert(`Nao foi possivel reduzir esta imagem para ate ${formatBytes(maxOutputBytes)}.`);
+            fail(`Nao foi possivel reduzir esta imagem para ate ${formatBytes(maxOutputBytes)}.`);
             return;
           }
           if (EditorTools.canEdit()) onReady(dataUrl, file.name, bytes);
+          else fail('A edição não está mais disponível. Reabra a questão.');
         };
-        img.onerror = () => window.alert('Nao foi possivel carregar esta imagem.');
+        img.onerror = () => fail('Nao foi possivel carregar esta imagem.');
         img.src = String(reader.result || '');
       };
+      reader.onerror = () => fail('Não foi possível ler o arquivo.');
+      reader.onabort = () => fail('Leitura cancelada.');
       reader.readAsDataURL(file);
     }
 
@@ -2956,7 +3036,7 @@
           q.hideNumber = !numberCheck.checked; renderPreview();
         });
         numberLabel.append(numberCheck, document.createTextNode('Mostrar número da questão')); presentation.appendChild(numberLabel);
-        const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'problema_matematico', 'tabela', 'comparar_imagens'].includes(q.type);
+        const hasAnswerSpace = ['discursiva', 'imagem', 'interpretacao_imagem', 'texto_base', 'problema_matematico', 'tabela', 'comparar_imagens', 'espaco_livre'].includes(q.type) && !(['texto_base','tabela'].includes(q.type) && ['multipla','nenhuma'].includes(q.answerType));
         const answerLabel = document.createElement('label'); answerLabel.className = 'question-check';
         const answerCheck = document.createElement('input'); answerCheck.type = 'checkbox'; answerCheck.checked = q.showAnswerSpace !== false;
         answerCheck.dataset.presentation = 'answer-space';
@@ -3302,6 +3382,7 @@
             const trueLabel = document.createElement('label');
             trueLabel.style.cssText = 'display:flex; align-items:center; gap:4px; margin:0; letter-spacing:0; text-transform:none;';
             trueLabel.innerHTML = `<input type="radio" name="vf-${idx}-${j}" ${item.answer === 'V' ? 'checked' : ''}> V`;
+            trueLabel.querySelector('input').setAttribute('aria-label', `Questão ${idx + 1}: afirmação ${j + 1}, verdadeiro`);
             trueLabel.querySelector('input').addEventListener('change', () => {
               item.answer = 'V';
               renderPreview();
@@ -3310,6 +3391,7 @@
             const falseLabel = document.createElement('label');
             falseLabel.style.cssText = 'display:flex; align-items:center; gap:4px; margin:0; letter-spacing:0; text-transform:none;';
             falseLabel.innerHTML = `<input type="radio" name="vf-${idx}-${j}" ${item.answer === 'F' ? 'checked' : ''}> F`;
+            falseLabel.querySelector('input').setAttribute('aria-label', `Questão ${idx + 1}: afirmação ${j + 1}, falso`);
             falseLabel.querySelector('input').addEventListener('change', () => {
               item.answer = 'F';
               renderPreview();
@@ -4119,7 +4201,9 @@
             optBlock.innerHTML = '<label>Alternativas</label>';
             const optBox = document.createElement('div');
             optBox.className = 'row';
-            (q.options || ['', '', '', '']).forEach((op, j) => {
+            if (!Array.isArray(q.options)) q.options = [];
+            while (q.options.length < 2) q.options.push('');
+            q.options.forEach((op, j) => {
               const row = document.createElement('div');
               row.className = 'option-row';
               const radio = document.createElement('input');
@@ -4217,15 +4301,6 @@
           const opsBox = document.createElement('div');
           opsBox.className = 'row';
 
-          const tryCalc = (op, resInput) => {
-            if (op.result) return;
-            const a = parseFloat(String(op.num1||'').replace(',','.')), b = parseFloat(String(op.num2||'').replace(',','.'));
-            if (isNaN(a)||isNaN(b)) return;
-            let r;
-            if (op.op==='+') r=a+b; else if (op.op==='-') r=a-b; else if (op.op==='×') r=a*b; else if (op.op==='÷'&&b) r=a/b;
-            if (r!=null) { const s=Number.isInteger(r)?String(r):r.toFixed(2).replace('.',','); op.result=s; resInput.value=s; }
-          };
-
           const renderOps = () => {
             opsBox.innerHTML = '';
             (q.operations || []).forEach((op, j) => {
@@ -4237,9 +4312,10 @@
               r1.style.cssText = 'display:flex; align-items:center; gap:6px; padding:8px 10px 4px;';
               const numLbl = document.createElement('span');
               numLbl.textContent = 'N1'; numLbl.style.cssText = 'font-size:11px;color:#94a3b8;font-weight:600;width:22px;';
-              const n1 = document.createElement('input'); n1.value = op.num1||''; n1.placeholder = '0';
+              const n1 = document.createElement('input'); n1.value = op.num1??''; n1.placeholder = '0';
               n1.style.cssText = 'flex:1; text-align:right; font-family:monospace; font-size:16px; font-weight:700;';
-              n1.addEventListener('input', () => { op.num1=n1.value; renderPreview(); });
+              n1.setAttribute('aria-label', `Operação ${j + 1}: primeiro número`);
+              n1.addEventListener('input', () => { op.num1=n1.value; updateAnswer(); renderPreview(); });
               const rmv = document.createElement('button');
               rmv.type='button'; rmv.textContent='❌'; rmv.disabled=(q.operations||[]).length<=1;
               rmv.style.cssText='background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+((q.operations||[]).length<=1?'0.3':'1');
@@ -4256,10 +4332,12 @@
                 if ((op.op||'+')===sym) o.selected=true;
                 opSel.appendChild(o);
               });
-              const n2 = document.createElement('input'); n2.value=op.num2||''; n2.placeholder='0';
+              const n2 = document.createElement('input'); n2.value=op.num2??''; n2.placeholder='0';
               n2.style.cssText='flex:1; text-align:right; font-family:monospace; font-size:16px; font-weight:700;';
-              n2.addEventListener('input', () => { op.num2=n2.value; renderPreview(); });
-              opSel.addEventListener('change', () => { op.op=opSel.value; renderPreview(); tryCalc(op,res); });
+              n2.setAttribute('aria-label', `Operação ${j + 1}: segundo número`);
+              opSel.setAttribute('aria-label', `Operação ${j + 1}: operador`);
+              n2.addEventListener('input', () => { op.num2=n2.value; updateAnswer(); renderPreview(); });
+              opSel.addEventListener('change', () => { op.op=opSel.value; updateAnswer(); renderPreview(); });
               r2.appendChild(opSel); r2.appendChild(n2);
 
               // Divider visual
@@ -4268,15 +4346,32 @@
 
               // Resultado
               const r3 = document.createElement('div');
-              r3.style.cssText = 'display:flex; align-items:center; gap:6px; padding:5px 10px 8px; background:#fff; border-top:1px solid #e2e8f0;';
+              r3.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:5px 10px 8px; background:#fff; border-top:1px solid #e2e8f0;';
               const resLbl = document.createElement('span');
-              resLbl.textContent = '= Gabarito:'; resLbl.style.cssText='font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
-              const res = document.createElement('input'); res.value=op.result||''; res.placeholder='auto';
+              resLbl.textContent = 'Resposta manual (opcional):'; resLbl.style.cssText='font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap;';
+              const res = document.createElement('input'); res.value=op.result??'';
+              res.setAttribute('aria-label', `Operação ${j + 1}: resposta manual`);
               res.style.cssText='flex:1;text-align:right;font-family:monospace;background:#f0fdf4;border-color:#86efac;';
-              res.addEventListener('input', () => { op.result=res.value; saveState(); });
-              n1.addEventListener('blur', () => tryCalc(op,res));
-              n2.addEventListener('blur', () => tryCalc(op,res));
-              r3.appendChild(resLbl); r3.appendChild(res);
+              res.addEventListener('input', () => { op.result=res.value; updateAnswer(); renderPreview(); });
+              const answerStatus = document.createElement('div');
+              answerStatus.className = 'small'; answerStatus.setAttribute('role', 'status');
+              answerStatus.style.cssText = 'padding:6px 10px;';
+              const automatic = document.createElement('button'); automatic.type = 'button';
+              automatic.className = 'outline'; automatic.textContent = 'Usar cálculo automático';
+              automatic.setAttribute('aria-label', `Operação ${j + 1}: usar cálculo automático`);
+              automatic.addEventListener('click', () => { op.result=''; res.value=''; updateAnswer(); renderPreview(); });
+              function updateAnswer() {
+                const calculated = ExamSafety.operationAnswer({ ...op, result:'' });
+                const manual = String(op.result ?? '').trim();
+                res.placeholder = calculated.startsWith('?') ? 'Automático: confira a conta' : calculated;
+                const warning = ExamSafety.operationIssue(op);
+                answerStatus.textContent = warning || (manual
+                  ? 'Gabarito manual: ' + manual + '. Será mantido ao alterar a conta.'
+                  : 'Gabarito automático: ' + calculated);
+              }
+              updateAnswer();
+              r3.append(resLbl, res, automatic);
+              card.appendChild(answerStatus);
 
               card.appendChild(r1); card.appendChild(r2); card.appendChild(divLine); card.appendChild(r3);
               opsBox.appendChild(card);
@@ -4605,6 +4700,7 @@
             tblock.appendChild(ansRow);
           };
           renderTableEditor();
+          if (q.answerType !== 'discursiva') tblock.querySelector('[data-k="lines"]').parentElement.hidden = true;
           if (q.answerType === 'multipla') {
             if (!Array.isArray(q.options)) q.options = ['', ''];
             while (q.options.length < 2) q.options.push('');
@@ -4766,7 +4862,7 @@
             <div>
               <label>Tamanho da grade</label>
               <input type="number" data-k="gridSize" value="${esc(q.gridSize || 12)}" min="8" max="18" />
-              <div class="small">Use palavras curtas. A grade Ã© gerada automaticamente.</div>
+              <div class="small">Use palavras curtas. A grade é gerada automaticamente.</div>
             </div>
           `;
           body.appendChild(cpblock);
@@ -4789,15 +4885,18 @@
               const clue = document.createElement('input');
               clue.value = item.clue || '';
               clue.placeholder = `Pista ${ci + 1}`;
+              clue.setAttribute('aria-label', `Questão ${idx + 1}: pista ${ci + 1}`);
               clue.addEventListener('input', () => { item.clue = clue.value; renderPreview(); });
               const answer = document.createElement('input');
               answer.value = item.answer || '';
+              answer.setAttribute('aria-label', `Questão ${idx + 1}: resposta da pista ${ci + 1}`);
               answer.placeholder = 'Resposta';
               answer.addEventListener('input', () => { item.answer = answer.value; renderPreview(); });
               const rm = document.createElement('button');
               rm.type = 'button';
               rm.className = 'danger';
-              rm.textContent = 'Ã—';
+              rm.textContent = 'Remover';
+              rm.setAttribute('aria-label', `Questão ${idx + 1}: remover pista ${ci + 1}`);
               rm.style.cssText = 'padding:5px 8px;font-size:12px;';
               rm.disabled = q.clues.length <= 1;
               rm.addEventListener('click', () => { q.clues.splice(ci, 1); renderClues(); renderPreview(); });
@@ -5023,12 +5122,12 @@
           iblock.className = 'row';
           iblock.innerHTML = `
             <label>Imagem principal</label>
-            <div class="small">Use as posições X/Y em porcentagem para colocar cada número sobre a parte correta da imagem.</div>
+            <div class="small">Arraste cada número até a parte da imagem e solte para deixá-lo no lugar. Também é possível usar as setas do teclado. Esc cancela o arraste.</div>
           `;
           iblock.appendChild(createImagePicker({
             getImage: () => ({ dataUrl: q.imageDataUrl || '', fileName: q.imageFileName || '' }),
-            setImage: (d, f) => { q.imageDataUrl = d; q.imageFileName = f; renderPreview(); },
-            clearImage: () => { q.imageDataUrl = ''; q.imageFileName = ''; renderPreview(); },
+            setImage: (d, f) => { q.imageDataUrl = d; q.imageFileName = f; refreshPositioner(); renderPreview(); },
+            clearImage: () => { q.imageDataUrl = ''; q.imageFileName = ''; refreshPositioner(); renderPreview(); },
           }));
           const settings = document.createElement('div');
           settings.className = 'row two';
@@ -5050,23 +5149,38 @@
 
           const markersBox = document.createElement('div');
           markersBox.className = 'row';
+          const positionerHost = document.createElement('div'); iblock.appendChild(positionerHost);
+          const refreshPositioner = () => positionerHost.replaceChildren(createMarkerPositioner(q,idx,(mi,marker) => {
+            const row = markersBox.querySelector('[data-marker-row="' + mi + '"]');
+            if (row) { const fields=row.querySelectorAll('input'); fields[2].value=marker.x; fields[3].value=marker.y; }
+          }));
           const renderMarkersEditor = () => {
+            refreshPositioner();
             markersBox.innerHTML = '<label>Partes numeradas</label>';
             q.markers.forEach((marker, mi) => {
               const row = document.createElement('div');
-              row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 72px 72px auto;gap:6px;align-items:center;margin-bottom:6px;';
+              row.dataset.markerRow = mi;
+              row.className = 'marker-answer-row';
               row.innerHTML = `
                 <input type="text" value="${esc(marker.label || '')}" placeholder="Rótulo interno ${mi + 1}" />
                 <input type="text" value="${esc(marker.answer || '')}" placeholder="Gabarito / nome da parte" />
-                <input type="number" value="${Number(marker.x) || 50}" min="0" max="100" title="Posição horizontal %" />
-                <input type="number" value="${Number(marker.y) || 50}" min="0" max="100" title="Posição vertical %" />
+                <input type="number" value="${ExamSafety.markerPosition(marker.x)}" min="0" max="100" title="Posição horizontal %" />
+                <input type="number" value="${ExamSafety.markerPosition(marker.y)}" min="0" max="100" title="Posição vertical %" />
                 <button type="button" class="danger" style="padding:5px 8px;font-size:12px;">×</button>
               `;
               const inputs = row.querySelectorAll('input');
+              const badge = document.createElement('strong'); badge.className = 'marker-row-number'; badge.textContent = String(mi+1); row.prepend(badge);
+              const precise = document.createElement('details'); precise.className = 'marker-precise';
+              const summary = document.createElement('summary'); summary.textContent = 'Ajuste fino'; precise.appendChild(summary);
+              for (const [field,name] of [[inputs[2],'Horizontal (%)'],[inputs[3],'Vertical (%)']]) {
+                const label = document.createElement('label'); label.textContent = name;
+                field.setAttribute('aria-label', 'Marcador ' + (mi+1) + ': ' + name); label.appendChild(field); precise.appendChild(label);
+              }
+              row.insertBefore(precise,row.querySelector('button'));
               inputs[0].addEventListener('input', () => { marker.label = inputs[0].value; renderPreview(); });
               inputs[1].addEventListener('input', () => { marker.answer = inputs[1].value; saveState(); });
-              inputs[2].addEventListener('input', () => { marker.x = Math.max(0, Math.min(100, Number(inputs[2].value) || 0)); renderPreview(); });
-              inputs[3].addEventListener('input', () => { marker.y = Math.max(0, Math.min(100, Number(inputs[3].value) || 0)); renderPreview(); });
+              inputs[2].addEventListener('input', () => { marker.x = Math.max(0, Math.min(100, Number(inputs[2].value) || 0)); refreshPositioner(); renderPreview(); });
+              inputs[3].addEventListener('input', () => { marker.y = Math.max(0, Math.min(100, Number(inputs[3].value) || 0)); refreshPositioner(); renderPreview(); });
               const remove = row.querySelector('button');
               remove.disabled = q.markers.length <= 1;
               remove.addEventListener('click', () => {
@@ -5293,16 +5407,72 @@
         images.append(imageHint, freeImageBtn, freeImageInput);
         body.appendChild(images);
 
+        if (['grade_imagens','sequencia_imagens','legenda_imagens','relacione_imagens'].includes(q.type)) {
+          const batch = document.createElement('div'); batch.className = 'row';
+          const label = document.createElement('label'); label.textContent = 'Adicionar várias imagens';
+          const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.accept = 'image/png,image/jpeg,image/webp,image/gif';
+          input.setAttribute('aria-label','Questão ' + (idx+1) + ': adicionar várias imagens');
+          input.dataset.batchImages = 'true';
+          const hint = document.createElement('p'); hint.className = 'small';
+          hint.textContent = 'Selecione até 20 imagens. Os espaços sem imagem são preenchidos primeiro; as demais criam novos itens. Imagens, respostas e legendas existentes são preservadas. Confira a ordem após inserir.';
+          const status = document.createElement('p'); status.setAttribute('role','status');
+          input.addEventListener('change',async () => {
+            const files = Array.from(input.files || []); if (!files.length || !EditorTools.canEdit()) return;
+            input.disabled = true; status.textContent = 'Preparando ' + files.length + ' imagem(ns)…';
+            try { const count = await importQuestionImages(q,files); showToast(count + ' imagem(ns) adicionada(s). Confira as respostas e a ordem.','success'); }
+            catch (error) { status.textContent = error.message + ' Nenhuma imagem deste lote foi inserida.'; }
+            finally { input.value = ''; input.disabled = !EditorTools.canEdit(); }
+          });
+          label.appendChild(input); batch.append(label,hint,status); images.appendChild(batch);
+        }
         const scoring = document.createElement('div'); scoring.className = 'question-scoring';
         scoring.appendChild(points); body.appendChild(scoring); body.appendChild(presentation);
         const settings = document.createElement('details'); settings.className = 'question-settings';
         const settingsTitle = document.createElement('summary'); settingsTitle.textContent = 'Habilidade da questão';
         settings.append(settingsTitle, bnccDiv); body.appendChild(settings);
+        if (ExamSafety.hasManualAnswer(q)) {
+          let field = body.querySelector('[data-k="expectedAnswer"]');
+          if (!field) {
+            const criteria = document.createElement('div'); criteria.className = 'row';
+            const label = document.createElement('label'); label.textContent = 'Resposta esperada / critérios de correção (opcional)';
+            field = document.createElement('textarea'); field.dataset.k = 'expectedAnswer'; field.rows = 3;
+            field.value = q.expectedAnswer || '';
+            field.placeholder = 'Descreva respostas aceitas e critérios para avaliar a atividade.';
+            criteria.append(label, field);
+            const hint = document.createElement('p'); hint.className = 'small';
+            hint.textContent = 'Aparece somente no gabarito. Se deixar vazio, a correção será manual.' +
+              (['subitens','interpretacao_imagem'].includes(q.type) ? ' Identifique cada resposta pela letra ou pelo número da pergunta.' : '');
+            criteria.appendChild(hint); body.appendChild(criteria);
+          }
+          field.id = 'expected-answer-' + idx;
+          field.setAttribute('aria-label', 'Questão ' + (idx + 1) + ': resposta esperada ou critérios de correção');
+          const label = field.parentElement.querySelector('label'); if (label) label.htmlFor = field.id;
+        }
+        const openAnswerTypes = ['discursiva','imagem','interpretacao_imagem','texto_base','problema_matematico','tabela','comparar_imagens'];
+        if (openAnswerTypes.includes(q.type) && !(['texto_base','tabela'].includes(q.type) && ['multipla','nenhuma'].includes(q.answerType))) {
+          if (!body.querySelector('[data-k="answerStyle"]')) {
+            const format = document.createElement('div'); format.className = 'row';
+            format.innerHTML = '<label>Formato da resposta</label><select data-k="answerStyle"><option value="linhas">Linhas pautadas</option><option value="caixa">Caixa para escrita ou desenho</option><option value="espaco">Espaço em branco</option></select>';
+            format.querySelector('select').value = q.answerStyle || 'linhas'; body.appendChild(format);
+          }
+          body.querySelectorAll('[data-k="lines"], [data-k="calcLines"]').forEach(input => {
+            input.min = '1'; input.max = '40'; input.step = '1';
+            const label = input.parentElement.querySelector('label');
+            if (label && input.dataset.k === 'lines') label.textContent = 'Tamanho do espaço (em linhas)';
+            input.setAttribute('aria-label', input.dataset.k === 'calcLines' ? 'Linhas de cálculo' : 'Tamanho do espaço de resposta em linhas');
+          });
+          body.querySelectorAll('[data-k="answerStyle"] option').forEach(option => {
+            option.textContent = {linhas:'Linhas pautadas',caixa:'Caixa para escrita ou desenho',espaco:'Espaço em branco'}[option.value] || option.textContent;
+          });
+          const hint = document.createElement('p'); hint.className = 'small';
+          hint.textContent = 'O tamanho de 1 a 40 linhas também define a altura da caixa ou do espaço em branco. Cada linha corresponde a aproximadamente 6 mm na impressão.' + (q.type === 'interpretacao_imagem' ? ' O tamanho vale para cada pergunta.' : '');
+          body.appendChild(hint);
+        }
         [head, body].forEach((scope) => scope.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
           node.addEventListener('input', () => {
             if (key === 'lines' || key === 'wordCount' || key === 'calcLines') {
-              q[key] = Math.max(1, Math.min(40, Number(node.value) || (key==='lines'?5:key==='calcLines'?6:10)));
+              q[key] = ExamSafety.answerLineCount(node.value, key==='lines'?5:key==='calcLines'?6:10);
             } else if (key === 'gridSize') {
               q.gridSize = Math.max(8, Math.min(18, Number(node.value) || 12));
             } else if (key === 'height') {
@@ -5424,17 +5594,7 @@
           : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
         return figure;
       };
-      const answerArea = (question) => {
-        const lines = Math.max(2, Math.min(15, Number(question.lines) || 5));
-        const style = question.answerStyle || 'linhas';
-        if (style === 'caixa') {
-          return `<div style="height:${lines * 24}px; border:1px solid #cbd5e1; border-radius:6px; margin-top:8px;"></div>`;
-        }
-        if (style === 'espaco') {
-          return `<div style="height:${lines * 24}px;"></div>`;
-        }
-        return answerLines(lines);
-      };
+      const answerArea = ExamSafety.renderAnswerSpace;
       if (q.type === 'multipla' || (q.type === 'texto_base' && q.answerType === 'multipla')) {
         const opts = q.type === 'texto_base' ? (q.options || []) : q.options;
         const hasOptImgs = q.headerImage?.mode === 'alternativas' && Array.isArray(q.optionImages);
@@ -5668,14 +5828,15 @@
       }
       if (q.type === 'problema_matematico') {
         if (q.showAnswerSpace === false) return '';
-        const calcCount = Math.max(2, Math.min(20, Number(q.calcLines) || 6));
-        const calcBox = `<div class="prob-calc-box"><div class="prob-calc-label">Área de cálculo</div>${answerLines(calcCount)}</div>`;
+        const calcCount = ExamSafety.answerLineCount(q.calcLines, 6);
+        const calcBox = `<div class="prob-calc-box"><div class="prob-calc-label">Área de cálculo</div>${answerArea({lines:calcCount,answerStyle:'linhas'})}</div>`;
         const resposta = `<div style="margin-top:10px;"><div class="small" style="margin-bottom:4px;">Resposta:</div>${answerArea(q)}</div>`;
         return `${calcBox}${resposta}`;
       }
       if (q.type === 'espaco_livre') {
+        if (q.showAnswerSpace === false) return '';
         const h = Math.max(60, Math.min(600, Number(q.height) || 120));
-        const border = q.borderStyle || 'solida';
+        const border = ['solida','tracejada','pontilhada','nenhuma'].includes(q.borderStyle) ? q.borderStyle : 'solida';
         return `<div class="espaco-livre-box ${border}" style="height:${h}px;"></div>`;
       }
       if (q.type === 'tabela') {
@@ -5684,6 +5845,11 @@
         const thead = `<tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
         const tbody = rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
         const tableHtml = `<table class="q-tabela"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        if (q.answerType === 'multipla') {
+          const options = (q.options || []).map((option, i) => '<div class="option-item"><span>' +
+            String.fromCharCode(65 + i) + ')</span><span>' + esc(option || 'Alternativa ' + String.fromCharCode(65 + i)) + '</span></div>').join('');
+          return tableHtml + '<div class="spacey">' + options + '</div>';
+        }
         if (q.answerType === 'nenhuma') return tableHtml;
         if (q.showAnswerSpace === false) return tableHtml;
         return `${tableHtml}${answerArea(q)}`;
@@ -5776,8 +5942,8 @@
       if (q.type === 'identificar_imagem') {
         const markers = Array.isArray(q.markers) && q.markers.length ? q.markers : [];
         const markerHtml = markers.map((marker, i) => {
-          const x = Math.max(0, Math.min(100, Number(marker.x) || 50));
-          const y = Math.max(0, Math.min(100, Number(marker.y) || 50));
+          const x = ExamSafety.markerPosition(marker.x);
+          const y = ExamSafety.markerPosition(marker.y);
           return `<span class="identify-marker" style="left:${x}%;top:${y}%;">${i + 1}</span>`;
         }).join('');
         const image = q.imageDataUrl
@@ -5880,6 +6046,7 @@
     }
 
     function gerarGabaritoQuestao(q, num) {
+      if (ExamSafety.hasManualAnswer(q)) return {tipo:"discursiva",num,ans:ExamSafety.manualAnswer(q)};
       const tipo = q.type;
       if (tipo === 'multipla' || (tipo === 'imagem' && q.imageAnswerType === 'multipla')) {
         const opts = q.options || [];
@@ -5925,16 +6092,9 @@
         return { tipo: 'discursiva', num, ans };
       }
       if (tipo === 'texto_base') {
-        if (q.answerType === 'multipla') {
-          const opts = q.options || [];
-          if (q.correctOption !== null && q.correctOption >= 0 && q.correctOption < opts.length) {
-            const letra = String.fromCharCode(65 + q.correctOption);
-            const texto = opts[q.correctOption] ? ` — ${opts[q.correctOption]}` : '';
-            return { tipo: 'objetivo', num, ans: letra + texto };
-          }
-          return { tipo: 'objetivo', num, ans: '(não marcado)' };
-        }
-        return { tipo: 'discursiva', num, ans: '(resposta dissertativa — corrija manualmente)' };
+        if (q.answerType === 'nenhuma') return null;
+        if (q.answerType === 'multipla') return {tipo:'objetivo',num,ans:ExamSafety.choiceAnswer(q)};
+        return {tipo:'discursiva',num,ans:String(q.expectedAnswer || '').trim() || '(correção manual)'};
       }
       if (tipo === 'matematica_coluna') {
         const ops = q.operations || [];
@@ -5969,13 +6129,9 @@
       }
       if (tipo === 'espaco_livre') { return null; }
       if (tipo === 'tabela') {
-        if (q.answerType === 'multipla') {
-          if (q.correctOption !== null && Number.isInteger(q.correctOption)) {
-            return { tipo: 'objetivo', num, ans: String.fromCharCode(65 + q.correctOption) };
-          }
-          return { tipo: 'objetivo', num, ans: '(não marcado)' };
-        }
-        return { tipo: 'discursiva', num, ans: '(interprete a tabela — corrija manualmente)' };
+        if (q.answerType === 'nenhuma') return null;
+        if (q.answerType === 'multipla') return {tipo:'objetivo',num,ans:ExamSafety.choiceAnswer(q)};
+        return {tipo:'discursiva',num,ans:String(q.expectedAnswer || '').trim() || '(correção manual)'};
       }
       if (tipo === 'associacao_setas') {
         const left = q.leftItems || [];

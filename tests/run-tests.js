@@ -355,7 +355,7 @@ async function main() {
     assert(editor.includes('imageCaption'), 'image caption control missing');
     assert(editor.includes('Largura total'), 'image full width option missing');
     assert(editor.includes('pvChipScoreStatus'), 'score status chip missing');
-    assert(read('js/editor-tools.js').includes('Conferência sem pendências'), 'readiness summary missing');
+    assert(read('js/editor-tools.js').includes('Nenhuma pendência automática'), 'readiness summary missing');
     assert(read('js/exam-safety.js').includes('difere do valor total'), 'score mismatch warning missing');
     assert(editor.includes('collapsedQuestions'), 'collapsed questions state missing');
     assert(editor.includes('toggleQuestionCollapsed'), 'question collapse toggle missing');
@@ -431,8 +431,8 @@ async function main() {
     assert(print.includes("q.type === 'lacunas'"), 'print fill-blanks renderer missing');
     assert(print.includes('normalizeLacunasQuestion'), 'print fill-blanks normalizer missing');
     assert(print.includes('answerArea'), 'print answer area helper missing');
-    assert(print.includes("style === 'caixa'"), 'print answer box style missing');
-    assert(print.includes("style === 'espaco'"), 'print blank answer style missing');
+    assert(require('../js/exam-safety.js').renderAnswerSpace({answerStyle:'caixa'}).includes('answer-space-caixa'), 'print answer box style missing');
+    assert(require('../js/exam-safety.js').renderAnswerSpace({answerStyle:'espaco'}).includes('answer-space-espaco'), 'print blank answer style missing');
     assert(print.includes('imageAnswerType'), 'print image answer type missing');
     assert(print.includes("q.type === 'imagem' && q.imageAnswerType === 'multipla'"), 'print image multiple-choice answer key missing');
     assert(print.includes("q.type === 'imagem' && q.imageAnswerType === 'marcarx'"), 'print image mark-x answer key missing');
@@ -1085,6 +1085,57 @@ async function main() {
     const dashboard = read('dashboard.html');
     assert(dashboard.includes('Devolutiva da coordenação'), 'dashboard returned note display missing');
     assert(dashboard.includes('review_notes'), 'dashboard review_notes field missing');
+  });
+
+  await test('readiness validates raw ordering before numeric normalization', () => {
+    const safety = require('../js/exam-safety.js');
+    const exam = {title:'Teste',subject:'Ciências',class_name:'1A',total_value:'10',questions:[
+      {type:'ordenacao',text:'Ordene',points:'10',items:[{text:'A',order:1},{text:'B',order:1.5}]}
+    ]};
+    assert(safety.inspectExam(exam).some(issue => issue.blocking && issue.index === 0), 'fractional order must not be silently accepted');
+    assert(exam.questions[0].items[1].order === 1.5, 'validation must preserve input');
+  });
+
+  await test('open answers preserve the requested printable line count', () => {
+    const safety = require('../js/exam-safety.js');
+    assert((safety.renderAnswerSpace({lines:40}).match(/class="hline"/g) || []).length === 40, '40 lines should not be reduced to 15');
+    assert(safety.renderAnswerSpace({showAnswerSpace:false}) === '', 'hidden answer space should stay hidden');
+  });
+
+  await test('mixed answer key rejects missing and out-of-range choices', () => {
+    const safety = require('../js/exam-safety.js');
+    assert(safety.choiceAnswer({options:['A','B'],correctOption:1}) === 'B', 'valid choice must use its letter');
+    assert(safety.choiceAnswer({options:['A','B'],correctOption:2}) === '(não marcado)', 'invalid choice must not invent a letter');
+  });
+
+  await test('manual criteria remain optional and respect objective modes', () => {
+    const safety = require('../js/exam-safety.js');
+    assert(safety.hasManualAnswer({type:'espaco_livre'}), 'drawing supports optional criteria');
+    assert(!safety.hasManualAnswer({type:'tabela',answerType:'multipla'}), 'objective answers keep their own answer key');
+    assert(safety.manualAnswer({}).includes('correção manual'), 'empty criteria must have an explicit fallback');
+  });
+
+  await test('editor instructions use readable Portuguese characters', () => {
+    const editor = read('editor.html');
+    assert(editor.includes('A grade é gerada automaticamente.'), 'word search instruction should be readable');
+    assert(!editor.includes('Ã©') && !editor.includes('Ã—'), 'known encoding defects should not return');
+  });
+
+  await test('preview navigation keeps the same-origin message boundary', () => {
+    const print = read('print.html');
+    assert(print.indexOf('if (event.origin !== location.origin || event.source !== window.parent) return;') < print.indexOf("if (event.data?.type === 'exam-preview-focus')"), 'focus messages must pass the origin and source guard');
+  });
+
+  await test('batch images reuse the existing image conversion and error handling', () => {
+    const editor = read('editor.html');
+    assert(editor.includes('async function importQuestionImages'), 'batch importer missing');
+    assert(editor.includes('reader.onerror =') && editor.includes('reader.onabort ='), 'file reading must report failure');
+  });
+
+  await test('image markers retain zero at the edge in both renderers', () => {
+    const safety = require('../js/exam-safety.js');
+    assert(safety.markerPosition(0) === 0, 'zero must not become the center');
+    assert(read('print.html').includes('ExamSafety.markerPosition(marker.x)'), 'print must use the shared coordinate rule');
   });
 
   await test('local HTTP server returns 200 for public pages', async () => {

@@ -46,7 +46,7 @@ async function boot({ bank = false, loggedIn = true, preview = false, status = '
   for (const script of document.querySelectorAll('script')) {
     const src = script.getAttribute('src');
     if (src?.startsWith('https:')) continue;
-    vm.runInContext(src ? read(src) : script.textContent, ctx, { filename:src || 'editor-inline.js' });
+    vm.runInContext(src ? read(src.split('?')[0]) : script.textContent, ctx, { filename:src || 'editor-inline.js' });
   }
   ctx.initAuthManager = () => auth;
   document.dispatchEvent(new dom.Event('DOMContentLoaded'));

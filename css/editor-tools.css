@@ -90,3 +90,20 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .app-sidebar,.editor-actionbar,#editorPanel,#canonicalPreviewPanel { display:none !important; }
   body::after { content:'Professor: confira a prévia e envie a prova para a coordenação. A impressão é realizada pelo setor responsável.'; display:block; font-size:18px; }
 }
+
+.preview-navigation { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.preview-navigation select { flex:1; min-width:120px; max-width:100%; }
+.preview-navigation label { margin:0; }
+
+.marker-positioner { position:relative; max-width:600px; margin:16px; }
+.marker-positioner > img { display:block; width:100%; height:auto; }
+.marker-drag { position:absolute; transform:translate(-50%,-50%); width:32px; height:32px; padding:0; border-radius:50%; border:2px solid white; background:#0f172a; color:white; touch-action:none; cursor:grab; }
+.marker-drag:focus-visible { outline:3px solid #2563eb; outline-offset:2px; }
+
+.marker-positioner .marker-drag { user-select:none; transition:none; z-index:1; }
+.marker-positioner .marker-drag.is-dragging { cursor:grabbing; box-shadow:0 0 0 4px #93c5fd; z-index:2; }
+.marker-answer-row { display:grid; grid-template-columns:32px 1fr 1fr auto auto; gap:8px; align-items:start; margin-bottom:10px; }
+.marker-row-number { border-radius:50%; background:#0f172a; color:white; width:28px; height:28px; display:grid; place-items:center; }
+.marker-precise { font-size:12px; }
+.marker-precise input { width:80px; }
+@media(max-width:600px) { .marker-answer-row { grid-template-columns:32px 1fr; } .marker-answer-row > :not(.marker-row-number) { grid-column:2; } }

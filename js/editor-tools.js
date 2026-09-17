@@ -78,8 +78,18 @@ const EditorTools = {
       delete node._permissionDisabled;
     }
   },
+  updateQuestionSummaries() {
+    document.querySelectorAll('.qcard').forEach(card => {
+      const q = state.questions[Number(card.dataset.questionIndex)];
+      if (!q) return;
+      const summary = card.querySelector('.qhead-subtitle');
+      const text = String(q.text || '').trim() || 'Sem enunciado ainda';
+      if (summary) { summary.textContent = text; summary.title = text; }
+    });
+  },
   changed() {
     if (!this.initialized) return;
+    this.updateQuestionSummaries();
     const index = document.activeElement?.closest?.('.qcard')?.dataset.questionIndex;
     if (index == null) this.forceSnapshot = true; else this.dirtyQuestions.add(Number(index));
     clearTimeout(this.previewTimer);
@@ -182,8 +192,12 @@ const EditorTools = {
       if (field.type === 'hidden' || field.hasAttribute('aria-label')) return;
       if (field.id && document.querySelector(`label[for="${field.id}"]`)) return;
       const question = field.closest('.qcard')?.dataset.questionIndex;
-      const name = field.title || field.placeholder || field.closest('div')?.querySelector('label')?.textContent || field.dataset.k || 'Campo';
-      field.setAttribute('aria-label', `${question === undefined ? '' : `Questão ${Number(question) + 1}: `}${name.trim()} ${i + 1}`);
+      const row = field.closest('.option-row');
+      const rowIndex = row ? [...row.parentElement.children].filter(node => node.classList.contains('option-row')).indexOf(row) + 1 : 0;
+      const choiceName = row && ['radio','checkbox'].includes(field.type) ? 'Marcar alternativa ' + String.fromCharCode(64 + rowIndex) : '';
+      const name = field.title || field.placeholder || choiceName || field.closest('label')?.textContent || field.dataset.k ||
+        (field.type === 'file' ? 'Selecionar imagem' : field.tagName === 'SELECT' ? 'Selecionar opção' : 'Preencher resposta');
+      field.setAttribute('aria-label', `${question === undefined ? '' : `Questão ${Number(question) + 1}: `}${name.trim()}`);
     });
     this.refreshActions();
   },
@@ -214,6 +228,7 @@ const EditorTools = {
   },
   updatePreview() {
     if (!this.initialized) return;
+    this.updateQuestionSummaries();
     const title = document.getElementById('activeExamTitle');
     if (title) title.textContent = this.bankId ? 'Editar questão do banco' : state.school.examTitle || 'Prova sem título';
     const issues = ExamSafety.inspectExam(state);
@@ -224,7 +239,7 @@ const EditorTools = {
         const button = document.createElement('button'); button.type = 'button'; button.textContent = issue.message;
         button.addEventListener('click', () => this.focusQuestion(issue.index)); list.appendChild(button);
       });
-      document.getElementById('readinessSummary').textContent = issues.length ? `${issues.length} ponto(s) para conferir` : 'Conferência sem pendências';
+      document.getElementById('readinessSummary').textContent = issues.length ? `${issues.length} ponto(s) para conferir` : 'Nenhuma pendência automática';
     }
     const nav = document.getElementById('questionOutline');
     if (nav) {
@@ -235,6 +250,7 @@ const EditorTools = {
         button.addEventListener('click', () => this.focusQuestion(index)); nav.appendChild(button);
       });
     }
+    this.refreshPreviewNavigation();
     const frame = document.getElementById('canonicalPreview');
     if (frame && this.previewReady) {
       if (!this.forceSnapshot && this.previewQuestionCount === state.questions.length && this.dirtyQuestions.size) {
@@ -242,9 +258,35 @@ const EditorTools = {
       } else frame.contentWindow.postMessage({ type: 'exam-preview', exam: {
         school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl,
       }, answerKey: Boolean(document.getElementById('previewAnswerKey')?.checked) }, location.origin);
+      if (Number.isInteger(this.pendingPreviewFocus)) {
+        const index = Math.min(this.pendingPreviewFocus, state.questions.length - 1);
+        if (index >= 0) frame.contentWindow.postMessage({type:'exam-preview-focus',index}, location.origin);
+        this.pendingPreviewFocus = null;
+      }
       this.forceSnapshot = false; this.previewQuestionCount = state.questions.length; this.dirtyQuestions.clear();
     }
     this.refreshActions();
+  },
+  previewQuestion(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= state.questions.length) return;
+    this.previewSelection = index; this.pendingPreviewFocus = index;
+    document.body.dataset.editorView = 'preview';
+    this.updatePreview();
+  },
+  refreshPreviewNavigation() {
+    const select = document.getElementById('previewQuestionSelect');
+    if (!select) return;
+    const count = state.questions.length;
+    this.previewSelection = Math.max(0, Math.min(this.previewSelection || 0, count - 1));
+    select.replaceChildren();
+    state.questions.forEach((q,index) => {
+      const option = document.createElement('option'); option.value = String(index);
+      option.textContent = (index + 1) + '. ' + (String(q.text || '').trim() || 'Sem enunciado').slice(0,70);
+      select.appendChild(option);
+    });
+    select.value = String(this.previewSelection); select.disabled = !count;
+    document.getElementById('previewPrevious').disabled = !count || this.previewSelection === 0;
+    document.getElementById('previewNext').disabled = !count || this.previewSelection >= count - 1;
   },
   focusQuestion(index) {
     document.body.dataset.editorView = 'edit';
@@ -358,11 +400,14 @@ const EditorTools = {
     overview.innerHTML = '<summary>Questões da prova</summary><nav id="questionOutline" aria-label="Navegar pelas questões"></nav>';
     details.after(overview);
     const readiness = document.createElement('details'); readiness.id = 'readinessDetails';
-    readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><div id="examIssues"></div>';
+    readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><p class="small">Esta conferência verifica preenchimento, pontuação e estrutura do gabarito. Revise também o conteúdo e as respostas antes de aplicar a prova.</p><div id="examIssues"></div>';
     overview.after(readiness);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey"> Mostrar gabarito</label><label>Zoom <select id="previewZoom"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"> Mostrar gabarito</label><label>Zoom <select id="previewZoom" aria-label="Zoom da prévia"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia">Anterior</button><label for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia">Próxima</button></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
+    document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
+    document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
+    document.getElementById('previewNext').onclick = () => this.previewQuestion(this.previewSelection + 1);
     document.getElementById('previewAnswerKey').onchange = () => { this.forceSnapshot = true; this.updatePreview(); };
     document.getElementById('previewZoom').onchange = event => { document.getElementById('canonicalPreview').style.zoom = event.target.value; };
     window.addEventListener('message', event => {

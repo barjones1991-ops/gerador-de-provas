@@ -28,6 +28,32 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 
 ## Estado Atual
 
+Em 17/09/2026, usuário autorizou publicar as etapas 2–11 acumuladas e confirmou que os marcadores funcionaram em outro navegador, identificando cache como causa do relato visual. Lote inclui gabaritos, conferência, formatos abertos, navegação, imagens em lote e marcadores; CSS/JS possuem versão para atualização do cache. npm test aprovado antes do envio; sem migração Supabase. Os registros abaixo descrevem a implementação local anterior à autorização. A revisão visual integral dos 30 tipos/PDF permanece pendente, sem impedir a publicação explicitamente autorizada.
+
+Após relato de divergência visual dos marcadores: superfície imagem/números recebeu geometria explícita no componente e versão do CSS atualizada para invalidar cache. Arraste verificado em navegador real com fixture local, inclusive sem regras externas dos marcadores. Não houve acesso à sessão local autenticada do usuário; verificação da prova real ainda pendente.
+
+Ajuste solicitado pelo usuário após etapa 11: coordenadas recolhidas em Ajuste fino, números também identificam as linhas de resposta, arraste confirma posição antes de liberar a captura e mantém o número no destino. Setas não dependem de Shift; ajuda simplificada. Sem publicação.
+
+Em 17/09/2026, etapa 11 implementada localmente: identificar imagem permite arrastar marcadores ou usar setas/Shift, mantém X/Y e cancela com Esc. Coordenadas 0% preservadas nos renderers. Reusa markers/x/y; sem SQL, sem publicação. Conferência visual com mouse/toque pendente. Ver auditoria/ETAPA11_MARCADORES_2026-09-17.md.
+
+Em 17/09/2026, etapa 10 implementada localmente: upload de até 20 imagens por seleção em grade, sequência, legenda e relação imagem/palavra. Preenche slots vazios e acrescenta itens; preserva conteúdo. Falha cancela o lote; mudanças de conta/questão/conteúdo impedem aplicar resultados atrasados. Reusa conversão e formato de dados; sem SQL. Publicação adiada. Ver auditoria/ETAPA10_LOTE_IMAGENS_2026-09-17.md.
+
+Em 17/09/2026, etapa 9 implementada localmente: seletor Ir à questão e Anterior/Próxima na prévia; navegação por posição independente da numeração impressa, destaque somente em tela e espera pelo carregamento do iframe. Sem dados/SQL adicional; publicação adiada. Ver auditoria/ETAPA9_NAVEGACAO_2026-09-17.md.
+
+Em 17/09/2026, etapa 8 implementada localmente: caracteres de caça-palavras/cruzadinha corrigidos, rótulos de V/F/pistas/zoom contextualizados e resumos atualizados durante a edição sem recriar o formulário. Sem JSON/SQL adicional; publicação adiada. Ver auditoria/ETAPA8_INTERFACE_2026-09-17.md.
+
+Em 17/09/2026, etapa 7 implementada localmente: resposta esperada/critérios opcionais em nove formatos abertos, somente no gabarito. Reutiliza expectedAnswer no JSON existente, sem migração SQL. Publicação adiada; validação visual pendente. Ver auditoria/ETAPA7_CRITERIOS_2026-09-17.md.
+
+Em 17/09/2026, etapa 6 implementada localmente: alternativas de tabela aparecem na prévia/impressão; ocultar espaço discursivo não oculta alternativas de texto-base; gabarito de ambos valida índice e mostra letra. Troca de modo preserva opções. npm test aprovado; sem JSON/SQL adicional e sem publicação. Validação visual pendente. Ver auditoria/ETAPA6_RESPOSTAS_MISTAS_2026-09-17.md.
+
+Em 17/09/2026, etapa 5 implementada localmente: espaço de resposta compartilhado entre prévia e impressão, 1–40 linhas, altura equivalente entre linhas/caixa/branco, ocultação de cálculo/desenho e controles uniformes. Sem alteração de JSON/SQL. Publicação adiada; conferência visual pendente. Ver auditoria/ETAPA5_ESPACOS_2026-09-17.md.
+
+Em 17/09/2026, etapa 4 implementada localmente: conferência por tipo detecta campos/respostas ausentes, pares incompletos e ordens inválidas; erros estruturais usam os bloqueios existentes e rascunhos continuam salváveis. npm test aprovado; sem alteração de SQL ou formato persistido. Publicação continua adiada. Conferência visual pendente. Ver auditoria/ETAPA4_CONFERENCIA_2026-09-17.md.
+
+Em 17/09/2026, etapa 2 validada pelo usuário; publicação adiada a pedido dele. Etapa 3 implementada localmente: prévia/gabarito incluem discursiva, sequência de imagens, legenda, associação entre imagens e expressão matemática; alternativas usam letras. npm test aprovado, sem mudança de SQL/JSON. Ver auditoria/ETAPA3_GABARITO_2026-09-17.md. Conferência visual da etapa 3 ainda pendente.
+
+Em 17/09/2026, etapa 2 implementada localmente: operações mantêm cálculo automático quando result está vazio; respostas salvas/manuais são preservadas, divergências geram aviso e há ação explícita para voltar ao automático. Sem mudança de JSON ou SQL. npm test aprovado; usuário confirmou os resultados corretos e pediu adiar a publicação. Ver auditoria/ETAPA2_OPERACOES_2026-09-17.md.
+
 Em 09/09/2026, reorganização local das questões autorizada pelo usuário: menu Mais removido. Salvar no banco e Excluir questão ficam no rodapé da questão expandida; imagens complementares e seus controles ficam no bloco Imagens; numeração e espaço de resposta usam caixas de seleção explícitas. Questões recolhidas mostram apenas identificação/resumo. Edição do registro do banco continua sem rodapé de exclusão/salvamento duplicado. Sem SQL adicional; publicação e conferência visual pendentes. Testes de comportamento em `tests/flow-refinements.cjs`.
 
 Refinamento local após a revisão de `376776a`: por solicitação do usuário, removidas as ações de duplicar, subir e descer questões. Edição do banco exige exatamente uma questão; painel usa a conferência compartilhada antes de enviar; provas novas recebem o logo escolar; impressão reconsulta o pedido; recuperação de rascunho oferece escolhas explícitas. Não exige nova migração SQL. Ver `auditoria/CORRECOES_REVISAO_376776a.md` e `tests/flow-refinements.cjs`.
@@ -544,5 +570,9 @@ Fluxo: Gestão Escolar cadastra/altera turmas da escola; convite/vinculo de usua
 Impacto no Supabase: sim; executar `setup_supabase.sql` para aplicar `classes JSONB DEFAULT '[]'` em `schools`.
 Validacao: `npm test` aprovado.
 ### Achados Para Ajuste Posterior
+
+Diagnóstico de 17/09/2026: omissões dos cinco tipos no gabarito corrigidas localmente na etapa 3. Conferência ampliada localmente na etapa 4. Permanecem a padronização dos formatos abertos e demais achados de usabilidade. Ver auditoria/ETAPA4_CONFERENCIA_2026-09-17.md.
+
+Achados de respostas mistas da etapa 5 corrigidos localmente na etapa 6. Ver auditoria/ETAPA6_RESPOSTAS_MISTAS_2026-09-17.md.
 
 Registrar aqui bugs ou inconsistências encontrados durante correções/refatorações quando não forem resolvidos no mesmo commit.

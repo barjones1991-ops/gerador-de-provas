@@ -1,0 +1,60 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const {boot} = require('./editor-flows.cjs');
+const safety = require('../js/exam-safety.js');
+const makeQuestion = op => ({type:'matematica_coluna',text:'Resolva',points:'10,0',operations:[op]});
+async function open(op) {
+ const app=await boot({questions:[makeQuestion(op)]});
+ app.run('state.collapsedQuestions={};renderAll()');
+ const field=name=>app.document.querySelector('[aria-label="Operação 1: '+name+'"]');
+ const edit=(name,value,type='input')=>{const el=field(name);el.value=value;app.event(el,type);};
+ const operation=()=>app.run('state.questions[0].operations[0]');
+ return {app,field,edit,operation};
+}
+(async()=>{
+ const a=await open({num1:'234',op:'+',num2:'567',result:''});
+ a.edit('primeiro número','2');a.app.event(a.field('primeiro número'),'blur');
+ a.edit('segundo número','3');a.app.event(a.field('segundo número'),'blur');
+ assert.equal(a.operation().result,'');
+ assert.equal(safety.operationAnswer(a.operation()),'5');
+ assert(a.app.document.querySelector('.qcard [role="status"]').textContent.includes('5'));
+ for(const [n1,symbol,n2,expected] of [['5','-','2','3'],['2','×','2','4'],['6','÷','2','3'],['1,5','+','2,25','3,75'],['-2','×','3','-6'],['1.000','+','2','1.002'],['1','÷','3','≈ 0,333333']]){
+  a.edit('primeiro número',n1);a.edit('segundo número',n2);a.edit('operador',symbol,'change');
+  assert.equal(safety.operationAnswer(a.operation()),expected);
+  assert.equal(a.operation().result,'');
+ }
+ a.edit('segundo número','0');assert(safety.operationIssue(a.operation()).includes('inválida'));
+ a.edit('primeiro número','2abc');assert(safety.operationIssue(a.operation()).includes('números'));
+ a.edit('primeiro número','');assert(safety.operationIssue(a.operation()));
+ a.edit('primeiro número','2');a.edit('segundo número','3');a.edit('operador','+','change');
+ await a.app.run('saveToCloud()');
+ const payload=JSON.parse(a.app.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body);
+ assert.equal(payload.questions[0].operations[0].result,'');
+ const reopened=await open(payload.questions[0].operations[0]);
+ assert.equal(safety.operationAnswer(reopened.operation()),'5');
+ console.log('OK OPERACOES edicao, operador, decimais, negativos, invalidos e reabertura');
+ const manual=await open({num1:'2',op:'+',num2:'3',result:'569'});
+ assert.equal(manual.operation().result,'569','resposta legada nunca e apagada ao carregar');
+ assert(safety.operationIssue(manual.operation()).includes('Cálculo automático: 5'));
+ const issues=safety.inspectExam({title:'Teste',subject:'Matemática',class_name:'1A',total_value:'10,0',questions:[makeQuestion(manual.operation())]});
+ assert(issues.some(i=>i.message.includes('569')));
+ manual.edit('resposta manual','5,0');assert.equal(safety.operationIssue(manual.operation()),'');
+ manual.edit('segundo número','4');assert.equal(safety.operationAnswer(manual.operation()),'5,0');
+ assert(safety.operationIssue(manual.operation()).includes('Cálculo automático: 6'));
+ await manual.app.run('saveToCloud()');
+ const savedManual=JSON.parse(manual.app.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0].operations[0];
+ assert.equal(safety.operationAnswer((await open(savedManual)).operation()),'5,0');
+ manual.app.event(manual.field('usar cálculo automático'),'click');
+ assert.equal(manual.operation().result,'');assert.equal(safety.operationAnswer(manual.operation()),'6');
+ manual.edit('resposta manual','texto');assert(safety.operationIssue(manual.operation()));
+ manual.edit('resposta manual','');assert.equal(safety.operationAnswer(manual.operation()),'6');
+ console.log('OK OPERACOES legado preservado, divergencia avisada e retorno ao automatico');
+ const print=fs.readFileSync(path.join(__dirname,'../print.html'),'utf8');
+ const source=print.slice(print.indexOf('function getQuestionAnswer(q)'),print.indexOf('function normalizeExam(exam)'));
+ const ctx={ExamSafety:safety,esc:s=>String(s)};vm.createContext(ctx);vm.runInContext(source,ctx);
+ assert(ctx.renderAnswerKey([payload.questions[0]]).includes('1. 5'));
+ assert(!ctx.renderAnswerKey([payload.questions[0]]).includes('569'));
+ console.log('OK OPERACOES gerador real do gabarito usa a conta salva atual');
+})().catch(e=>{console.error(e);process.exitCode=1});
