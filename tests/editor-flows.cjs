@@ -77,9 +77,23 @@ async function main() {
     const app = await boot();
     for (const type of app.run('Object.keys(templates)')) {
       app.run(`state.questions = [templates[${JSON.stringify(type)}]()]; state.collapsedQuestions = {}; renderAll();`);
-      assert(app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type);
-      assert(app.document.querySelector('.qcard'),type);
+      if (!['multipla','associacao_setas'].includes(type)) assert(app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type);
+      const card=app.document.querySelector('.qcard'); assert(card,type);
+      assert(card.classList.contains('compact-question-editor'),type);
+      assert.equal(card.querySelector('.question-score label').textContent,'Valor',type);
+      assert(card.querySelector('.qhead .question-remove-icon'),type);
+      assert(card.querySelector('.question-appearance'),type);
+      assert.equal(card.querySelectorAll('.question-appearance').length,1,type);
+      if (!['multipla','marcarx'].includes(type)) assert(card.querySelector('.question-images-details'),type);
+      assert(!card.textContent.includes('Conteúdo e respostas'),type);
     }
+    assert(!app.document.querySelector('#qtypeSelect option[value="associacao_setas"]'));
+    assert(!app.document.querySelector('#topQuestionMenu button[data-type="associacao_setas"]'));
+    app.run("addQuestionOfType('associacao_setas')");
+    assert.equal(app.run('state.questions.at(-1).type'),'relacione');
+    app.run("state.questions=[templates.associacao_setas()]; state.collapsedQuestions={}; renderAll();");
+    assert.equal(app.run('state.questions[0].type'),'associacao_setas');
+    assert(app.document.querySelector('.qcard'));
   });
   await test('remover questao, desfazer e refazer preservam conteudo', async () => {
     const app = await boot();
@@ -92,7 +106,7 @@ async function main() {
   await test('salvar nao reabilita remocao abaixo do minimo', async () => {
     const app = await boot({questions:[{type:'multipla',text:'Escolha',points:'10,0',options:['A','B'],correctOption:0}]});
     app.run('state.collapsedQuestions = {}; renderAll(); applyReviewLock();');
-    const remove = [...app.document.querySelectorAll('.option-row button')].find(b=>b.textContent==='Remover');
+    const remove = [...app.document.querySelectorAll('.option-row button')].find(b=>b.getAttribute('aria-label')==='Remover alternativa A');
     assert(remove.disabled);
     app.event(remove,'click'); assert.equal(app.run('state.questions[0].options.length'),2);
   });

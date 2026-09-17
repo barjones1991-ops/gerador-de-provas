@@ -184,6 +184,14 @@ const EditorTools = {
       }
       if (!state.collapsedQuestions[index] && q && !card.querySelector('.free-image-fields')) this.addImageFields(card, q, index);
     });
+    panel.querySelectorAll('.qcard').forEach(card => {
+      const index = Number(card.dataset.questionIndex), q = state.questions[index];
+      if (q && !state.collapsedQuestions[index]) {
+        this.organizeQuestionChrome(card, q, index);
+        this.organizeAlternatives(card, q, index);
+        this.organizeAnswerItemImages(card, q, index);
+      }
+    });
     panel.querySelectorAll('label').forEach((label, i) => {
       if (label.htmlFor) return;
       const field = label.querySelector('input,select,textarea') || label.nextElementSibling?.matches('input,select,textarea') && label.nextElementSibling;
@@ -203,6 +211,217 @@ const EditorTools = {
       field.setAttribute('aria-label', `${question === undefined ? '' : `Questão ${Number(question) + 1}: `}${name.trim()}`);
     });
     this.refreshActions();
+  },
+  organizeQuestionChrome(card, q, index) {
+    if (card.dataset.questionChromeOrganized) return;
+    card.dataset.questionChromeOrganized = 'true'; card.classList.add('compact-question-editor');
+    card.querySelectorAll('.prop-sec').forEach(node => {
+      if (node.textContent === 'Conteúdo e respostas') node.remove();
+    });
+    const headActions = document.createElement('div');
+    headActions.className = 'qhead-actions question-head-actions alternatives-head-actions';
+    const scoring = card.querySelector('.question-scoring');
+    if (scoring) {
+      const scoreField = scoring.querySelector('.q-head-field');
+      scoreField.classList.add('question-score', 'alternative-score');
+      scoreField.querySelector('label').textContent = 'Valor';
+      const scoreInput = scoreField.querySelector('input');
+      scoreInput.inputMode = 'decimal';
+      scoreInput.setAttribute('aria-label', `Questão ${index + 1}: valor`);
+      headActions.appendChild(scoreField); scoring.remove();
+    }
+    const questionRemove = card.querySelector('.question-footer button[title="Remover questão"]');
+    if (questionRemove) {
+      questionRemove.textContent = '🗑'; questionRemove.classList.add('question-remove-icon');
+      questionRemove.setAttribute('aria-label', `Excluir questão ${index + 1}`);
+      headActions.appendChild(questionRemove);
+    }
+    if (headActions.children.length) card.querySelector('.qhead').appendChild(headActions);
+    const presentation = card.querySelector('.question-presentation');
+    if (presentation && !presentation.closest('.question-appearance')) {
+      let appearance = card.querySelector('.appearance-settings');
+      presentation.querySelector('legend')?.remove();
+      if (appearance) {
+        appearance.classList.add('question-appearance'); appearance.appendChild(presentation);
+      } else {
+        appearance = document.createElement('details'); appearance.className = 'question-appearance';
+        const summary = document.createElement('summary'); summary.textContent = 'Aparência na prova';
+        presentation.before(appearance); appearance.append(summary, presentation);
+      }
+    }
+    if (!['multipla','marcarx'].includes(q.type)) {
+      const images = card.querySelector('.question-images');
+      if (images && !images.closest('.question-images-details')) {
+        const details = document.createElement('details'); details.className = 'question-images-details';
+        const summary = document.createElement('summary'); summary.textContent = 'Imagens (opcional)';
+        images.querySelector('h3')?.remove(); images.before(details); details.append(summary, images);
+      }
+    }
+    card.querySelectorAll('button').forEach(button => {
+      const label = button.textContent.trim().replace(/^[＋+]\s*/, '');
+      if (/^Adicionar\b/i.test(label) && !/imagem/i.test(label)) button.classList.add('content-add-action');
+    });
+    const footer = card.querySelector('.question-footer');
+    const bank = footer?.querySelector('button[title="Salvar no banco de questões"]');
+    if (bank) bank.textContent = 'Guardar no banco para reutilizar';
+    if (footer && !footer.children.length) footer.remove();
+  },
+  chooseSingleAnswer(q, index, select) {
+    select.value = q.markMode;
+    const card = document.getElementById(`question-${index}`);
+    card.querySelector('.single-answer-choice')?.remove();
+    const choice = document.createElement('fieldset'); choice.className = 'single-answer-choice';
+    const legend = document.createElement('legend'); legend.textContent = 'Qual resposta deve continuar correta?'; choice.appendChild(legend);
+    const hint = document.createElement('p'); hint.textContent = 'Escolha uma das respostas marcadas. As demais deixarão de fazer parte do gabarito.'; choice.appendChild(hint);
+    q.items.forEach((item, i) => {
+      if (!item.checked) return;
+      const button = document.createElement('button'); button.type = 'button';
+      button.textContent = `${String.fromCharCode(65 + i)}) ${item.text || 'Alternativa sem texto'}`;
+      button.dataset.keepAnswer = i;
+      button.addEventListener('click', () => {
+        if (!this.canEdit()) return;
+        q.items.forEach((other, j) => { other.checked = j === i; other.answer = ''; });
+        q.markMode = 'unica'; renderAll();
+        document.getElementById(`question-${index}`)?.querySelector('[data-k="markMode"]')?.focus();
+      }); choice.appendChild(button);
+    });
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Manter várias respostas';
+    cancel.addEventListener('click', () => { choice.remove(); select.focus(); }); choice.appendChild(cancel);
+    select.parentElement.appendChild(choice); choice.querySelector('button')?.focus();
+  },
+  organizeAlternatives(card, q, index) {
+    if (!['multipla','marcarx'].includes(q.type) || ['vf','checklist'].includes(q.markMode) || card.dataset.alternativesOrganized) return;
+    card.dataset.alternativesOrganized = 'true'; card.classList.add('alternatives-editor');
+    card.querySelectorAll('.prop-sec').forEach(node => { if (node.textContent === 'Conteúdo e respostas') node.remove(); });
+    card.querySelectorAll('label').forEach(node => { if (node.textContent === 'Alternativas') node.remove(); });
+    const options = [...card.querySelectorAll('.option-row')];
+    const group = options[0]?.parentElement;
+    if (group) {
+      const hint = document.createElement('p'); hint.className = 'small alternatives-instruction';
+      hint.textContent = q.markMode === 'multipla' ? 'Marque todas as respostas corretas para o gabarito.' : 'Marque a resposta correta para o gabarito.';
+      group.parentElement.querySelector(':scope > .small')?.remove(); group.before(hint);
+    }
+    const appearance = card.querySelector('.question-appearance');
+    if (appearance) appearance.classList.add('alternatives-appearance');
+    const summary = appearance?.querySelector(':scope > summary');
+    const layout = card.querySelector('[data-k="markLayout"]')?.parentElement;
+    if (layout && appearance) {
+      layout.querySelector('label').textContent = 'Organização das alternativas';
+      summary.after(layout);
+    }
+    const images = card.querySelector('.question-images');
+    if (images) {
+      const details = document.createElement('details'); details.className = 'alternatives-header-image';
+      const title = document.createElement('summary'); title.textContent = 'Imagem do enunciado (opcional)'; details.appendChild(title);
+      images.before(details); details.appendChild(images); images.querySelector('h3')?.remove();
+      if (!q.headerImage || ['one','alternativas'].includes(q.headerImage.mode)) {
+        images.querySelector('.image-use-wrap')?.remove(); images.querySelector('.image-edit-panel')?.remove();
+        const picker = createImagePicker({
+          getImage: () => q.headerImage?.mode === 'one' ? q.headerImage : {},
+          setImage: (dataUrl, fileName) => { q.headerImage = {...(q.headerImage?.mode === 'one' ? q.headerImage : {}), mode:'one', dataUrl, fileName}; renderAll(); },
+          clearImage: () => { q.headerImage = null; renderAll(); }
+        }); images.prepend(picker);
+        if (q.headerImage?.mode === 'one' && q.headerImage.dataUrl) {
+          details.open = true;
+          for (const [key, labelText, values] of [['size','Tamanho',[['small','Pequena'],['medium','Média'],['large','Grande'],['full','Largura total']]], ['align','Alinhamento',[['left','Esquerda'],['center','Centro'],['right','Direita']]]]) {
+            const label = document.createElement('label'); label.textContent = labelText;
+            const field = document.createElement('select'); values.forEach(([value,text]) => { const option = document.createElement('option'); option.value = value; option.textContent = text; field.appendChild(option); });
+            field.value = q.headerImage[key] || (key === 'size' ? 'medium' : 'center');
+            field.addEventListener('change', () => { q.headerImage[key] = field.value; renderPreview(); }); label.appendChild(field); images.appendChild(label);
+          }
+          const label = document.createElement('label'); label.textContent = 'Legenda (opcional)'; const field = document.createElement('input'); field.value = q.headerImage.caption || '';
+          field.addEventListener('input', () => { q.headerImage.caption = field.value; renderPreview(); }); label.appendChild(field); images.appendChild(label);
+        }
+      }
+      const extra = document.createElement('details'); const extraTitle = document.createElement('summary'); extraTitle.textContent = 'Imagens complementares e posicionamento'; extra.appendChild(extraTitle);
+      [...images.children].filter(node => node.matches('p, button, input[type="file"], .free-image-fields')).forEach(node => extra.appendChild(node));
+      if (extra.children.length > 1) images.appendChild(extra);
+    }
+    options.forEach((row, i) => {
+      const letter = String.fromCharCode(65 + i);
+      row.querySelector('input[type="radio"],input[type="checkbox"]')?.setAttribute('aria-label', `Marcar alternativa ${letter} como correta`);
+      const correct = q.type === 'multipla' ? q.correctOption === i : !!q.items[i]?.checked;
+      row.classList.toggle('is-correct', correct);
+      row.querySelector('input[type="radio"],input[type="checkbox"]')?.addEventListener('change', () => {
+        options.forEach((other,j) => other.classList.toggle('is-correct', q.type === 'multipla' ? q.correctOption === j : !!q.items[j]?.checked));
+      });
+      const textInput = row.querySelector('input:not([type="radio"]):not([type="checkbox"]):not([type="file"])');
+      const remove = row.querySelector('button');
+      if (remove) { remove.textContent = '×'; remove.title = `Remover alternativa ${letter}`; remove.setAttribute('aria-label', remove.title); remove.classList.add('alternative-remove'); }
+      const details = document.createElement('details'); details.className = 'alternative-image';
+      const summary = document.createElement('summary');
+      summary.textContent = q.optionImages?.[i]?.dataUrl ? `Imagem ${letter}` : 'Imagem';
+      summary.title = `Adicionar ou editar imagem da alternativa ${letter}`;
+      summary.setAttribute('aria-label', summary.title); details.appendChild(summary);
+      details.appendChild(createImagePicker({
+        getImage: () => q.optionImages?.[i] || {},
+        setImage: (dataUrl, fileName) => { if (!Array.isArray(q.optionImages)) q.optionImages = []; q.optionImages[i] = {dataUrl,fileName}; summary.textContent = `Imagem ${letter}`; renderPreview(); },
+        clearImage: () => { if (q.optionImages) q.optionImages[i] = {dataUrl:'',fileName:''}; summary.textContent = 'Imagem'; renderPreview(); }
+      }));
+      if (textInput) {
+        const main = document.createElement('div'); main.className = 'alternative-main';
+        textInput.replaceWith(main); main.append(textInput, details);
+      } else row.appendChild(details);
+    });
+    const addOption = [...card.querySelectorAll('button')].find(button => button.textContent === 'Adicionar alternativa');
+    if (addOption) addOption.classList.add('alternative-add');
+    const bank = card.querySelector('.question-footer button[title="Salvar no banco de questões"]');
+    if (bank) bank.textContent = 'Guardar no banco para reutilizar';
+  },
+  organizeAnswerItemImages(card, q) {
+    const supported = q.type === 'vf'
+      || (q.type === 'texto_base' && q.answerType === 'multipla')
+      || (q.type === 'imagem' && ['multipla', 'marcarx'].includes(q.imageAnswerType));
+    if (!supported || card.dataset.answerItemImagesOrganized) return;
+    card.dataset.answerItemImagesOrganized = 'true';
+    card.classList.add('answer-item-images-editor');
+    [...card.querySelectorAll('.option-row')].forEach((row, itemIndex) => {
+      const textInput = row.querySelector('input:not([type="radio"]):not([type="checkbox"]):not([type="file"])');
+      if (!textInput) return;
+      const label = q.type === 'vf' ? `afirmação ${itemIndex + 1}` : `alternativa ${String.fromCharCode(65 + itemIndex)}`;
+      const getStoredImage = () => q.type === 'vf' ? q.items?.[itemIndex] || {} : q.optionImages?.[itemIndex] || {};
+      const details = document.createElement('details');
+      details.className = 'answer-item-image';
+      const summary = document.createElement('summary');
+      const storedImage = getStoredImage();
+      summary.textContent = storedImage.imageDataUrl || storedImage.dataUrl ? 'Imagem ✓' : 'Imagem';
+      summary.title = `Adicionar ou editar imagem da ${label}`;
+      summary.setAttribute('aria-label', summary.title);
+      details.appendChild(summary);
+      details.appendChild(createImagePicker({
+        getImage: () => {
+          const image = getStoredImage();
+          return q.type === 'vf'
+            ? { dataUrl: image.imageDataUrl || '', fileName: image.imageFileName || '' }
+            : image;
+        },
+        setImage: (dataUrl, fileName) => {
+          if (q.type === 'vf') {
+            q.items[itemIndex].imageDataUrl = dataUrl;
+            q.items[itemIndex].imageFileName = fileName;
+          } else {
+            if (!Array.isArray(q.optionImages)) q.optionImages = [];
+            q.optionImages[itemIndex] = { dataUrl, fileName };
+          }
+          summary.textContent = 'Imagem ✓';
+          renderPreview();
+        },
+        clearImage: () => {
+          if (q.type === 'vf') {
+            q.items[itemIndex].imageDataUrl = '';
+            q.items[itemIndex].imageFileName = '';
+          } else if (Array.isArray(q.optionImages)) {
+            q.optionImages[itemIndex] = { dataUrl: '', fileName: '' };
+          }
+          summary.textContent = 'Imagem';
+          renderPreview();
+        },
+      }));
+      const main = document.createElement('div');
+      main.className = 'answer-item-main';
+      textInput.replaceWith(main);
+      main.append(textInput, details);
+    });
   },
   addImageFields(card, question, index) {
     if (!question.freeImages?.length) return;
@@ -243,7 +462,7 @@ const EditorTools = {
         const button = document.createElement('button'); button.type = 'button'; button.textContent = issue.message;
         button.addEventListener('click', () => this.focusQuestion(issue.index)); list.appendChild(button);
       });
-      document.getElementById('readinessSummary').textContent = issues.length ? `${issues.length} ponto(s) para conferir` : 'Nenhuma pendência automática';
+      document.getElementById('readinessSummary').textContent = issues.length ? `${issues.length} ponto(s) para conferir` : 'Preenchimento conferido';
     }
     const nav = document.getElementById('questionOutline');
     if (nav) {
@@ -252,9 +471,14 @@ const EditorTools = {
         const button = document.createElement('button'); button.type = 'button';
         button.textContent = `${index + 1}. ${String(q.text || typeLabel[q.type] || 'Questão').slice(0, 70)}`;
         if (index === state.activeQuestionIndex) button.setAttribute('aria-current','true');
+        button.dataset.questionType = typeLabel[q.type] || q.type;
+        button.title = `${index + 1}. ${q.text || ''}`;
         button.addEventListener('click', () => this.focusQuestion(index)); nav.appendChild(button);
       });
     }
+    this.filterQuestions();
+    const empty = document.getElementById('editorSelectionHint');
+    if (empty) empty.hidden = Number.isInteger(state.activeQuestionIndex) || Boolean(this.bankId);
     this.refreshPreviewNavigation();
     const frame = document.getElementById('canonicalPreview');
     if (frame && this.previewReady) {
@@ -306,7 +530,7 @@ const EditorTools = {
     if (overview) overview.open = false;
     this.previewSelection = index;
     this.pendingPreviewFocus = index;
-    state.collapsedQuestions[index] = false; renderAll();
+    state.collapsedQuestions[index] = false; renderAll(false);
     this.updatePreview();
     const card = document.getElementById(`question-${index}`);
     card?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); card?.querySelector('textarea,input,button')?.focus();
@@ -408,24 +632,28 @@ const EditorTools = {
     }
     document.getElementById('undoBtn').onclick = () => this.travelHistory(-1);
     document.getElementById('redoBtn').onclick = () => this.travelHistory(1);
-    document.getElementById('viewEditBtn').onclick = () => { document.body.dataset.editorView = 'edit'; };
-    document.getElementById('viewPreviewBtn').onclick = () => { document.body.dataset.editorView = 'preview'; this.updatePreview(); };
+    document.getElementById('viewEditBtn').onclick = () => { document.body.dataset.editorView = 'edit'; this.resizePreview(); };
+    document.getElementById('viewPreviewBtn').onclick = () => { document.body.dataset.editorView = 'preview'; this.updatePreview(); this.resizePreview(); };
     document.getElementById('mainPrintBtn').onclick = () => this.openPrint(false);
     document.getElementById('saveBankRecordBtn').onclick = () => this.saveBank();
     const overview = document.createElement('details'); overview.id = 'questionOverview';
-    overview.innerHTML = '<summary>Questões da prova</summary><nav id="questionOutline" aria-label="Navegar pelas questões"></nav>';
+    overview.innerHTML = '<summary>Questões da prova</summary><input id="questionSearch" type="search" aria-label="Buscar questão" placeholder="Buscar por enunciado ou tipo"><p id="questionSearchEmpty" class="small" hidden>Nenhuma questão encontrada.</p><nav id="questionOutline" aria-label="Navegar pelas questões"></nav>';
     details.after(overview);
+    document.getElementById('questionSearch').oninput = () => this.filterQuestions();
     const readiness = document.createElement('details'); readiness.id = 'readinessDetails';
     readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><p class="small">Esta conferência verifica preenchimento, pontuação e estrutura do gabarito. Revise também o conteúdo e as respostas antes de aplicar a prova.</p><div id="examIssues"></div>';
     overview.after(readiness);
+    const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"> Mostrar gabarito</label><label>Zoom <select id="previewZoom" aria-label="Zoom da prévia"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia">Anterior</button><label for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia">Próxima</button></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260917-a4" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"> Mostrar gabarito</label><label>Zoom <select id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option><option value="0.6">60%</option><option value="0.8">80%</option><option value="1">100%</option></select></label></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia">Anterior</button><label for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia">Próxima</button></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260917-a4" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
     document.getElementById('previewNext').onclick = () => this.previewQuestion(this.previewSelection + 1);
     document.getElementById('previewAnswerKey').onchange = () => { this.forceSnapshot = true; this.updatePreview(); };
-    document.getElementById('previewZoom').onchange = event => { document.getElementById('canonicalPreview').style.zoom = event.target.value; };
+    document.getElementById('previewZoom').onchange = () => this.resizePreview();
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.resizePreview()).observe(preview);
+    window.addEventListener('resize', () => this.resizePreview());
     window.addEventListener('message', event => {
       if (event.origin === location.origin && event.source === document.getElementById('canonicalPreview').contentWindow && event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); }
     });
@@ -437,7 +665,7 @@ const EditorTools = {
       : ['matematica_coluna','expressao_matematica','problema_matematico','sequencia_numerica','tabela'].includes(type) ? 'Matemática e dados'
       : ['ditado','silabas','leitura_escrita','caca_palavras','cruzadinha'].includes(type) ? 'Linguagem e alfabetização' : 'Imagens e desenho';
     for (const [type, label] of Object.entries(typeLabel)) {
-      if (!templates[type]) continue;
+      if (!templates[type] || ['multipla','associacao_setas'].includes(type)) continue;
       const name = category(type);
       if (!groups[name]) { groups[name] = document.createElement('optgroup'); groups[name].label = name; select.appendChild(groups[name]); }
       const option = document.createElement('option'); option.value = type; option.textContent = label; groups[name].appendChild(option);
@@ -454,12 +682,13 @@ const EditorTools = {
         if (open) document.getElementById(menuId).querySelector('button,a')?.focus();
       });
     }
+    this.setupQuestionPicker(category);
     if (this.bankId) this.buildBankFields(details);
     document.addEventListener('click', event => {
       if (event.target.closest('#editorPanel, #topQuestionMenu') && this.canEdit()) this.recordHistory();
       if (!this.canEdit() && event.target.closest('#editorPanel, #topQuestionMenu')) {
         // Reading/navigation remain available; any data-changing controls are blocked.
-        if (!event.target.closest('summary,#questionOutline,#examIssues,.qnum')) { event.preventDefault(); event.stopImmediatePropagation(); }
+        if (!event.target.closest('summary,#questionOutline,#questionSearch,#examIssues,.qnum')) { event.preventDefault(); event.stopImmediatePropagation(); }
       }
     }, true);
     document.addEventListener('keydown', event => {
@@ -484,6 +713,69 @@ const EditorTools = {
     });
     window.addEventListener('auth-session-changed', () => { this.refreshActions(); try { applyReviewLock(); } catch {} });
     this.enhanceFields(); this.updatePreview();
+  },
+  resizePreview() {
+    const frame = document.getElementById('canonicalPreview');
+    const viewport = frame?.parentElement;
+    if (!viewport?.clientWidth) return;
+    const fit = Math.min(1, (viewport.clientWidth - 2) / 850);
+    const zoom = document.getElementById('previewZoom').value === 'fit' ? fit : Number(document.getElementById('previewZoom').value);
+    frame.style.zoom = String(zoom);
+    frame.style.height = `${Math.max(260, window.innerHeight - viewport.getBoundingClientRect().top - 24) / zoom}px`;
+    viewport.style.maxHeight = 'none';
+    document.getElementById('viewEditBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'edit'));
+    document.getElementById('viewPreviewBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'preview'));
+  },
+  filterQuestions() {
+    const query = (document.getElementById('questionSearch')?.value || '').trim().toLocaleLowerCase('pt-BR');
+    let visible = 0;
+    document.querySelectorAll('#questionOutline button').forEach(button => {
+      button.hidden = !`${button.textContent} ${button.dataset.questionType}`.toLocaleLowerCase('pt-BR').includes(query);
+      if (!button.hidden) visible++;
+    });
+    const empty = document.getElementById('questionSearchEmpty');
+    if (empty) empty.hidden = visible > 0 || !query;
+  },
+  setupQuestionPicker(category) {
+    const menu = document.getElementById('topQuestionMenu');
+    menu.setAttribute('role','dialog'); menu.setAttribute('aria-modal','true'); menu.setAttribute('aria-label','Escolher tipo de questão');
+    const types = [...menu.querySelectorAll('button[data-type]')];
+    const bank = menu.querySelector('[data-action="bank"]');
+    menu.replaceChildren();
+    const header = document.createElement('div'); header.className = 'picker-header';
+    header.innerHTML = '<h2>Nova questão</h2><button type="button" data-picker-close aria-label="Fechar escolha de questão">Fechar</button>';
+    const filters = document.createElement('div'); filters.className = 'picker-filters';
+    filters.innerHTML = '<input type="search" aria-label="Buscar tipo de questão" placeholder="Que tipo de questão você quer criar?"><select aria-label="Categoria de questão"><option value="">Todas as categorias</option></select>';
+    const select = filters.querySelector('select');
+    [...new Set(types.map(b => category(b.dataset.type)))].forEach(name => { const option = document.createElement('option'); option.value = name; option.textContent = name; select.append(option); });
+    const grid = document.createElement('div'); grid.className = 'picker-grid';
+    const samples = { multipla:'◉ A   ○ B   ○ C', vf:'(V) Afirmação   (F) Afirmação', marcarx:'Uma resposta correta ou várias: ◉ A / ☑ A ☑ B', discursiva:'Resposta: __________________', matematica_coluna:'12 + 8 = ____', lacunas:'A planta precisa de ____.', espaco_livre:'▧ Espaço para desenhar', tabela:'Grupo | Quantidade', subitens:'a) Pergunta   b) Pergunta', problema_matematico:'3 sementes + 2 sementes. Quantas ao todo?', ordenacao:'2 → 1 → 3 • Ordene as etapas', relacione:'Olhos → Ver • Ouvidos → Ouvir', expressao_matematica:'(2 + 3) × 4 = ____' };
+    types.forEach(button => {
+      button.dataset.category = category(button.dataset.type);
+      const hint = button.querySelector('small');
+      if (hint && samples[button.dataset.type]) hint.textContent = samples[button.dataset.type];
+      grid.append(button);
+    });
+    const empty = document.createElement('p'); empty.textContent = 'Nenhum tipo encontrado. Tente outro termo.'; empty.hidden = true;
+    menu.append(header, filters, bank, grid, empty);
+    const close = () => { menu.classList.add('hidden'); document.getElementById('topNewQuestionBtn').setAttribute('aria-expanded','false'); document.getElementById('topNewQuestionBtn').focus(); };
+    header.querySelector('button').onclick = close;
+    document.addEventListener('click', event => {
+      if (!menu.classList.contains('hidden') && !event.target.closest('#topQuestionMenu,#topNewQuestionBtn')) {
+        event.preventDefault(); event.stopImmediatePropagation(); close();
+      }
+    }, true);
+    const filter = () => { let found = 0; const query = filters.querySelector('input').value.toLocaleLowerCase('pt-BR'); types.forEach(button => { button.hidden = !(button.textContent.toLocaleLowerCase('pt-BR').includes(query) && (!select.value || select.value === button.dataset.category)); if (!button.hidden) found++; }); empty.hidden = found > 0; };
+    filters.querySelector('input').oninput = filter; select.onchange = filter;
+    menu.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.stopPropagation(); close(); }
+      if (event.key === 'Tab') {
+        const nodes = [...menu.querySelectorAll('button,input,select')].filter(node => !node.disabled && !node.hidden);
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    });
   },
   buildBankFields(details) {
     const group = document.createElement('fieldset'); group.id = 'bankEditFields';

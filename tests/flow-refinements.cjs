@@ -19,7 +19,9 @@ function extract(file,name,spaces) {
   const card=organized.document.querySelector('.qcard');
   assert(card.querySelector('.question-images .free-image-fields'));
   assert(card.querySelector('.question-footer button[title="Salvar no banco de questões"]'));
-  assert(card.querySelector('.question-footer button[title="Remover questão"]'));
+  assert(card.querySelector('.qhead button[title="Remover questão"]'));
+  assert.equal(card.querySelector('.question-score label').textContent,'Valor');
+  assert(card.querySelector('.question-appearance .question-presentation'));
   const number=card.querySelector('[data-presentation="number"]'); number.checked=false; organized.event(number,'change');
   const answer=card.querySelector('[data-presentation="answer-space"]'); answer.checked=false; organized.event(answer,'change');
   assert.equal(organized.run('state.questions[0].hideNumber'),true);
@@ -30,7 +32,7 @@ function extract(file,name,spaces) {
   assert.equal(stored.freeImages.length,1);
   const locked=await boot({status:'enviada'}); locked.run('state.collapsedQuestions={}; renderAll();');
   assert(locked.document.querySelector('[data-presentation="number"]').disabled);
-  assert(locked.document.querySelector('.question-footer button').disabled);
+  assert(locked.document.querySelector('.qhead button[title="Remover questão"]').disabled);
   const record=await boot({bank:true}); record.run('state.collapsedQuestions={}; renderAll();');
   assert(!record.document.querySelector('.question-footer'));
   console.log('OK REFINAMENTO questao sem menu preserva controles salvamento imagens e permissoes');

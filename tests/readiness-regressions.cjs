@@ -70,7 +70,7 @@ console.log('OK CONFERENCIA campos por tipo, formatos abertos, ordens, pares e i
  let focused;app.ctx.EditorTools.focusQuestion=index=>{focused=index};app.event(button,'click');assert.equal(focused,1);
  app.run("state.questions[1].expressions[0].answer='2'");app.ctx.EditorTools.updatePreview();
  assert(!app.document.getElementById('examIssues').textContent.includes('Resposta do item'));
- assert.equal(app.document.getElementById('readinessSummary').textContent,'Nenhuma pendência automática');
+ assert.equal(app.document.getElementById('readinessSummary').textContent,'Preenchimento conferido');
  // Invalid ordering must remain saveable as a draft, but not be sent for review.
  app.run("state.questions=[{type:'ordenacao',text:'Ordene',points:'10',items:[{text:'A',order:1},{text:'B',order:1}]}]");
  await app.run('saveToCloud()');

@@ -791,7 +791,7 @@
           ${context ? `<p class="exam-context">${esc(context)}</p>` : ''}
           <div class="card-footer">
             ${state.drafting && canEdit ? `<button class="card-btn edit" onclick="editExam('${exam.id}')">${primaryLabel}</button>` : `<button class="card-btn edit" onclick="printExam('${exam.id}')">Visualizar prova</button>`}
-            ${canSendToReview && !sendReady ? `<p class="small">${qCount ? esc(scoreCheck.message) : 'Adicione questões antes de enviar para coordenação.'}</p>` : ''}
+            ${canSendToReview && !qCount ? '<p class="small">Adicione questões antes de enviar para coordenação.</p>' : ''}
             ${canSendToReview ? `<button class="card-btn review" ${sendReady ? '' : 'disabled'} onclick="sendToReview('${exam.id}')">${state.returned ? 'Reenviar para coordenação' : 'Enviar para coordenação'}</button>` : ''}
             <details class="exam-menu"><summary aria-label="Mais ações para ${esc(exam.title || 'prova')}" title="Mais ações">⋯</summary><div class="exam-menu-items">
 

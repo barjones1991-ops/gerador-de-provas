@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260917-r2"></script>
-  <script src="js/editor-tools.js?v=20260917-a4"></script>
+  <script src="js/editor-tools.js?v=20260917-ux7"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -739,10 +739,7 @@
       background: #fff;
       overflow: hidden;
     }
-    .logo.has-image {
-      border-style: solid;
-      padding: 0;
-    }
+    .logo.has-image { border:0; border-radius:0; box-shadow:none; background:transparent; padding:0; }
     .logo img {
       width: 100%;
       height: 100%;
@@ -1484,7 +1481,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-markers2" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-ux7" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1938,7 +1935,7 @@
       return `<div class="crossword-layout"><div class="crossword-grid" style="grid-template-columns: repeat(${built.grid[0].length}, 24px);">${cells}</div><div class="crossword-clues"><div><h4>Horizontais</h4>${across || '<span class="small">Nenhuma.</span>'}</div><div><h4>Verticais</h4>${down || '<span class="small">Nenhuma.</span>'}</div></div></div>`;
     }
     const typeLabel = {
-      multipla: 'Múltipla escolha',
+      multipla: 'Alternativas',
       discursiva: 'Discursativa',
       vf: 'Verdadeiro/Falso',
       marcarx: 'Alternativas',
@@ -2975,7 +2972,7 @@
         `;
         headLeft.querySelector('.qnum').addEventListener('click', () => {
           if (EditorTools.bankId) return;
-          state.activeQuestionIndex = null; renderAll();
+          state.activeQuestionIndex = null; renderAll(false);
         });
         head.appendChild(headLeft);
 
@@ -3094,6 +3091,16 @@
         body.appendChild(secContent);
 
         if (q.type === 'multipla') {
+          const modeBlock = document.createElement('div');
+          modeBlock.innerHTML = '<label>Respostas corretas</label><select aria-label="Quantidade de respostas corretas"><option value="unica">Uma resposta correta</option><option value="multipla">Mais de uma resposta correta</option></select>';
+          modeBlock.querySelector('select').addEventListener('input', event => {
+            if (event.target.value !== 'multipla') return;
+            q.items = (q.options || []).map((text, index) => ({ text, checked:index === q.correctOption }));
+            q.type = 'marcarx'; q.markMode = 'multipla'; q.markLayout = 'lista';
+            delete q.options; delete q.correctOption;
+            renderAll();
+          });
+          body.appendChild(modeBlock);
           let actionRow = null;
           if (!Array.isArray(q.options)) q.options = [];
           while (q.options.length < 2) q.options.push('');
@@ -3136,6 +3143,7 @@
             remove.addEventListener('click', () => {
               if (q.options.length <= 2) return;
               q.options.splice(j, 1);
+              if (Array.isArray(q.optionImages)) q.optionImages.splice(j, 1);
               if (q.correctOption === j) q.correctOption = null;
               else if (q.correctOption > j) q.correctOption -= 1;
               renderAll();
@@ -3232,11 +3240,12 @@
           const labelFor = (i) => q.labelStyle === 'numbers' ? `${i + 1}.` : `${String.fromCharCode(97 + i)})`;
           q.items.forEach((item, j) => {
             const row = document.createElement('div');
+            row.className = 'subitem-card';
             row.style.cssText = 'margin-bottom:8px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;';
 
             // ── Linha superior: marcador + texto + ❌ ──
             const topRow = document.createElement('div');
-            topRow.style.cssText = 'display:flex; gap:6px; align-items:flex-start; padding:8px 8px 6px;';
+            topRow.className = 'subitem-main';
 
             const lbl = document.createElement('span');
             lbl.textContent = labelFor(j);
@@ -3270,8 +3279,10 @@
 
             const imgBtn = document.createElement('button');
             imgBtn.type = 'button';
-            imgBtn.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:6px; border:1px dashed #94a3b8; background:#f1f5f9; color:#475569; cursor:pointer; white-space:nowrap;';
-            imgBtn.textContent = item.imageDataUrl ? '🖼️ Substituir' : '📷 Adicionar imagem';
+            imgBtn.className = 'subitem-image-button';
+            imgBtn.textContent = item.imageDataUrl ? 'Imagem ✓' : 'Imagem';
+            imgBtn.title = `Adicionar ou editar imagem do item ${labelFor(j)}`;
+            imgBtn.setAttribute('aria-label', imgBtn.title);
             imgBtn.addEventListener('click', () => fileInput.click());
 
             const thumb = document.createElement('img');
@@ -3303,7 +3314,8 @@
               item.imageDataUrl = ''; item.imageFileName = '';
               thumb.style.display = 'none'; thumb.src = '';
               sizeWrap.style.display = 'none'; rmImgBtn.style.display = 'none';
-              imgBtn.textContent = '📷 Adicionar imagem';
+              imgRow.hidden = true;
+              imgBtn.textContent = 'Imagem';
               renderPreview();
             });
 
@@ -3314,13 +3326,14 @@
                 if (!item.imageSize) item.imageSize = 'small';
                 thumb.src = dataUrl; thumb.style.display = 'block';
                 sizeWrap.style.display = 'flex'; rmImgBtn.style.display = 'block';
-                imgBtn.textContent = '🖼️ Substituir';
+                imgRow.hidden = false;
+                imgBtn.textContent = 'Imagem ✓';
                 renderPreview();
               });
             });
 
-            imgRow.appendChild(fileInput);
-            imgRow.appendChild(imgBtn);
+            imgRow.className = 'subitem-image-tools';
+            imgRow.hidden = !item.imageDataUrl;
             imgRow.appendChild(thumb);
             imgRow.appendChild(sizeWrap);
             imgRow.appendChild(rmImgBtn);
@@ -3343,6 +3356,8 @@
             botRow.appendChild(linesInp);
             botRow.appendChild(linesNote);
 
+            topRow.insertBefore(fileInput, removeBtn);
+            topRow.insertBefore(imgBtn, removeBtn);
             row.appendChild(topRow);
             row.appendChild(imgRow);
             row.appendChild(botRow);
@@ -3377,7 +3392,7 @@
 
           q.items.forEach((item, j) => {
             const row = document.createElement('div');
-            row.className = 'option-row';
+            row.className = 'option-row vf-answer-row';
             row.style.gridTemplateColumns = '1fr auto auto auto';
 
             const input = document.createElement('input');
@@ -3553,7 +3568,8 @@
               remove.disabled = q.options.length <= 2;
               remove.addEventListener('click', () => {
                 if (q.options.length <= 2) return;
-              q.options.splice(j, 1);
+                q.options.splice(j, 1);
+                if (Array.isArray(q.optionImages)) q.optionImages.splice(j, 1);
                 if (q.correctOption === j) q.correctOption = null;
                 else if (q.correctOption > j) q.correctOption -= 1;
                 renderAll();
@@ -3571,6 +3587,7 @@
             addOption.addEventListener('click', () => {
               if (q.options.length >= 6) return;
               q.options.push('');
+              if (Array.isArray(q.optionImages)) q.optionImages.push({ dataUrl: '', fileName: '' });
               renderAll();
             });
             box.appendChild(addOption);
@@ -3607,7 +3624,8 @@
               remove.disabled = q.items.length <= 1;
               remove.addEventListener('click', () => {
                 if (q.items.length <= 1) return;
-              q.items.splice(j, 1);
+                q.items.splice(j, 1);
+                if (Array.isArray(q.optionImages)) q.optionImages.splice(j, 1);
                 renderAll();
               });
               row.appendChild(checkbox);
@@ -3621,6 +3639,7 @@
             addItem.textContent = 'Adicionar item';
             addItem.addEventListener('click', () => {
               q.items.push({ text: '', checked: false });
+              if (Array.isArray(q.optionImages)) q.optionImages.push({ dataUrl: '', fileName: '' });
               renderAll();
             });
             box.appendChild(addItem);
@@ -3804,7 +3823,7 @@
           if (!q.markLayout) q.markLayout = 'lista';
           const markModeHints = {
             unica: 'Para questões com apenas uma alternativa correta.',
-            multipla: 'Para questões em que uma ou mais alternativas podem estar corretas.',
+            multipla: 'Marque todas as respostas corretas para o gabarito.',
             vf: 'Para afirmações respondidas como verdadeiro ou falso.',
             checklist: 'Para listas sem gabarito, apenas com marcação do aluno.',
           };
@@ -3816,12 +3835,12 @@
           modeRow.className = 'alternatives-config';
           modeRow.innerHTML = `
             <div>
-              <label>Tipo</label>
-              <select data-k="markMode">
-                <option value="unica" ${q.markMode === 'unica' ? 'selected' : ''}>Resposta única</option>
-                <option value="multipla" ${q.markMode === 'multipla' ? 'selected' : ''}>Múltiplas respostas</option>
-                <option value="vf" ${q.markMode === 'vf' ? 'selected' : ''}>Verdadeiro ou falso</option>
-                <option value="checklist" ${q.markMode === 'checklist' ? 'selected' : ''}>Checklist sem gabarito</option>
+              <label>Respostas corretas</label>
+              <select data-k="markMode" aria-label="Quantidade de respostas corretas">
+                <option value="unica" ${q.markMode === 'unica' ? 'selected' : ''}>Uma resposta correta</option>
+                <option value="multipla" ${q.markMode === 'multipla' ? 'selected' : ''}>Mais de uma resposta correta</option>
+                ${q.markMode === 'vf' ? '<option value="vf" selected>Verdadeiro ou falso (questão existente)</option>' : ''}
+                ${q.markMode === 'checklist' ? '<option value="checklist" selected>Checklist sem gabarito (questão existente)</option>' : ''}
               </select>
             </div>
             <div>
@@ -3902,6 +3921,7 @@
             remove.addEventListener('click', () => {
               if (q.items.length <= 1) return;
               q.items.splice(j, 1);
+              if (Array.isArray(q.optionImages)) q.optionImages.splice(j, 1);
               renderAll();
             });
 
@@ -4302,7 +4322,10 @@
               </select>
             </div>
           `;
-          body.appendChild(cfgBlock);
+          const mathAppearance = document.createElement('details');
+          mathAppearance.className = 'appearance-settings';
+          mathAppearance.innerHTML = '<summary>Aparência na prova</summary>';
+          mathAppearance.appendChild(cfgBlock);
 
           const block = document.createElement('div');
           block.className = 'row';
@@ -4399,6 +4422,7 @@
           block.appendChild(opsBox);
           block.appendChild(addOp);
           body.appendChild(block);
+          body.appendChild(mathAppearance);
         }
 
         if (q.type === 'expressao_matematica') {
@@ -5269,7 +5293,7 @@
           const imageToggle = document.createElement('button');
           imageToggle.type = 'button';
           imageToggle.className = q.headerImage ? 'primary inline-add-btn' : 'outline inline-add-btn';
-          imageToggle.textContent = q.headerImage ? 'Imagem em uso' : 'Utilizar imagem';
+          imageToggle.textContent = q.headerImage ? 'Configurar imagem' : 'Utilizar imagem';
           const imageMenu = document.createElement('div');
           imageMenu.className = 'image-use-menu hidden';
           const imgSection = document.createElement('div');
@@ -5302,7 +5326,7 @@
                   while(q.optionImages.length < baseOpts.length) q.optionImages.push({dataUrl:'',fileName:''});
                 }
                 imageToggle.className = q.headerImage ? 'primary inline-add-btn' : 'outline inline-add-btn';
-                imageToggle.textContent = q.headerImage ? 'Imagem em uso' : 'Utilizar imagem';
+                imageToggle.textContent = q.headerImage ? 'Configurar imagem' : 'Utilizar imagem';
                 imageMenu.classList.add('hidden');
                 imgSection.className = q.headerImage ? 'image-edit-panel' : 'image-edit-panel hidden';
                 rebuildImgPanel(); renderPreview();
@@ -5312,7 +5336,7 @@
             modeRow.appendChild(mkModeBtn('Sem imagem', null));
             modeRow.appendChild(mkModeBtn('Uma imagem', 'one'));
             modeRow.appendChild(mkModeBtn('Grade/coluna', 'grade'));
-            if (q.type === 'multipla' || q.type === 'marcarx') modeRow.appendChild(mkModeBtn('Nas alternativas', 'alternativas'));
+            // As imagens das alternativas são editadas junto de cada opção.
             imageMenu.appendChild(modeRow);
             if (!hi) return;
             if (hi.mode === 'one') {
@@ -5498,6 +5522,9 @@
               q.showCaptions = node.value === 'captions_lines' || node.value === 'captions';
               q.showAnswerLines = node.value === 'captions_lines' || node.value === 'lines';
             } else if (key === 'markMode') {
+              if (node.value === 'unica' && q.markMode !== 'unica' && q.items.filter(item => item.checked).length > 1) {
+                EditorTools.chooseSingleAnswer(q, idx, node); return;
+              }
               q.markMode = node.value;
               if (Array.isArray(q.items)) {
                 let hasSingleAnswer = false;
@@ -5606,7 +5633,7 @@
       const answerArea = ExamSafety.renderAnswerSpace;
       if (q.type === 'multipla' || (q.type === 'texto_base' && q.answerType === 'multipla')) {
         const opts = q.type === 'texto_base' ? (q.options || []) : q.options;
-        const hasOptImgs = q.headerImage?.mode === 'alternativas' && Array.isArray(q.optionImages);
+        const hasOptImgs = Array.isArray(q.optionImages);
         const items = opts.map((op, i) => {
           const letter = String.fromCharCode(65 + i);
           const label = op || `Alternativa ${letter}`;
@@ -5650,7 +5677,10 @@
       }
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
-          const items = q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}</div>`).join('');
+          const items = q.items.map((item, i) => {
+            const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}${image}</div>`;
+          }).join('');
           return `<div class="spacey">${items}</div>`;
         }
         return `<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>`;
@@ -5671,10 +5701,10 @@
               ? `Item ${i + 1}`
               : `Alternativa ${letter}`;
           if (q.markLayout === 'tabela') {
-            return `<tr><td>${marker}</td><td>${esc(text || fallback)}</td></tr>`;
+            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
           }
           const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
-          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}</span></div>`;
+          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
         }).join('');
         if (q.markLayout === 'tabela') return `<table class="mark-table"><tbody>${items}</tbody></table>`;
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
@@ -5708,14 +5738,16 @@
         if (q.imageAnswerType === 'multipla') {
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
-            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${allImages}<div class="spacey">${options}</div>`;
         }
         if (q.imageAnswerType === 'marcarx') {
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
-            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}${optionImage}</div>`;
           }).join('');
           return `${allImages}<div class="spacey">${items}</div>`;
         }
@@ -6246,12 +6278,12 @@
       `;
     }
 
-    function renderAll() {
+    function renderAll(markChanged = true) {
       EditorTools.forceSnapshot = true;
       const focused = document.activeElement;
       const focusKey = focused?.getAttribute?.('data-k');
       const focusIndex = focused?.closest?.('.qcard')?.dataset.questionIndex;
-      if (EditorTools.initialized) EditorTools.recordHistory();
+      if (markChanged && EditorTools.initialized) EditorTools.recordHistory();
       renderQuestionsEditor();
       EditorTools.enhanceFields();
       if (focusKey && focusIndex != null) {
@@ -6260,7 +6292,7 @@
         replacement?.focus({ preventScroll:true });
         if (typeof focused.selectionStart === 'number' && replacement?.setSelectionRange) replacement.setSelectionRange(focused.selectionStart, focused.selectionEnd);
       }
-      renderPreview();
+      if (markChanged) renderPreview(); else EditorTools.updatePreview();
       setTimeout(renderA4BreakIndicators, 120);
     }
 
@@ -6348,18 +6380,25 @@
     function addQuestionOfType(type) {
       if (EditorTools.bankId) return;
       if (!EditorTools.canEdit()) return;
-      const t = type || selectedQType;
+      const requestedType = type || selectedQType;
+      const t = requestedType === 'multipla'
+        ? 'marcarx'
+        : requestedType === 'associacao_setas'
+          ? 'relacione'
+          : requestedType;
       state.questions.forEach((_, idx) => {
         state.collapsedQuestions[idx] = true;
       });
       state.questions.push(templates[t] ? templates[t]() : templates.multipla());
       state.collapsedQuestions[state.questions.length - 1] = false;
       state.activeQuestionIndex = state.questions.length - 1;
+      EditorTools.previewSelection = state.activeQuestionIndex;
+      EditorTools.pendingPreviewFocus = state.activeQuestionIndex;
       document.body.dataset.editorView = "edit";
       renderAll();
       // Scroll para a nova questão
       const editor = el('questionsEditor');
-      if (editor) setTimeout(() => editor.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+      if (editor) setTimeout(() => editor.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     }
 
     el('addQuestion').addEventListener('click', () => {
@@ -6966,7 +7005,7 @@
       }
       document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button')
         .forEach((node) => {
-          if (node.classList.contains('qnum')) { EditorTools.lockControl(node, EditorTools.loading); return; }
+          if (node.classList.contains('qnum') || node.id === 'questionSearch') { EditorTools.lockControl(node, EditorTools.loading); return; }
           if (['printBtn', 'printBtn2'].includes(node.id)) return;
           EditorTools.lockControl(node, locked || EditorTools.loading);
         });

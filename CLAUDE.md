@@ -585,3 +585,14 @@ Registrar aqui bugs ou inconsistências encontrados durante correções/refatora
 
 
 17/09/2026: prévia paginada A4 e impressão compartilhada, com Paged.js local. Sem impacto Supabase. Ver auditoria/PAGINAS_A4_2026-09-17.md.
+
+17/09/2026: organização visual e busca do editor ajustadas localmente; seleção separada de edição para não indicar salvamento pendente. Aviso duplicado de pontuação removido do painel. Sem impacto Supabase. Ver auditoria/EXPERIENCIA_VISUAL_2026-09-17.md.
+
+17/09/2026: Alternativas simplificadas: pontuação no início, aparência recolhida, imagens por opção e escolha explícita ao reduzir o gabarito para uma resposta. Imagens preservadas na exclusão de opção e renderizadas também no tipo marcarx. Criação acompanha a seleção da prévia. Validado com npm test e navegador local em 1366x768 e 390x844. Sem impacto Supabase; alterações locais, não publicadas.
+
+17/09/2026: edição de Alternativas compactada. Valor e exclusão por ícone foram movidos para o cabeçalho; rótulo e seletor de respostas corretas compartilham uma linha; imagem fica ao lado do texto da alternativa; adicionar alternativa recebeu destaque verde suave. Validado por npm test e navegador local em desktop e 390x844. Cache do editor atualizado para ux4. Sem impacto Supabase; alterações locais, não publicadas.
+
+17/09/2026: estrutura compacta estendida a todos os tipos de questão. Valor curto e exclusão por ícone ficam no cabeçalho; apresentação fica recolhida; título redundante de conteúdo foi removido; ações de adicionar conteúdo recebem destaque suave. Cache atualizado para ux5. Sem impacto Supabase; alterações locais, não publicadas.
+Complemento: painéis preexistentes de aparência foram reutilizados para evitar duplicação em Matemática; imagens opcionais dos demais tipos ficaram recolhidas, sem ocultar as imagens essenciais específicas de cada modelo.
+
+17/09/2026: “Associação por setas” removida da criação por duplicar “Relacione as colunas”. Chamadas antigas de criação são direcionadas ao modelo relacione; questões associacao_setas já salvas continuam editáveis, imprimíveis e válidas. Cache atualizado para ux6. Sem impacto Supabase; alterações locais, não publicadas.

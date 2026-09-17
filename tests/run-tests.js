@@ -315,8 +315,8 @@ async function main() {
     assert(editor.includes('Adicionar item'), 'mark-x add item action missing');
     assert(editor.includes('item.checked'), 'mark-x checked answer missing');
     assert(editor.includes('markMode'), 'alternatives answer mode setting missing');
-    assert(editor.includes('Resposta única'), 'single-answer alternatives mode missing');
-    assert(editor.includes('Múltiplas respostas'), 'multiple-answer alternatives mode missing');
+    assert(editor.includes('Uma resposta correta'), 'single-answer alternatives mode missing');
+    assert(editor.includes('Mais de uma resposta correta'), 'multiple-answer alternatives mode missing');
     assert(editor.includes('Checklist sem gabarito'), 'checklist alternatives mode missing');
     assert(editor.includes("q.markMode === 'vf'"), 'true/false alternatives mode missing');
     assert(editor.includes('alternative-badge'), 'alternatives editor letter badges missing');
@@ -355,7 +355,7 @@ async function main() {
     assert(editor.includes('imageCaption'), 'image caption control missing');
     assert(editor.includes('Largura total'), 'image full width option missing');
     assert(editor.includes('pvChipScoreStatus'), 'score status chip missing');
-    assert(read('js/editor-tools.js').includes('Nenhuma pendência automática'), 'readiness summary missing');
+    assert(read('js/editor-tools.js').includes('Preenchimento conferido'), 'readiness summary missing');
     assert(read('js/exam-safety.js').includes('difere do valor total'), 'score mismatch warning missing');
     assert(editor.includes('collapsedQuestions'), 'collapsed questions state missing');
     assert(editor.includes('toggleQuestionCollapsed'), 'question collapse toggle missing');

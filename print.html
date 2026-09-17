@@ -48,7 +48,7 @@
       display: grid; place-items: center; font-size: 11px; color: #94a3b8;
       padding: 8px; text-align: center; background: #fff; overflow: hidden; flex: 0 0 auto;
     }
-    .logo.has-image { border-style: solid; padding: 0; }
+    .logo.has-image { border:0; border-radius:0; box-shadow:none; background:transparent; padding:0; }
     .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
     .infobox { border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; }
@@ -62,7 +62,8 @@
     .chipbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .chip { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 999px; font-size: 12px; color: #334155; }
     .questions { margin-top: 22px; display: grid; gap: 22px; }
-    .question-block { break-inside: avoid; page-break-inside: avoid; }
+    .question-block { break-inside: avoid; page-break-inside: avoid; border-bottom:1px solid #dbe2ea; padding-bottom:12px; }
+    .question-block:last-child { border-bottom:0; padding-bottom:0; }
     .free-image-item { position: relative; float: left; margin: 4px 14px 8px 0; border: 0; background: transparent; shape-outside: margin-box; }
     .free-image-item.right { float: right; margin: 4px 0 8px 14px; }
     .free-image-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -753,7 +754,7 @@
       };
       const answerArea = ExamSafety.renderAnswerSpace;
       if (q.type === 'multipla') {
-        const hasOptImgs = q.headerImage?.mode === 'alternativas' && Array.isArray(q.optionImages);
+        const hasOptImgs = Array.isArray(q.optionImages);
         const opts = (q.options || []).map((op, i) => {
           const letter = String.fromCharCode(65 + i);
           const optImg = hasOptImgs && isSafeImageDataUrl(q.optionImages[i]?.dataUrl)
@@ -791,7 +792,10 @@
       }
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
-          return `<div class="spacey">${q.items.map((item, i) => `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}</div>`).join('')}</div>`;
+          return `<div class="spacey">${q.items.map((item, i) => {
+            const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}${image}</div>`;
+          }).join('')}</div>`;
         }
         return '<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>';
       }
@@ -812,7 +816,7 @@
               : markMode === 'checklist'
                 ? `Item ${i + 1}`
                 : `Alternativa ${letter}`;
-            return `<tr><td>${marker}</td><td>${esc(text || fallback)}</td></tr>`;
+            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
           }).join('');
           return `<table class="mark-table"><tbody>${rows}</tbody></table>`;
         }
@@ -831,7 +835,7 @@
               ? `Item ${i + 1}`
               : `Alternativa ${letter}`;
           const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
-          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}</span></div>`;
+          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
         }).join('')}</div>`;
       }
       if (q.type === 'lacunas') {
@@ -861,14 +865,16 @@
         if (q.imageAnswerType === 'multipla') {
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
-            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${allImages}<div class="spacey">${options}</div>`;
         }
         if (q.imageAnswerType === 'marcarx') {
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
-            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}</div>`;
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}${optionImage}</div>`;
           }).join('');
           return `${allImages}<div class="spacey">${items}</div>`;
         }
@@ -905,7 +911,8 @@
         if (q.answerType === 'multipla') {
           const opts = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
-            return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${textBox}<div class="spacey">${opts}</div>`;
         }
