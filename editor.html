@@ -621,31 +621,6 @@
       font-size: 12px;
       height: 32px;
     }
-    .q-tools-wrap { position: relative; }
-    .q-tools-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      min-width: 190px;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #fff;
-      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
-      display: grid;
-      gap: 6px;
-      z-index: 30;
-    }
-    .q-tools-menu.hidden { display: none; }
-    .q-tools-menu button {
-      width: 100%;
-      justify-content: flex-start;
-      text-align: left;
-      background: #f8fafc;
-      border-color: #e2e8f0;
-      color: #0f172a;
-    }
-    .q-tools-menu button.danger { color: var(--danger); border-color: rgba(220,38,38,0.25); }
     .question-action-row {
       display: flex;
       gap: 8px;
@@ -1298,11 +1273,6 @@
       }
       .qhead { grid-template-columns: 1fr; }
       .question-essentials { grid-template-columns: 1fr; }
-      .q-tools-menu {
-        position: static;
-        min-width: 0;
-        margin-top: 6px;
-      }
       .question-action-row { display: grid; grid-template-columns: 1fr; }
       .image-use-wrap { display: grid; }
       .image-use-menu {
@@ -2922,13 +2892,14 @@
         headLeft.querySelector('.qnum').addEventListener('click', () => toggleQuestionCollapsed(idx));
         head.appendChild(headLeft);
 
-        const actions = document.createElement('div');
-        actions.className = 'qhead-actions';
+        wrap.dataset.questionIndex = idx;
+        wrap.id = `question-${idx}`;
+        if (isCollapsed) { wrap.appendChild(head); root.appendChild(wrap); return; }
 
         const bankBtn = document.createElement('button');
         bankBtn.type = 'button'; bankBtn.className = 'outline';
         bankBtn.title = 'Salvar no banco de questões';
-        bankBtn.textContent = 'Salvar no banco';
+        bankBtn.textContent = 'Salvar no banco de questões';
         bankBtn.addEventListener('click', () => saveQuestionToBank(idx));
 
         const freeImageInput = document.createElement('input');
@@ -2955,15 +2926,14 @@
         const freeImageBtn = document.createElement('button');
         freeImageBtn.type = 'button';
         freeImageBtn.className = 'outline';
-        freeImageBtn.title = 'Adicionar imagem livre para posicionar no preview';
-        freeImageBtn.textContent = 'Imagem livre';
+        freeImageBtn.title = 'Adicionar imagem complementar à questão';
+        freeImageBtn.textContent = 'Adicionar imagem complementar';
         freeImageBtn.addEventListener('click', () => freeImageInput.click());
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'danger';
-        removeBtn.textContent = '×';
-      removeBtn.title = 'Remover imagem';
+        removeBtn.textContent = 'Excluir questão';
         removeBtn.title = 'Remover questão';
         removeBtn.addEventListener('click', () => {
           if (!EditorTools.canEdit() || EditorTools.bankId) return;
@@ -2976,58 +2946,26 @@
           renderAll();
         });
 
-        const hideNumBtn = document.createElement('button');
-        hideNumBtn.type = 'button';
-        hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? ' active' : '');
-        hideNumBtn.title = 'Ocultar/mostrar número da questão';
-        hideNumBtn.textContent = q.hideNumber ? 'Mostrar numero' : 'Ocultar numero';
-        hideNumBtn.addEventListener('click', () => {
-          q.hideNumber = !q.hideNumber;
-          hideNumBtn.textContent = q.hideNumber ? 'Mostrar numero' : 'Ocultar numero';
-          hideNumBtn.className = 'outline q-toggle-btn' + (q.hideNumber ? '' : ' active');
-          renderAll();
+        const presentation = document.createElement('fieldset'); presentation.className = 'question-presentation';
+        const legend = document.createElement('legend'); legend.textContent = 'Apresentação'; presentation.appendChild(legend);
+        const numberLabel = document.createElement('label'); numberLabel.className = 'question-check';
+        const numberCheck = document.createElement('input'); numberCheck.type = 'checkbox'; numberCheck.checked = !q.hideNumber;
+        numberCheck.dataset.presentation = 'number';
+        numberCheck.addEventListener('change', () => {
+          if (!EditorTools.canEdit()) { numberCheck.checked = !q.hideNumber; return; }
+          q.hideNumber = !numberCheck.checked; renderPreview();
         });
-
+        numberLabel.append(numberCheck, document.createTextNode('Mostrar número da questão')); presentation.appendChild(numberLabel);
         const hasAnswerSpace = ['discursiva', 'imagem', 'texto_base', 'problema_matematico', 'tabela', 'comparar_imagens'].includes(q.type);
-        const showSpaceBtn = document.createElement('button');
-        showSpaceBtn.type = 'button';
-        showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
-        showSpaceBtn.title = 'Mostrar/ocultar espaço de resposta na impressão';
-        showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Ocultar resposta' : 'Mostrar resposta';
-        showSpaceBtn.style.display = hasAnswerSpace ? '' : 'none';
-        showSpaceBtn.addEventListener('click', () => {
-          q.showAnswerSpace = !(q.showAnswerSpace !== false);
-          showSpaceBtn.textContent = q.showAnswerSpace !== false ? 'Ocultar resposta' : 'Mostrar resposta';
-          showSpaceBtn.className = 'outline q-toggle-btn' + (q.showAnswerSpace !== false ? ' active' : '');
-          renderAll();
+        const answerLabel = document.createElement('label'); answerLabel.className = 'question-check';
+        const answerCheck = document.createElement('input'); answerCheck.type = 'checkbox'; answerCheck.checked = q.showAnswerSpace !== false;
+        answerCheck.dataset.presentation = 'answer-space';
+        answerCheck.addEventListener('change', () => {
+          if (!EditorTools.canEdit()) { answerCheck.checked = q.showAnswerSpace !== false; return; }
+          q.showAnswerSpace = answerCheck.checked; renderPreview();
         });
+        answerLabel.append(answerCheck, document.createTextNode('Mostrar espaço para o aluno responder'));
 
-        const toolsWrap = document.createElement('div');
-        toolsWrap.className = 'q-tools-wrap';
-        const moreBtn = document.createElement('button');
-        moreBtn.type = 'button';
-        moreBtn.className = 'outline';
-        moreBtn.textContent = 'Mais';
-        const toolsMenu = document.createElement('div');
-        toolsMenu.className = 'q-tools-menu hidden';
-        moreBtn.addEventListener('click', (event) => {
-          event.stopPropagation();
-          toolsMenu.classList.toggle('hidden');
-        });
-        if (!EditorTools.bankId) toolsMenu.appendChild(bankBtn);
-        toolsMenu.appendChild(freeImageBtn);
-        toolsMenu.appendChild(hideNumBtn);
-        if (hasAnswerSpace) toolsMenu.appendChild(showSpaceBtn);
-        if (!EditorTools.bankId) toolsMenu.appendChild(removeBtn);
-        toolsWrap.appendChild(moreBtn);
-        toolsWrap.appendChild(toolsMenu);
-        actions.appendChild(toolsWrap);
-        head.appendChild(actions);
-        wrap.appendChild(freeImageInput);
-
-        wrap.dataset.questionIndex = idx;
-        wrap.id = `question-${idx}`;
-        if (isCollapsed) { wrap.appendChild(head); root.appendChild(wrap); return; }
         const body = document.createElement('div');
         body.className = 'row';
         body.style.marginTop = '12px';
@@ -3057,8 +2995,6 @@
         const bnccDiv = document.createElement('div');
         bnccDiv.className = 'q-head-field bncc';
         bnccDiv.innerHTML = `<label>BNCC</label><input data-k="bncc" value="${esc(q.bncc||'')}" placeholder="Ex.: EF02MA01" />`;
-        actions.insertBefore(points, toolsWrap);
-        actions.insertBefore(bnccDiv, toolsWrap);
 
         const secEnun = document.createElement('div');
         secEnun.className = 'prop-sec'; secEnun.textContent = 'Essenciais';
@@ -5341,35 +5277,24 @@
             }
           };
           rebuildImgPanel();
-          const actionRow = body.querySelector('.question-action-row');
-          if (actionRow) {
-            actionRow.appendChild(imgWrap);
-          } else {
-            const addButtons = Array.from(body.querySelectorAll('button')).filter((button) => {
-              const text = (button.textContent || '').trim().toLowerCase();
-              return !button.classList.contains('danger') && (
-                text.includes('adicionar') ||
-                text.startsWith('+') ||
-                text.startsWith('＋')
-              );
-            });
-            const addButton = addButtons[addButtons.length - 1];
-            if (addButton) {
-              const compactRow = document.createElement('div');
-              compactRow.className = 'question-action-row';
-              addButton.classList.add('inline-add-btn');
-              addButton.parentNode.insertBefore(compactRow, addButton.nextSibling);
-              compactRow.appendChild(addButton);
-              compactRow.appendChild(imgWrap);
-            } else {
-              body.appendChild(imgWrap);
-            }
-          }
+          body.appendChild(imgWrap);
           body.appendChild(imgSection);
         }
 
+        if (hasAnswerSpace) body.appendChild(answerLabel);
+        const images = document.createElement('section'); images.className = 'question-images';
+        const imagesTitle = document.createElement('h3'); imagesTitle.textContent = 'Imagens'; images.appendChild(imagesTitle);
+        const imageUse = body.querySelector('.image-use-wrap');
+        const imageEditor = body.querySelector('.image-edit-panel');
+        if (imageUse) images.appendChild(imageUse);
+        if (imageEditor) images.appendChild(imageEditor);
+        const imageHint = document.createElement('p'); imageHint.className = 'small';
+        imageHint.textContent = 'A imagem complementar acompanha a questão. Ajuste seu tamanho e posição neste bloco.';
+        images.append(imageHint, freeImageBtn, freeImageInput);
+        body.appendChild(images);
+
         const scoring = document.createElement('div'); scoring.className = 'question-scoring';
-        scoring.appendChild(points); body.appendChild(scoring);
+        scoring.appendChild(points); body.appendChild(scoring); body.appendChild(presentation);
         const settings = document.createElement('details'); settings.className = 'question-settings';
         const settingsTitle = document.createElement('summary'); settingsTitle.textContent = 'Habilidade da questão';
         settings.append(settingsTitle, bnccDiv); body.appendChild(settings);
@@ -5430,6 +5355,10 @@
           });
         }));
 
+        if (!EditorTools.bankId) {
+          const footer = document.createElement('div'); footer.className = 'question-footer';
+          footer.append(bankBtn, removeBtn); body.appendChild(footer);
+        }
         wrap.appendChild(head);
         wrap.appendChild(body);
         root.appendChild(wrap);
@@ -6301,9 +6230,6 @@
       }
       if (!e.target.closest('.settings-wrap')) {
         settingsMenu.classList.add('hidden');
-      }
-      if (!e.target.closest('.q-tools-wrap')) {
-        document.querySelectorAll('.q-tools-menu').forEach((menu) => menu.classList.add('hidden'));
       }
     });
 

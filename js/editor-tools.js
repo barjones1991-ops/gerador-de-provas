@@ -190,7 +190,7 @@ const EditorTools = {
   addImageFields(card, question, index) {
     if (!question.freeImages?.length) return;
     const group = document.createElement('fieldset'); group.className = 'free-image-fields';
-    const legend = document.createElement('legend'); legend.textContent = 'Posição e tamanho das imagens livres'; group.appendChild(legend);
+    const legend = document.createElement('legend'); legend.textContent = 'Posição e tamanho das imagens complementares'; group.appendChild(legend);
     question.freeImages.forEach((image, imageIndex) => {
       const row = document.createElement('div'); row.className = 'image-control-row';
       const title = document.createElement('strong'); title.textContent = `Imagem ${imageIndex + 1}`; row.appendChild(title);
@@ -210,7 +210,7 @@ const EditorTools = {
       remove.addEventListener('click', () => { if (this.canEdit()) { question.freeImages.splice(imageIndex, 1); renderAll(); } });
       row.appendChild(remove); group.appendChild(row);
     });
-    card.appendChild(group);
+    card.querySelector('.question-images')?.appendChild(group);
   },
   updatePreview() {
     if (!this.initialized) return;
@@ -404,7 +404,7 @@ const EditorTools = {
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
         if (this.modal) { if (this.modal.dismiss) this.modal.dismiss(); else { this.modal.classList.remove('show'); this.closeModal(); } }
-        document.querySelectorAll('.top-question-menu,.settings-menu,.q-tools-menu').forEach(menu => menu.classList.add('hidden'));
+        document.querySelectorAll('.top-question-menu,.settings-menu').forEach(menu => menu.classList.add('hidden'));
         document.querySelectorAll('[aria-expanded="true"][aria-controls]').forEach(button => { button.setAttribute('aria-expanded', 'false'); button.focus(); });
       }
       if (this.modal && event.key === 'Tab') {

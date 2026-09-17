@@ -22,6 +22,17 @@ body { padding-top: var(--editor-bar-height,155px); padding-left: 200px; }
 .question-settings { padding:8px; background:#f8fafc; border-radius:8px; }
 .question-settings .bncc { margin-top:8px; }
 #lastSaved { color:#334155; }
+.question-images { border-top:1px solid #e2e8f0; padding-top:12px; display:grid; gap:10px; min-width:0; }
+.question-images h3 { margin:0; font-size:14px; }
+.question-images .small { margin:0; }
+.question-images > button { justify-self:start; }
+.question-presentation { border:1px solid #e2e8f0; border-radius:8px; padding:12px; }
+.question-presentation legend { font-weight:600; font-size:13px; }
+.qcard label.question-check { display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:normal; font-weight:400; margin:4px 0; }
+.qcard .question-check input { width:18px; height:18px; flex:0 0 18px; margin:0; }
+.question-footer { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:16px; }
+.question-footer .danger { background:transparent; color:#b91c1c; border:1px solid #fecaca; }
+@media (max-width:600px) { .question-footer { flex-direction:column; } .question-footer button { width:100%; min-height:42px; } }
 #draftRecoveryChoice { padding:12px; background:#fffbeb; color:#78350f; border:1px solid #f59e0b; border-radius:8px; }
 #draftRecoveryChoice button { margin:4px; }
 #examDetails, #questionOverview, #readinessDetails { border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:12px 0; }

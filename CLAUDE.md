@@ -28,6 +28,8 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 
 ## Estado Atual
 
+Em 09/09/2026, reorganização local das questões autorizada pelo usuário: menu Mais removido. Salvar no banco e Excluir questão ficam no rodapé da questão expandida; imagens complementares e seus controles ficam no bloco Imagens; numeração e espaço de resposta usam caixas de seleção explícitas. Questões recolhidas mostram apenas identificação/resumo. Edição do registro do banco continua sem rodapé de exclusão/salvamento duplicado. Sem SQL adicional; publicação e conferência visual pendentes. Testes de comportamento em `tests/flow-refinements.cjs`.
+
 Refinamento local após a revisão de `376776a`: por solicitação do usuário, removidas as ações de duplicar, subir e descer questões. Edição do banco exige exatamente uma questão; painel usa a conferência compartilhada antes de enviar; provas novas recebem o logo escolar; impressão reconsulta o pedido; recuperação de rascunho oferece escolhas explícitas. Não exige nova migração SQL. Ver `auditoria/CORRECOES_REVISAO_376776a.md` e `tests/flow-refinements.cjs`.
 
 Refinamento local do fluxo do professor: envio/reenvio no editor, consulta durante revisão, devolutiva preservada e impressão fora da interface do professor. Requer `migrations/20260908_03_fluxo_professor.sql` no Supabase para impedir edição/exclusão durante revisão também no servidor. A migração está incorporada ao setup, mas o usuário informou sua execução no Supabase em 08/09/2026, sem verificação administrativa independente pelo agente. Consulte `auditoria/REFINAMENTO_PROFESSOR_2026-09-08.md`.

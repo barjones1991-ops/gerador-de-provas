@@ -12,6 +12,28 @@ function extract(file,name,spaces) {
   return tail.slice(0,end.index+end[0].length);
 }
 (async()=>{
+  const organized=await boot({questions:[{type:'discursiva',text:'Questão',points:'10,0',freeImages:[{dataUrl:'data:image/png;base64,AA==',width:180,height:120}]}]});
+  assert(!organized.document.querySelector('.question-footer'), 'collapsed questions contain only the heading');
+  organized.run('state.collapsedQuestions={}; renderAll();');
+  assert(!organized.document.querySelector('.q-tools-menu'));
+  const card=organized.document.querySelector('.qcard');
+  assert(card.querySelector('.question-images .free-image-fields'));
+  assert(card.querySelector('.question-footer button[title="Salvar no banco de questões"]'));
+  assert(card.querySelector('.question-footer button[title="Remover questão"]'));
+  const number=card.querySelector('[data-presentation="number"]'); number.checked=false; organized.event(number,'change');
+  const answer=card.querySelector('[data-presentation="answer-space"]'); answer.checked=false; organized.event(answer,'change');
+  assert.equal(organized.run('state.questions[0].hideNumber'),true);
+  assert.equal(organized.run('state.questions[0].showAnswerSpace'),false);
+  await organized.run('saveToCloud()');
+  const stored=JSON.parse(organized.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0];
+  assert.equal(stored.hideNumber,true); assert.equal(stored.showAnswerSpace,false);
+  assert.equal(stored.freeImages.length,1);
+  const locked=await boot({status:'enviada'}); locked.run('state.collapsedQuestions={}; renderAll();');
+  assert(locked.document.querySelector('[data-presentation="number"]').disabled);
+  assert(locked.document.querySelector('.question-footer button').disabled);
+  const record=await boot({bank:true}); record.run('state.collapsedQuestions={}; renderAll();');
+  assert(!record.document.querySelector('.question-footer'));
+  console.log('OK REFINAMENTO questao sem menu preserva controles salvamento imagens e permissoes');
   for (const bank of [false,true]) {
     const app=await boot({bank}); app.run('state.collapsedQuestions={}; renderAll();');
     assert.equal(app.run('typeof duplicateQuestion'),'undefined');
