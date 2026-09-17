@@ -7,7 +7,7 @@
   <script src="js/exam-safety.js?v=20260917-r2"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
-  <style>
+  <style data-exam-layout>
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -390,7 +390,7 @@
     @media screen { .embedded-preview .preview-focused { outline:2px solid #2563eb; outline-offset:4px; scroll-margin-top:12px; } }
   </style>
 
-  <style>
+  <style data-exam-layout>
 
       body { background: #fff; }
 
@@ -431,8 +431,13 @@
     .page { width:192mm; max-width:none; min-height:279mm; padding:0; margin:8mm auto; }
     .embedded-preview .toolbar { display:none; }
     .embedded-preview .page { margin:0 auto; }
+    @media screen { .embedded-preview #root { padding-bottom:100vh; } }
     @media print { .page { width:auto; min-height:0; margin:0; } }
   </style>
+<script>window.PagedConfig = { auto:false };</script>
+  <script defer src="js/vendor/paged-0.4.3.js"></script>
+  <script defer src="js/exam-pagination.js?v=20260917-a4"></script>
+  <link rel="stylesheet" href="css/exam-pagination.css?v=20260917-a4">
 </head>
 <body>
   <div class="toolbar no-print">
@@ -500,6 +505,7 @@
         currentExam = fresh; printProfile = profile; renderExam(currentExam); updatePrintToolbar(currentExam, printAuth, profile);
         await Promise.all([...document.querySelectorAll('#root img')].map(img => img.decode ? img.decode() : Promise.resolve()));
         if (document.fonts?.ready) await document.fonts.ready;
+        await window.ExamPagination?.ready();
         if (printAuth.getCurrentUser()?.id !== printViewerId) throw new Error('A conta mudou durante a preparação. Reabra a prova.');
         const originalTitle = document.title;
         document.title = ' ';
@@ -1307,7 +1313,7 @@
     }
 
     function renderQuestionBlock(q, i, questionNumber) {
-      return `<div class="question-block">
+      return `<div class="question-block" data-question-index="${i}">
               <div class="qtitle">
                 ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
               </div>
@@ -1321,12 +1327,15 @@
     function focusPreviewQuestion(index) {
       if (!Number.isInteger(index) || index < 0) return;
       const blocks = document.querySelectorAll('#root .questions > .question-block');
-      const target = blocks[index]; if (!target) return;
+      const target = window.ExamPagination?.focus(index) || blocks[index]; if (!target) return;
       document.querySelectorAll('.preview-focused').forEach(node => node.classList.remove('preview-focused'));
       target.classList.add('preview-focused');
       target.setAttribute('tabindex','-1');
       target.focus({preventScroll:true});
-      target.scrollIntoView?.({behavior:'smooth',block:'start'});
+      // Scroll only inside the frame. scrollIntoView also moves the editor's ancestors.
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({top:Math.max(0,target.getBoundingClientRect().top + window.scrollY - 12),behavior:'instant'});
+      } else target.scrollIntoView?.({behavior:'auto',block:'start'});
     }
     function patchPreviewQuestion(index, rawQuestion) {
       if (!currentExam || !Number.isInteger(index) || index < 0 || index >= currentExam.questions.length) return;
@@ -1346,6 +1355,7 @@
         if (key) key.remove();
         if (answers.firstElementChild) document.getElementById('root').appendChild(answers.firstElementChild);
       }
+      window.ExamPagination?.schedule();
     }
 
     function renderExam(rawExam, answerKey = null) {
@@ -1389,9 +1399,11 @@
         </div>
         ${showAnswerKey ? renderAnswerKey(questions) : ''}
       `;
+      window.ExamPagination?.schedule();
     }
 
     function showMessage(title, text) {
+      window.ExamPagination?.reset();
       document.getElementById('root').innerHTML = `<div class="message"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>`;
     }
 

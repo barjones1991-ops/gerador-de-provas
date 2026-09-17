@@ -28,6 +28,12 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 
 ## Estado Atual
 
+Correção local do foco da prévia: atualização imediata cancela timer atrasado; rolagem ocorre dentro do iframe com contêiner externo no topo, inclusive para última questão. Sem publicação. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
+
+Refinamento local da questão única: selecionar uma questão recolhe Questões da prova e sincroniza Ir à questão na prévia, mantendo o editor aberto. A prévia recebe o mesmo destino após carregar. Sem publicação ou mudança no conteúdo salvo.
+
+Ajuste local após publicação 78a6940, solicitado pelo usuário: lista Questões da prova é a navegação; cartões ficam ocultos até seleção, com apenas uma questão visível e expandida. Nova questão e inserção pelo banco selecionam o item; fechar/excluir limpa seleção. Registro individual do banco continua aberto. Não altera conteúdo persistido/SQL. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
+
 Em 17/09/2026, usuário autorizou publicar as etapas 2–11 acumuladas e confirmou que os marcadores funcionaram em outro navegador, identificando cache como causa do relato visual. Lote inclui gabaritos, conferência, formatos abertos, navegação, imagens em lote e marcadores; CSS/JS possuem versão para atualização do cache. npm test aprovado antes do envio; sem migração Supabase. Os registros abaixo descrevem a implementação local anterior à autorização. A revisão visual integral dos 30 tipos/PDF permanece pendente, sem impedir a publicação explicitamente autorizada.
 
 Após relato de divergência visual dos marcadores: superfície imagem/números recebeu geometria explícita no componente e versão do CSS atualizada para invalidar cache. Arraste verificado em navegador real com fixture local, inclusive sem regras externas dos marcadores. Não houve acesso à sessão local autenticada do usuário; verificação da prova real ainda pendente.
@@ -576,3 +582,6 @@ Diagnóstico de 17/09/2026: omissões dos cinco tipos no gabarito corrigidas loc
 Achados de respostas mistas da etapa 5 corrigidos localmente na etapa 6. Ver auditoria/ETAPA6_RESPOSTAS_MISTAS_2026-09-17.md.
 
 Registrar aqui bugs ou inconsistências encontrados durante correções/refatorações quando não forem resolvidos no mesmo commit.
+
+
+17/09/2026: prévia paginada A4 e impressão compartilhada, com Paged.js local. Sem impacto Supabase. Ver auditoria/PAGINAS_A4_2026-09-17.md.

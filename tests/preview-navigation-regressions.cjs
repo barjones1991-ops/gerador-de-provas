@@ -5,7 +5,11 @@ const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');con
  const frame=app.document.getElementById('canonicalPreview');Object.defineProperty(frame,'contentWindow',{value:{postMessage:(data,origin)=>messages.push({data,origin})},configurable:true});
  app.ctx.EditorTools.previewReady=false;app.ctx.EditorTools.previewQuestion(1);
  assert.equal(messages.length,0);assert.equal(app.ctx.EditorTools.pendingPreviewFocus,1);
+ app.ctx.EditorTools.previewTimer=1234;app.timers.set(1234,()=>{throw Error('atualização atrasada')});
+ app.document.querySelector('.preview-scroll').scrollTop=300;
  app.ctx.EditorTools.previewReady=true;app.ctx.EditorTools.updatePreview();
+ assert(!app.timers.has(1234),'atualização imediata cancela reconstrução atrasada');
+ assert.equal(app.document.querySelector('.preview-scroll').scrollTop,0);
  assert.equal(messages.at(-1).data.type,'exam-preview-focus');assert.equal(messages.at(-1).data.index,1);
  assert.equal(messages.at(-2).data.type,'exam-preview');assert.equal(messages.at(-1).origin,'https://example.invalid');
  app.document.getElementById('previewNext').onclick();assert.equal(messages.at(-1).data.index,2);assert(app.document.getElementById('previewNext').disabled);
@@ -24,5 +28,6 @@ const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');con
  for(const invalid of [-1,99,0.5,'1'])ctx.focusPreviewQuestion(invalid);assert.equal(scrolled,0);
  // The existing origin/source gate must cover navigation as well as content updates.
  assert(html.indexOf('if (event.origin !== location.origin || event.source !== window.parent) return;') < html.indexOf("if (event.data?.type === 'exam-preview-focus')"));
+ let insideScroll;ctx.window.scrollY=100;ctx.window.scrollTo=options=>insideScroll=options;blocks[2].getBoundingClientRect=()=>({top:500});ctx.focusPreviewQuestion(2);assert.equal(insideScroll.top,588);assert.equal(scrolled,0,'não deve rolar ancestrais externos');
  console.log('OK NAVEGACAO seletor, anterior/próxima, limites, carregamento, exclusão, número oculto e foco');
 })().catch(e=>{console.error(e);process.exitCode=1});

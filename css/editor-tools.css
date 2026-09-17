@@ -107,3 +107,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .marker-precise { font-size:12px; }
 .marker-precise input { width:80px; }
 @media(max-width:600px) { .marker-answer-row { grid-template-columns:32px 1fr; } .marker-answer-row > :not(.marker-row-number) { grid-column:2; } }
+
+#questionOutline button[aria-current="true"] { background:#dbeafe; border-color:#2563eb; color:#1e40af; }

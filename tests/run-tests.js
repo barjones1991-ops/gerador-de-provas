@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html', 'setup.html'];
-const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js'];
+const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js', 'js/exam-pagination.js'];
 const questionTypes = [
   'multipla',
   'discursiva',
@@ -1136,6 +1136,12 @@ async function main() {
     const safety = require('../js/exam-safety.js');
     assert(safety.markerPosition(0) === 0, 'zero must not become the center');
     assert(read('print.html').includes('ExamSafety.markerPosition(marker.x)'), 'print must use the shared coordinate rule');
+  });
+
+  await test('question selection is separate from persisted exam content', () => {
+    const editor = read('editor.html');
+    assert(editor.includes('activeQuestionIndex: null'), 'existing exams start without an open question');
+    assert(editor.includes('wrap.hidden = !isActive'), 'unselected cards must stay hidden');
   });
 
   await test('local HTTP server returns 200 for public pages', async () => {

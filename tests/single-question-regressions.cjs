@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');const {boot}=require('./editor-flows.cjs');
+(async()=>{
+ const questions=[0,1,2].map(i=>({type:'discursiva',text:'Questão '+i,points:'1',lines:2}));const app=await boot({questions});
+ const visible=()=>[...app.document.querySelectorAll('.qcard')].filter(card=>!card.hidden);
+ assert.equal(visible().length,0,'ao abrir, nenhuma questão repetida abaixo da lista');
+ assert.equal(app.document.querySelectorAll('#questionOutline button').length,3);
+ app.document.getElementById('questionOverview').open=true;
+ app.event(app.document.querySelectorAll('#questionOutline button')[1],'click');assert.equal(visible().length,1);assert.equal(visible()[0].id,'question-1');assert(!visible()[0].classList.contains('collapsed'));
+ assert.equal(app.document.getElementById('questionOverview').open,false);
+ assert.equal(app.document.getElementById('previewQuestionSelect').value,'1');
+ assert.equal(app.document.body.dataset.editorView,'edit');
+ app.ctx.EditorTools.updatePreview();
+ assert.equal(app.document.querySelector('#questionOutline [aria-current]').textContent,'2. Questão 1');
+ const text=visible()[0].querySelector('[data-k="text"]');text.value='Alterada';app.event(text,'input');
+ app.document.getElementById('questionOverview').open=true;app.ctx.EditorTools.focusQuestion(0);assert.equal(app.document.getElementById('questionOverview').open,false);assert.equal(app.document.getElementById('previewQuestionSelect').value,'0');assert.equal(visible().length,1);assert.equal(visible()[0].id,'question-0');assert.equal(app.run('state.questions[1].text'),'Alterada');
+ app.run("addQuestionOfType('discursiva')");assert.equal(visible().length,1);assert.equal(visible()[0].id,'question-3');assert(!visible()[0].classList.contains('collapsed'));
+ app.event(visible()[0].querySelector('.qnum'),'click');assert.equal(visible().length,0);
+ app.ctx.EditorTools.focusQuestion(2);const remove=[...visible()[0].querySelectorAll('button')].find(b=>b.textContent==='Excluir questão');app.event(remove,'click');assert.equal(visible().length,0);assert.equal(app.run('state.questions.length'),3);
+ app.ctx.currentQuestionBankResults=[{question:{type:'discursiva',text:'Do banco',points:'1'}}];app.run('insertBankQuestion(0)');assert.equal(visible().length,1);assert.equal(visible()[0].id,'question-3');
+ await app.run('saveToCloud()');const payload=JSON.parse(app.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body);assert.equal(payload.questions.length,4);assert.equal(payload.questions[1].text,'Alterada');assert(!Object.hasOwn(payload,'activeQuestionIndex'));
+ const reopened=await boot({questions:payload.questions});assert(![...reopened.document.querySelectorAll('.qcard')].some(card=>!card.hidden));
+ const bank=await boot({bank:true});assert.equal([...bank.document.querySelectorAll('.qcard')].filter(card=>!card.hidden).length,1,'registro do banco abre para editar');
+ const locked=await boot({status:'enviada',questions});locked.ctx.EditorTools.focusQuestion(1);assert.equal([...locked.document.querySelectorAll('.qcard')].filter(card=>!card.hidden).length,1,'consulta também seleciona uma questão');
+ console.log('OK QUESTAO UNICA lista, seleção, nova, fechar, exclusão, banco, salvamento e consulta');
+})().catch(e=>{console.error(e);process.exitCode=1});

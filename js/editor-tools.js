@@ -137,6 +137,7 @@ const EditorTools = {
       state.questions = snapshot.questions.map(ExamSafety.normalizeQuestion);
       state.logoDataUrl = snapshot.logoDataUrl;
       state.collapsedQuestions = {};
+      if (state.activeQuestionIndex >= state.questions.length) state.activeQuestionIndex = null;
       applyStateToInputs(); this.refreshBankFields(); renderAll();
       // Defaults de apresentação não criam uma nova ação nem descartam o ramo Refazer.
       this.history[next] = examFingerprint();
@@ -176,8 +177,10 @@ const EditorTools = {
       const q = state.questions[index];
       const summary = card.querySelector('.qnum');
       if (summary) {
-        summary.setAttribute('aria-expanded', String(!state.collapsedQuestions[index]));
-        summary.setAttribute('aria-label', `Questão ${index + 1}: ${state.collapsedQuestions[index] ? 'expandir' : 'recolher'}`);
+        summary.setAttribute('aria-expanded', String(!card.hidden));
+        summary.setAttribute('aria-label', `Questão ${index + 1}: fechar edição`);
+        summary.title = 'Fechar edição desta questão';
+        if (this.bankId) summary.disabled = true;
       }
       if (!state.collapsedQuestions[index] && q && !card.querySelector('.free-image-fields')) this.addImageFields(card, q, index);
     });
@@ -228,6 +231,7 @@ const EditorTools = {
   },
   updatePreview() {
     if (!this.initialized) return;
+    clearTimeout(this.previewTimer);
     this.updateQuestionSummaries();
     const title = document.getElementById('activeExamTitle');
     if (title) title.textContent = this.bankId ? 'Editar questão do banco' : state.school.examTitle || 'Prova sem título';
@@ -247,6 +251,7 @@ const EditorTools = {
       state.questions.forEach((q, index) => {
         const button = document.createElement('button'); button.type = 'button';
         button.textContent = `${index + 1}. ${String(q.text || typeLabel[q.type] || 'Questão').slice(0, 70)}`;
+        if (index === state.activeQuestionIndex) button.setAttribute('aria-current','true');
         button.addEventListener('click', () => this.focusQuestion(index)); nav.appendChild(button);
       });
     }
@@ -260,7 +265,11 @@ const EditorTools = {
       }, answerKey: Boolean(document.getElementById('previewAnswerKey')?.checked) }, location.origin);
       if (Number.isInteger(this.pendingPreviewFocus)) {
         const index = Math.min(this.pendingPreviewFocus, state.questions.length - 1);
-        if (index >= 0) frame.contentWindow.postMessage({type:'exam-preview-focus',index}, location.origin);
+        if (index >= 0) {
+          const viewport = frame.closest('.preview-scroll');
+          if (viewport) viewport.scrollTop = 0;
+          frame.contentWindow.postMessage({type:'exam-preview-focus',index}, location.origin);
+        }
         this.pendingPreviewFocus = null;
       }
       this.forceSnapshot = false; this.previewQuestionCount = state.questions.length; this.dirtyQuestions.clear();
@@ -291,7 +300,14 @@ const EditorTools = {
   focusQuestion(index) {
     document.body.dataset.editorView = 'edit';
     if (index == null || index < 0) { document.getElementById('examDetails').open = true; document.getElementById('examTitle').focus(); return; }
+    if (!Number.isInteger(index) || index >= state.questions.length) return;
+    state.activeQuestionIndex = index;
+    const overview = document.getElementById('questionOverview');
+    if (overview) overview.open = false;
+    this.previewSelection = index;
+    this.pendingPreviewFocus = index;
     state.collapsedQuestions[index] = false; renderAll();
+    this.updatePreview();
     const card = document.getElementById(`question-${index}`);
     card?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); card?.querySelector('textarea,input,button')?.focus();
   },
@@ -403,7 +419,7 @@ const EditorTools = {
     readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><p class="small">Esta conferência verifica preenchimento, pontuação e estrutura do gabarito. Revise também o conteúdo e as respostas antes de aplicar a prova.</p><div id="examIssues"></div>';
     overview.after(readiness);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"> Mostrar gabarito</label><label>Zoom <select id="previewZoom" aria-label="Zoom da prévia"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia">Anterior</button><label for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia">Próxima</button></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"> Mostrar gabarito</label><label>Zoom <select id="previewZoom" aria-label="Zoom da prévia"><option value="0.6">60%</option><option value="0.8" selected>80%</option><option value="1">100%</option></select></label></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia">Anterior</button><label for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia">Próxima</button></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260917-a4" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);

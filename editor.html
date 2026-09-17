@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260917-r2"></script>
-  <script src="js/editor-tools.js?v=20260917-r2"></script>
+  <script src="js/editor-tools.js?v=20260917-a4"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -2369,6 +2369,7 @@
       logoFileName: '',
       questions: [],
       collapsedQuestions: {},
+      activeQuestionIndex: null,
     };
 
     function getScoreCheck() {
@@ -2394,6 +2395,7 @@
       state.logoDataUrl = '';
       state.logoFileName = '';
       state.questions = [];
+      state.activeQuestionIndex = null;
       state.collapsedQuestions = {};
     }
 
@@ -2952,9 +2954,11 @@
       }
 
       state.questions.forEach((q, idx) => {
-        const isCollapsed = !!state.collapsedQuestions[idx];
+        const isActive = idx === state.activeQuestionIndex || Boolean(EditorTools.bankId);
+        const isCollapsed = isActive ? false : !!state.collapsedQuestions[idx];
         const wrap = document.createElement('div');
         wrap.className = 'qcard';
+        wrap.hidden = !isActive;
         if (isCollapsed) wrap.classList.add('collapsed');
 
         const head = document.createElement('div');
@@ -2969,7 +2973,10 @@
             <span class="qhead-subtitle" title="${esc(titlePreview)}">${esc(titlePreview)}</span>
           </span>
         `;
-        headLeft.querySelector('.qnum').addEventListener('click', () => toggleQuestionCollapsed(idx));
+        headLeft.querySelector('.qnum').addEventListener('click', () => {
+          if (EditorTools.bankId) return;
+          state.activeQuestionIndex = null; renderAll();
+        });
         head.appendChild(headLeft);
 
         wrap.dataset.questionIndex = idx;
@@ -3018,6 +3025,8 @@
         removeBtn.addEventListener('click', () => {
           if (!EditorTools.canEdit() || EditorTools.bankId) return;
           state.questions.splice(idx, 1);
+          if (state.activeQuestionIndex === idx) state.activeQuestionIndex = null;
+          else if (state.activeQuestionIndex > idx) state.activeQuestionIndex -= 1;
           const nextCollapsed = {};
           state.questions.forEach((_, i) => {
             nextCollapsed[i] = !!state.collapsedQuestions[i >= idx ? i + 1 : i];
@@ -6345,6 +6354,8 @@
       });
       state.questions.push(templates[t] ? templates[t]() : templates.multipla());
       state.collapsedQuestions[state.questions.length - 1] = false;
+      state.activeQuestionIndex = state.questions.length - 1;
+      document.body.dataset.editorView = "edit";
       renderAll();
       // Scroll para a nova questão
       const editor = el('questionsEditor');
@@ -6731,6 +6742,9 @@
       const item = window.currentQuestionBankResults?.[index];
       if (!item?.question) return;
       state.questions.push(cloneQuestion(item.question));
+      state.activeQuestionIndex = state.questions.length - 1;
+      state.collapsedQuestions[state.activeQuestionIndex] = false;
+      document.body.dataset.editorView = "edit";
       renderAll();
       showToast('Questão inserida na prova.', 'ok');
     }

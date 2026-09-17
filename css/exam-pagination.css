@@ -1,0 +1,18 @@
+/* A sheet includes its print margins. The gap exists only on screen. */
+#paper-preview { background:#e2e8f0; }
+.paper-staging { position:absolute; left:-100000px; top:0; width:210mm; visibility:hidden; }
+.paper-ready #root { display:none; }
+@media screen {
+  body.paper-ready { background:#e2e8f0; }
+  #paper-preview .pagedjs_page { margin:0 auto 20px; background:white; box-shadow:0 2px 8px #0f172a26; }
+  #paper-preview .pagedjs_page:last-child { margin-bottom:0; }
+  .embedded-preview.paper-ready #paper-preview { padding-bottom:100vh; }
+}
+@media print {
+  @page { size:A4 portrait; margin:0; }
+  html, body { margin:0 !important; padding:0 !important; background:white !important; }
+  #paper-preview { padding:0; background:white; }
+  #paper-preview .pagedjs_page { margin:0 !important; box-shadow:none; break-after:page; }
+  #paper-preview .pagedjs_page:last-child { break-after:auto; }
+  .paper-staging { display:none; }
+}
