@@ -30,7 +30,7 @@ const EditorTools = {
     const discard = document.createElement('button'); discard.type = 'button'; discard.textContent = 'Descartar rascunho e usar versão salva';
     discard.onclick = () => {
       if (auth.getCurrentUser()?.id !== editorUserId || !confirm('Descartar definitivamente estas alterações locais?')) return;
-      localStorage.removeItem(pendingDraftKey()); finish(); setAutoSaveHint('Versão salva mantida.');
+      localStorage.removeItem(pendingDraftKey()); finish(); setAutoSaveHint('Alterações salvas automaticamente');
     };
     const later = document.createElement('button'); later.type = 'button'; later.textContent = 'Decidir depois';
     later.onclick = () => { window.location.href = 'dashboard.html'; };
@@ -59,7 +59,7 @@ const EditorTools = {
       });
       if (!Array.isArray(rows) || rows.length !== 1 || !rows[0].updated_at) throw new Error('A prova mudou. Reabra para conferir antes de enviar.');
       currentExamVersion = rows[0].updated_at; currentReviewStatus = 'enviada'; this.reviewHistory = history;
-      applyReviewLock(); setAutoSaveHint('Prova enviada. Aguarde a revisão da coordenação.');
+      applyReviewLock(); setAutoSaveHint('Somente consulta');
     } catch (error) { showToast(error.message, 'err'); }
     finally { this.sending = false; applyReviewLock(); this.refreshActions(); }
   },
@@ -95,7 +95,7 @@ const EditorTools = {
     clearTimeout(this.previewTimer);
     this.previewTimer = setTimeout(() => this.updatePreview(), 180);
     if (!this.canEdit()) return;
-    setAutoSaveHint(this.bankId ? 'Alterações pendentes no banco de questões.' : 'Alterações pendentes.');
+    setAutoSaveHint('Alterações pendentes');
     clearTimeout(this.historyTimer);
     this.historyTimer = setTimeout(() => this.recordHistory(), 500);
     // Limita também serialização/localStorage, não apenas a requisição de rede.
@@ -462,10 +462,14 @@ const EditorTools = {
         const button = document.createElement('button'); button.type = 'button'; button.textContent = issue.message;
         button.addEventListener('click', () => this.focusQuestion(issue.index)); list.appendChild(button);
       });
-      document.getElementById('readinessSummary').textContent = issues.length ? `${issues.length} ponto(s) para conferir` : 'Preenchimento conferido';
+      document.getElementById('readinessSummary').textContent = issues.length
+        ? `Revisar · ${issues.length} ${issues.length === 1 ? 'pendência' : 'pendências'}`
+        : 'Conferência concluída';
     }
     const nav = document.getElementById('questionOutline');
     if (nav) {
+      const overviewSummary = document.querySelector('#questionOverview > summary');
+      if (overviewSummary) overviewSummary.textContent = `Questões da prova (${state.questions.length})`;
       nav.replaceChildren();
       state.questions.forEach((q, index) => {
         const button = document.createElement('button'); button.type = 'button';
@@ -578,7 +582,7 @@ const EditorTools = {
       applyStateToInputs(); renderAll(); lastSavedFingerprint = examFingerprint();
       setEditorLoading(false); this.resetHistory(); this.refreshBankFields(); restorePendingDraft();
       document.getElementById('cloudUser').textContent = user.email;
-      setAutoSaveHint('Questão carregada. Use Salvar no banco para confirmar alterações.');
+      setAutoSaveHint('Alterações salvas automaticamente');
       applyModuleNavigation();
     } catch (error) {
       autoSaveReady = false; setAutoSaveHint(error.message); document.getElementById('retryLoadBtn').hidden = false;
@@ -606,8 +610,8 @@ const EditorTools = {
       if (!Array.isArray(rows) || rows.length !== 1 || !rows[0].updated_at) throw new Error('O registro mudou em outra aba. Seu rascunho foi preservado; reabra para comparar.');
       currentExamVersion = rows[0].updated_at; lastSavedFingerprint = fingerprint;
       if (examFingerprint() === fingerprint) localStorage.removeItem(pendingDraftKey()); else preservePendingDraft();
-      setAutoSaveHint('Registro original atualizado no banco.'); return true;
-    } catch (error) { showToast(error.message, 'err'); setAutoSaveHint('Não foi possível atualizar o banco. Rascunho preservado.'); return false; }
+      setAutoSaveHint('Alterações salvas automaticamente'); return true;
+    } catch (error) { showToast(error.message, 'err'); setAutoSaveHint('Erro ao salvar'); return false; }
     finally { this.bankSaving = false; this.refreshActions(); }
   },
   init() {
@@ -620,18 +624,40 @@ const EditorTools = {
     const general = heading.nextElementSibling;
     const details = document.createElement('details'); details.id = 'examDetails'; details.open = false;
     const summary = document.createElement('summary'); summary.textContent = 'Dados da avaliação'; details.append(summary, general); heading.after(details);
+    const editorColumn = document.createElement('section'); editorColumn.className = 'editor-column';
+    panel.before(editorColumn); editorColumn.appendChild(panel);
+    const headingRow = document.createElement('div'); headingRow.className = 'editor-panel-heading';
+    heading.textContent = 'Edição da prova'; editorColumn.prepend(headingRow); headingRow.appendChild(heading);
     const top = document.createElement('div'); top.className = 'editor-primary-actions';
-    top.innerHTML = '<strong id="activeExamTitle">Editor da prova</strong><div><button id="undoBtn" type="button" disabled>Desfazer</button><button id="redoBtn" type="button" disabled>Refazer</button><button id="viewEditBtn" type="button">Editar</button><button id="viewPreviewBtn" type="button">Prévia da prova</button><button id="mainPrintBtn" type="button" class="primary">Imprimir / PDF</button><button id="saveBankRecordBtn" type="button" class="primary">Salvar no banco</button></div>';
+    top.innerHTML = '<div class="editor-context"><a class="editor-back-link" href="dashboard.html">← Minhas provas</a><strong id="activeExamTitle">Editor da prova</strong></div><div class="editor-work-actions"><span class="editor-view-switch"><button id="viewEditBtn" type="button">Editar</button><button id="viewPreviewBtn" type="button">Só prévia</button></span><button id="mainPrintBtn" type="button" class="primary">Imprimir / PDF</button><button id="saveBankRecordBtn" type="button" class="primary">Salvar no banco</button></div>';
     document.querySelector('.editor-actionbar-inner').prepend(top);
+    const createQuestion = document.querySelector('.top-new-question');
+    if (createQuestion) {
+      const createButton = createQuestion.querySelector('#topNewQuestionBtn');
+      if (createButton) createButton.textContent = '+ Nova questão';
+      headingRow.appendChild(createQuestion);
+    }
+    const dashboardLink = document.querySelector('.app-sidebar .app-nav-link[href="dashboard.html"]');
+    if (dashboardLink) dashboardLink.textContent = '← Minhas provas';
     const send = document.createElement('button'); send.id = 'sendCoordinationBtn'; send.type = 'button'; send.className = 'primary';
-    send.textContent = 'Enviar para coordenação'; send.onclick = () => this.sendToCoordination(); top.lastElementChild.appendChild(send);
+    send.textContent = 'Enviar para coordenação'; send.onclick = () => this.sendToCoordination();
+    const cloudBar = document.getElementById('cloudBar');
+    const status = cloudBar?.querySelector('.topbar-status');
+    const settings = cloudBar?.querySelector('.settings-wrap');
+    const login = document.getElementById('loginLink');
+    if (settings) top.lastElementChild.appendChild(settings);
+    if (login) top.lastElementChild.appendChild(login);
+    top.lastElementChild.appendChild(send);
+    if (status) top.lastElementChild.appendChild(status);
+    if (cloudBar) cloudBar.classList.add('topbar-panel-hidden');
     const feedback = document.createElement('p'); feedback.id = 'teacherFeedback'; feedback.hidden = true; details.before(feedback);
     if (typeof ResizeObserver !== 'undefined') {
       const bar = document.querySelector('.editor-actionbar');
       new ResizeObserver(() => document.documentElement.style.setProperty('--editor-bar-height', `${Math.ceil(bar.getBoundingClientRect().height)}px`)).observe(bar);
     }
-    document.getElementById('undoBtn').onclick = () => this.travelHistory(-1);
-    document.getElementById('redoBtn').onclick = () => this.travelHistory(1);
+    const undoButton = document.getElementById('undoBtn'), redoButton = document.getElementById('redoBtn');
+    if (undoButton) undoButton.onclick = () => this.travelHistory(-1);
+    if (redoButton) redoButton.onclick = () => this.travelHistory(1);
     document.getElementById('viewEditBtn').onclick = () => { document.body.dataset.editorView = 'edit'; this.resizePreview(); };
     document.getElementById('viewPreviewBtn').onclick = () => { document.body.dataset.editorView = 'preview'; this.updatePreview(); this.resizePreview(); };
     document.getElementById('mainPrintBtn').onclick = () => this.openPrint(false);
@@ -645,7 +671,7 @@ const EditorTools = {
     overview.after(readiness);
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-options"><strong>Prévia da prova</strong><label><input type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"> Mostrar gabarito</label><label>Zoom <select id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option><option value="0.6">60%</option><option value="0.8">80%</option><option value="1">100%</option></select></label></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia">Anterior</button><label for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia">Próxima</button></div><p class="small">Confira o conteúdo e o gabarito antes de enviar para a coordenação.</p><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260917-a4" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260917-a6" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
@@ -757,7 +783,10 @@ const EditorTools = {
       grid.append(button);
     });
     const empty = document.createElement('p'); empty.textContent = 'Nenhum tipo encontrado. Tente outro termo.'; empty.hidden = true;
-    menu.append(header, filters, bank, grid, empty);
+    const sticky = document.createElement('div'); sticky.className = 'picker-sticky';
+    sticky.append(header, filters);
+    if (bank) sticky.append(bank);
+    menu.append(sticky, grid, empty);
     const close = () => { menu.classList.add('hidden'); document.getElementById('topNewQuestionBtn').setAttribute('aria-expanded','false'); document.getElementById('topNewQuestionBtn').focus(); };
     header.querySelector('button').onclick = close;
     document.addEventListener('click', event => {

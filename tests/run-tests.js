@@ -355,7 +355,7 @@ async function main() {
     assert(editor.includes('imageCaption'), 'image caption control missing');
     assert(editor.includes('Largura total'), 'image full width option missing');
     assert(editor.includes('pvChipScoreStatus'), 'score status chip missing');
-    assert(read('js/editor-tools.js').includes('Preenchimento conferido'), 'readiness summary missing');
+    assert(read('js/editor-tools.js').includes('Conferência concluída'), 'readiness summary missing');
     assert(read('js/exam-safety.js').includes('difere do valor total'), 'score mismatch warning missing');
     assert(editor.includes('collapsedQuestions'), 'collapsed questions state missing');
     assert(editor.includes('toggleQuestionCollapsed'), 'question collapse toggle missing');
@@ -749,16 +749,16 @@ async function main() {
     assert(editor.includes('saveToCloud({ auto: true })'), 'autosave should reuse cloud save');
     assert(editor.includes('autoSaveReady = Boolean(currentExamId && currentExamVersion)'), 'autosave requires a confirmed cloud version');
     assert(editor.includes('function flushAutoSaveBeforeAction'), 'editor should expose a flush save before leaving/printing');
-    assert(editor.includes("document.querySelectorAll('.app-sidebar a[href], #settingsMenu a[href]')"), 'editor navigation links should flush autosave before leaving');
+    assert(editor.includes("document.querySelectorAll('.app-sidebar a[href], .editor-back-link[href], #settingsMenu a[href]')"), 'editor navigation links should flush autosave before leaving');
     assert(editor.includes('if (ok) window.location.href = destination'), 'editor should navigate only after successful flush save');
     assert(editor.includes('function getScoreCheck()'), 'editor should expose score consistency helper');
     assert(editor.includes("['enviada', 'em_revisao', 'aprovada'].includes(reviewPayload.review_status)"), 'editor should guard score divergence before review save');
     assert(read('js/editor-tools.js').includes('if (!await flushAutoSaveBeforeAction()) return;'), 'editor print actions should save before printing');
     assert(!editor.includes('saveCloudBtn'), 'editor should not show a manual save button when autosave is active');
-    assert(editor.includes('Salvando alteracoes...'), 'editor should show autosave progress in the status line');
+    assert(editor.includes('Salvando alterações…'), 'editor should show autosave progress in the status line');
     assert(editor.includes('function setAutoSaveHint'), 'editor should have a calm autosave hint helper');
-    assert(editor.includes('Alteracoes salvas automaticamente.'), 'editor should explain autosave before the first edit');
-    assert(editor.includes('Ultimo salvamento: ${hora}'), 'editor should update autosave status through the hint helper after saving');
+    assert(editor.includes('Alterações salvas automaticamente'), 'editor should explain autosave before the first edit');
+    assert(editor.includes('Salvo às ${hora}'), 'editor should update autosave status through the hint helper after saving');
     assert(!editor.includes('gerador-provas-state-v1'), 'editor should not write local browser drafts');
     assert(!editor.includes('activeStorageKey'), 'editor should not track a local draft storage key');
     assert(!editor.includes('localDraftAutosaveEnabled'), 'editor should not autosave local browser drafts');
@@ -1124,6 +1124,8 @@ async function main() {
   await test('preview navigation keeps the same-origin message boundary', () => {
     const print = read('print.html');
     assert(print.indexOf('if (event.origin !== location.origin || event.source !== window.parent) return;') < print.indexOf("if (event.data?.type === 'exam-preview-focus')"), 'focus messages must pass the origin and source guard');
+    const focusPreviewQuestion = print.match(/function focusPreviewQuestion\(index\) \{([\s\S]*?)\n    \}/)?.[1] || '';
+    assert(!focusPreviewQuestion.includes('target.focus('), 'preview navigation should scroll and highlight without stealing keyboard focus from the editor');
   });
 
   await test('batch images reuse the existing image conversion and error handling', () => {

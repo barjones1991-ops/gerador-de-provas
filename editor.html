@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260917-r2"></script>
-  <script src="js/editor-tools.js?v=20260917-ux7"></script>
+  <script src="js/editor-tools.js?v=20260917-ux15"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1481,7 +1481,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-ux7" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-ux13" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1507,10 +1507,12 @@
         </div>
         <div class="topbar-status">
           <div style="font-weight:700; font-size:13px; color:#166534;">Conectado: <span id="cloudUser" style="font-weight:500;"></span></div>
-          <div id="lastSaved" role="status" aria-live="polite" style="font-size:12px; color:#166534; margin-top:2px;"></div>
+          <div class="topbar-status-copy">
+            <div id="lastSaved" role="status" aria-live="polite" style="font-size:12px; color:#166534; margin-top:2px;"></div>
+            <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
+          </div>
           <button id="retrySaveBtn" type="button" class="outline" hidden>Tentar salvar novamente</button>
           <button id="retryLoadBtn" type="button" class="outline" hidden>Tentar carregar novamente</button>
-          <div id="reviewInfo" style="font-size:12px; color:#166534; margin-top:2px;"></div>
         </div>
         <div class="settings-wrap">
           <button id="settingsBtn" class="outline gear-btn" type="button" aria-label="Opções de impressão">&#9881;</button>
@@ -6450,7 +6452,7 @@
     }
 
     function wireAutosaveBeforeNavigation() {
-      document.querySelectorAll('.app-sidebar a[href], #settingsMenu a[href]').forEach((link) => {
+      document.querySelectorAll('.app-sidebar a[href], .editor-back-link[href], #settingsMenu a[href]').forEach((link) => {
         link.addEventListener('click', async (event) => {
           if (link.classList.contains('active')) {
             event.preventDefault();
@@ -6521,7 +6523,7 @@
         pendingDraftAvailable = true;
       } catch {
         pendingDraftAvailable = false;
-        setAutoSaveHint('Alterações pendentes. Sem espaço para recuperação local; mantenha esta aba aberta até salvar.');
+        setAutoSaveHint('Alterações pendentes');
       }
     }
 
@@ -6956,7 +6958,7 @@
       EditorTools.resetHistory();
       setEditorLoading(false);
       applyReviewLock();
-      setAutoSaveHint(EditorTools.workflowLocked() ? 'Modo de consulta. A edição depende da devolução pela coordenação.' : 'Alterações salvas automaticamente.');
+      setAutoSaveHint(EditorTools.workflowLocked() ? 'Somente consulta' : 'Alterações salvas automaticamente');
       if (!EditorTools.workflowLocked()) restorePendingDraft();
       scheduleAutoSave();
       updatePrintPageLink();
@@ -6993,11 +6995,11 @@
       const locked = EditorTools.sending || EditorTools.workflowLocked() || auth?.getCurrentUser()?.id !== editorUserId;
       const labels = {
         rascunho: 'Em elaboração',
-        enviada: 'Status: enviada para coordenação',
-        em_revisao: 'Status: em revisão pela coordenação',
-        aprovada: 'Aprovada pela coordenação — disponível para consulta',
-        devolvida: 'Status: devolvida para ajustes',
-        bloqueada: 'Status: bloqueada pela coordenação',
+        enviada: 'Enviada para coordenação',
+        em_revisao: 'Em revisão',
+        aprovada: 'Aprovada',
+        devolvida: 'Devolvida para ajustes',
+        bloqueada: 'Bloqueada',
       };
       const info = document.getElementById('reviewInfo');
       if (info) {
@@ -7168,13 +7170,12 @@
           const info = document.getElementById('reviewInfo');
           const last = history[history.length - 1];
           const lastDate = last.date ? new Date(last.date).toLocaleDateString('pt-BR') : '';
-          const existing = info ? info.textContent : '';
-          if (info) info.textContent = `${existing ? existing + ' | ' : ''}📋 ${history.length} entrada${history.length > 1 ? 's' : ''} no histórico (última: ${lastDate})`;
+          if (info) info.title = `${history.length} entrada${history.length > 1 ? 's' : ''} no histórico${lastDate ? `; última em ${lastDate}` : ''}`;
         }
         currentExamVersion = exam.updated_at;
         lastSavedFingerprint = examFingerprint();
         setEditorLoading(true);
-        setAutoSaveHint('Prova carregada. Alteracoes salvas automaticamente.');
+        setAutoSaveHint('Alterações salvas automaticamente');
         showToast('Prova carregada da nuvem', 'ok');
         return true;
       } catch (err) {
@@ -7191,7 +7192,7 @@
       if (EditorTools.workflowLocked()) return;
       if (examFingerprint() === lastSavedFingerprint) return;
       preservePendingDraft();
-      if (pendingDraftAvailable) setAutoSaveHint('Alterações pendentes — cópia de recuperação neste navegador.');
+      if (pendingDraftAvailable) setAutoSaveHint('Alterações pendentes');
       clearTimeout(autoSaveTimer);
       autoSaveTimer = setTimeout(() => {
         saveToCloud({ auto: true });
@@ -7201,12 +7202,12 @@
     function setAutoSaveStatus(isSaving) {
       const status = document.getElementById('lastSaved');
       if (!status) return;
-      if (isSaving) status.textContent = 'Salvando alteracoes...';
+      if (isSaving) status.textContent = 'Salvando alterações…';
     }
 
     function setAutoSaveHint(message = '') {
       const status = document.getElementById('lastSaved');
-      if (status) status.textContent = message || 'Alteracoes salvas automaticamente.';
+      if (status) status.textContent = message || 'Alterações salvas automaticamente';
     }
 
     async function flushAutoSaveBeforeAction(options = {}) {
@@ -7305,7 +7306,7 @@
         if (examFingerprint() === sentFingerprint) localStorage.removeItem(pendingDraftKey());
         else { preservePendingDraft(); autoSaveQueued = true; }
         document.getElementById('retrySaveBtn').hidden = true;
-        setAutoSaveHint(`Ultimo salvamento: ${hora}`);
+        setAutoSaveHint(`Salvo às ${hora}`);
         currentReviewStatus = payload.review_status || currentReviewStatus;
         currentReviewNotes = payload.review_notes ?? currentReviewNotes;
         applyReviewLock();
@@ -7314,7 +7315,7 @@
         return true;
       } catch (err) {
         const status = document.getElementById('lastSaved');
-        if (status) status.textContent = 'Erro ao salvar alterações.';
+        if (status) status.textContent = 'Erro ao salvar';
         document.getElementById('retrySaveBtn').hidden = !autoSaveReady;
         showToast('Erro ao salvar: ' + err.message, 'err');
         return false;

@@ -118,7 +118,7 @@ async function test(name, task) { await task(); checks++; console.log('OK REG', 
   await test('limite de tamanho termina em erro recuperavel', async () => {
     const ctx = editor(); ctx.state.school.examTitle = 'Alterado'; ctx.imagePayloadBytes = () => 9000000; ctx.formatBytes = String;
     assert.equal(await ctx.saveToCloud({ auto: true }), false);
-    assert.equal(ctx.node('lastSaved').textContent, 'Erro ao salvar alterações.');
+    assert.equal(ctx.node('lastSaved').textContent, 'Erro ao salvar');
     assert.equal(ctx.node('retrySaveBtn').hidden, false);
   });
   await test('JSON externo nao injeta atributos numericos', () => {

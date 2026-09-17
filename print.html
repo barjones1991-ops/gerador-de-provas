@@ -388,7 +388,11 @@
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
       @page { size: A4 portrait; margin: 8mm 9mm 10mm; }
     }
-    @media screen { .embedded-preview .preview-focused { outline:2px solid #2563eb; outline-offset:4px; scroll-margin-top:12px; } }
+    @media screen {
+      .embedded-preview .preview-focused { outline:2px solid #2563eb; outline-offset:4px; scroll-margin-top:12px; }
+      html.embedded-preview-root, body.embedded-preview { scrollbar-width:none; -ms-overflow-style:none; }
+      html.embedded-preview-root::-webkit-scrollbar, body.embedded-preview::-webkit-scrollbar { width:0; height:0; }
+    }
   </style>
 
   <style data-exam-layout>
@@ -1337,8 +1341,6 @@
       const target = window.ExamPagination?.focus(index) || blocks[index]; if (!target) return;
       document.querySelectorAll('.preview-focused').forEach(node => node.classList.remove('preview-focused'));
       target.classList.add('preview-focused');
-      target.setAttribute('tabindex','-1');
-      target.focus({preventScroll:true});
       // Scroll only inside the frame. scrollIntoView also moves the editor's ancestors.
       if (typeof window.scrollTo === 'function') {
         window.scrollTo({top:Math.max(0,target.getBoundingClientRect().top + window.scrollY - 12),behavior:'instant'});
@@ -1496,6 +1498,7 @@
         window.location.href = url.toString();
       });
       if (new URLSearchParams(location.search).get('preview') === '1' && window.parent !== window) {
+        document.documentElement.classList.add('embedded-preview-root');
         document.body.classList.add('embedded-preview');
         window.addEventListener('message', event => {
           if (event.origin !== location.origin || event.source !== window.parent) return;

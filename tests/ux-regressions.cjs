@@ -7,9 +7,15 @@ const assert=require('node:assert/strict');const {boot}=require('./editor-flows.
  assert(card.textContent.indexOf('Operações —') < card.textContent.indexOf('Aparência na prova'));
  const search=app.document.getElementById('questionSearch');search.value='discursativa';search.oninput();assert.equal([...app.document.querySelectorAll('#questionOutline button')].filter(b=>!b.hidden).length,1);
  search.value='inexistente';search.oninput();assert(!app.document.getElementById('questionSearchEmpty').hidden);
- const picker=app.document.getElementById('topQuestionMenu');const filter=picker.querySelector('input');filter.value='matem';filter.oninput();assert.equal([...picker.querySelectorAll('button[data-type]')].filter(b=>!b.hidden).length,3);
+const picker=app.document.getElementById('topQuestionMenu');const filter=picker.querySelector('input');filter.value='matem';filter.oninput();assert.equal([...picker.querySelectorAll('button[data-type]')].filter(b=>!b.hidden).length,3);
+ assert(picker.querySelector('.picker-sticky'));assert(picker.querySelector('.picker-sticky .picker-header'));assert(picker.querySelector('.picker-sticky .picker-filters'));
  const category=picker.querySelector('select');category.value='Imagens e desenho';filter.value='';category.onchange();assert([...picker.querySelectorAll('button[data-type]')].filter(b=>!b.hidden).every(b=>b.dataset.category==='Imagens e desenho'));
- assert.equal(app.document.getElementById('previewZoom').value,'fit');
+assert.equal(app.document.getElementById('previewZoom').value,'fit');
+ assert(app.document.querySelector('.preview-toolbar .preview-navigation'));assert.equal(app.document.querySelector('#questionOverview > summary').textContent,'Questões da prova (2)');
+ assert.equal(app.document.getElementById('topNewQuestionBtn').textContent,'+ Nova questão');assert(app.document.querySelector('.editor-panel-heading .top-new-question'));
+ assert(app.document.querySelector('.editor-back-link'));assert(!app.document.getElementById('undoBtn'));assert(!app.document.getElementById('redoBtn'));
+ assert.equal(app.document.querySelector('.editor-panel-heading h2').textContent,'Edição da prova');assert(app.document.querySelector('.editor-column > #editorPanel'));
+ assert(app.document.querySelector('.editor-work-actions .topbar-status'));assert(app.document.querySelector('#sendCoordinationBtn + .topbar-status'));
  app.document.getElementById('viewPreviewBtn').onclick();assert.equal(app.document.body.dataset.editorView,'preview');app.document.getElementById('viewEditBtn').onclick();assert.equal(app.document.body.dataset.editorView,'edit');
  const text=card.querySelector('[data-k="text"]');text.value='Conta nova';app.event(text,'input');assert(app.ctx.EditorTools.persistTimer,'edição real agenda salvamento');
  console.log('OK UX busca, categorias, navegação sem salvamento, edição, aparência matemática e modos');
