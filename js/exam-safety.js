@@ -4,7 +4,7 @@
     lines: [1, 40], answerLines: [1, 40], calcLines: [1, 40], wordCount: [1, 40],
     columns: [1, 4], gridSize: [8, 18], answerBoxes: [1, 12], width: [40, 1400], height: [30, 1400],
     offsetY: [0, 500], x: [0, 100], y: [0, 100], imageWidth: [40, 1400], imageHeight: [30, 1400],
-    order: [0, 500], crosswordSeed: [0, 10000],
+    order: [0, 500], crosswordSeed: [0, 10000], wordSearchSeed: [0, 2147483647],
   };
   const enums = {
     imageSize: ['small', 'medium', 'large', 'full'], imageAlign: ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'],
@@ -267,34 +267,41 @@
     }
     return '';
   }
-  function buildWordSearch(words, size = 12) {
+  function buildWordSearch(words, size = 12, seed = 0) {
     const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/gi, '').toUpperCase();
     const clean = [...new Set(words.map(normalize).filter(Boolean))];
     const gridSize = Math.floor(Math.min(18, Math.max(8, Number(size) || 12, ...clean.map(word => Math.min(18, word.length)))));
     const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(''));
     const placements = [], unplaced = [];
     const directions = [[0, 1], [1, 0], [1, 1]];
+    let randomState = Math.max(0, Math.min(2147483647, Math.floor(Number(seed) || 0)));
+    const shuffled = randomState > 0;
+    const random = () => { randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0; return randomState / 4294967296; };
     for (const word of [...clean].sort((a, b) => b.length - a.length)) {
       let found = null;
+      const candidates = [];
       for (const [dr, dc] of directions) {
-        for (let row = 0; row < gridSize && !found; row++) for (let col = 0; col < gridSize && !found; col++) {
+        for (let row = 0; row < gridSize; row++) for (let col = 0; col < gridSize; col++) {
           if (row + dr * (word.length - 1) >= gridSize || col + dc * (word.length - 1) >= gridSize) continue;
-          if ([...word].every((letter, i) => !grid[row + dr * i][col + dc * i] || grid[row + dr * i][col + dc * i] === letter)) found = { row, col, dr, dc };
+          candidates.push({row,col,dr,dc});
         }
-        if (found) break;
       }
+      if (shuffled) for (let i=candidates.length-1; i>0; i--) {
+        const j=Math.floor(random()*(i+1)); [candidates[i],candidates[j]]=[candidates[j],candidates[i]];
+      }
+      found = candidates.find(({row,col,dr,dc}) => [...word].every((letter, i) => !grid[row + dr * i][col + dc * i] || grid[row + dr * i][col + dc * i] === letter));
       if (!found) { unplaced.push(word); continue; }
       [...word].forEach((letter, i) => { grid[found.row + found.dr * i][found.col + found.dc * i] = letter; });
       placements.push(`${word}: linha ${found.row + 1}, coluna ${found.col + 1}`);
     }
-    grid.forEach((row, r) => row.forEach((letter, c) => { if (!letter) row[c] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[(r * 7 + c * 11) % 26]; }));
+    grid.forEach((row, r) => row.forEach((letter, c) => { if (!letter) row[c] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[shuffled ? Math.floor(random()*26) : (r * 7 + c * 11) % 26]; }));
     return { grid, placements, unplaced };
   }
   function wordSearchProblems(questions) {
     return questions.flatMap((q, i) => {
       if (q.type !== 'caca_palavras') return [];
       const words = String(q.wordsText || q.wordList || '').split(/[\n,;]+/).map(word => word.trim()).filter(Boolean);
-      const unplaced = buildWordSearch(words, q.gridSize || 12).unplaced;
+      const unplaced = buildWordSearch(words, q.gridSize || 12, q.wordSearchSeed || 0).unplaced;
       return !words.length ? [`Questão ${i + 1}: adicione palavras ao caça-palavras.`]
         : unplaced.length ? [`Questão ${i + 1}: não couberam na grade: ${unplaced.join(', ')}.`] : [];
     });

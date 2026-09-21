@@ -132,6 +132,16 @@ async function test(name, task) { await task(); checks++; console.log('OK REG', 
     assert.equal(built.unplaced.length, 0);
     const impossible = ExamSafety.buildWordSearch(['A'.repeat(19)], 12);
     assert.equal(impossible.placements.length, 0); assert.equal(impossible.unplaced.length, 1);
+    const words=['ESCOLA','LIVRO','CADERNO'];
+    const shuffled=ExamSafety.buildWordSearch(words,12,1);
+    assert.deepEqual(shuffled,ExamSafety.buildWordSearch(words,12,1));
+    assert.notDeepEqual(shuffled.grid,ExamSafety.buildWordSearch(words,12,2).grid);
+    assert.equal(shuffled.unplaced.length,0);
+    words.forEach(word=>{
+      const location=shuffled.placements.find(text=>text.startsWith(word+':')).match(/linha (\d+), coluna (\d+)/);
+      const row=Number(location[1])-1, col=Number(location[2])-1;
+      assert([[0,1],[1,0],[1,1]].some(([dr,dc])=>[...word].every((letter,i)=>shuffled.grid[row+dr*i]?.[col+dc*i]===letter)));
+    });
   });
   await test('PDF respeita numero oculto sem deslocar questao seguinte', () => {
     const node = { innerHTML: '' };

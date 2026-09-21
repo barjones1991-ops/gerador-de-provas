@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js?v=20260917-r3"></script>
+  <script src="js/exam-safety.js?v=20260921-word-search"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style data-exam-layout>
@@ -635,12 +635,12 @@
     function puzzleWordsFromText(text) {
       return String(text || '').split(/[\n,;]+/).map((word) => word.trim()).filter(Boolean);
     }
-    function buildWordSearch(words, size = 12) {
-      return ExamSafety.buildWordSearch(words, size);
+    function buildWordSearch(words, size = 12, seed = 0) {
+      return ExamSafety.buildWordSearch(words, size, seed);
     }
     function renderWordSearch(q) {
       const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
-      const built = buildWordSearch(words, q.gridSize || 12);
+      const built = buildWordSearch(words, q.gridSize || 12, q.wordSearchSeed || 0);
       if (built.unplaced.length) return `<p role="alert">Palavras fora da grade: ${esc(built.unplaced.join(", "))}. Reduza a lista antes de imprimir.</p>`;
       const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
       const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
@@ -1278,7 +1278,7 @@
       }
       if (q.type === 'caca_palavras') {
         const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
-        const placements = buildWordSearch(words, q.gridSize || 12).placements.join(' | ');
+        const placements = buildWordSearch(words, q.gridSize || 12, q.wordSearchSeed || 0).placements.join(' | ');
         return placements || words.join(', ');
       }
       if (q.type === 'cruzadinha' && Array.isArray(q.clues)) {

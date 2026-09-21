@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js?v=20260917-r3"></script>
-  <script src="js/editor-tools.js?v=20260921-item-sizes"></script>
+  <script src="js/exam-safety.js?v=20260921-word-search"></script>
+  <script src="js/editor-tools.js?v=20260921-word-search"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1500,7 +1500,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-item-sizes" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-word-search" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1849,12 +1849,12 @@
         .map((word) => word.trim())
         .filter(Boolean);
     }
-    function buildWordSearch(words, size = 12) {
-      return ExamSafety.buildWordSearch(words, size);
+    function buildWordSearch(words, size = 12, seed = 0) {
+      return ExamSafety.buildWordSearch(words, size, seed);
     }
     function renderWordSearch(q) {
       const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
-      const built = buildWordSearch(words, q.gridSize || 12);
+      const built = buildWordSearch(words, q.gridSize || 12, q.wordSearchSeed || 0);
       if (built.unplaced.length) return `<p role="alert">Palavras fora da grade: ${esc(built.unplaced.join(", "))}. Reduza a lista antes de imprimir.</p>`;
       const grid = built.grid.map((row) => row.map((letter) => `<div class="word-search-cell">${esc(letter)}</div>`).join('')).join('');
       const list = words.map((word) => `<span>${esc(word)}</span>`).join('');
@@ -4962,6 +4962,24 @@
             </div>
           `;
           body.appendChild(cpblock);
+          const shuffle = document.createElement('button');
+          shuffle.type = 'button'; shuffle.className = 'outline content-add-action';
+          shuffle.textContent = 'Embaralhar caça-palavras';
+          shuffle.addEventListener('click', () => {
+            if (!EditorTools.canEdit()) return;
+            const words = String(q.wordsText || '').split(/[\n,;]+/).map(word => word.trim()).filter(Boolean);
+            if (!words.length) { showToast('Adicione palavras antes de embaralhar.', 'warning'); return; }
+            const previous = JSON.stringify(buildWordSearch(words, q.gridSize || 12, q.wordSearchSeed || 0).grid);
+            for (let attempt=1; attempt<=20; attempt++) {
+              const seed = ((Number(q.wordSearchSeed) || 0) + attempt) % 2147483647 || 1;
+              const result = buildWordSearch(words, q.gridSize || 12, seed);
+              if (!result.unplaced.length && JSON.stringify(result.grid) !== previous) {
+                q.wordSearchSeed = seed; renderPreview(); return;
+              }
+            }
+            showToast('Não foi possível reorganizar todas as palavras. Aumente a grade ou reduza a lista.', 'warning');
+          });
+          body.appendChild(shuffle);
         }
 
         if (q.type === 'cruzadinha') {
@@ -6289,7 +6307,7 @@
       }
       if (tipo === 'caca_palavras') {
         const words = puzzleWordsFromText(q.wordsText || q.wordList || '').map(normalizePuzzleWord).filter(Boolean);
-        const placements = buildWordSearch(words, q.gridSize || 12).placements.join(' | ');
+        const placements = buildWordSearch(words, q.gridSize || 12, q.wordSearchSeed || 0).placements.join(' | ');
         return { tipo: 'objetivo', num, ans: placements || words.join(', ') || '(sem palavras)' };
       }
       if (tipo === 'cruzadinha') {
