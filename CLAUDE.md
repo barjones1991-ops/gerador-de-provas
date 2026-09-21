@@ -28,6 +28,10 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 
 ## Estado Atual
 
+Em 21/09/2026, usuário autorizou publicar o ajuste de espaçamento da legenda do texto-base. npm test completo aprovado antes do envio; sem migração SQL.
+
+Em 21/09/2026, removido o espaço superior da legenda do texto-base: margin-top 0 e entrelinha 1.3 no editor, prévia e impressão. Cache/fixture atualizados e npm test aprovado. Alteração local, sem publicação.
+
 Em 21/09/2026, usuário autorizou publicar os ajustes acumulados de Interpretação de texto: inclusão/exclusão de alternativas, texto-base antes do enunciado e legenda opcional. npm test completo aprovado antes do envio; cache atualizado, sem migração SQL. Conferência visual automatizada permanece pendente pelo bloqueio de uso do navegador informado anteriormente.
 
 Em 21/09/2026, legenda opcional do texto-base adicionada a Interpretação de texto, para autor/obra/fonte. Campo textBaseCaption salvo no JSON e exibido discretamente abaixo do texto, nas posições antes/depois do enunciado e respostas discursivas/múltipla escolha. Conteúdo escapado, legenda vazia omitida. Suíte executada e teste específico atualizado/aprovado para legenda, persistência e escape. Fixture/cache atualizados, sem publicação; validação visual pendente pelo bloqueio do navegador.
