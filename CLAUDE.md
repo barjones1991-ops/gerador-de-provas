@@ -28,6 +28,14 @@ O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com te
 
 ## Estado Atual
 
+Em 21/09/2026, usuário autorizou publicar os ajustes acumulados de Interpretação de texto: inclusão/exclusão de alternativas, texto-base antes do enunciado e legenda opcional. npm test completo aprovado antes do envio; cache atualizado, sem migração SQL. Conferência visual automatizada permanece pendente pelo bloqueio de uso do navegador informado anteriormente.
+
+Em 21/09/2026, legenda opcional do texto-base adicionada a Interpretação de texto, para autor/obra/fonte. Campo textBaseCaption salvo no JSON e exibido discretamente abaixo do texto, nas posições antes/depois do enunciado e respostas discursivas/múltipla escolha. Conteúdo escapado, legenda vazia omitida. Suíte executada e teste específico atualizado/aprovado para legenda, persistência e escape. Fixture/cache atualizados, sem publicação; validação visual pendente pelo bloqueio do navegador.
+
+Em 21/09/2026, opção Mostrar antes do enunciado junto ao campo Texto-base em Interpretação de texto. Campo booleano textBaseBeforeStatement preservado no JSON; padrão anterior mantido. Prévia canônica e impressão movem o texto antes do enunciado sem duplicar, tanto em respostas discursivas quanto em múltipla escolha. npm test aprovado com alternância, escape, respostas e reabertura. Fixture/cache atualizados, sem migração SQL e sem publicação; conferência visual pendente pelo bloqueio de uso do navegador.
+
+Em 21/09/2026, Interpretação de texto em múltipla escolha recebe Adicionar alternativa e exclusão por ícone em cada opção. Limites de 2–6 alternativas, imagens removidas junto da opção e índice do gabarito ajustado (resposta removida fica sem seleção). Bloqueios de edição respeitados. npm test completo aprovado, com regressões de inclusão/exclusão, limites, imagens, gabarito, reabertura e leitura bloqueada. Fixture/cache atualizados, sem publicação; conferência visual pendente pelo bloqueio de uso do navegador.
+
 Em 21/09/2026, usuário autorizou publicar Embaralhar caça-palavras. npm test completo aprovado antes do envio; disposição persistida e compartilhada por prévia, impressão, gabarito e validação. Sem migração SQL.
 
 Em 21/09/2026, botão Embaralhar caça-palavras adicionado. Nova disposição usa wordSearchSeed persistido no JSON da questão; editor, impressão, gabarito e validação compartilham o mesmo gerador determinístico. Sem seed, mantém disposição legada. Botão preserva palavras e só aceita grade diferente contendo todas elas, com até 20 tentativas e aviso se não couberem; bloqueio de edição respeitado. npm test aprovado e regressões adicionais de persistência, posições do gabarito e determinismo aprovadas. Caches/fixture atualizados; sem migração SQL, não publicado. Conferência visual pendente pelo bloqueio de uso do navegador.

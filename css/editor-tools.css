@@ -285,6 +285,8 @@ body[data-editor-view="preview"] #canonicalPreviewPanel { width:100%; max-width:
   display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; min-width:0;
 }
 .answer-item-images-editor .answer-item-main > input { min-width:0; }
+.qcard .option-row .text-option-remove { width:34px; min-width:34px; padding:4px; font-size:20px; background:transparent; color:#687687; border:0; }
+.qcard .option-row .text-option-remove:hover { background:#fff1f1; color:#a52828; }
 .answer-item-images-editor .answer-item-image { min-width:0; }
 .answer-item-images-editor .answer-item-image[open] { grid-column:1 / -1; }
 .answer-item-images-editor .answer-item-image > summary {

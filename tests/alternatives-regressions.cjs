@@ -213,4 +213,58 @@ for(const question of [
  assert.equal(select.value,'medium',question.type+' substituição preserva tamanho');
 }
 console.log('OK TAMANHO POR ITEM alternativas, afirmações, sequência, legenda, grade, relações e comparação: salvar, imprimir, reabrir e remover');
+const textChoices=await boot({questions:[{type:'texto_base',answerType:'multipla',text:'Leia',textBase:'Texto original',points:'10',options:['A','B','C','D'],correctOption:2,optionImages:[{fileName:'A'},{fileName:'B'},{fileName:'C'},{fileName:'D'}]}]});
+textChoices.ctx.EditorTools.focusQuestion(0);
+const removeTextChoice=index=>textChoices.event(textChoices.document.querySelectorAll('.text-option-remove')[index],'click');
+removeTextChoice(0);
+assert.equal(textChoices.run('state.questions[0].correctOption'),1);
+assert.equal(textChoices.run('state.questions[0].optionImages[1].fileName'),'C');
+removeTextChoice(1);
+assert.equal(textChoices.run('state.questions[0].correctOption'),null);
+assert.equal(textChoices.run('state.questions[0].optionImages[1].fileName'),'D');
+assert([...textChoices.document.querySelectorAll('.text-option-remove')].every(button=>button.disabled));
+removeTextChoice(0); assert.equal(textChoices.run('state.questions[0].options.length'),2);
+const addTextChoice=()=>[...textChoices.document.querySelectorAll('button')].find(button=>button.textContent==='Adicionar alternativa');
+for(let i=0;i<4;i++) textChoices.event(addTextChoice(),'click');
+assert.equal(textChoices.run('state.questions[0].options.length'),6); assert(addTextChoice().disabled);
+textChoices.event(addTextChoice(),'click'); assert.equal(textChoices.run('state.questions[0].options.length'),6);
+assert.equal(textChoices.run('state.questions[0].textBase'),'Texto original');
+await textChoices.run('saveToCloud()');
+const textSaved=JSON.parse(textChoices.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions;
+const textReopened=await boot({questions:textSaved}); textReopened.ctx.EditorTools.focusQuestion(0);
+assert.equal(textReopened.document.querySelectorAll('.text-option-remove').length,6);
+const textLocked=await boot({questions:textSaved,status:'enviada'}); textLocked.ctx.EditorTools.focusQuestion(0);
+const lockedRemove=textLocked.document.querySelector('.text-option-remove'); assert(lockedRemove.disabled);
+textLocked.event(lockedRemove,'click'); assert.equal(textLocked.run('state.questions[0].options.length'),6);
+console.log('OK INTERPRETAÇÃO alternativas adicionadas/removidas, limites, imagens, gabarito, salvamento e bloqueio');
+for(const answerType of ['discursiva','multipla']) {
+ const positioned=await boot({questions:[{type:'texto_base',answerType,text:'Pergunta sobre o texto',textBase:'Trecho <seguro>',points:'10',lines:3,options:['A','B'],correctOption:1}]});
+ positioned.ctx.EditorTools.focusQuestion(0);
+ const toggle=positioned.document.querySelector('[aria-label="Mostrar texto-base antes do enunciado"]');
+ assert(toggle && !toggle.checked);
+ const captionField=positioned.document.querySelector('[data-k="textBaseCaption"]');
+ captionField.value='Fonte: Autor <exemplo>'; positioned.event(captionField,'input');
+ for(const before of [true,false,true]) {
+  toggle.checked=before; positioned.event(toggle,'change');
+  ctx.q=JSON.parse(positioned.run('JSON.stringify(state.questions[0])'));
+  vm.runInContext('renderExam({questions:[q]},false)',ctx);
+  const block=document.querySelector('.question-block');
+  assert.equal(block.querySelectorAll('.texto-base-box').length,1);
+  assert.equal(block.innerHTML.indexOf('texto-base-box')<block.innerHTML.indexOf('class="qtext"'),before);
+  assert.equal([...block.querySelector('.texto-base-box').childNodes].filter(node=>node.nodeType===3).map(node=>node.textContent).join(''),'Trecho <seguro>');
+  assert.equal(block.querySelectorAll('.text-base-caption').length,1);
+  assert.equal(block.querySelector('.text-base-caption').textContent,'Fonte: Autor <exemplo>');
+  assert(!block.querySelector('exemplo'));
+  assert(!block.querySelector('seguro'));
+  assert.equal(block.querySelectorAll(answerType==='multipla'?'.option-item':'.hline').length,answerType==='multipla'?2:3);
+ }
+ await positioned.run('saveToCloud()');
+ const savedPosition=JSON.parse(positioned.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions;
+ const reopenedPosition=await boot({questions:savedPosition}); reopenedPosition.ctx.EditorTools.focusQuestion(0);
+ assert(reopenedPosition.document.querySelector('[aria-label="Mostrar texto-base antes do enunciado"]').checked);
+ assert.equal(reopenedPosition.document.querySelector('[data-k="textBaseCaption"]').value,'Fonte: Autor <exemplo>');
+ ctx.q.textBaseCaption=''; vm.runInContext('renderExam({questions:[q]},false)',ctx);
+ assert(!document.querySelector('.text-base-caption'));
+}
+console.log('OK TEXTO-BASE antes/depois do enunciado sem duplicação, com respostas e persistência preservadas');
 })().catch(e=>{console.error(e);process.exitCode=1});

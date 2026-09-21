@@ -184,6 +184,7 @@
     .option-item.wide-marker { grid-template-columns: auto 1fr; gap: 0 8px; }
     .mark-table { width: 100%; border-collapse: collapse; }
     .mark-table td { border: 1px solid #cbd5e1; padding: 7px 10px; }
+    .text-base-caption { margin-top:8px; font-size:11px; line-height:1.4; color:#64748b; font-style:italic; white-space:pre-wrap; overflow-wrap:anywhere; break-before:avoid; }
     .texto-base-box { border-left: 4px solid #334155; background: #f8fafc; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
     .math-ops-grid { display: grid; gap: 12px 28px; margin-top: 10px; align-items: start; }
     .math-op-box { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 98px; font-family: 'Courier New', monospace; font-size: 17px; text-align: right; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 14px 8px; background: #fff; }
@@ -402,7 +403,7 @@
       .two-cols { gap: 12px; }
       .option-item { line-height: 1.35; }
       .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
-      .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
+    .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
       .question-image { margin: 6px 0 8px; }
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
       @page { size: A4 portrait; margin: 8mm 9mm 10mm; }
@@ -445,7 +446,7 @@
       .two-cols { gap: 12px; }
       .option-item { line-height: 1.35; }
       .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
-      .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
+    .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
       .question-image { margin: 6px 0 8px; }
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
     .page { width:192mm; max-width:none; min-height:279mm; padding:0; margin:8mm auto; }
@@ -762,7 +763,7 @@
       return '';
     };
 
-    function renderQuestionPreview(q) {
+    function renderQuestionPreview(q, omitTextBase = false) {
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => '<div class="hline"></div>').join('')}</div>`;
       const imageFigure = (question) => {
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
@@ -926,7 +927,7 @@
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
       if (q.type === 'texto_base') {
-        const textBox = q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}</div>` : '';
+        const textBox = q.textBase && !omitTextBase ? `<div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
 
         if (q.answerType === 'multipla') {
           const opts = (q.options || []).map((op, i) => {
@@ -1364,6 +1365,8 @@
     }
 
     function renderQuestionBlock(q, i, questionNumber) {
+      const textFirst = q.type === 'texto_base' && q.textBaseBeforeStatement === true;
+      const leadingText = textFirst && q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
       const headerImage = _buildHeaderHtml(q);
       const besideStatement = headerImage && q.headerImage?.mode === 'one' && ['lado_esquerda','lado_direita'].includes(q.headerImage.align);
       const statement = `<div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>`;
@@ -1372,8 +1375,9 @@
                 ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
               </div>
               ${buildFreeImagesHtml(q)}
+              ${leadingText}
               ${besideStatement ? `<div class="question-statement-with-image">${headerImage}${statement}</div>` : statement}
-              <div class="qpreview">${(besideStatement ? '' : headerImage) + renderQuestionPreview(q)}</div>
+              <div class="qpreview">${(besideStatement ? '' : headerImage) + renderQuestionPreview(q, textFirst)}</div>
               <div class="free-image-clear"></div>
             </div>`;
     }

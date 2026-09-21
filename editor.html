@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-word-search"></script>
-  <script src="js/editor-tools.js?v=20260921-word-search"></script>
+  <script src="js/editor-tools.js?v=20260921-text-caption"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -325,6 +325,7 @@
     }
 
     /* Caixa de texto-base (interpretação de texto) */
+    .text-base-caption { margin-top:8px; font-size:11px; line-height:1.4; color:#64748b; font-style:italic; white-space:pre-wrap; overflow-wrap:anywhere; break-before:avoid; }
     .texto-base-box {
       border: 1px solid #cbd5e1;
       border-left: 4px solid #334155;
@@ -1455,7 +1456,7 @@
       .two-cols { gap: 12px; }
       .option-item { line-height: 1.35; }
       .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
-      .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
+    .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
       .question-image { margin: 6px 0 8px; }
       .pv-header,
       .info-grid,
@@ -1500,7 +1501,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-word-search" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-text-options" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -4220,6 +4221,8 @@
             <div>
               <label>Texto-base (trecho para leitura)</label>
               <textarea data-k="textBase" rows="6" placeholder="Cole ou escreva aqui o texto que os alunos lerão antes de responder...">${esc(q.textBase || '')}</textarea>
+              <label>Legenda do texto (opcional)</label>
+              <input data-k="textBaseCaption" value="${esc(q.textBaseCaption || '')}" placeholder="Ex.: autor, título da obra ou fonte do texto" />
             </div>
             <div class="row two">
               <div>
@@ -4248,17 +4251,52 @@
               row.className = 'option-row';
               const radio = document.createElement('input');
               radio.type = 'radio'; radio.name = `tb-correct-${idx}`;
+              radio.setAttribute('aria-label', `Marcar alternativa ${String.fromCharCode(65+j)} como correta`);
               radio.checked = q.correctOption === j;
               radio.addEventListener('change', () => { q.correctOption = j; renderPreview(); });
               const inp = document.createElement('input');
               inp.value = op || ''; inp.placeholder = `Alternativa ${String.fromCharCode(65+j)}`;
               inp.addEventListener('input', () => { q.options[j] = inp.value; renderPreview(); });
-              row.appendChild(radio); row.appendChild(inp);
+              const remove = document.createElement('button');
+              remove.type = 'button'; remove.className = 'danger text-option-remove'; remove.textContent = '×';
+              remove.title = `Excluir alternativa ${String.fromCharCode(65+j)}`;
+              remove.setAttribute('aria-label', remove.title);
+              remove.disabled = q.options.length <= 2;
+              remove.addEventListener('click', () => {
+                if (!EditorTools.canEdit() || q.options.length <= 2) return;
+                q.options.splice(j, 1);
+                if (Array.isArray(q.optionImages)) q.optionImages.splice(j, 1);
+                if (q.correctOption === j) q.correctOption = null;
+                else if (q.correctOption > j) q.correctOption -= 1;
+                renderAll();
+              });
+              row.append(radio, inp, remove);
               optBox.appendChild(row);
             });
             optBlock.appendChild(optBox);
+            const add = document.createElement('button');
+            add.type = 'button'; add.className = 'outline inline-add-btn content-add-action';
+            add.textContent = 'Adicionar alternativa'; add.disabled = q.options.length >= 6;
+            add.addEventListener('click', () => {
+              if (!EditorTools.canEdit() || q.options.length >= 6) return;
+              const index = q.options.length;
+              q.options.push('');
+              if (Array.isArray(q.optionImages)) q.optionImages[index] = {dataUrl:'',fileName:''};
+              renderAll();
+            });
+            optBlock.appendChild(add);
             block.appendChild(optBlock);
           }
+          const positionLabel = document.createElement('label'); positionLabel.className = 'question-check';
+          const positionCheck = document.createElement('input'); positionCheck.type = 'checkbox';
+          positionCheck.checked = q.textBaseBeforeStatement === true;
+          positionCheck.setAttribute('aria-label', 'Mostrar texto-base antes do enunciado');
+          positionCheck.addEventListener('change', () => {
+            if (!EditorTools.canEdit()) { positionCheck.checked = q.textBaseBeforeStatement === true; return; }
+            q.textBaseBeforeStatement = positionCheck.checked; renderPreview();
+          });
+          positionLabel.append(positionCheck, document.createTextNode('Mostrar antes do enunciado'));
+          block.querySelector('[data-k="textBase"]').after(positionLabel);
           body.appendChild(block);
         }
 
@@ -5749,7 +5787,7 @@
             : `<div class="option-item"><span>${letter})</span><span>${esc(label)}</span></div>`;
         }).join('');
         if (q.type === 'texto_base') {
-          const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}</div>` : '';
+          const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
           return `${base}<div class="spacey">${items}</div>`;
         }
         return `<div class="spacey">${items}</div>`;
@@ -5883,7 +5921,7 @@
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
       if (q.type === 'texto_base') {
-        const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}</div>` : '<div class="small">Texto-base não preenchido.</div>';
+        const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '<div class="small">Texto-base não preenchido.</div>';
         if (q.showAnswerSpace === false) return base;
         return `${base}${answerArea(q)}`;
       }
