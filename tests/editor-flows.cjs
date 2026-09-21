@@ -89,7 +89,7 @@ async function main() {
       bncc.value='EF01CI01'; app.event(bncc,'input');
       assert.equal(app.run('state.questions[0].bncc'),'EF01CI01',type);
       assert.equal(card.querySelector('.question-bncc summary').textContent,'Código BNCC · EF01CI01',type);
-      assert(card.querySelector('.enunciation-image-field .question-images'),type);
+      assert(!card.querySelector('.enunciation-extra-images > input[type="file"]'),type);
       assert(!card.querySelector('.question-images-details'),type);
       assert(!card.textContent.includes('Conteúdo e respostas'),type);
     }

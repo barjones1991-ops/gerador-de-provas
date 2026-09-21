@@ -542,14 +542,26 @@ body[data-editor-view="preview"] .editor-column { display:none; }
   margin:0; padding:12px; border:0; border-top:1px solid #e2e8f0; border-radius:0; min-width:0;
 }
 .qcard .field-image-shell .image-drop { min-height:76px; padding:10px; font-size:12px; }
+.qcard .item-image-size-control { display:flex; align-items:center; gap:8px; font-size:12px; }
+.qcard .item-image-size-control[hidden] { display:none; }
+.qcard .item-image-size-control select { width:auto; min-width:100px; }
+.qcard .row:has(> .image-picker .image-drop:not(:has(img))) > .row:has(select[data-k="imageSize"]) { display:none; }
 .qcard .field-image-shell .image-drop img { max-height:150px; object-fit:contain; }
+/* Depois do envio, a moldura acompanha a miniatura em vez de preencher a linha. */
+.qcard .image-drop:has(> img) {
+  width:fit-content; max-width:100%; min-width:0; min-height:0; height:auto;
+  justify-self:start; align-self:start; padding:6px; box-sizing:border-box;
+}
+.qcard .image-drop:has(> img) > img {
+  width:auto; height:auto; max-width:100%; max-height:240px; object-fit:contain;
+}
 .qcard .field-image-more { border-top:1px solid #e2e8f0; padding:4px 12px; }
 .qcard .field-image-more > summary { font-size:12px; color:#64748b; padding:5px 0; }
 .qcard .field-image-more .image-use-menu { position:static; display:block !important; box-shadow:none; border:0; padding:6px 0; min-width:0; }
 .qcard .field-image-shell:has(> .image-edit-panel.hidden) > .field-image-more { display:none; }
 .qcard .enunciation-extra-images { margin:0; padding:10px 12px; border-top:1px solid #e2e8f0; }
 .qcard .field-image-shell:has(> .image-edit-panel.hidden) > .enunciation-extra-images { display:none; }
-.qcard .enunciation-extra-images > button { color:#246448; background:#edf7f0; border:1px solid #bfddcb; }
+.qcard .enunciation-extra-images:empty { display:none; }
 .qcard .enunciation-extra-images .free-image-fields { padding:0; border:0; }
 .qcard .enunciation-extra-images .image-control-row { padding:10px 0; border-top:1px solid #e2e8f0; }
 .qcard .extra-image-thumbnail { grid-column:1 / -1; max-width:100%; width:auto; max-height:120px; object-fit:contain; justify-self:start; }

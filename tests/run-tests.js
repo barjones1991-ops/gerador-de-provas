@@ -591,8 +591,7 @@ async function main() {
     const editor = read('editor.html');
     const print = read('print.html');
     assert(editor.includes('q.freeImages'), 'editor should store free images on each question');
-    assert(editor.includes('Adicionar imagem complementar'), 'editor should expose complementary image action');
-    assert(editor.includes('readImageFile(file, (dataUrl) => {'), 'free image upload should use compressed image reader');
+    assert(!editor.includes('freeImageInput'), 'editor should not offer new complementary image uploads');
     assert(editor.includes('function buildFreeImagesHtml'), 'editor should render free images');
     assert(editor.includes('function initFreeImageInteractions'), 'editor should allow free image interaction');
     assert(editor.includes('free-image-resize'), 'editor should expose resize handle');

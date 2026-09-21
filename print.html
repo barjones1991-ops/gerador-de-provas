@@ -123,21 +123,37 @@
     .question-image.lado_esquerda { float: left; margin: 0 18px 10px 0; text-align: left; clear: left; }
     .question-image.lado_direita { float: right; margin: 0 0 10px 18px; text-align: right; clear: right; }
     .qpreview { overflow: visible; }
+    .question-statement-with-image { display:flow-root; margin-top:4px; }
+    .question-statement-with-image > .question-image { max-width:45%; }
+    .question-statement-with-image .image-caption { overflow-wrap:anywhere; }
+    .question-image:is(.lado_esquerda,.lado_direita).small { width:100px; }
+    .question-image:is(.lado_esquerda,.lado_direita).medium { width:170px; }
+    .question-image:is(.lado_esquerda,.lado_direita).large { width:270px; }
+    .question-image:is(.lado_esquerda,.lado_direita).full { width:340px; }
     .question-image img {
       object-fit: contain;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 4px;
       background: #f8fafc;
-      display: block;
-      margin: 0 auto;
+      display: inline-block;
+      vertical-align: top;
+      margin: 0;
     }
-    .question-image.small  img { width: 28%; height: 100px; }
-    .question-image.medium img { width: 55%; height: 175px; }
-    .question-image.large  img { width: 82%; height: 270px; }
-    .question-image.full   img { width: 100%; height: auto; max-height: 420px; }
-    .question-image.lado_esquerda img,
-    .question-image.lado_direita  img { width: 155px; height: 130px; }
+    .question-image.small { --image-target-width:28%; --image-height-limit:55mm; }
+    .question-image.medium { --image-target-width:55%; --image-height-limit:90mm; }
+    .question-image.large { --image-target-width:82%; --image-height-limit:139.5mm; }
+    .question-image.full { --image-target-width:100%; --image-height-limit:195mm; }
+    .question-image:is(.lado_esquerda,.lado_direita) { --image-target-width:100%; }
+    .question-image img {
+      width:min(var(--image-target-width, 55%), var(--proportional-image-width, 100%));
+      height:auto; max-width:100%; max-height:var(--image-height-limit, 90mm);
+    }
+
+    img[data-item-image-size] { height:auto !important; max-width:100% !important; max-height:none !important; object-fit:contain; }
+    img[data-item-image-size="small"] { width:70px !important; }
+    img[data-item-image-size="medium"] { width:110px !important; }
+    img[data-item-image-size="large"] { width:160px !important; }
     .image-caption { margin-top: 6px; font-size: 12px; color: #64748b; font-style: italic; }
     .image-match-grid {
       display: grid;
@@ -388,10 +404,6 @@
       .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
       .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
       .question-image { margin: 6px 0 8px; }
-      .question-image.small img { height: 80px; }
-      .question-image.medium img { height: 135px; }
-      .question-image.large img { height: 210px; }
-      .question-image.full img { max-height: 320px; }
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
       @page { size: A4 portrait; margin: 8mm 9mm 10mm; }
     }
@@ -435,10 +447,6 @@
       .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
       .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
       .question-image { margin: 6px 0 8px; }
-      .question-image.small img { height: 80px; }
-      .question-image.medium img { height: 135px; }
-      .question-image.large img { height: 210px; }
-      .question-image.full img { max-height: 320px; }
       .pv-header, .info-grid, .student-grid, .instructions, .question-block { break-inside: avoid; page-break-inside: avoid; }
     .page { width:192mm; max-width:none; min-height:279mm; padding:0; margin:8mm auto; }
     .embedded-preview .toolbar { display:none; }
@@ -494,9 +502,9 @@
       return isSafeImageDataUrl(dataUrl) ? esc(dataUrl) : '';
     }
 
-    function safeImageAttr(dataUrl) {
+    function safeImageAttr(dataUrl, imageSize) {
       const src = safeImageSrc(dataUrl);
-      return src ? `src="${src}"` : '';
+      return src ? `src="${src}"${['small','medium','large'].includes(imageSize) ? ` data-item-image-size="${imageSize}"` : ''}` : '';
     }
     async function printCleanDocument() {
       if (printing || !currentExam?.id || !printAuth) return;
@@ -599,6 +607,7 @@
       q.pairs = q.pairs.map((pair) => ({
         imageDataUrl: pair?.imageDataUrl || '',
         imageFileName: pair?.imageFileName || '',
+        ...(pair?.imageSize ? {imageSize:pair.imageSize} : {}),
         word: pair?.word || '',
       }));
       const validOrder = Array.isArray(q.wordOrder)
@@ -746,7 +755,7 @@
         const cols=Math.max(2,Math.min(4,Number(hi.columns)||2));
         const cells=hi.items.map(item=>{
           const cap=item.caption?`<div class="image-caption">${esc(item.caption)}</div>`:'';
-          return isSafeImageDataUrl(item.dataUrl)?`<div><img ${safeImageAttr(item.dataUrl)} style="width:100%;border-radius:6px;" alt=""/>${cap}</div>`:`<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;" class="small">—</div>`;
+          return isSafeImageDataUrl(item.dataUrl)?`<div><img ${safeImageAttr(item.dataUrl, item.imageSize)} style="width:100%;border-radius:6px;" alt=""/>${cap}</div>`:`<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;" class="small">—</div>`;
         }).join('');
         return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:10px;">${cells}</div>`;
       }
@@ -769,7 +778,7 @@
         const opts = (q.options || []).map((op, i) => {
           const letter = String.fromCharCode(65 + i);
           const optImg = hasOptImgs && isSafeImageDataUrl(q.optionImages[i]?.dataUrl)
-            ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
+            ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
             : '';
           return optImg
             ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(op || `Alternativa ${letter}`)}</span></div></div>`
@@ -792,7 +801,7 @@
           const text = item.text ? `<span>${esc(item.text)}</span>` : '';
           const imgSrc = item.imageDataUrl;
           const h = imgH[item.imageSize || 'small'];
-          const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc)} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
+          const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc, item.imageSize || 'small')} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
             const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
@@ -804,7 +813,7 @@
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
           return `<div class="spacey">${q.items.map((item, i) => {
-            const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}${image}</div>`;
           }).join('')}</div>`;
         }
@@ -827,7 +836,7 @@
               : markMode === 'checklist'
                 ? `Item ${i + 1}`
                 : `Alternativa ${letter}`;
-            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
+            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
           }).join('');
           return `<table class="mark-table"><tbody>${rows}</tbody></table>`;
         }
@@ -846,7 +855,7 @@
               ? `Item ${i + 1}`
               : `Alternativa ${letter}`;
           const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
-          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
+          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
         }).join('')}</div>`;
       }
       if (q.type === 'lacunas') {
@@ -876,7 +885,7 @@
         if (q.imageAnswerType === 'multipla') {
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
-            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${allImages}<div class="spacey">${options}</div>`;
@@ -884,7 +893,7 @@
         if (q.imageAnswerType === 'marcarx') {
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
-            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}${optionImage}</div>`;
           }).join('');
           return `${allImages}<div class="spacey">${items}</div>`;
@@ -906,7 +915,7 @@
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
         const images = pairs.map((pair, i) => `
           <div class="match-image">
-            ${isSafeImageDataUrl(pair.imageDataUrl) ? `<img ${safeImageAttr(pair.imageDataUrl)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
+            ${isSafeImageDataUrl(pair.imageDataUrl) ? `<img ${safeImageAttr(pair.imageDataUrl, pair.imageSize)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
             <strong>Imagem ${i + 1}</strong>
           </div>
         `).join('');
@@ -922,7 +931,7 @@
         if (q.answerType === 'multipla') {
           const opts = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
-            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${textBox}<div class="spacey">${opts}</div>`;
@@ -1088,15 +1097,15 @@
       if (q.type === 'sequencia_imagens') {
         const items = q.items||[];
         const cards = items.map(item => {
-          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
+          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
           const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
           return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num"></div></div>`;
         }).join('');
         return `<div class="seq-img-grid">${cards}</div>`;
       }
       if (q.type === 'comparar_imagens') {
-        const img1 = isSafeImageDataUrl(q.image1DataUrl) ? `<img ${safeImageAttr(q.image1DataUrl)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
-        const img2 = isSafeImageDataUrl(q.image2DataUrl) ? `<img ${safeImageAttr(q.image2DataUrl)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
+        const img1 = isSafeImageDataUrl(q.image1DataUrl) ? `<img ${safeImageAttr(q.image1DataUrl, q.image1Size)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
+        const img2 = isSafeImageDataUrl(q.image2DataUrl) ? `<img ${safeImageAttr(q.image2DataUrl, q.image2Size)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
         const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
         if (q.showAnswerSpace===false) return grid;
         return `${grid}${answerArea(q)}`;
@@ -1104,7 +1113,7 @@
       if (q.type === 'legenda_imagens') {
         const items = q.items||[];
         const cards = items.map(item => {
-          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
         }).join('');
         return `<div class="legenda-grid">${cards}</div>`;
@@ -1114,7 +1123,7 @@
         const cols = [2, 3, 4].includes(Number(q.columns)) ? Number(q.columns) : 3;
         const cards = items.map((item, i) => {
           const img = item.imageDataUrl
-            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
             : `<div class="grade-img-placeholder">Sem imagem</div>`;
           const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
           const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
@@ -1142,7 +1151,7 @@
         const left = q.leftItems||[]; const right = q.rightItems||[];
         const order = Array.isArray(q.rightOrder)&&q.rightOrder.length===right.length ? q.rightOrder : right.map((_,i)=>i);
         const mkCard = (item, label) => {
-          const img = item&&isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
+          const img = item&&isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="assoc-img-card">${img}<div style="margin-top:4px;font-weight:700;">${esc(label)}</div><div class="assoc-img-blank"></div></div>`;
         };
         const leftCards = left.map((item,i)=>mkCard(item,String.fromCharCode(65+i))).join('');
@@ -1337,14 +1346,34 @@
       return exam;
     }
 
+    function fitQuestionImages() {
+      document.querySelectorAll('#root .question-image img').forEach(img => {
+        const fit = () => {
+          if (!img.naturalWidth || !img.naturalHeight) return;
+          const container = img.closest('.question-image');
+          const size = ['small','medium','large','full'].find(name => container.classList.contains(name)) || 'medium';
+          const heightLimit = {small:55, medium:90, large:139.5, full:195}[size];
+          // A4: 297mm - 8mm top - 10mm bottom. Include the 4px padding and 1px border.
+          const frameMm = 10 * 25.4 / 96;
+          const widthMm = (heightLimit - frameMm) * img.naturalWidth / img.naturalHeight + frameMm;
+          img.style.setProperty('--proportional-image-width', `${widthMm}mm`);
+        };
+        if (img.complete) fit();
+        else img.addEventListener('load', () => { fit(); window.ExamPagination?.schedule(); }, {once:true});
+      });
+    }
+
     function renderQuestionBlock(q, i, questionNumber) {
+      const headerImage = _buildHeaderHtml(q);
+      const besideStatement = headerImage && q.headerImage?.mode === 'one' && ['lado_esquerda','lado_direita'].includes(q.headerImage.align);
+      const statement = `<div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>`;
       return `<div class="question-block" data-question-index="${i}">
               <div class="qtitle">
                 ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
               </div>
               ${buildFreeImagesHtml(q)}
-              <div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>
-              <div class="qpreview">${_buildHeaderHtml(q) + renderQuestionPreview(q)}</div>
+              ${besideStatement ? `<div class="question-statement-with-image">${headerImage}${statement}</div>` : statement}
+              <div class="qpreview">${(besideStatement ? '' : headerImage) + renderQuestionPreview(q)}</div>
               <div class="free-image-clear"></div>
             </div>`;
     }
@@ -1378,6 +1407,7 @@
         if (key) key.remove();
         if (answers.firstElementChild) document.getElementById('root').appendChild(answers.firstElementChild);
       }
+      fitQuestionImages();
       window.ExamPagination?.schedule();
     }
 
@@ -1422,6 +1452,7 @@
         </div>
         ${showAnswerKey ? renderAnswerKey(questions) : ''}
       `;
+      fitQuestionImages();
       window.ExamPagination?.schedule();
     }
 

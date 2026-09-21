@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260917-r3"></script>
-  <script src="js/editor-tools.js?v=20260921-question-settings"></script>
+  <script src="js/editor-tools.js?v=20260921-item-sizes"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -920,21 +920,28 @@
       clear: right;
     }
     .clearfix::after { content: ''; display: table; clear: both; }
+    .question-image:is(.lado_esquerda,.lado_direita) { max-width:45%; }
+    .question-image:is(.lado_esquerda,.lado_direita).small { width:100px; }
+    .question-image:is(.lado_esquerda,.lado_direita).medium { width:170px; }
+    .question-image:is(.lado_esquerda,.lado_direita).large { width:270px; }
+    .question-image:is(.lado_esquerda,.lado_direita).full { width:340px; }
+    .question-image:is(.lado_esquerda,.lado_direita):is(.small,.medium,.large,.full) img { width:100%; height:auto; max-width:100%; max-height:none; }
     .question-image img {
       object-fit: contain;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 4px;
       background: #f8fafc;
-      display: block;
-      margin: 0 auto;
+      display: inline-block;
+      vertical-align: top;
+      margin: 0;
     }
-    .question-image.small  img { width: 28%; height: 100px; }
-    .question-image.medium img { width: 55%; height: 175px; }
-    .question-image.large  img { width: 82%; height: 270px; }
-    .question-image.full   img { width: 100%; height: auto; max-height: 420px; }
+    .question-image.small  img { width:28%; height:auto; max-width:100%; max-height:none; }
+    .question-image.medium img { width:55%; height:auto; max-width:100%; max-height:none; }
+    .question-image.large  img { width:82%; height:auto; max-width:100%; max-height:none; }
+    .question-image.full   img { width:100%; height:auto; max-width:100%; max-height:none; }
     .question-image.lado_esquerda img,
-    .question-image.lado_direita  img { width: 155px; height: 130px; }
+    .question-image.lado_direita  img { width:100%; height:auto; max-width:100%; max-height:none; }
     /* Indicador de tamanho de imagem */
     .img-size-info,
     .img-size-warn {
@@ -980,6 +987,11 @@
     }
     .crop-modal-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 
+
+    img[data-item-image-size] { height:auto !important; max-width:100% !important; max-height:none !important; object-fit:contain; }
+    img[data-item-image-size="small"] { width:70px !important; }
+    img[data-item-image-size="medium"] { width:110px !important; }
+    img[data-item-image-size="large"] { width:160px !important; }
     .image-caption {
       margin-top: 6px;
       font-size: 12px;
@@ -1445,10 +1457,6 @@
       .mark-table td, .q-tabela th, .q-tabela td { padding: 4px 7px; }
       .texto-base-box { padding: 7px 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.45; }
       .question-image { margin: 6px 0 8px; }
-      .question-image.small img { height: 80px; }
-      .question-image.medium img { height: 135px; }
-      .question-image.large img { height: 210px; }
-      .question-image.full img { max-height: 320px; }
       .pv-header,
       .info-grid,
       .student-grid,
@@ -1492,7 +1500,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-question-settings" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-item-sizes" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1806,6 +1814,7 @@
       q.pairs = q.pairs.map((pair) => ({
         imageDataUrl: pair?.imageDataUrl || '',
         imageFileName: pair?.imageFileName || '',
+        ...(pair?.imageSize ? {imageSize:pair.imageSize} : {}),
         word: pair?.word || '',
       }));
       const validOrder = Array.isArray(q.wordOrder)
@@ -2499,9 +2508,9 @@
       return isSafeImageDataUrl(dataUrl) ? esc(dataUrl) : '';
     }
 
-    function safeImageAttr(dataUrl) {
+    function safeImageAttr(dataUrl, imageSize) {
       const src = safeImageSrc(dataUrl);
-      return src ? `src="${src}"` : '';
+      return src ? `src="${src}"${['small','medium','large'].includes(imageSize) ? ` data-item-image-size="${imageSize}"` : ''}` : '';
     }
 
     function isAllowedImageFile(file) {
@@ -2819,9 +2828,9 @@
       EditorTools.openModal(overlay);
     }
 
-    function createImagePicker({ getImage, setImage, clearImage }) {
+    function createImagePicker({ getImage, setImage, clearImage, getSize, setSize }) {
       const wrap = document.createElement('div');
-      wrap.className = 'row';
+      wrap.className = 'row image-picker';
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.accept = 'image/*';
@@ -2837,10 +2846,21 @@
 
       const sizeInfo = document.createElement('div');
       sizeInfo.className = 'img-size-info';
+      const sizeControl = document.createElement('label'); sizeControl.className = 'item-image-size-control';
+      sizeControl.appendChild(document.createTextNode('Tamanho'));
+      const sizeSelect = document.createElement('select'); sizeSelect.setAttribute('aria-label', 'Tamanho da imagem');
+      sizeSelect.innerHTML = '<option value="small">Pequena</option><option value="medium">Média</option><option value="large">Grande</option>';
+      sizeControl.appendChild(sizeSelect);
+      sizeSelect.addEventListener('change', () => {
+        if (!EditorTools.canEdit() || !setSize) return;
+        setSize(sizeSelect.value); renderPreview();
+      });
 
       const refresh = () => {
         const image = getImage();
         const hasImg = !!image.dataUrl;
+        sizeControl.hidden = !hasImg || !setSize;
+        sizeSelect.value = getSize?.() || 'small';
         drop.setAttribute('aria-label', hasImg ? 'Substituir imagem' : 'Selecionar imagem do computador');
         drop.innerHTML = hasImg
           ? `<img ${safeImageAttr(image.dataUrl)} alt="${esc(image.fileName || 'Imagem da questao')}" />`
@@ -2862,6 +2882,7 @@
 
       const applyFile = (file) => readImageFile(file, (dataUrl, fileName, bytes) => {
         setImage(dataUrl, fileName);
+        if (setSize && !getSize?.()) setSize('small');
         refresh();
         renderPreview();
       });
@@ -2944,6 +2965,7 @@
       wrap.appendChild(drop);
       wrap.appendChild(fileInput);
       wrap.appendChild(actions);
+      if (setSize) wrap.appendChild(sizeControl);
       return wrap;
     }
 
@@ -3000,34 +3022,6 @@
         bankBtn.title = 'Salvar no banco de questões';
         bankBtn.textContent = 'Salvar no banco de questões';
         bankBtn.addEventListener('click', () => saveQuestionToBank(idx));
-
-        const freeImageInput = document.createElement('input');
-        freeImageInput.type = 'file';
-        freeImageInput.accept = 'image/*';
-        freeImageInput.className = 'visually-hidden';
-        freeImageInput.addEventListener('change', (event) => {
-          const file = event.target.files && event.target.files[0];
-          readImageFile(file, (dataUrl) => {
-            if (!Array.isArray(q.freeImages)) q.freeImages = [];
-            q.freeImages.push({
-              dataUrl,
-              fileName: file.name,
-              align: 'left',
-              offsetY: 0,
-              width: 180,
-              height: 120,
-            });
-            renderAll();
-          });
-          event.target.value = '';
-        });
-
-        const freeImageBtn = document.createElement('button');
-        freeImageBtn.type = 'button';
-        freeImageBtn.className = 'outline';
-        freeImageBtn.title = 'Adicionar imagem complementar à questão';
-        freeImageBtn.textContent = 'Adicionar imagem complementar';
-        freeImageBtn.addEventListener('click', () => freeImageInput.click());
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -3308,9 +3302,10 @@
             sizeWrap.style.display = item.imageDataUrl ? 'flex' : 'none';
             sizeWrap.style.cssText += ' align-items:center; gap:4px;';
             const sizeLbl = document.createElement('span');
-            sizeLbl.textContent = 'Tam:';
+            sizeLbl.textContent = 'Tamanho';
             sizeLbl.style.cssText = 'font-size:11px; color:#64748b;';
             const sizeSelect = document.createElement('select');
+            sizeSelect.setAttribute('aria-label', 'Tamanho da imagem');
             sizeSelect.style.cssText = 'height:26px; font-size:11px; border-radius:6px; border:1px solid #e2e8f0; padding:0 4px;';
             [['small','Pequena'],['medium','Média'],['large','Grande']].forEach(([v,l]) => {
               const o = document.createElement('option'); o.value = v; o.textContent = l;
@@ -4153,6 +4148,7 @@
             card.appendChild(title);
             card.appendChild(createImagePicker({
               getImage: () => ({ dataUrl: pair.imageDataUrl || '', fileName: pair.imageFileName || '' }),
+              getSize: () => pair.imageSize, setSize: value => { pair.imageSize = value; },
               setImage: (dataUrl, fileName) => {
                 pair.imageDataUrl = dataUrl;
                 pair.imageFileName = fileName;
@@ -5048,6 +5044,7 @@
               card.appendChild(toprow);
               card.appendChild(createImagePicker({
                 getImage:()=>({dataUrl:item.imageDataUrl||'',fileName:item.imageFileName||''}),
+                getSize: () => item.imageSize, setSize: value => { item.imageSize = value; },
                 setImage:(d,f)=>{ item.imageDataUrl=d; item.imageFileName=f; renderPreview(); },
                 clearImage:()=>{ item.imageDataUrl=null; item.imageFileName=''; renderPreview(); },
               }));
@@ -5068,6 +5065,7 @@
           cblock.innerHTML='<label>Imagem A</label>';
           cblock.appendChild(createImagePicker({
             getImage:()=>({dataUrl:q.image1DataUrl||'',fileName:q.image1FileName||''}),
+            getSize: () => q.image1Size, setSize: value => { q.image1Size = value; },
             setImage:(d,f)=>{ q.image1DataUrl=d; q.image1FileName=f; renderPreview(); },
             clearImage:()=>{ q.image1DataUrl=null; q.image1FileName=''; renderPreview(); },
           }));
@@ -5076,6 +5074,7 @@
           const img2label=document.createElement('label'); img2label.textContent='Imagem B'; img2label.style.marginTop='10px'; cblock.appendChild(img2label);
           cblock.appendChild(createImagePicker({
             getImage:()=>({dataUrl:q.image2DataUrl||'',fileName:q.image2FileName||''}),
+            getSize: () => q.image2Size, setSize: value => { q.image2Size = value; },
             setImage:(d,f)=>{ q.image2DataUrl=d; q.image2FileName=f; renderPreview(); },
             clearImage:()=>{ q.image2DataUrl=null; q.image2FileName=''; renderPreview(); },
           }));
@@ -5098,6 +5097,7 @@
               const card=document.createElement('div'); card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;';
               card.appendChild(createImagePicker({
                 getImage:()=>({dataUrl:item.imageDataUrl||'',fileName:item.imageFileName||''}),
+                getSize: () => item.imageSize, setSize: value => { item.imageSize = value; },
                 setImage:(d,f)=>{ item.imageDataUrl=d; item.imageFileName=f; renderPreview(); },
                 clearImage:()=>{ item.imageDataUrl=null; item.imageFileName=''; renderPreview(); },
               }));
@@ -5164,6 +5164,7 @@
               card.style.cssText = 'border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-top:8px;';
               card.appendChild(createImagePicker({
                 getImage: () => ({ dataUrl: item.imageDataUrl || '', fileName: item.imageFileName || '' }),
+                getSize: () => item.imageSize, setSize: value => { item.imageSize = value; },
                 setImage: (d, f) => { item.imageDataUrl = d; item.imageFileName = f; renderPreview(); },
                 clearImage: () => { item.imageDataUrl = null; item.imageFileName = ''; renderPreview(); },
               }));
@@ -5324,6 +5325,7 @@
                 lcard.innerHTML=`<div class="small" style="margin-bottom:4px;">Esquerda ${String.fromCharCode(65+i)}</div>`;
                 lcard.appendChild(createImagePicker({
                   getImage:()=>({dataUrl:q.leftItems[i].imageDataUrl||'',fileName:q.leftItems[i].imageFileName||''}),
+                  getSize: () => q.leftItems[i].imageSize, setSize: value => { q.leftItems[i].imageSize = value; },
                   setImage:(d,f)=>{ q.leftItems[i].imageDataUrl=d; q.leftItems[i].imageFileName=f; renderPreview(); },
                   clearImage:()=>{ q.leftItems[i].imageDataUrl=null; q.leftItems[i].imageFileName=''; renderPreview(); },
                 }));
@@ -5333,6 +5335,7 @@
                 rcard.innerHTML=`<div class="small" style="margin-bottom:4px;">Direita ${i+1}</div>`;
                 rcard.appendChild(createImagePicker({
                   getImage:()=>({dataUrl:q.rightItems[i].imageDataUrl||'',fileName:q.rightItems[i].imageFileName||''}),
+                  getSize: () => q.rightItems[i].imageSize, setSize: value => { q.rightItems[i].imageSize = value; },
                   setImage:(d,f)=>{ q.rightItems[i].imageDataUrl=d; q.rightItems[i].imageFileName=f; renderPreview(); },
                   clearImage:()=>{ q.rightItems[i].imageDataUrl=null; q.rightItems[i].imageFileName=''; renderPreview(); },
                 }));
@@ -5473,6 +5476,7 @@
                   card.appendChild(capI);
                   card.appendChild(createImagePicker({
                     getImage:()=>({dataUrl:item.dataUrl||'',fileName:item.fileName||''}),
+                    getSize: () => item.imageSize, setSize: value => { item.imageSize = value; },
                     setImage:(d,f)=>{item.dataUrl=d;item.fileName=f;renderPreview();},
                     clearImage:()=>{item.dataUrl='';item.fileName='';renderPreview();},
                   }));
@@ -5519,7 +5523,7 @@
         if (imageEditor) images.appendChild(imageEditor);
         const imageHint = document.createElement('p'); imageHint.className = 'small';
         imageHint.textContent = 'A imagem complementar acompanha a questão. Ajuste seu tamanho e posição neste bloco.';
-        images.append(imageHint, freeImageBtn, freeImageInput);
+        images.append(imageHint);
         body.appendChild(images);
 
         if (['grade_imagens','sequencia_imagens','legenda_imagens','relacione_imagens'].includes(q.type)) {
@@ -5673,7 +5677,7 @@
         const cells = items.map(item => {
           const cap = item.caption ? `<div class="image-caption">${esc(item.caption)}</div>` : '';
           return isSafeImageDataUrl(item.dataUrl)
-            ? `<div><img ${safeImageAttr(item.dataUrl)} style="width:100%;border-radius:6px;" alt="" />${cap}</div>`
+            ? `<div><img ${safeImageAttr(item.dataUrl, item.imageSize)} style="width:100%;border-radius:6px;" alt="" />${cap}</div>`
             : `<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;text-align:center;" class="small">—</div>`;
         }).join('');
         return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:10px;">${cells}</div>`;
@@ -5720,7 +5724,7 @@
           const letter = String.fromCharCode(65 + i);
           const label = op || `Alternativa ${letter}`;
           const optImg = hasOptImgs && isSafeImageDataUrl(q.optionImages[i]?.dataUrl)
-            ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
+            ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
             : '';
           return optImg
             ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(label)}</span></div></div>`
@@ -5747,7 +5751,7 @@
           const text = item.text ? `<span>${esc(item.text)}</span>` : '';
           const imgSrc = item.imageDataUrl;
           const h = imgH[item.imageSize || 'small'];
-          const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc)} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
+          const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc, item.imageSize || 'small')} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
             const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
@@ -5760,7 +5764,7 @@
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
           const items = q.items.map((item, i) => {
-            const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}${image}</div>`;
           }).join('');
           return `<div class="spacey">${items}</div>`;
@@ -5783,10 +5787,10 @@
               ? `Item ${i + 1}`
               : `Alternativa ${letter}`;
           if (q.markLayout === 'tabela') {
-            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
+            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
           }
           const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
-          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
+          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
         }).join('');
         if (q.markLayout === 'tabela') return `<table class="mark-table"><tbody>${items}</tbody></table>`;
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
@@ -5820,7 +5824,7 @@
         if (q.imageAnswerType === 'multipla') {
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
-            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${allImages}<div class="spacey">${options}</div>`;
@@ -5828,7 +5832,7 @@
         if (q.imageAnswerType === 'marcarx') {
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
-            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
+            const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
             return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}${optionImage}</div>`;
           }).join('');
           return `${allImages}<div class="spacey">${items}</div>`;
@@ -5850,7 +5854,7 @@
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
         const images = pairs.map((pair, i) => `
           <div class="match-image">
-            ${pair.imageDataUrl ? `<img ${safeImageAttr(pair.imageDataUrl)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
+            ${pair.imageDataUrl ? `<img ${safeImageAttr(pair.imageDataUrl, pair.imageSize)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
             <strong>Imagem ${i + 1}</strong>
           </div>
         `).join('');
@@ -6032,7 +6036,7 @@
         const items = q.items || [];
         const cards = items.map(item => {
           const img = item.imageDataUrl
-            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />`
             : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
           const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
           return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num">&nbsp;</div></div>`;
@@ -6040,8 +6044,8 @@
         return `<div class="seq-img-grid">${cards}</div>`;
       }
       if (q.type === 'comparar_imagens') {
-        const img1 = q.image1DataUrl ? `<img ${safeImageAttr(q.image1DataUrl)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
-        const img2 = q.image2DataUrl ? `<img ${safeImageAttr(q.image2DataUrl)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
+        const img1 = q.image1DataUrl ? `<img ${safeImageAttr(q.image1DataUrl, q.image1Size)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
+        const img2 = q.image2DataUrl ? `<img ${safeImageAttr(q.image2DataUrl, q.image2Size)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
         const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
         if (q.showAnswerSpace === false) return grid;
         return `${grid}${answerArea(q)}`;
@@ -6050,7 +6054,7 @@
         const items = q.items || [];
         const cards = items.map(item => {
           const img = item.imageDataUrl
-            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />`
             : `<div style="height:90px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="legenda-item">${img}<div class="legenda-line"></div></div>`;
         }).join('');
@@ -6061,7 +6065,7 @@
         const cols = [2, 3, 4].includes(Number(q.columns)) ? Number(q.columns) : 3;
         const cards = items.map((item, i) => {
           const img = item.imageDataUrl
-            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
             : `<div class="grade-img-placeholder">Sem imagem</div>`;
           const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
           const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
@@ -6091,7 +6095,7 @@
         const order = Array.isArray(q.rightOrder) && q.rightOrder.length === right.length ? q.rightOrder : right.map((_,i)=>i);
         const mkCard = (item, label) => {
           const img = item && item.imageDataUrl
-            ? `<img ${safeImageAttr(item.imageDataUrl)} alt="${esc(item.imageFileName||'')}" />`
+            ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />`
             : `<div style="height:70px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;">Sem imagem</div>`;
           return `<div class="assoc-img-card">${img}<div style="margin-top:4px;font-weight:700;">${esc(label)}</div><div class="assoc-img-blank"></div></div>`;
         };

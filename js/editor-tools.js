@@ -286,7 +286,7 @@ const EditorTools = {
     const text = card.querySelector('textarea[data-k="text"]');
     let toolbar = card.querySelector('.image-use-wrap');
     let panel = card.querySelector('.image-edit-panel');
-    if (text && !toolbar) {
+    if (text && !toolbar && (q.freeImages?.length || card.querySelector('[data-batch-images]'))) {
       toolbar = document.createElement('div'); toolbar.className = 'image-use-wrap';
       panel = document.createElement('div'); panel.className = 'image-edit-panel hidden';
       const button = document.createElement('button'); button.type = 'button';
@@ -312,8 +312,6 @@ const EditorTools = {
         const oldDetails = images.closest('.question-images-details');
         images.querySelector('h3')?.remove();
         images.querySelector(':scope > p')?.remove();
-        const add = images.querySelector(':scope > button');
-        if (add) { add.textContent = 'Adicionar outra imagem'; add.title = 'Adicionar outra imagem à questão'; }
         images.classList.add('enunciation-extra-images');
         shell.appendChild(images); oldDetails?.remove();
         if (q.freeImages?.length) panel.classList.remove('hidden');
@@ -337,6 +335,11 @@ const EditorTools = {
     });
     const images = card.querySelector('.question-images');
     if (images && !images.closest('.enunciation-image-field')) {
+      if (!q.freeImages?.length && !images.querySelector('[data-batch-images]')) {
+        const wrapper = images.closest('.question-images-details');
+        if (wrapper) wrapper.remove(); else images.remove();
+        return;
+      }
       let details = images.closest('.question-images-details');
       if (!details) {
         details = document.createElement('details'); details.className = 'question-images-details';
@@ -404,7 +407,9 @@ const EditorTools = {
       summary.setAttribute('aria-label', summary.title); details.appendChild(summary);
       details.appendChild(createImagePicker({
         getImage: () => q.optionImages?.[i] || {},
-        setImage: (dataUrl, fileName) => { if (!Array.isArray(q.optionImages)) q.optionImages = []; q.optionImages[i] = {dataUrl,fileName}; summary.textContent = `Imagem ${letter}`; renderPreview(); },
+        getSize: () => q.optionImages?.[i]?.imageSize,
+        setSize: value => { q.optionImages[i].imageSize = value; },
+        setImage: (dataUrl, fileName) => { if (!Array.isArray(q.optionImages)) q.optionImages = []; q.optionImages[i] = {...q.optionImages[i],dataUrl,fileName}; summary.textContent = `Imagem ${letter}`; renderPreview(); },
         clearImage: () => { if (q.optionImages) q.optionImages[i] = {dataUrl:'',fileName:''}; summary.textContent = 'Imagem'; renderPreview(); }
       }));
       if (textInput) {
@@ -438,6 +443,8 @@ const EditorTools = {
       summary.setAttribute('aria-label', summary.title);
       details.appendChild(summary);
       details.appendChild(createImagePicker({
+        getSize: () => getStoredImage().imageSize,
+        setSize: value => { getStoredImage().imageSize = value; },
         getImage: () => {
           const image = getStoredImage();
           return q.type === 'vf'
@@ -450,7 +457,7 @@ const EditorTools = {
             q.items[itemIndex].imageFileName = fileName;
           } else {
             if (!Array.isArray(q.optionImages)) q.optionImages = [];
-            q.optionImages[itemIndex] = { dataUrl, fileName };
+            q.optionImages[itemIndex] = { ...q.optionImages[itemIndex], dataUrl, fileName };
           }
           summary.textContent = 'Imagem ✓';
           renderPreview();
@@ -725,7 +732,7 @@ const EditorTools = {
     overview.after(readiness);
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260917-a13" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260921-item-sizes" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);

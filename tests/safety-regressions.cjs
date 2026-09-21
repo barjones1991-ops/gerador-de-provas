@@ -135,8 +135,8 @@ async function test(name, task) { await task(); checks++; console.log('OK REG', 
   });
   await test('PDF respeita numero oculto sem deslocar questao seguinte', () => {
     const node = { innerHTML: '' };
-    const ctx = functions(read('print.html'), ['esc','parsePtNumber','normalizeExam','renderQuestionBlock','renderExam'], {
-      ExamSafety, URLSearchParams, window: { location: { search: '' } }, document: { getElementById: () => node },
+    const ctx = functions(read('print.html'), ['esc','parsePtNumber','normalizeExam','renderQuestionBlock','fitQuestionImages','renderExam'], {
+      ExamSafety, URLSearchParams, window: { location: { search: '' } }, document: { getElementById: () => node, querySelectorAll: () => [] },
       isSafeImageDataUrl: () => false, buildFreeImagesHtml: () => '', _buildHeaderHtml: () => '', renderQuestionPreview: () => '',
     });
     ctx.renderExam({ questions: [{ type: 'texto_base', hideNumber: true, text: 'Texto' }, { type: 'discursiva', text: 'Pergunta' }] });

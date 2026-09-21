@@ -131,24 +131,86 @@ for (const type of ['discursiva','imagem']) {
  extras.ctx.EditorTools.focusQuestion(0);
  const shell=extras.document.querySelector('.enunciation-image-field');
  assert(!extras.document.querySelector('.question-images-details'));
- assert.equal(shell.querySelector('.enunciation-extra-images > button').textContent,'Adicionar outra imagem');
+ assert(!shell.querySelector('.enunciation-extra-images > button'));
+ assert(!shell.querySelector('.enunciation-extra-images > input[type="file"]'));
  assert.equal(shell.querySelector('.extra-image-thumbnail').alt,'original.png');
  assert(!shell.querySelector('.image-edit-panel').classList.contains('hidden'));
  const trigger=shell.querySelector('.field-image-trigger');
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'false');
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'true');
  const width=shell.querySelector('.image-control-row input'); width.value='220'; extras.event(width,'input');
- extras.run('readImageFile=(file,done)=>done("data:image/png;base64,BB==")');
- const upload=shell.querySelector('.enunciation-extra-images > input[type="file"]'); upload.files=[{name:'nova.png'}]; extras.event(upload,'change');
- assert.equal(extras.run('state.questions[0].freeImages.length'),2);
+ assert.equal(extras.run('state.questions[0].freeImages.length'),1);
  await extras.run('saveToCloud()');
  const storedExtras=JSON.parse(extras.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions;
  assert.equal(storedExtras[0].freeImages[0].width,220); assert.equal(storedExtras[0].freeImages[0].align,'right');
  const restored=await boot({questions:storedExtras}); restored.ctx.EditorTools.focusQuestion(0);
- assert.equal(restored.document.querySelectorAll('.enunciation-image-field .extra-image-thumbnail').length,2);
+ assert.equal(restored.document.querySelectorAll('.enunciation-image-field .extra-image-thumbnail').length,1);
  restored.event(restored.document.querySelector('.image-control-row button'),'click');
- assert.equal(restored.run('state.questions[0].freeImages.length'),1);
- assert.equal(restored.run('state.questions[0].freeImages[0].fileName'),'nova.png');
+ assert.equal(restored.run('state.questions[0].freeImages.length'),0);
 }
-console.log('OK IMAGENS EXTRAS acesso único, miniaturas, adicionar, ajustar, salvar, reabrir e remover');
+console.log('OK IMAGENS EXTRAS inclusão removida; imagens existentes permitem ajustar, salvar, reabrir e remover');
+for (const align of ['lado_esquerda','lado_direita','left','center','right']) {
+ ctx.q={type:'discursiva',text:'Explique a figura.',points:'1',lines:4,headerImage:{mode:'one',dataUrl:'data:image/png;base64,AA==',align,size:'medium',caption:'Figura'}};
+ vm.runInContext('renderExam({questions:[q]},false)',ctx);
+ const block=document.querySelector('.question-block');
+ const beside=align.startsWith('lado_');
+ assert.equal(Boolean(block.querySelector('.question-statement-with-image')),beside,align);
+ assert.equal(block.querySelectorAll('.question-image').length,1,align);
+ if (beside) {
+  const statement=block.querySelector('.question-statement-with-image');
+  assert(statement.querySelector('.qtext')); assert(statement.querySelector('.question-image'));
+  assert(statement.nextElementSibling.classList.contains('qpreview'));
+  assert(!statement.querySelector('.hline')); assert(!block.querySelector('.qpreview .question-image'));
+ } else assert(block.querySelector('.qpreview .question-image'));
+ assert.equal(block.querySelectorAll('.hline').length,4);
+}
+console.log('OK IMAGEM LATERAL junto do enunciado, sem duplicação e com resposta separada');
+for (const [width,height] of [[400,1600],[1600,400],[600,600]]) {
+ let previousWidth=0;
+ for(const [size,heightLimit,targetWidth] of [['small',55,.28],['medium',90,.55],['large',139.5,.82],['full',195,1]]) {
+ ctx.q={type:'discursiva',text:'Observe.',points:'1',headerImage:{mode:'one',dataUrl:'data:image/png;base64,AA==',align:'center',size}};
+ vm.runInContext('renderExam({questions:[q]},false)',ctx);
+ const img=document.querySelector('#root .question-image img');
+ Object.defineProperties(img,{naturalWidth:{value:width},naturalHeight:{value:height},complete:{value:true}});
+ vm.runInContext('fitQuestionImages()',ctx);
+ const frame=10*25.4/96;
+ const limit=parseFloat(img.style.getPropertyValue('--proportional-image-width'));
+ assert(Math.abs(((limit-frame)*height/width+frame)-heightLimit)<0.001,'limite inclui moldura e mantém proporção');
+ const renderedWidth=Math.min(192*targetWidth,limit);
+ assert(renderedWidth>previousWidth,'tamanhos crescem sem inversão');
+ previousWidth=renderedWidth;
+ }
+}
+console.log('OK TAMANHOS limites proporcionais e progressivos para retrato, paisagem e quadrada');
+const imageRecord={imageDataUrl:'data:image/png;base64,AA==',imageFileName:'figura.png'};
+for(const question of [
+ {type:'marcarx',items:[{text:'A',checked:true},{text:'B'}],optionImages:[{dataUrl:imageRecord.imageDataUrl,fileName:'figura.png'}]},
+ {type:'vf',items:[{...imageRecord,text:'Afirmação',answer:true}]},
+ {type:'sequencia_imagens',items:[{...imageRecord,order:1},{order:2}]},
+ {type:'legenda_imagens',items:[{...imageRecord}]},
+ {type:'grade_imagens',items:[{...imageRecord}]},
+ {type:'relacione_imagens',pairs:[{...imageRecord,word:'Planta'}]},
+ {type:'associacao_imagem_imagem',leftItems:[{...imageRecord}],rightItems:[{...imageRecord}],rightOrder:[0]},
+ {type:'comparar_imagens',image1DataUrl:imageRecord.imageDataUrl,image1FileName:'figura.png'},
+]) {
+ const sizes=await boot({questions:[{...question,text:'Observe.',points:'10'}]}); sizes.ctx.EditorTools.focusQuestion(0);
+ const control=[...sizes.document.querySelectorAll('.item-image-size-control')].find(node=>!node.hidden);
+ assert(control,question.type);
+ const select=control.querySelector('select'); select.value='large'; sizes.event(select,'change');
+ await sizes.run('saveToCloud()');
+ const savedQuestion=JSON.parse(sizes.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0];
+ ctx.q=savedQuestion; vm.runInContext('renderExam({questions:[q]},false)',ctx);
+ assert(document.querySelector('img[data-item-image-size="large"]'),question.type+' imprime tamanho escolhido');
+ const again=await boot({questions:[savedQuestion]}); again.ctx.EditorTools.focusQuestion(0);
+ assert([...again.document.querySelectorAll('.item-image-size-control select')].some(node=>node.value==='large'),question.type+' reabre tamanho salvo');
+ const picker=control.closest('.image-picker'); const remove=[...picker.querySelectorAll('button')].find(node=>node.title==='Remover imagem');
+ sizes.event(remove,'click'); assert(control.hidden,question.type+' oculta tamanho ao remover');
+ sizes.run('readImageFile=(file,done)=>done("data:image/png;base64,BB==",file.name,1)');
+ const fileInput=picker.querySelector('input[type="file"]'); fileInput.files=[{name:'nova.png'}]; sizes.event(fileInput,'change');
+ assert(!control.hidden,question.type+' mostra tamanho depois do envio');
+ select.value='medium'; sizes.event(select,'change');
+ fileInput.files=[{name:'substituta.png'}]; sizes.event(fileInput,'change');
+ assert.equal(select.value,'medium',question.type+' substituição preserva tamanho');
+}
+console.log('OK TAMANHO POR ITEM alternativas, afirmações, sequência, legenda, grade, relações e comparação: salvar, imprimir, reabrir e remover');
 })().catch(e=>{console.error(e);process.exitCode=1});
