@@ -502,3 +502,59 @@ body[data-editor-view="preview"] .editor-column { display:none; }
   .editor-work-actions .topbar-status-copy { align-items:flex-start; text-align:left; }
   body[data-editor-view="preview"] .preview-options { align-items:center; }
 }
+
+/* O campo e a imagem pertencem ao mesmo bloco, com espaço próprio para o ícone. */
+.qcard .field-image-shell {
+  position:relative; display:grid; grid-template-columns:minmax(0,1fr); gap:0;
+  min-width:0; border:1px solid #cbd5e1; border-radius:10px; background:#fff; align-items:start;
+}
+.qcard .field-image-shell:focus-within { border-color:#6e9ec3; box-shadow:0 0 0 2px #dcecf8; }
+.qcard .field-image-shell > input, .qcard .field-image-shell > textarea {
+  grid-area:1 / 1; min-width:0; width:100%; margin:0; border:0; box-shadow:none;
+  border-radius:10px; background:transparent; padding-right:54px;
+}
+.qcard .field-image-shell > input { min-height:44px; }
+.qcard .field-image-shell > textarea { padding-bottom:48px; padding-right:12px; }
+.qcard .enunciation-image-field > .image-use-wrap {
+  grid-area:1 / 1; justify-self:end; align-self:end; margin:0 17px 8px 0; display:block; z-index:1;
+}
+.qcard .field-image-details { grid-column:1; min-width:0; }
+.qcard .field-image-details > summary.field-image-trigger { position:absolute; top:4px; right:5px; }
+.qcard .field-image-shell .field-image-trigger, .qcard .field-image-shell .field-image-details[open] > summary.field-image-trigger {
+  display:flex; align-items:center; justify-content:center; width:36px; min-width:36px; height:36px;
+  padding:0; margin:0; border:0; border-radius:7px; background:transparent; color:#58758c;
+  font-size:0 !important; line-height:1; cursor:pointer; list-style:none;
+}
+.qcard .field-image-shell .field-image-trigger::before {
+  content:''; display:block; flex:0 0 21px; width:21px; height:21px; margin:0; background:currentColor;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='3'/%3E%3Ccircle cx='8' cy='8' r='1.5'/%3E%3Cpath d='m3 17 5-5 4 4 4-6 5 7'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+}
+.qcard .field-image-trigger::-webkit-details-marker { display:none; }
+.qcard .field-image-trigger:hover, .qcard .field-image-trigger[aria-expanded="true"],
+.qcard .field-image-details[open] > summary { background:#eaf3fa; color:#245f8c; }
+.qcard .field-image-trigger:focus-visible { outline:2px solid #2f75ab; outline-offset:2px; }
+.qcard label.question-number-toggle { margin:2px 0 0; gap:6px; color:#64748b; font-size:12px; font-weight:400; }
+.qcard .question-number-toggle input { width:15px; height:15px; flex-basis:15px; }
+.qcard .question-settings.question-bncc { padding:4px 0; background:transparent; border-radius:0; min-width:0; }
+.qcard .question-bncc > summary { padding:5px 0; color:#64748b; font-size:12px; overflow-wrap:anywhere; }
+.qcard .question-bncc .bncc { max-width:240px; margin-top:6px; }
+.qcard .field-image-details > :not(summary), .qcard .field-image-shell > .image-edit-panel {
+  margin:0; padding:12px; border:0; border-top:1px solid #e2e8f0; border-radius:0; min-width:0;
+}
+.qcard .field-image-shell .image-drop { min-height:76px; padding:10px; font-size:12px; }
+.qcard .field-image-shell .image-drop img { max-height:150px; object-fit:contain; }
+.qcard .field-image-more { border-top:1px solid #e2e8f0; padding:4px 12px; }
+.qcard .field-image-more > summary { font-size:12px; color:#64748b; padding:5px 0; }
+.qcard .field-image-more .image-use-menu { position:static; display:block !important; box-shadow:none; border:0; padding:6px 0; min-width:0; }
+.qcard .field-image-shell:has(> .image-edit-panel.hidden) > .field-image-more { display:none; }
+.qcard .enunciation-extra-images { margin:0; padding:10px 12px; border-top:1px solid #e2e8f0; }
+.qcard .field-image-shell:has(> .image-edit-panel.hidden) > .enunciation-extra-images { display:none; }
+.qcard .enunciation-extra-images > button { color:#246448; background:#edf7f0; border:1px solid #bfddcb; }
+.qcard .enunciation-extra-images .free-image-fields { padding:0; border:0; }
+.qcard .enunciation-extra-images .image-control-row { padding:10px 0; border-top:1px solid #e2e8f0; }
+.qcard .extra-image-thumbnail { grid-column:1 / -1; max-width:100%; width:auto; max-height:120px; object-fit:contain; justify-self:start; }
+@media(max-width:600px) {
+  .qcard .field-image-shell .row.three { grid-template-columns:1fr; }
+  .qcard .field-image-shell .image-actions { flex-wrap:wrap; }
+  .qcard .field-image-trigger { min-height:36px; }
+}

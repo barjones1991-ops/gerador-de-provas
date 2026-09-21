@@ -190,6 +190,7 @@ const EditorTools = {
         this.organizeQuestionChrome(card, q, index);
         this.organizeAlternatives(card, q, index);
         this.organizeAnswerItemImages(card, q, index);
+        this.embedFieldImages(card, q);
       }
     });
     panel.querySelectorAll('label').forEach((label, i) => {
@@ -238,17 +239,30 @@ const EditorTools = {
     }
     if (headActions.children.length) card.querySelector('.qhead').appendChild(headActions);
     const presentation = card.querySelector('.question-presentation');
-    if (presentation && !presentation.closest('.question-appearance')) {
-      let appearance = card.querySelector('.appearance-settings');
-      presentation.querySelector('legend')?.remove();
-      if (appearance) {
-        appearance.classList.add('question-appearance'); appearance.appendChild(presentation);
-      } else {
-        appearance = document.createElement('details'); appearance.className = 'question-appearance';
-        const summary = document.createElement('summary'); summary.textContent = 'Aparência na prova';
-        presentation.before(appearance); appearance.append(summary, presentation);
-      }
+    if (presentation) {
+      const numberLabel = presentation.querySelector('.question-check');
+      const numberInput = numberLabel.querySelector('input');
+      numberLabel.classList.add('question-number-toggle');
+      numberLabel.replaceChildren(numberInput, document.createTextNode('Número na prova'));
+      numberInput.setAttribute('aria-label', 'Mostrar número da questão na prova');
+      numberLabel.title = 'Desmarque para ocultar o número desta questão na prova';
+      card.querySelector('.qhead-left-copy').appendChild(numberLabel);
+      presentation.remove();
     }
+      const settings = card.querySelector('.question-settings');
+      const input = settings?.querySelector('[data-k="bncc"]');
+      if (input) {
+        settings.classList.add('question-bncc');
+        settings.querySelector('label').textContent = 'Código BNCC';
+        input.setAttribute('aria-label', 'Código BNCC (opcional)');
+        const summary = settings.querySelector('summary');
+        const updateCode = () => {
+          const code = input.value.trim();
+          summary.textContent = code ? `Código BNCC · ${code}` : 'Código BNCC (opcional)';
+        };
+        updateCode();
+        input.addEventListener('input', updateCode);
+      }
     if (!['multipla','marcarx'].includes(q.type)) {
       const images = card.querySelector('.question-images');
       if (images && !images.closest('.question-images-details')) {
@@ -265,6 +279,73 @@ const EditorTools = {
     const bank = footer?.querySelector('button[title="Salvar no banco de questões"]');
     if (bank) bank.textContent = 'Guardar no banco para reutilizar';
     if (footer && !footer.children.length) footer.remove();
+  },
+  embedFieldImages(card, q) {
+    if (card.dataset.fieldImagesEmbedded) return;
+    card.dataset.fieldImagesEmbedded = 'true';
+    const text = card.querySelector('textarea[data-k="text"]');
+    let toolbar = card.querySelector('.image-use-wrap');
+    let panel = card.querySelector('.image-edit-panel');
+    if (text && !toolbar) {
+      toolbar = document.createElement('div'); toolbar.className = 'image-use-wrap';
+      panel = document.createElement('div'); panel.className = 'image-edit-panel hidden';
+      const button = document.createElement('button'); button.type = 'button';
+      button.addEventListener('click', () => {
+        if (!this.canEdit()) return;
+        panel.classList.toggle('hidden');
+        button.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
+      });
+      toolbar.appendChild(button);
+    }
+    if (text && toolbar && panel) {
+      const shell = document.createElement('div'); shell.className = 'field-image-shell enunciation-image-field';
+      text.before(shell); shell.append(text, toolbar, panel);
+      text.setAttribute('aria-label', 'Enunciado');
+      const trigger = toolbar.querySelector('button');
+      trigger.classList.add('field-image-trigger');
+      trigger.title = 'Adicionar ou editar imagem do enunciado';
+      trigger.setAttribute('aria-label', trigger.title);
+      panel.id = `enunciation-image-${card.dataset.questionIndex}`;
+      trigger.setAttribute('aria-controls', panel.id);
+      const images = card.querySelector('.question-images');
+      if (images) {
+        const oldDetails = images.closest('.question-images-details');
+        images.querySelector('h3')?.remove();
+        images.querySelector(':scope > p')?.remove();
+        const add = images.querySelector(':scope > button');
+        if (add) { add.textContent = 'Adicionar outra imagem'; add.title = 'Adicionar outra imagem à questão'; }
+        images.classList.add('enunciation-extra-images');
+        shell.appendChild(images); oldDetails?.remove();
+        if (q.freeImages?.length) panel.classList.remove('hidden');
+        trigger.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
+      }
+      const menu = toolbar.querySelector('.image-use-menu');
+      if (menu) {
+        const more = document.createElement('details'); more.className = 'field-image-more';
+        const summary = document.createElement('summary'); summary.textContent = 'Mais opções de imagem';
+        more.append(summary, menu); shell.appendChild(more);
+      }
+    }
+    card.querySelectorAll('.alternative-main, .answer-item-main').forEach((main, i) => {
+      const details = main.querySelector('.alternative-image, .answer-item-image');
+      if (!details) return;
+      main.classList.add('field-image-shell');
+      details.classList.add('field-image-details');
+      const summary = details.querySelector('summary'); summary.classList.add('field-image-trigger');
+      const image = q.type === 'vf' ? q.items?.[i]?.imageDataUrl : q.optionImages?.[i]?.dataUrl;
+      details.open = Boolean(image);
+    });
+    const images = card.querySelector('.question-images');
+    if (images && !images.closest('.enunciation-image-field')) {
+      let details = images.closest('.question-images-details');
+      if (!details) {
+        details = document.createElement('details'); details.className = 'question-images-details';
+        const summary = document.createElement('summary'); details.appendChild(summary);
+        images.before(details); details.appendChild(images); images.querySelector('h3')?.remove();
+      }
+      details.querySelector('summary').textContent = 'Imagens complementares';
+      if (q.freeImages?.length) details.open = true;
+    }
   },
   chooseSingleAnswer(q, index, select) {
     select.value = q.markMode;
@@ -301,41 +382,9 @@ const EditorTools = {
       hint.textContent = q.markMode === 'multipla' ? 'Marque todas as respostas corretas para o gabarito.' : 'Marque a resposta correta para o gabarito.';
       group.parentElement.querySelector(':scope > .small')?.remove(); group.before(hint);
     }
-    const appearance = card.querySelector('.question-appearance');
-    if (appearance) appearance.classList.add('alternatives-appearance');
-    const summary = appearance?.querySelector(':scope > summary');
     const layout = card.querySelector('[data-k="markLayout"]')?.parentElement;
-    if (layout && appearance) {
+    if (layout) {
       layout.querySelector('label').textContent = 'Organização das alternativas';
-      summary.after(layout);
-    }
-    const images = card.querySelector('.question-images');
-    if (images) {
-      const details = document.createElement('details'); details.className = 'alternatives-header-image';
-      const title = document.createElement('summary'); title.textContent = 'Imagem do enunciado (opcional)'; details.appendChild(title);
-      images.before(details); details.appendChild(images); images.querySelector('h3')?.remove();
-      if (!q.headerImage || ['one','alternativas'].includes(q.headerImage.mode)) {
-        images.querySelector('.image-use-wrap')?.remove(); images.querySelector('.image-edit-panel')?.remove();
-        const picker = createImagePicker({
-          getImage: () => q.headerImage?.mode === 'one' ? q.headerImage : {},
-          setImage: (dataUrl, fileName) => { q.headerImage = {...(q.headerImage?.mode === 'one' ? q.headerImage : {}), mode:'one', dataUrl, fileName}; renderAll(); },
-          clearImage: () => { q.headerImage = null; renderAll(); }
-        }); images.prepend(picker);
-        if (q.headerImage?.mode === 'one' && q.headerImage.dataUrl) {
-          details.open = true;
-          for (const [key, labelText, values] of [['size','Tamanho',[['small','Pequena'],['medium','Média'],['large','Grande'],['full','Largura total']]], ['align','Alinhamento',[['left','Esquerda'],['center','Centro'],['right','Direita']]]]) {
-            const label = document.createElement('label'); label.textContent = labelText;
-            const field = document.createElement('select'); values.forEach(([value,text]) => { const option = document.createElement('option'); option.value = value; option.textContent = text; field.appendChild(option); });
-            field.value = q.headerImage[key] || (key === 'size' ? 'medium' : 'center');
-            field.addEventListener('change', () => { q.headerImage[key] = field.value; renderPreview(); }); label.appendChild(field); images.appendChild(label);
-          }
-          const label = document.createElement('label'); label.textContent = 'Legenda (opcional)'; const field = document.createElement('input'); field.value = q.headerImage.caption || '';
-          field.addEventListener('input', () => { q.headerImage.caption = field.value; renderPreview(); }); label.appendChild(field); images.appendChild(label);
-        }
-      }
-      const extra = document.createElement('details'); const extraTitle = document.createElement('summary'); extraTitle.textContent = 'Imagens complementares e posicionamento'; extra.appendChild(extraTitle);
-      [...images.children].filter(node => node.matches('p, button, input[type="file"], .free-image-fields')).forEach(node => extra.appendChild(node));
-      if (extra.children.length > 1) images.appendChild(extra);
     }
     options.forEach((row, i) => {
       const letter = String.fromCharCode(65 + i);
@@ -426,10 +475,15 @@ const EditorTools = {
   addImageFields(card, question, index) {
     if (!question.freeImages?.length) return;
     const group = document.createElement('fieldset'); group.className = 'free-image-fields';
-    const legend = document.createElement('legend'); legend.textContent = 'Posição e tamanho das imagens complementares'; group.appendChild(legend);
+    const legend = document.createElement('legend'); legend.textContent = 'Imagens adicionadas'; group.appendChild(legend);
     question.freeImages.forEach((image, imageIndex) => {
       const row = document.createElement('div'); row.className = 'image-control-row';
       const title = document.createElement('strong'); title.textContent = `Imagem ${imageIndex + 1}`; row.appendChild(title);
+      if (/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(image.dataUrl || '')) {
+        const thumbnail = document.createElement('img'); thumbnail.src = image.dataUrl;
+        thumbnail.alt = image.fileName || `Imagem ${imageIndex + 1}`;
+        thumbnail.className = 'extra-image-thumbnail'; row.appendChild(thumbnail);
+      }
       for (const [key, name, min, max] of [['width', 'Largura', 40, 700], ['height', 'Altura', 30, 1000], ['offsetY', 'Distância do topo', 0, 500]]) {
         const label = document.createElement('label'); label.textContent = name + ' (px)';
         const field = document.createElement('input'); field.type = 'number'; field.min = min; field.max = max;

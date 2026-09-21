@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260917-r3"></script>
-  <script src="js/editor-tools.js?v=20260917-ux24"></script>
+  <script src="js/editor-tools.js?v=20260921-question-settings"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1492,7 +1492,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260917-ux16" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-question-settings" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1949,7 +1949,7 @@
     }
     const typeLabel = {
       multipla: 'Alternativas',
-      discursiva: 'Discursativa',
+      discursiva: 'Discursiva',
       vf: 'Verdadeiro/Falso',
       marcarx: 'Alternativas',
       lacunas: 'Complete as lacunas',
@@ -2829,6 +2829,11 @@
 
       const drop = document.createElement('div');
       drop.className = 'image-drop';
+      drop.setAttribute('role', 'button');
+      drop.tabIndex = 0;
+      drop.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (EditorTools.canEdit()) fileInput.click(); }
+      });
 
       const sizeInfo = document.createElement('div');
       sizeInfo.className = 'img-size-info';
@@ -2836,6 +2841,7 @@
       const refresh = () => {
         const image = getImage();
         const hasImg = !!image.dataUrl;
+        drop.setAttribute('aria-label', hasImg ? 'Substituir imagem' : 'Selecionar imagem do computador');
         drop.innerHTML = hasImg
           ? `<img ${safeImageAttr(image.dataUrl)} alt="${esc(image.fileName || 'Imagem da questao')}" />`
           : '<div><strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span></div>';
@@ -4333,7 +4339,7 @@
           `;
           const mathAppearance = document.createElement('details');
           mathAppearance.className = 'appearance-settings';
-          mathAppearance.innerHTML = '<summary>Aparência na prova</summary>';
+          mathAppearance.innerHTML = '<summary>Organização das contas na prova</summary>';
           mathAppearance.appendChild(cfgBlock);
 
           const block = document.createElement('div');
@@ -4640,7 +4646,7 @@
 
           const appearance = document.createElement('details');
           appearance.className = 'appearance-settings';
-          appearance.innerHTML = '<summary>Aparência na prova</summary>';
+          appearance.innerHTML = '<summary>Organização das expressões na prova</summary>';
           appearance.appendChild(cfgE);
           body.appendChild(appearance);
         }
@@ -5360,8 +5366,17 @@
           const imgSection = document.createElement('div');
           imgSection.className = q.headerImage ? 'image-edit-panel' : 'image-edit-panel hidden';
           imageToggle.addEventListener('click', () => {
-            imageMenu.classList.toggle('hidden');
+            if (!EditorTools.canEdit()) return;
+            if (!imgSection.classList.contains('hidden')) {
+              imgSection.classList.add('hidden');
+            } else if (!q.headerImage || q.headerImage.mode === 'alternativas') {
+              q.headerImage = {mode:'one',dataUrl:'',fileName:'',size:'medium',align:'center',caption:''};
+              rebuildImgPanel();
+              imgSection.classList.remove('hidden');
+            } else imgSection.classList.toggle('hidden');
+            imageToggle.setAttribute('aria-expanded', String(!imgSection.classList.contains('hidden')));
           });
+          imageToggle.setAttribute('aria-expanded', String(Boolean(q.headerImage)));
           imgWrap.appendChild(imageToggle);
           imgWrap.appendChild(imageMenu);
           const rebuildImgPanel = () => {
@@ -5386,10 +5401,11 @@
                   if (!Array.isArray(q.optionImages)) q.optionImages = baseOpts.map(()=>({dataUrl:'',fileName:''}));
                   while(q.optionImages.length < baseOpts.length) q.optionImages.push({dataUrl:'',fileName:''});
                 }
-                imageToggle.className = q.headerImage ? 'primary inline-add-btn' : 'outline inline-add-btn';
+                imageToggle.className = 'outline inline-add-btn field-image-trigger';
                 imageToggle.textContent = q.headerImage ? 'Configurar imagem' : 'Utilizar imagem';
                 imageMenu.classList.add('hidden');
                 imgSection.className = q.headerImage ? 'image-edit-panel' : 'image-edit-panel hidden';
+                imageToggle.setAttribute('aria-expanded', String(Boolean(q.headerImage)));
                 rebuildImgPanel(); renderPreview();
               });
               return btn;
@@ -5401,28 +5417,33 @@
             imageMenu.appendChild(modeRow);
             if (!hi) return;
             if (hi.mode === 'one') {
+              const updateHeaderLayout = () => {
+                const layout = imgSection.querySelector('.header-image-layout');
+                if (layout) layout.style.display = hi.dataUrl ? '' : 'none';
+              };
               imgSection.appendChild(createImagePicker({
                 getImage:()=>({dataUrl:hi.dataUrl||'',fileName:hi.fileName||''}),
-                setImage:(d,f)=>{hi.dataUrl=d;hi.fileName=f;renderPreview();},
-                clearImage:()=>{hi.dataUrl='';hi.fileName='';renderPreview();},
+                setImage:(d,f)=>{hi.dataUrl=d;hi.fileName=f;q.headerImage=hi;updateHeaderLayout();renderPreview();},
+                clearImage:()=>{hi.dataUrl='';hi.fileName='';q.headerImage=null;updateHeaderLayout();renderPreview();},
               }));
               const layoutDiv = document.createElement('div');
-              layoutDiv.className = 'row three';
+              layoutDiv.className = 'row three header-image-layout';
+              layoutDiv.style.display = hi.dataUrl ? '' : 'none';
               layoutDiv.innerHTML = `
-                <div><label>Tamanho</label><select id="hisz${idx}">
+                <div><label for="hisz${idx}">Tamanho</label><select id="hisz${idx}">
                   <option value="small" ${hi.size==='small'?'selected':''}>Pequena</option>
                   <option value="medium" ${hi.size==='medium'?'selected':''}>Média</option>
                   <option value="large" ${hi.size==='large'?'selected':''}>Grande</option>
                   <option value="full" ${hi.size==='full'?'selected':''}>Largura total</option>
                 </select></div>
-                <div><label>Alinhamento</label><select id="hial${idx}">
+                <div><label for="hial${idx}">Alinhamento</label><select id="hial${idx}">
                   <option value="left" ${hi.align==='left'?'selected':''}>Esquerda</option>
                   <option value="center" ${hi.align==='center'?'selected':''}>Centro</option>
                   <option value="right" ${hi.align==='right'?'selected':''}>Direita</option>
                   <option value="lado_esquerda" ${hi.align==='lado_esquerda'?'selected':''}>Lado esq.</option>
                   <option value="lado_direita" ${hi.align==='lado_direita'?'selected':''}>Lado dir.</option>
                 </select></div>
-                <div><label>Legenda</label><input id="hicap${idx}" value="${esc(hi.caption||'')}" placeholder="Ex.: Figura 1" /></div>
+                <div><label for="hicap${idx}">Legenda</label><input id="hicap${idx}" value="${esc(hi.caption||'')}" placeholder="Ex.: Figura 1" /></div>
               `;
               layoutDiv.querySelector(`#hisz${idx}`).addEventListener('change',e=>{hi.size=e.target.value;renderPreview();});
               layoutDiv.querySelector(`#hial${idx}`).addEventListener('change',e=>{hi.align=e.target.value;renderPreview();});

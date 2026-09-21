@@ -82,9 +82,15 @@ async function main() {
       assert(card.classList.contains('compact-question-editor'),type);
       assert.equal(card.querySelector('.question-score label').textContent,'Valor',type);
       assert(card.querySelector('.qhead .question-remove-icon'),type);
-      assert(card.querySelector('.question-appearance'),type);
-      assert.equal(card.querySelectorAll('.question-appearance').length,1,type);
-      if (!['multipla','marcarx'].includes(type)) assert(card.querySelector('.question-images-details'),type);
+      assert(!card.querySelector('.question-appearance'),type);
+      const number=card.querySelector('.qhead [data-presentation="number"]'); assert(number,type);
+      number.checked=false; app.event(number,'change'); assert.equal(app.run('state.questions[0].hideNumber'),true,type);
+      const bncc=card.querySelector('.question-bncc [data-k="bncc"]'); assert(bncc,type);
+      bncc.value='EF01CI01'; app.event(bncc,'input');
+      assert.equal(app.run('state.questions[0].bncc'),'EF01CI01',type);
+      assert.equal(card.querySelector('.question-bncc summary').textContent,'Código BNCC · EF01CI01',type);
+      assert(card.querySelector('.enunciation-image-field .question-images'),type);
+      assert(!card.querySelector('.question-images-details'),type);
       assert(!card.textContent.includes('Conteúdo e respostas'),type);
     }
     assert(!app.document.querySelector('#qtypeSelect option[value="associacao_setas"]'));
