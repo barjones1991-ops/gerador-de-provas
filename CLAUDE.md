@@ -644,3 +644,9 @@ Registrar aqui bugs ou inconsistências encontrados durante correções/refatora
 Complemento: painéis preexistentes de aparência foram reutilizados para evitar duplicação em Matemática; imagens opcionais dos demais tipos ficaram recolhidas, sem ocultar as imagens essenciais específicas de cada modelo.
 
 17/09/2026: “Associação por setas” removida da criação por duplicar “Relacione as colunas”. Chamadas antigas de criação são direcionadas ao modelo relacione; questões associacao_setas já salvas continuam editáveis, imprimíveis e válidas. Cache atualizado para ux6. Sem impacto Supabase; alterações locais, não publicadas.
+
+21/09/2026: questões Alternativas receberam a ação “Adicionar espaço” ao lado de “Adicionar alternativa”. O controle permite escolher de 1 a 40 linhas de resposta, aparece na prévia e na impressão e pode ser removido. Compatibilidade mantida com o tipo legado multipla. Validado com npm test. Sem impacto Supabase; alterações locais, não publicadas.
+
+21/09/2026: Problema matemático recebeu ferramentas de enunciado para inserir fração, potência, raiz, multiplicação e divisão em escrita natural. Frações, potências e raízes são reconhecidas no texto e formatadas na prévia e impressão, com escape seguro do restante do enunciado. Sem impacto Supabase; alterações locais, não publicadas.
+
+21/09/2026: Expressões matemáticas passaram a converter estruturas combinadas, incluindo potência no numerador `(3^3)/5` e fração dentro da raiz `√(49/81)`. Atalhos `aⁿ/b` e `√(a/b)` foram adicionados à barra. Sem impacto Supabase; alterações locais, não publicadas.

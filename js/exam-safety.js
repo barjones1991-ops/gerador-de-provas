@@ -14,7 +14,15 @@
     const value = String(input ?? '').trim();
     if (!value) return '';
     if (/\\(?:frac|dfrac|tfrac|sqrt|times|div|pm|neq|leq|geq|left|right|cdot|overline|begin|text)\b/.test(value)) return value;
-    let latex = value
+    const unwrap = term => {
+      const clean = String(term).trim();
+      return clean.startsWith('(') && clean.endsWith(')') ? clean.slice(1, -1).trim() : clean;
+    };
+    const fractionAtom = '(?:\\([^()\\r\\n]+\\)|[A-Za-zÀ-ÿ0-9.,]+(?:\\s*\\^\\s*[+-]?[A-Za-zÀ-ÿ0-9.,]+)?)';
+    const fractionPattern = new RegExp(`(${fractionAtom})\\s*\\/\\s*(${fractionAtom})`, 'g');
+    let latex = value.replace(fractionPattern, (_, numerator, denominator) =>
+      `\\frac{${unwrap(numerator)}}{${unwrap(denominator)}}`
+    )
       .replace(/(?:raiz|sqrt)\s*\(([^()]*)\)/gi, '\\sqrt{$1}')
       .replace(/√\s*\(([^()]*)\)/g, '\\sqrt{$1}')
       .replace(/√\s*([\dA-Za-z.,]+)/g, '\\sqrt{$1}')
@@ -25,7 +33,6 @@
       .replace(/\s*≥\s*/g, ' \\geq ')
       .replace(/\s*≠\s*/g, ' \\neq ')
       .replace(/\s*±\s*/g, ' \\pm ');
-    latex = latex.replace(/(^|[\s(=+\-])([\dA-Za-z]+(?:[.,][\d]+)?)\s*\/\s*([\dA-Za-z]+(?:[.,][\d]+)?)(?=$|[\s)=+\-])/g, '$1\\frac{$2}{$3}');
     return latex.replace(/\s{2,}/g, ' ').trim();
   }
   function latexToMathExpression(input) {
@@ -47,6 +54,20 @@
       .replace(/\\left|\\right/g, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
+  }
+  function mathTextSegments(input) {
+    const text = String(input ?? '');
+    const pattern = /(?:√\s*\([^()\r\n]{1,80}\)|(?:[A-Za-zÀ-ÿ0-9.,]+|\([^()\r\n]{1,80}\))\s*\^\s*(?:[+-]?[A-Za-zÀ-ÿ0-9.,]+|\([^()\r\n]{1,80}\))|[A-Za-zÀ-ÿ0-9.,]+\s*\/\s*[A-Za-zÀ-ÿ0-9.,]+)/g;
+    const segments = [];
+    let cursor = 0;
+    for (const match of text.matchAll(pattern)) {
+      if (match.index > cursor) segments.push({ type: 'text', value: text.slice(cursor, match.index) });
+      const source = match[0];
+      segments.push({ type: 'math', value: source, latex: mathExpressionToLatex(source) });
+      cursor = match.index + source.length;
+    }
+    if (cursor < text.length) segments.push({ type: 'text', value: text.slice(cursor) });
+    return segments.length ? segments : [{ type: 'text', value: text }];
   }
   function normalizeQuestion(input) {
     function clean(value, key = '', depth = 0) {
@@ -306,7 +327,7 @@
         : unplaced.length ? [`Questão ${i + 1}: não couberam na grade: ${unplaced.join(', ')}.`] : [];
     });
   }
-  const api = { markerPosition, hasManualAnswer, manualAnswer, choiceAnswer, answerLineCount, renderAnswerSpace, normalizeQuestion, buildWordSearch, wordSearchProblems, parseBrazilianNumber, operationAnswer, operationIssue, mathExpressionToLatex, latexToMathExpression, inspectExam };
+  const api = { markerPosition, hasManualAnswer, manualAnswer, choiceAnswer, answerLineCount, renderAnswerSpace, normalizeQuestion, buildWordSearch, wordSearchProblems, parseBrazilianNumber, operationAnswer, operationIssue, mathExpressionToLatex, latexToMathExpression, mathTextSegments, inspectExam };
   root.ExamSafety = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

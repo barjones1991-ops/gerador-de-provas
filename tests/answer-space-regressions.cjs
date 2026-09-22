@@ -20,6 +20,16 @@ const body=question=>parseHTML('<main>'+ctx.renderQuestionPreview(question)+'</m
  }
  assert.equal(body(q('interpretacao_imagem',{prompts:['A','B'],lines:2})).querySelectorAll('.answer-space-lines').length,2);
  assert.equal(body(q('problema_matematico',{showAnswerSpace:false})).querySelector('.prob-calc-box'),null);
+ const mathText='Calcule 1/2 de 3^2 e encontre √(25).';
+ const segments=safety.mathTextSegments(mathText);
+ assert.deepEqual(segments.filter(item=>item.type==='math').map(item=>item.value),['1/2','3^2','√(25)']);
+ ctx.mathProblem=q('problema_matematico',{text:mathText});
+ vm.runInContext('document.body.innerHTML=renderQuestionBlock(mathProblem,0,1)',ctx);
+ assert.equal(document.querySelectorAll('.qtext .inline-math').length,3);
+ assert(document.querySelector('.qtext').textContent.includes('Calcule 1/2 de 3^2'));
+ ctx.mathProblem.text='<img src=x onerror=alert(1)> 1/2';
+ vm.runInContext('document.body.innerHTML=renderQuestionBlock(mathProblem,0,1)',ctx);
+ assert.equal(document.querySelector('.qtext img'),null);
  for(const borderStyle of ['solida','tracejada','pontilhada','nenhuma'])assert(body(q('espaco_livre',{height:240,borderStyle})).querySelector('.espaco-livre-box.'+borderStyle).getAttribute('style').includes('240px'));
  assert.equal(body(q('espaco_livre',{showAnswerSpace:false})).querySelector('.espaco-livre-box'),null);
  assert.equal(safety.answerLineCount(1000),40);assert.equal(safety.answerLineCount(2.7),3);
@@ -38,5 +48,18 @@ const body=question=>parseHTML('<main>'+ctx.renderQuestionPreview(question)+'</m
   const question=q(type,{showAnswerSpace:false});app.ctx.fixture=question;
   assert.equal(app.run('renderQuestionPreview(fixture)').includes('answer-space'),false);
  }
+ const mathApp=await boot({questions:[q('problema_matematico',{text:'João repartiu igualmente.'})]});
+ mathApp.ctx.EditorTools.focusQuestion(0);
+ const mathCard=mathApp.document.querySelector('#question-0');
+ const statement=mathCard.querySelector('textarea[data-k="text"]');
+ const mathTools=mathCard.querySelector('.math-statement-tools');assert(mathTools);
+ const fraction=[...mathTools.querySelectorAll('button')].find(button=>button.textContent==='Fração');
+ statement.focus();statement.selectionStart=statement.value.length;statement.selectionEnd=statement.value.length;mathApp.event(fraction,'click');
+ assert.equal(mathApp.run('state.questions[0].text'),'João repartiu igualmente.1/2');
+ assert.equal(statement.selectionStart,statement.value.length-3);
+ assert(mathApp.ctx.EditorTools.persistTimer,'inserção matemática agenda salvamento');
+ await mathApp.run('saveToCloud()');
+ const savedMath=JSON.parse(mathApp.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0];
+ assert.equal(savedMath.text,'João repartiu igualmente.1/2');
  console.log('OK ESPACOS formatos, limites, ocultar, perguntas por imagem, cálculo, bordas, controles e persistência');
 })().catch(e=>{console.error(e);process.exitCode=1});

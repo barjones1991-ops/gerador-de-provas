@@ -33,6 +33,23 @@ assert(card.querySelector('.alternative-main > input'));
 assert(card.querySelector('.alternative-main > .alternative-image'));
 assert(card.querySelector('.alternative-add'));
 assert.equal(card.querySelector('[data-k="markMode"]').parentElement.querySelector('label').textContent,'Respostas corretas');
+const addAlternative=card.querySelector('.alternative-add');
+const addSpace=card.querySelector('.alternative-space-add');
+assert(addSpace,'botão para adicionar espaço existe');
+assert.equal(addSpace.parentElement,addAlternative.parentElement,'ações ficam lado a lado');
+app.event(addSpace,'click');
+assert.equal(app.run('state.questions[1].showAnswerSpace'),true);
+let spaceInput=app.document.querySelector('#question-1 [aria-label="Quantidade de linhas do espaço de resposta"]');
+assert.equal(spaceInput.value,'3');
+spaceInput.value='5';app.event(spaceInput,'input');
+assert.equal(app.run('state.questions[1].answerLines'),5);
+assert.equal((app.run('renderQuestionPreview(state.questions[1])').match(/class="hline"/g)||[]).length,5);
+await app.run('saveToCloud()');
+const spacedPayload=JSON.parse(app.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body);
+assert.equal(spacedPayload.questions[1].showAnswerSpace,true);assert.equal(spacedPayload.questions[1].answerLines,5);
+app.event(app.document.querySelector('#question-1 .alternative-space-remove'),'click');
+assert.equal(app.run('state.questions[1].showAnswerSpace'),false);
+assert.equal((app.run('renderQuestionPreview(state.questions[1])').match(/class="hline"/g)||[]).length,0);
 for(const type of ['multipla','marcarx']) {
  const image='data:image/png;base64,AA==';
  const data={type,text:'Imagens',points:'10',options:['A','B','C'],correctOption:2,markMode:'unica',items:[{text:'A'},{text:'B'},{text:'C',checked:true}],optionImages:[{dataUrl:image,fileName:'A'},{dataUrl:image,fileName:'B'},{dataUrl:image,fileName:'C'}]};
@@ -74,9 +91,10 @@ const {document}=parseHTML(fs.readFileSync(path.join(__dirname,'../print.html'),
 const ctx={document,ExamSafety:require('../js/exam-safety.js'),URLSearchParams,URL,console,location:{search:''},window:{location:{search:''}},addEventListener(){},setTimeout(){},clearTimeout(){}};
 vm.createContext(ctx);for(const script of document.querySelectorAll('script:not([src])'))vm.runInContext(script.textContent,ctx);
 for(const markLayout of ['lista','duas_colunas','tabela']) {
- ctx.q={type:'marcarx',text:'Teste',points:'1',markMode:'unica',markLayout,items:[{text:'Planta',checked:true},{text:'Pedra'}],optionImages:[{dataUrl:'data:image/png;base64,AA=='}]};
+ ctx.q={type:'marcarx',text:'Teste',points:'1',markMode:'unica',markLayout,items:[{text:'Planta',checked:true},{text:'Pedra'}],optionImages:[{dataUrl:'data:image/png;base64,AA=='}],showAnswerSpace:true,answerLines:4};
  vm.runInContext('renderExam({questions:[q]},false)',ctx);
  assert.equal(document.querySelectorAll('.question-block img').length,1);
+ assert.equal(document.querySelectorAll('.question-block .alternative-answer-space .hline').length,4);
  assert(!document.querySelector('.question-block').textContent.includes('Correta'));
  ctx.q.optionImages[0].dataUrl='javascript:alert(1)';vm.runInContext('renderExam({questions:[q]},false)',ctx);assert.equal(document.querySelectorAll('.question-block img').length,0);
 }

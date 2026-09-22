@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js?v=20260921-word-search"></script>
-  <script src="js/editor-tools.js?v=20260921-text-caption2"></script>
+  <script src="js/exam-safety.js?v=20260921-math-combined"></script>
+  <script src="js/editor-tools.js?v=20260921-math-combined"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1501,7 +1501,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-text-options" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20260921-math-combined" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1991,7 +1991,7 @@
     };
 
     const templates = {
-      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0', hideNumber: false }),
+      multipla: () => ({ type: 'multipla', text: '', options: ['', '', '', ''], correctOption: null, points: '1,0', hideNumber: false, showAnswerSpace: false, answerLines: 3 }),
       discursiva: () => ({ type: 'discursiva', text: '', lines: 5, answerStyle: 'linhas', titlePrompt: false, expectedAnswer: '', points: '1,0', hideNumber: false, showAnswerSpace: true }),
       vf: () => ({
         type: 'vf',
@@ -2017,6 +2017,8 @@
         ],
         points: '1,0',
         hideNumber: false,
+        showAnswerSpace: false,
+        answerLines: 3,
       }),
       subitens: () => ({
         type: 'subitens',
@@ -4549,7 +4551,7 @@
           exprBlock.innerHTML = `
             <div class="expression-editor-heading">
               <strong>Contas e expressões</strong>
-              <span>Digite como você escreveria no papel: 1/2, √(25), 3^2, × ou ÷.</span>
+              <span>Digite como no papel: 1/2, (3^3)/5 ou √(49/81). Combine os botões quando precisar.</span>
             </div>`;
 
           const exprBox = document.createElement('div');
@@ -4576,7 +4578,7 @@
 
               const inp = document.createElement('input');
               inp.value = expr.source || '';
-              inp.placeholder = 'Ex.: 1/2 + 1/4 =';
+              inp.placeholder = 'Ex.: (3^3)/5 = ou √(49/81) =';
               inp.setAttribute('aria-label', `Expressão ${j + 1}: conta`);
 
               const rmv = document.createElement('button');
@@ -4598,6 +4600,8 @@
                 { label: 'Fração', value: '1/2', select: [0, 1] },
                 { label: 'Raiz', value: '√()', cursor: 2 },
                 { label: 'Potência', value: '^2', select: [1, 2] },
+                { label: 'aⁿ/b', title: 'Inserir fração com potência', value: '(3^3)/5', select: [1, 2] },
+                { label: '√(a/b)', title: 'Inserir raiz de uma fração', value: '√(49/81)', select: [2, 4] },
                 { label: '×', value: ' × ' },
                 { label: '÷', value: ' ÷ ' },
                 { label: '( )', value: '()', cursor: 1 },
@@ -4618,6 +4622,7 @@
               toolbar.forEach(tool => {
                 const btn = document.createElement('button');
                 btn.type = 'button'; btn.className = 'outline'; btn.textContent = tool.label;
+                btn.title = tool.title || `Inserir ${tool.label.toLowerCase()}`;
                 btn.addEventListener('click', () => {
                   const start = Number.isInteger(inp.selectionStart) ? inp.selectionStart : inp.value.length;
                   const end = Number.isInteger(inp.selectionEnd) ? inp.selectionEnd : start;
@@ -5761,6 +5766,9 @@
 
     function renderQuestionPreview(q) {
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => `<div class="hline"></div>`).join('')}</div>`;
+      const alternativeAnswerSpace = () => q.showAnswerSpace === true
+        ? `<div class="alternative-answer-space">${answerLines(ExamSafety.answerLineCount(q.answerLines, 3))}</div>`
+        : '';
       const imageFigure = (question) => {
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
         const validAligns = ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'];
@@ -5790,7 +5798,7 @@
           const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
           return `${base}<div class="spacey">${items}</div>`;
         }
-        return `<div class="spacey">${items}</div>`;
+        return `<div class="spacey">${items}</div>${alternativeAnswerSpace()}`;
       }
       if (q.type === 'discursiva') {
         if (q.showAnswerSpace === false) return '';
@@ -5848,9 +5856,9 @@
           const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
           return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
         }).join('');
-        if (q.markLayout === 'tabela') return `<table class="mark-table"><tbody>${items}</tbody></table>`;
+        if (q.markLayout === 'tabela') return `<table class="mark-table"><tbody>${items}</tbody></table>${alternativeAnswerSpace()}`;
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
-        return `<div class="${layoutClass}">${items}</div>`;
+        return `<div class="${layoutClass}">${items}</div>${alternativeAnswerSpace()}`;
       }
       if (q.type === 'lacunas') {
         normalizeLacunasQuestion(q);

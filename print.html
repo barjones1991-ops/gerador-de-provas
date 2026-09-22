@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
-  <script src="js/exam-safety.js?v=20260921-word-search"></script>
+  <script src="js/exam-safety.js?v=20260921-math-combined"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style data-exam-layout>
@@ -74,6 +74,7 @@
     .bncc-badge { font-size: 10px; font-weight: 700; background: #ede9fe; color: #6d28d9; border-radius: 5px; padding: 2px 6px; }
     @media print { .bncc-badge { display: none; } }
     .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
+    .qtext .inline-math { display:inline-block; margin:0 .08em; white-space:nowrap; vertical-align:baseline; }
     .qpreview { margin-top: 10px; font-size: 15px; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
     .spacey { display: grid; gap: 8px; }
     .mark-grid.two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
@@ -765,6 +766,9 @@
 
     function renderQuestionPreview(q, omitTextBase = false) {
       const answerLines = (count) => `<div class="spacey" style="gap:14px; padding-top:6px;">${Array.from({ length: count || 5 }).map(() => '<div class="hline"></div>').join('')}</div>`;
+      const alternativeAnswerSpace = () => q.showAnswerSpace === true
+        ? `<div class="alternative-answer-space">${answerLines(ExamSafety.answerLineCount(q.answerLines, 3))}</div>`
+        : '';
       const imageFigure = (question) => {
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
         const align = ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'].includes(question.imageAlign) ? question.imageAlign : 'center';
@@ -785,7 +789,7 @@
             ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(op || `Alternativa ${letter}`)}</span></div></div>`
             : `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
         }).join('');
-        return `<div class="spacey">${opts}</div>`;
+        return `<div class="spacey">${opts}</div>${alternativeAnswerSpace()}`;
       }
       if (q.type === 'discursiva') {
         if (q.showAnswerSpace === false) return '';
@@ -839,7 +843,7 @@
                 : `Alternativa ${letter}`;
             return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
           }).join('');
-          return `<table class="mark-table"><tbody>${rows}</tbody></table>`;
+          return `<table class="mark-table"><tbody>${rows}</tbody></table>${alternativeAnswerSpace()}`;
         }
         const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
         return `<div class="${layoutClass}">${items.map((item, i) => {
@@ -857,7 +861,7 @@
               : `Alternativa ${letter}`;
           const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
           return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
-        }).join('')}</div>`;
+        }).join('')}</div>${alternativeAnswerSpace()}`;
       }
       if (q.type === 'lacunas') {
         normalizeLacunasQuestion(q);
@@ -1364,12 +1368,23 @@
       });
     }
 
+    function renderStatementText(q) {
+      const value = q.text || 'Digite o enunciado da questão.';
+      if (q.type !== 'problema_matematico') return esc(value);
+      return ExamSafety.mathTextSegments(value).map(segment => {
+        if (segment.type !== 'math') return esc(segment.value);
+        if (typeof katex === 'undefined') return `<span class="inline-math">${esc(segment.value)}</span>`;
+        try { return `<span class="inline-math">${katex.renderToString(segment.latex, { throwOnError: false, displayMode: false })}</span>`; }
+        catch (error) { return `<span class="inline-math">${esc(segment.value)}</span>`; }
+      }).join('');
+    }
+
     function renderQuestionBlock(q, i, questionNumber) {
       const textFirst = q.type === 'texto_base' && q.textBaseBeforeStatement === true;
       const leadingText = textFirst && q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
       const headerImage = _buildHeaderHtml(q);
       const besideStatement = headerImage && q.headerImage?.mode === 'one' && ['lado_esquerda','lado_direita'].includes(q.headerImage.align);
-      const statement = `<div class="qtext">${esc(q.text || 'Digite o enunciado da questão.')}</div>`;
+      const statement = `<div class="qtext">${renderStatementText(q)}</div>`;
       return `<div class="question-block" data-question-index="${i}">
               <div class="qtitle">
                 ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}

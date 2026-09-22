@@ -191,6 +191,7 @@ const EditorTools = {
         this.organizeAlternatives(card, q, index);
         this.organizeAnswerItemImages(card, q, index);
         this.embedFieldImages(card, q);
+        this.addMathStatementTools(card, q);
       }
     });
     panel.querySelectorAll('label').forEach((label, i) => {
@@ -350,6 +351,47 @@ const EditorTools = {
       if (q.freeImages?.length) details.open = true;
     }
   },
+  addMathStatementTools(card, q) {
+    if (q.type !== 'problema_matematico' || card.dataset.mathStatementTools) return;
+    const input = card.querySelector('textarea[data-k="text"]');
+    if (!input) return;
+    card.dataset.mathStatementTools = 'true';
+    const tools = document.createElement('div');
+    tools.className = 'math-statement-tools';
+    tools.setAttribute('aria-label', 'Inserir matemática no enunciado');
+    const options = [
+      { label: 'Fração', sample: '1/2', start: 0, end: 1, selected: value => `${value}/2` },
+      { label: 'Potência', sample: '3^2', start: 2, end: 3, selected: value => `${value}^2` },
+      { label: 'Raiz', sample: '√()', start: 2, end: 2, selected: value => `√(${value})` },
+      { label: '×', sample: ' × ' },
+      { label: '÷', sample: ' ÷ ' },
+    ];
+    options.forEach(option => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'outline'; button.textContent = option.label;
+      button.title = `Inserir ${option.label.toLowerCase()} no enunciado`;
+      button.disabled = !this.canEdit();
+      button.addEventListener('click', () => {
+        if (!this.canEdit()) return;
+        const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+        const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
+        const selected = input.value.slice(start, end);
+        const insertion = selected && option.selected ? option.selected(selected) : option.sample;
+        input.value = input.value.slice(0, start) + insertion + input.value.slice(end);
+        const selectionStart = selected ? start + insertion.length : start + (option.start ?? insertion.length);
+        const selectionEnd = selected ? selectionStart : start + (option.end ?? option.start ?? insertion.length);
+        input.focus();
+        if (input.setSelectionRange) input.setSelectionRange(selectionStart, selectionEnd);
+        else { input.selectionStart = selectionStart; input.selectionEnd = selectionEnd; }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      tools.appendChild(button);
+    });
+    const hint = document.createElement('span');
+    hint.textContent = 'Escreva normalmente: 1/2, 3^2 ou √(25).';
+    tools.appendChild(hint);
+    input.after(tools);
+  },
   chooseSingleAnswer(q, index, select) {
     select.value = q.markMode;
     const card = document.getElementById(`question-${index}`);
@@ -418,7 +460,59 @@ const EditorTools = {
       } else row.appendChild(details);
     });
     const addOption = [...card.querySelectorAll('button')].find(button => button.textContent === 'Adicionar alternativa');
-    if (addOption) addOption.classList.add('alternative-add');
+    if (addOption) {
+      addOption.classList.add('alternative-add');
+      let actionRow = addOption.closest('.question-action-row');
+      if (!actionRow) {
+        actionRow = document.createElement('div');
+        actionRow.className = 'question-action-row';
+        addOption.before(actionRow);
+        actionRow.appendChild(addOption);
+      }
+      actionRow.classList.add('alternative-actions');
+      if (q.showAnswerSpace === true) {
+        const control = document.createElement('div');
+        control.className = 'alternative-space-control';
+        const label = document.createElement('label');
+        label.textContent = 'Linhas';
+        const input = document.createElement('input');
+        input.type = 'number'; input.min = '1'; input.max = '40'; input.inputMode = 'numeric';
+        input.value = ExamSafety.answerLineCount(q.answerLines, 3);
+        input.setAttribute('aria-label', 'Quantidade de linhas do espa\u00e7o de resposta');
+        input.disabled = !this.canEdit();
+        input.addEventListener('input', () => {
+          if (!this.canEdit()) return;
+          q.answerLines = ExamSafety.answerLineCount(input.value, 3);
+          renderPreview();
+        });
+        input.addEventListener('change', () => {
+          input.value = ExamSafety.answerLineCount(input.value, 3);
+        });
+        const removeSpace = document.createElement('button');
+        removeSpace.type = 'button'; removeSpace.className = 'alternative-space-remove';
+        removeSpace.textContent = '\u00d7'; removeSpace.title = 'Remover espa\u00e7o de resposta';
+        removeSpace.setAttribute('aria-label', removeSpace.title);
+        removeSpace.disabled = !this.canEdit();
+        removeSpace.addEventListener('click', () => {
+          if (!this.canEdit()) return;
+          q.showAnswerSpace = false;
+          renderAll();
+        });
+        label.appendChild(input); control.append(label, removeSpace); actionRow.appendChild(control);
+      } else {
+        const addSpace = document.createElement('button');
+        addSpace.type = 'button'; addSpace.className = 'outline alternative-space-add';
+        addSpace.textContent = 'Adicionar espa\u00e7o';
+        addSpace.disabled = !this.canEdit();
+        addSpace.addEventListener('click', () => {
+          if (!this.canEdit()) return;
+          q.showAnswerSpace = true;
+          q.answerLines = ExamSafety.answerLineCount(q.answerLines, 3);
+          renderAll();
+        });
+        actionRow.appendChild(addSpace);
+      }
+    }
     const bank = card.querySelector('.question-footer button[title="Salvar no banco de questões"]');
     if (bank) bank.textContent = 'Guardar no banco para reutilizar';
   },
@@ -732,7 +826,7 @@ const EditorTools = {
     overview.after(readiness);
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260921-text-caption2" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260921-math-combined" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
