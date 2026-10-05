@@ -4,6 +4,7 @@ const EditorTools = {
   bankId: new URLSearchParams(window.location.search).get('bank'), bankRecord: null,
   previewTimer: null, persistTimer: null, historyTimer: null, previewReady: false,
   forceSnapshot: true, previewQuestionCount: -1, dirtyQuestions: new Set(),
+  previewRevision: 0, previewFingerprint: '', previewPaginationPending: false,
   reviewHistory: [], sending: false, spaceSuggestion: null,
   isTeacher() { return Boolean(auth?.hasRole?.(['teacher'], currentProfile)); },
   offerDraftRecovery(draft) {
@@ -89,6 +90,7 @@ const EditorTools = {
   },
   changed() {
     if (!this.initialized) return;
+    this.invalidateSpaceSuggestion(true);
     this.updateQuestionSummaries();
     const index = document.activeElement?.closest?.('.qcard')?.dataset.questionIndex;
     if (index == null) this.forceSnapshot = true; else this.dirtyQuestions.add(Number(index));
@@ -169,38 +171,74 @@ const EditorTools = {
     if (bankSave) bankSave.disabled = !enabled || this.bankSaving;
     document.querySelectorAll('.free-image-remove, .free-image-resize').forEach(node => this.lockControl(node, !enabled));
   },
-  setSpaceSuggestion(suggestion) {
+  questionFingerprint() {
+    const content = JSON.stringify(state.questions);
+    let hash = 2166136261;
+    for (let index = 0; index < content.length; index++) {
+      hash ^= content.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `${state.questions.length}:${(hash >>> 0).toString(36)}`;
+  },
+  invalidateSpaceSuggestion(pending = false) {
+    this.spaceSuggestion = null;
+    this.previewPaginationPending = Boolean(pending);
+    const notice = document.getElementById('layoutOptimization');
+    const button = document.getElementById('layoutOptimizationBtn');
+    if (notice) notice.hidden = true;
+    if (button) button.disabled = true;
+  },
+  setSpaceSuggestion(suggestion, context = {}) {
+    const revision = Number(context.revision ?? suggestion?.revision);
+    const fingerprint = context.fingerprint ?? suggestion?.fingerprint;
+    const belongsToCurrentRevision = Number.isInteger(revision)
+      && revision === this.previewRevision
+      && fingerprint === this.previewFingerprint
+      && fingerprint === this.questionFingerprint();
+    if (!belongsToCurrentRevision) return false;
+    if (context.pending === true) { this.invalidateSpaceSuggestion(true); return false; }
+    this.previewPaginationPending = false;
     const valid = suggestion && Number.isInteger(suggestion.fromIndex) && Number.isInteger(suggestion.toIndex)
       && suggestion.fromIndex > suggestion.toIndex && suggestion.fromIndex < state.questions.length;
-    this.spaceSuggestion = valid ? suggestion : null;
+    this.spaceSuggestion = valid ? { ...suggestion, revision, fingerprint } : null;
     const notice = document.getElementById('layoutOptimization');
     const copy = document.getElementById('layoutOptimizationCopy');
     const button = document.getElementById('layoutOptimizationBtn');
-    if (!notice || !copy || !button) return;
+    if (!notice || !copy || !button) return valid;
     notice.hidden = !valid || Boolean(this.bankId);
-    if (!valid) return;
+    if (!valid) { button.disabled = true; return false; }
     copy.textContent = `A questão ${suggestion.fromIndex + 1} pode aproveitar o espaço livre da página ${suggestion.page}.`;
     button.disabled = !this.canEdit();
+    return true;
   },
   applySpaceSuggestion() {
     const suggestion = this.spaceSuggestion;
     if (!suggestion || !this.canEdit()) return;
+    const belongsToCurrentRevision = suggestion.revision === this.previewRevision
+      && suggestion.fingerprint === this.previewFingerprint
+      && suggestion.fingerprint === this.questionFingerprint()
+      && !this.previewPaginationPending;
+    if (!belongsToCurrentRevision) { this.invalidateSpaceSuggestion(true); return; }
     const { fromIndex, toIndex } = suggestion;
     if (fromIndex <= toIndex || fromIndex >= state.questions.length || toIndex < 0) {
-      this.setSpaceSuggestion(null); return;
+      this.invalidateSpaceSuggestion(); return;
     }
     const accepted = confirm(`Mover a questão ${fromIndex + 1} para antes da questão ${toIndex + 1}?\n\nIsso aproveita melhor o espaço da página ${suggestion.page}, mas altera a ordem das questões.`);
     if (!accepted) return;
     this.recordHistory();
-    const [question] = state.questions.splice(fromIndex, 1);
-    state.questions.splice(toIndex, 0, question);
-    state.activeQuestionIndex = toIndex;
-    state.collapsedQuestions = {};
-    this.previewSelection = toIndex;
-    this.pendingPreviewFocus = toIndex;
-    this.forceSnapshot = true;
-    this.setSpaceSuggestion(null);
-    renderAll();
+    this.applyingHistory = true;
+    try {
+      const [question] = state.questions.splice(fromIndex, 1);
+      state.questions.splice(toIndex, 0, question);
+      state.activeQuestionIndex = toIndex;
+      state.collapsedQuestions = {};
+      this.previewSelection = toIndex;
+      this.pendingPreviewFocus = toIndex;
+      this.forceSnapshot = true;
+      this.invalidateSpaceSuggestion(true);
+      renderAll();
+    } finally { this.applyingHistory = false; }
+    this.recordHistory();
     showToast('Diagramação otimizada. Use Desfazer se quiser restaurar a ordem anterior.', 'ok');
   },
   enhanceFields() {
@@ -675,11 +713,17 @@ const EditorTools = {
     this.refreshPreviewNavigation();
     const frame = document.getElementById('canonicalPreview');
     if (frame && this.previewReady) {
+      const revision = ++this.previewRevision;
+      const fingerprint = this.questionFingerprint();
+      this.previewFingerprint = fingerprint;
+      this.invalidateSpaceSuggestion(true);
       if (!this.forceSnapshot && this.previewQuestionCount === state.questions.length && this.dirtyQuestions.size) {
-        for (const index of this.dirtyQuestions) frame.contentWindow.postMessage({ type:'exam-preview-patch', index, question:state.questions[index] }, location.origin);
+        for (const index of this.dirtyQuestions) frame.contentWindow.postMessage({
+          type:'exam-preview-patch', index, question:state.questions[index], revision, fingerprint,
+        }, location.origin);
       } else frame.contentWindow.postMessage({ type: 'exam-preview', exam: {
         school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl,
-      }, answerKey: Boolean(document.getElementById('previewAnswerKey')?.checked) }, location.origin);
+      }, answerKey: Boolean(document.getElementById('previewAnswerKey')?.checked), revision, fingerprint }, location.origin);
       if (Number.isInteger(this.pendingPreviewFocus)) {
         const index = Math.min(this.pendingPreviewFocus, state.questions.length - 1);
         if (index >= 0) {
@@ -868,7 +912,7 @@ const EditorTools = {
     document.getElementById('layoutOptimizationBtn').onclick = () => this.applySpaceSuggestion();
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20261005-layout-opt1" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20261005-layout-race1" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
@@ -883,7 +927,7 @@ const EditorTools = {
     window.addEventListener('message', event => {
       if (event.origin !== location.origin || event.source !== document.getElementById('canonicalPreview').contentWindow) return;
       if (event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); return; }
-      if (event.data?.type === 'exam-preview-space-suggestion') this.setSpaceSuggestion(event.data.suggestion);
+      if (event.data?.type === 'exam-preview-space-suggestion') this.setSpaceSuggestion(event.data.suggestion, event.data);
     });
     // All implemented types have an explicit creation path and a short example.
     const select = document.getElementById('qtypeSelect'); select.replaceChildren();

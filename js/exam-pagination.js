@@ -14,7 +14,7 @@
   const css = Array.from(document.querySelectorAll('style[data-exam-layout]'))
     .map(style => rules(style.sheet.cssRules)).join('\n') + '\n@page { size:210mm 297mm; margin:8mm 9mm 10mm; }';
   let enabled = true;
-  let revision = 0, running = null, focusIndex = null, engine = null, failed = null, lastSuggestion = null;
+  let revision = 0, running = null, focusIndex = null, engine = null, failed = null, lastSuggestion = null, pendingContext = null;
 
   function outerHeight(node) {
     const rect = node.getBoundingClientRect?.();
@@ -63,13 +63,14 @@
     return null;
   }
 
-  function reportSuggestion(value) {
+  function reportSuggestion(value, context = null, pending = false) {
     lastSuggestion = value;
-    window.reportExamSpaceSuggestion?.(value);
+    window.reportExamSpaceSuggestion?.(value, context, pending);
   }
   async function paginate() {
     while (enabled) {
       const version = revision;
+      const context = pendingContext;
       await Promise.all(Array.from(source.querySelectorAll('img')).map(img => img.decode?.().catch(() => {})));
       if (document.fonts?.ready) await document.fonts.ready;
       const stage = document.createElement('div');
@@ -85,23 +86,25 @@
         document.body.classList.add('paper-ready');
         failed = null;
         output.removeAttribute('aria-busy');
-        reportSuggestion(detectSpaceSuggestion());
+        reportSuggestion(detectSpaceSuggestion(), context);
         if (focusIndex !== null) window.focusPreviewQuestion(focusIndex);
         break;
       } catch (error) {
         stage.remove(); failed = error;
         document.body.classList.remove('paper-ready');
         output.replaceChildren();
-        reportSuggestion(null);
+        reportSuggestion(null, context);
         console.error('Falha ao paginar a prova', error);
         break;
       }
     }
   }
   window.ExamPagination = {
-    schedule() {
+    schedule(context = null) {
       enabled = true;
       revision++;
+      pendingContext = context;
+      reportSuggestion(null, context, true);
       output.setAttribute('aria-busy', 'true');
       if (!running) running = Promise.resolve().then(paginate).finally(() => { running = null; });
       return running;
@@ -115,6 +118,6 @@
       if (failed) throw new Error('Não foi possível preparar as páginas. Reabra a prova antes de imprimir.');
     },
     suggestion() { return lastSuggestion; },
-    reset() { enabled = false; revision++; output.replaceChildren(); document.body.classList.remove('paper-ready'); reportSuggestion(null); }
+    reset() { enabled = false; revision++; pendingContext = null; output.replaceChildren(); document.body.classList.remove('paper-ready'); reportSuggestion(null); }
   };
 })();
