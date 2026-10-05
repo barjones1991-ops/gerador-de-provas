@@ -15,6 +15,43 @@
   const isStorageRef = value => typeof value === 'string' && value.startsWith(`${REF_PREFIX}${bucket()}/`);
   const pathFromRef = ref => isStorageRef(ref) ? ref.slice(`${REF_PREFIX}${bucket()}/`.length) : '';
 
+  function projectUrl() {
+    return String(config().SUPABASE_URL || '').replace(/\/$/, '');
+  }
+
+  function decodePath(value) {
+    try { return decodeURIComponent(value); } catch { return value; }
+  }
+
+  function referenceFromSignedUrl(value) {
+    if (typeof value !== 'string' || !value) return '';
+    const mapped = urlToRef.get(value);
+    if (mapped) return mapped;
+    try {
+      const base = new URL(projectUrl() || 'https://invalid.local');
+      const parsed = new URL(value, `${base.origin}/`);
+      if (parsed.origin !== base.origin) return '';
+      const prefixes = [
+        `/storage/v1/object/sign/${bucket()}/`,
+        `/object/sign/${bucket()}/`,
+      ];
+      const prefix = prefixes.find(item => parsed.pathname.startsWith(item));
+      if (!prefix) return '';
+      const path = decodePath(parsed.pathname.slice(prefix.length));
+      return path ? `${REF_PREFIX}${bucket()}/${path}` : '';
+    } catch { return ''; }
+  }
+
+  function isUnrecoverableSignedUrl(value) {
+    if (typeof value !== 'string' || !value || referenceFromSignedUrl(value)) return false;
+    try {
+      const base = new URL(projectUrl() || 'https://invalid.local');
+      const parsed = new URL(value, `${base.origin}/`);
+      return parsed.origin === base.origin
+        && (/^\/storage\/v1\/object\/sign\//.test(parsed.pathname) || /^\/object\/sign\//.test(parsed.pathname));
+    } catch { return false; }
+  }
+
   function configure(nextAuth, nextScope) {
     auth = nextAuth || auth;
     scope = cleanPart(nextScope || scope);
@@ -29,7 +66,15 @@
   }
 
   function storageUrl(path = '') {
-    return `${String(config().SUPABASE_URL || '').replace(/\/$/, '')}/storage/v1/${path}`;
+    return `${projectUrl()}/storage/v1/${String(path).replace(/^\/+/, '')}`;
+  }
+
+  function signedResponseUrl(value) {
+    if (/^https?:\/\//i.test(value)) return value;
+    const path = String(value || '').replace(/^\/+/, '');
+    if (path.startsWith('storage/v1/')) return `${projectUrl()}/${path}`;
+    if (path.startsWith('object/')) return storageUrl(path);
+    return storageUrl(path);
   }
 
   function base64Blob(dataUrl) {
@@ -87,7 +132,7 @@
     const result = await response.json();
     const signed = result.signedURL || result.signedUrl;
     if (!signed) throw new Error('O Storage nao retornou o endereco da imagem.');
-    const url = signed.startsWith('http') ? signed : `${String(config().SUPABASE_URL || '').replace(/\/$/, '')}${signed}`;
+    const url = signedResponseUrl(signed);
     refToUrl.set(ref, { url, expiresAt: Date.now() + 23 * 60 * 60 * 1000 });
     urlToRef.set(url, ref);
     return url;
@@ -110,15 +155,26 @@
     return value;
   }
 
+  function durableTree(value) {
+    return walkSync(value, item => referenceFromSignedUrl(item) || item);
+  }
+
   async function persistTree(value, options = {}) {
     configure(options.auth, options.scope);
-    if (!enabled()) return walkSync(value, item => urlToRef.get(item) || item);
+    const durable = durableTree(value);
+    let invalidSignedUrl = '';
+    walkSync(durable, item => {
+      if (!invalidSignedUrl && isUnrecoverableSignedUrl(item)) invalidSignedUrl = item;
+      return item;
+    });
+    if (invalidSignedUrl) throw new Error('Uma imagem temporaria nao possui referencia permanente recuperavel. O rascunho foi preservado.');
+    if (!enabled()) return durable;
     const images = [];
     (function collect(item) {
       if (typeof item === 'string' && DATA_IMAGE_RE.test(item) && !images.includes(item)) images.push(item);
       else if (Array.isArray(item)) item.forEach(collect);
       else if (item && typeof item === 'object') Object.values(item).forEach(collect);
-    })(value);
+    })(durable);
     let done = 0;
     const refs = new Map();
     options.onProgress?.(done, images.length);
@@ -133,15 +189,16 @@
     } catch (error) {
       console.warn('Storage de imagens indisponivel; mantendo dados compativeis.', error);
       options.onFallback?.(error);
-      return walkSync(value, item => urlToRef.get(item) || item);
+      return durable;
     }
-    return walkSync(value, item => refs.get(item) || urlToRef.get(item) || item);
+    return walkSync(durable, item => refs.get(item) || item);
   }
 
   async function resolveTree(value, options = {}) {
     configure(options.auth, options.scope);
-    if (!enabled()) return value;
-    return walkAsync(value, item => isStorageRef(item) ? signReference(item) : item);
+    const durable = durableTree(value);
+    if (!enabled()) return durable;
+    return walkAsync(durable, item => isStorageRef(item) ? signReference(item) : item);
   }
 
   function isRenderableImage(value) {
@@ -155,6 +212,6 @@
     } catch { return false; }
   }
 
-  root.ExamImageStorage = { configure, persistTree, resolveTree, isStorageRef, isRenderableImage, pathFromRef };
+  root.ExamImageStorage = { configure, persistTree, resolveTree, durableTree, isStorageRef, isRenderableImage, pathFromRef };
   if (typeof module !== 'undefined') module.exports = root.ExamImageStorage;
 })(typeof window !== 'undefined' ? window : globalThis);

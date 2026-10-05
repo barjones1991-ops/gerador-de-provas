@@ -19,9 +19,25 @@ let checks = 0;
       CREATE FUNCTION auth.jwt() RETURNS JSONB LANGUAGE SQL STABLE AS
         $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
       CREATE FUNCTION auth.uid() RETURNS UUID LANGUAGE SQL STABLE AS $$ SELECT (auth.jwt()->>'sub')::uuid $$;
+      CREATE SCHEMA storage;
+      CREATE TABLE storage.buckets (id TEXT PRIMARY KEY, name TEXT, public BOOLEAN,
+        file_size_limit BIGINT, allowed_mime_types TEXT[]);
+      CREATE TABLE storage.objects (id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        bucket_id TEXT NOT NULL, name TEXT NOT NULL);
+      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+      CREATE FUNCTION storage.foldername(value TEXT) RETURNS TEXT[] LANGUAGE SQL IMMUTABLE AS
+        $$ SELECT string_to_array(value, '/') $$;
+      GRANT USAGE ON SCHEMA storage TO anon, authenticated;
+      GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
+      GRANT SELECT ON storage.objects TO anon;
     `);
     const setup = fs.readFileSync(path.join(root, 'setup_supabase.sql'), 'utf8').replace(/\r\n/g, '\n');
     const schoolMigration = fs.readFileSync(path.join(root, 'migrations/20260908_02_escola_da_prova.sql'), 'utf8').replace(/\r\n/g, '\n');
+    const imageMigration = fs.readFileSync(path.join(root, 'migrations/20261005_04_controle_acesso_imagens.sql'), 'utf8').replace(/\r\n/g, '\n');
+    const storageSetup = fs.readFileSync(path.join(root, 'setup_storage.sql'), 'utf8').replace(/\r\n/g, '\n');
+    for (const contract of ['private.exam_image_links', 'private.can_read_exam_image', 'Imagens de provas: leitura vinculada']) {
+      assert(imageMigration.includes(contract) && storageSetup.includes(contract), `storage setup missing ${contract}`);
+    }
     assert(setup.includes(schoolMigration.split('BEGIN;')[1].replace(/COMMIT;\s*$/, '').trim()));
     // Parte anterior a escola fixa: exercita uma atualizacao com acervo legado real.
     const legacySetup = setup.split('-- Migracao 20260908_02_escola_da_prova')[0] + '\nCOMMIT;';
@@ -39,6 +55,9 @@ let checks = 0;
     const legacyExam = uuid(290), personalExam = uuid(291);
     await db.query('INSERT INTO exams(id,user_id) VALUES ($1,$2),($3,$4)', [legacyExam, uuid(4), personalExam, uuid(10)]);
     await db.exec(schoolMigration);
+    await db.exec(imageMigration);
+    await db.exec(imageMigration);
+    await db.exec(storageSetup);
     assert.equal((await db.query('SELECT school_id FROM exams WHERE id=$1', [legacyExam])).rows[0].school_id, schoolA);
     assert.equal((await db.query('SELECT school_id FROM exams WHERE id=$1', [personalExam])).rows[0].school_id, null);
     checks++; console.log('OK SQL migracao preenche escola legada e preserva prova pessoal');
@@ -49,10 +68,22 @@ let checks = 0;
         return tx.query(sql, params);
       });
     }
+    async function asAnon(sql, params = []) {
+      return db.transaction(async tx => {
+        await tx.exec('SET LOCAL ROLE anon');
+        await tx.query("SELECT set_config('request.jwt.claims', '{}', true)");
+        return tx.query(sql, params);
+      });
+    }
     async function denied(label, n, sql, params = []) {
       await assert.rejects(() => asUser(n, sql, params), undefined, label);
       checks++; console.log('OK SQL', label);
     }
+    const pendingObject = `${uuid(4)}/draft/pending.png`;
+    await db.query("INSERT INTO storage.objects(bucket_id,name) VALUES ('exam-images',$1)", [pendingObject]);
+    assert.equal((await asUser(4, 'SELECT name FROM storage.objects WHERE name=$1', [pendingObject])).rows.length, 1);
+    assert.equal((await asUser(3, 'SELECT name FROM storage.objects WHERE name=$1', [pendingObject])).rows.length, 0);
+    checks++; console.log('OK SQL autor acessa upload antes da associacao e terceiros nao');
     await denied('coordenador nao promove professor a master', 3, "UPDATE profiles SET role='master' WHERE id=$1", [uuid(4)]);
     await denied('dono nao promove professor a dono', 2, "UPDATE profiles SET role='school_owner' WHERE id=$1", [uuid(4)]);
     await denied('dono nao transfere professor a outra escola', 2, 'UPDATE profiles SET school_id=$1 WHERE id=$2', [schoolB, uuid(4)]);
@@ -61,8 +92,18 @@ let checks = 0;
     assert.equal(self.role, 'teacher'); assert.equal(self.email, 'test4@example.invalid'); checks++;
     await asUser(3, "UPDATE profiles SET school_grade='5A, 5B' WHERE id=$1", [uuid(4)]); checks++;
     const exam = uuid(300);
-    await asUser(4, `INSERT INTO exams(id,user_id,title,class_name,questions,total_value) VALUES ($1,$2,'Rascunho','5A','[{"type":"multipla","points":"10,0"}]','10,0')`, [exam, uuid(4)]); checks++;
+    const examObject = `${uuid(4)}/${exam}/question.png`;
+    await db.query("INSERT INTO storage.objects(bucket_id,name) VALUES ('exam-images',$1)", [examObject]);
+    await asUser(4, `INSERT INTO exams(id,user_id,title,class_name,questions,total_value) VALUES ($1,$2,'Rascunho','5A',$3,'10,0')`, [
+      exam, uuid(4), JSON.stringify([{ type: 'multipla', points: '10,0', imageDataUrl: `storage://exam-images/${examObject}` }]),
+    ]); checks++;
     assert.equal((await asUser(4, 'SELECT school_id FROM exams WHERE id=$1', [exam])).rows[0].school_id, schoolA); checks++;
+    assert.equal((await asUser(3, 'SELECT name FROM storage.objects WHERE name=$1', [examObject])).rows.length, 1);
+    assert.equal((await asUser(5, 'SELECT name FROM storage.objects WHERE name=$1', [examObject])).rows.length, 0);
+    assert.equal((await asUser(6, 'SELECT name FROM storage.objects WHERE name=$1', [examObject])).rows.length, 0);
+    assert.equal((await asUser(10, 'SELECT name FROM storage.objects WHERE name=$1', [examObject])).rows.length, 0);
+    assert.equal((await asAnon('SELECT name FROM storage.objects WHERE name=$1', [examObject])).rows.length, 0);
+    checks++; console.log('OK SQL imagem da prova segue autor coordenacao escola e anonimato');
     await denied('criacao nao aceita escola forjada', 4, 'INSERT INTO exams(user_id,school_id) VALUES ($1,$2)', [uuid(4), schoolB]);
     await denied('professor nao transfere escola da prova', 4, 'UPDATE exams SET school_id=$1 WHERE id=$2', [schoolB, exam]);
     await denied('coordenador nao remove escola da prova', 3, 'UPDATE exams SET school_id=NULL WHERE id=$1', [exam]);
@@ -87,11 +128,33 @@ let checks = 0;
     const locked = await asUser(4, "UPDATE exams SET title='Proibido' WHERE id=$1 RETURNING id", [exam]);
     assert.equal(locked.rows.length, 0); checks++;
     await asUser(3, "UPDATE exams SET print_status='enviada',print_requested_by=$1 WHERE id=$2", [uuid(3), exam]);
+    assert.equal((await asUser(5, 'SELECT name FROM storage.objects WHERE name=$1', [examObject])).rows.length, 1);
+    checks++; console.log('OK SQL operador autorizado carrega imagens da fila de impressao');
     await asUser(5, 'SELECT public.mark_exam_printed($1)', [exam]); checks++;
     const bank = uuid(301);
-    await asUser(4, "INSERT INTO question_bank(id,user_id,question) VALUES ($1,$2,'{}')", [bank, uuid(4)]);
+    const bankObject = `${uuid(4)}/bank-${bank}/shared.png`;
+    await db.query("INSERT INTO storage.objects(bucket_id,name) VALUES ('exam-images',$1)", [bankObject]);
+    await asUser(4, 'INSERT INTO question_bank(id,user_id,question) VALUES ($1,$2,$3)', [
+      bank, uuid(4), JSON.stringify({ imageDataUrl: `storage://exam-images/${bankObject}` }),
+    ]);
+    assert.equal((await asUser(3, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 0);
     await denied('questao nao pode receber outra escola por PATCH', 4, 'UPDATE question_bank SET school_id=$1 WHERE id=$2', [schoolB, bank]);
     await asUser(4, 'UPDATE question_bank SET school_id=$1 WHERE id=$2', [schoolA, bank]); checks++;
+    assert.equal((await asUser(3, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 1);
+    assert.equal((await asUser(5, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 1);
+    assert.equal((await asUser(8, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 0);
+    await asUser(4, 'UPDATE question_bank SET is_public=true,school_id=NULL WHERE id=$1', [bank]);
+    assert.equal((await asUser(6, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 1);
+    assert.equal((await asAnon('SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 0);
+    checks++; console.log('OK SQL imagens do banco seguem escopos privado escolar e publico');
+    const reusedExam = uuid(303);
+    await asUser(6, 'INSERT INTO exams(id,user_id,class_name,questions,total_value) VALUES ($1,$2,$3,$4,$5)', [
+      reusedExam, uuid(6), '5A', JSON.stringify([{ points: '1,0', imageDataUrl: `storage://exam-images/${bankObject}` }]), '1,0',
+    ]);
+    await asUser(4, 'UPDATE question_bank SET is_public=false WHERE id=$1', [bank]);
+    assert.equal((await asUser(8, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 1);
+    assert.equal((await asUser(3, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 0);
+    checks++; console.log('OK SQL imagem reutilizada acompanha a prova duplicada sem depender do upload');
     const token = 'a'.repeat(32);
     await asUser(2, 'INSERT INTO user_invites(email,role,school_id,token) VALUES ($1,$2,$3,$4)', ['test4@example.invalid','teacher',schoolA,token]);
     const invites = await asUser(4, 'SELECT token FROM user_invites');

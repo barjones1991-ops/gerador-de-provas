@@ -71,7 +71,7 @@ function extract(file,name,spaces) {
     app.storage.set(key,raw); app.run('restorePendingDraft()');
     assert.equal(app.ctx.EditorTools.canEdit(),false);
     const buttons=[...app.document.querySelectorAll('#draftRecoveryChoice button')];
-    if(action==='recover') { buttons[0].onclick(); assert.equal(app.run('state.questions[0].text'),'Texto recuperado'); assert(app.ctx.EditorTools.canEdit()); }
+    if(action==='recover') { await buttons[0].onclick(); assert.equal(app.run('state.questions[0].text'),'Texto recuperado'); assert(app.ctx.EditorTools.canEdit()); }
     if(action==='later') { buttons[2].onclick(); assert.equal(app.ctx.location.href,'dashboard.html'); assert.equal(app.storage.get(key),raw); }
     if(action==='discard') {
       app.ctx.confirm=()=>false; buttons[1].onclick(); assert.equal(app.storage.get(key),raw);
@@ -79,6 +79,25 @@ function extract(file,name,spaces) {
     }
   }
   console.log('OK REFINAMENTO recuperacao exige escolha e conserva copia ao adiar ou cancelar descarte');
+  const draftSource=await boot();
+  const signed=`${draftSource.ctx.CONFIG.SUPABASE_URL}/object/sign/exam-images/u1/e1/old.png?token=expired`;
+  draftSource.run(`state.questions[0].imageDataUrl=${JSON.stringify(signed)}; preservePendingDraft();`);
+  const draftKey=draftSource.run('pendingDraftKey()');
+  const savedDraft=draftSource.storage.get(draftKey);
+  const durableContent=JSON.parse(JSON.parse(savedDraft).content);
+  assert.equal(durableContent.questions[0].imageDataUrl,'storage://exam-images/u1/e1/old.png');
+  draftSource.run("EditorTools.resetHistory(); state.questions[0].text='Alterada'; EditorTools.recordHistory();");
+  assert(JSON.parse(draftSource.ctx.EditorTools.history[0]).questions[0].imageDataUrl.startsWith('storage://'));
+  await draftSource.ctx.EditorTools.travelHistory(-1);
+  assert.equal(draftSource.run('state.questions[0].imageDataUrl'),'storage://exam-images/u1/e1/old.png');
+  const restarted=await boot();
+  restarted.storage.set(restarted.run('pendingDraftKey()'),savedDraft);
+  restarted.run('restorePendingDraft()');
+  await restarted.document.querySelector('#draftRecoveryChoice button').onclick();
+  await restarted.run('saveToCloud()');
+  const recoveredPayload=JSON.parse(restarted.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body);
+  assert.equal(recoveredPayload.questions[0].imageDataUrl,'storage://exam-images/u1/e1/old.png');
+  console.log('OK REFINAMENTO rascunho e historico preservam referencias duraveis em nova sessao');
   const bad={type:'caca_palavras',text:'Encontre',points:'10,0',wordsText:'A'.repeat(30),gridSize:12};
   const app=await boot({questions:[bad]}); await app.ctx.EditorTools.sendToCoordination();
   assert.equal(app.requests.filter(r=>r.options.method==='PATCH').length,0);

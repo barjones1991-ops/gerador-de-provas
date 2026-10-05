@@ -17,14 +17,17 @@ const EditorTools = {
     choice.appendChild(message);
     const finish = () => { choice.remove(); autoSaveReady = true; setEditorLoading(false); applyReviewLock(); };
     const recover = document.createElement('button'); recover.type = 'button'; recover.textContent = 'Recuperar alterações';
-    recover.onclick = () => {
+    recover.onclick = async () => {
       if (auth.getCurrentUser()?.id !== editorUserId) return;
       try {
         const content = JSON.parse(draft.content);
-        const questions = content.questions.map(ExamSafety.normalizeQuestion);
+        const imageStorage = globalThis.ExamImageStorage;
+        const scope = this.bankId ? `bank-${this.bankId}` : currentExamId;
+        const resolved = imageStorage ? await imageStorage.resolveTree(content, { auth, scope }) : content;
+        const questions = resolved.questions.map(ExamSafety.normalizeQuestion);
         if (this.bankId && questions.length !== 1) throw new Error('O rascunho do banco deve conter uma questão. Sua cópia foi mantida para conferência.');
-        if (!content.school || typeof content.school !== 'object') throw new Error('Dados da avaliação inválidos.');
-        state.school = content.school; state.questions = questions; state.logoDataUrl = content.logoDataUrl || '';
+        if (!resolved.school || typeof resolved.school !== 'object') throw new Error('Dados da avaliação inválidos.');
+        state.school = resolved.school; state.questions = questions; state.logoDataUrl = resolved.logoDataUrl || '';
         finish(); applyStateToInputs(); this.refreshBankFields(); renderAll();
       } catch (error) { showToast(error.message || 'Não foi possível recuperar. Sua cópia foi mantida.', 'err'); }
     };
@@ -126,29 +129,36 @@ const EditorTools = {
     this.historyIndex = this.history.length - 1;
     this.refreshActions();
   },
-  travelHistory(direction) {
-    if (!this.canEdit()) return;
+  async travelHistory(direction) {
+    if (!this.canEdit() || this.applyingHistory) return;
     clearTimeout(this.historyTimer);
     this.recordHistory();
     const next = this.historyIndex + direction;
     if (next < 0 || next >= this.history.length) return;
-    this.historyIndex = next; this.applyingHistory = true;
+    this.applyingHistory = true; this.refreshActions();
     try {
       const snapshot = JSON.parse(this.history[next]);
-      state.school = snapshot.school;
-      state.questions = snapshot.questions.map(ExamSafety.normalizeQuestion);
-      state.logoDataUrl = snapshot.logoDataUrl;
+      const imageStorage = globalThis.ExamImageStorage;
+      const scope = this.bankId ? `bank-${this.bankId}` : currentExamId;
+      const resolved = imageStorage ? await imageStorage.resolveTree(snapshot, { auth, scope }) : snapshot;
+      this.historyIndex = next;
+      state.school = resolved.school;
+      state.questions = resolved.questions.map(ExamSafety.normalizeQuestion);
+      state.logoDataUrl = resolved.logoDataUrl;
       state.collapsedQuestions = {};
       if (state.activeQuestionIndex >= state.questions.length) state.activeQuestionIndex = null;
       applyStateToInputs(); this.refreshBankFields(); renderAll();
       // Defaults de apresentação não criam uma nova ação nem descartam o ramo Refazer.
       this.history[next] = examFingerprint();
-    } finally { this.applyingHistory = false; }
+    } catch (error) {
+      showToast(error.message || 'Não foi possível restaurar as imagens deste histórico.', 'err');
+      return;
+    } finally { this.applyingHistory = false; this.refreshActions(); }
     preservePendingDraft(); this.changed(); this.refreshActions();
   },
   refreshActions() {
     if (!this.initialized) return;
-    const enabled = this.canEdit();
+    const enabled = this.canEdit() && !this.applyingHistory;
     const send = document.getElementById('sendCoordinationBtn');
     if (send) {
       send.hidden = Boolean(this.bankId) || currentExamOwnerId !== editorUserId || this.workflowLocked();

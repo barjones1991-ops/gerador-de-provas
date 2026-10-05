@@ -143,9 +143,9 @@ async function testValidSuggestionAndHistory() {
   assert.equal(app.run('state.activeQuestionIndex'), 2, 'o foco deve acompanhar a questao movida');
   assert(app.document.getElementById('lastSaved').textContent.includes('pendentes'), 'a mudanca deve entrar no salvamento automatico');
 
-  app.ctx.EditorTools.travelHistory(-1);
+  await app.ctx.EditorTools.travelHistory(-1);
   assert.deepEqual(order(app), ['Questão 1','Questão 2','Questão 3','Questão 4','Questão 5']);
-  app.ctx.EditorTools.travelHistory(1);
+  await app.ctx.EditorTools.travelHistory(1);
   assert.deepEqual(order(app), ['Questão 1','Questão 2','Questão 4','Questão 3','Questão 5']);
 }
 

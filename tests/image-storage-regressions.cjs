@@ -8,16 +8,28 @@ global.CONFIG = {
 };
 
 const calls = [];
+const signedResponses = [];
 global.fetch = async (url, options) => {
   calls.push({ url, options });
   if (url.includes('/object/sign/')) {
     const path = url.split('/object/sign/exam-images/')[1];
-    return { ok: true, json: async () => ({ signedURL: `/storage/v1/object/sign/exam-images/${path}?token=signed` }) };
+    const shape = signedResponses.shift() || 'object';
+    const suffix = `/object/sign/exam-images/${path}?token=signed`;
+    const signedURL = shape === 'absolute'
+      ? `https://project.supabase.co/storage/v1${suffix}`
+      : shape === 'prefixed' ? `/storage/v1${suffix}` : suffix;
+    return { ok: true, json: async () => ({ signedURL }) };
   }
   return { ok: true, json: async () => ({}) };
 };
 
-const storage = require('../js/image-storage.js');
+const modulePath = require.resolve('../js/image-storage.js');
+const freshStorage = () => {
+  delete require.cache[modulePath];
+  delete global.ExamImageStorage;
+  return require(modulePath);
+};
+const storage = freshStorage();
 const auth = {
   session: { access_token: 'access-test' },
   isAuthenticated: () => true,
@@ -42,6 +54,30 @@ const auth = {
   const savedAgain = await storage.persistTree(resolved, { auth, scope: 'exam-1' });
   assert.equal(savedAgain.image, stored.image, 'signed URL should return to its durable reference');
 
+  for (const shape of ['prefixed', 'absolute']) {
+    signedResponses.push(shape);
+    const session = freshStorage();
+    const reopened = await session.resolveTree(stored, { auth, scope: 'exam-1' });
+    assert.match(reopened.image, /^https:\/\/project\.supabase\.co\/storage\/v1\/object\/sign\/exam-images\//);
+    assert.equal(reopened.image.includes('/storage/v1/storage/v1/'), false, `${shape} must not duplicate the API prefix`);
+  }
+
+  signedResponses.push('object');
+  const newSession = freshStorage();
+  const expiredLegacyUrl = resolved.image.replace('/storage/v1/object/sign/', '/object/sign/').replace('token=signed', 'token=expired');
+  const durableDraft = newSession.durableTree({ image: expiredLegacyUrl, original: stored.image });
+  assert.equal(durableDraft.image, stored.image, 'old drafts should recover the object path without an in-memory map');
+  const recovered = await newSession.resolveTree(durableDraft, { auth, scope: 'exam-1' });
+  assert.match(recovered.image, /\/storage\/v1\/object\/sign\/exam-images\/.+token=signed$/);
+  const persistedAfterRestart = await newSession.persistTree(recovered, { auth, scope: 'exam-1' });
+  assert.equal(persistedAfterRestart.image, stored.image, 'a reopened draft must never save its temporary URL');
+
+  await assert.rejects(
+    () => newSession.persistTree({ image: 'https://project.supabase.co/object/sign/other-bucket/file.png?token=old' }, { auth, scope: 'exam-1' }),
+    /referencia permanente recuperavel/,
+    'unrecoverable project signed URLs must block persistence',
+  );
+
   const previousFetch = global.fetch;
   const previousWarn = console.warn;
   let usedFallback = false;
@@ -55,5 +91,5 @@ const auth = {
   console.warn = previousWarn;
   assert.equal(compatible.image, pendingImage, 'missing bucket should preserve the legacy Base64 payload');
   assert.equal(usedFallback, true, 'missing bucket should notify the caller about compatibility mode');
-  console.log('OK REG imagens usam Storage privado sem duplicar o mesmo arquivo');
+  console.log('OK REG imagens usam referencias permanentes e renovam URLs em nova sessao');
 })().catch(error => { console.error(error); process.exitCode = 1; });

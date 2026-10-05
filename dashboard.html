@@ -478,6 +478,7 @@
 
 <script src="config.js"></script>
 <script src="js/exam-safety.js?v=20260921-word-search"></script>
+<script src="js/image-storage.js"></script>
 <script src="js/auth.js"></script>
 <script>
   let auth = null;
@@ -1025,6 +1026,10 @@
     try { source = await loadExamContent(source); }
     catch (error) { showToast(error.message, 'error'); return; }
 
+    const imageStorage = globalThis.ExamImageStorage;
+    const durableContent = imageStorage?.durableTree
+      ? imageStorage.durableTree({ questions: source.questions || [], logo_data_url: source.logo_data_url || null })
+      : { questions: source.questions || [], logo_data_url: source.logo_data_url || null };
     const copy = {
       user_id: user.id,
       title: `${source.title || 'Prova'} (cópia)`,
@@ -1036,8 +1041,8 @@
       date: source.date || '',
       total_value: source.total_value || '',
       instructions: source.instructions || '',
-      questions: source.questions || [],
-      logo_data_url: source.logo_data_url || null,
+      questions: durableContent.questions,
+      logo_data_url: durableContent.logo_data_url,
       is_draft: true,
       is_published: false,
       review_status: 'rascunho',

@@ -12,6 +12,12 @@ Após as migrações 01/02, execute [20260908_03_fluxo_professor.sql](20260908_0
 
 Conferir com contas de teste: professor envia; tentativa de edição/exclusão é recusada; coordenação devolve; professor corrige e reenvia; coordenação aprova e encaminha para impressão.
 
+### Controle de acesso das imagens (migração 04)
+
+Depois de backup e das migrações 01, 02 e 03, execute `20261005_04_controle_acesso_imagens.sql` inteiro no SQL Editor. A migração não move nem exclui arquivos: cria vínculos internos a partir das referências já salvas e troca a leitura ampla do bucket privado por acesso compatível com provas e questões autorizadas. Não reaplique `setup_supabase.sql` em um ambiente existente.
+
+Após aplicar, teste com contas controladas: autor durante o upload, professor, coordenação da turma, operador com prova enviada para impressão, questão privada/escolar/pública, outra escola, usuário sem vínculo e acesso anônimo. O frontend pode ser publicado antes, mas a restrição de produção só entra em vigor após esta migração.
+
 ### Procedimento inicial
 
 1. Faça backup dos dados e do schema por uma ferramenta administrativa. Uma cópia do SQL do projeto não substitui backup de provas e usuários.

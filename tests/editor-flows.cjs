@@ -106,8 +106,8 @@ async function main() {
     app.run('state.collapsedQuestions = {}; renderAll();');
     const remove = [...app.document.querySelectorAll('.qcard button')].find(b=>b.title==='Remover questão');
     app.event(remove,'click'); assert.equal(app.run('state.questions.length'),0);
-    app.ctx.EditorTools.travelHistory(-1); assert.equal(app.run('state.questions[0].text'),'Questão original');
-    app.ctx.EditorTools.travelHistory(1); assert.equal(app.run('state.questions.length'),0);
+    await app.ctx.EditorTools.travelHistory(-1); assert.equal(app.run('state.questions[0].text'),'Questão original');
+    await app.ctx.EditorTools.travelHistory(1); assert.equal(app.run('state.questions.length'),0);
   });
   await test('salvar nao reabilita remocao abaixo do minimo', async () => {
     const app = await boot({questions:[{type:'multipla',text:'Escolha',points:'10,0',options:['A','B'],correctOption:0}]});

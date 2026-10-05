@@ -6666,7 +6666,9 @@
     let bankRequestSequence = 0;
 
     function examFingerprint() {
-      return JSON.stringify({ school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl });
+      const content = { school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl };
+      const imageStorage = globalThis.ExamImageStorage;
+      return JSON.stringify(imageStorage?.durableTree ? imageStorage.durableTree(content) : content);
     }
 
     function pendingDraftKey() {
