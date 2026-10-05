@@ -18,6 +18,8 @@ Depois de backup e das migrações 01, 02 e 03, execute `20261005_04_controle_ac
 
 Após aplicar, teste com contas controladas: autor durante o upload, professor, coordenação da turma, operador com prova enviada para impressão, questão privada/escolar/pública, outra escola, usuário sem vínculo e acesso anônimo. O frontend pode ser publicado antes, mas a restrição de produção só entra em vigor após esta migração.
 
+Migração aplicada pelo conector Supabase no projeto de produção em 05/10/2026. Foram conferidos o registro da migração, a policy vinculada, o backfill das referências e os acessos do autor, dono da escola, master, outro professor, operador sem prova na fila e usuário anônimo. Não havia questão com imagem nem prova com imagem enviada para impressão para validar esses dois cenários sem alterar o acervo real.
+
 ### Procedimento inicial
 
 1. Faça backup dos dados e do schema por uma ferramenta administrativa. Uma cópia do SQL do projeto não substitui backup de provas e usuários.
