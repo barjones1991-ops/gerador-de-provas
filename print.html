@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-math-combined"></script>
+  <script src="js/image-storage.js?v=20260922-storage1"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style data-exam-layout>
@@ -480,7 +481,7 @@
     </div>
   </main>
 
-  <script src="config.js"></script>
+  <script src="config.js?v=20260922-storage1"></script>
   <script src="js/auth.js"></script>
   <script>
     function esc(s) {
@@ -497,7 +498,7 @@
     let previewAnswerKey = false;
 
     function isSafeImageDataUrl(dataUrl) {
-      return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || ''));
+      return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || '')) || Boolean(window.ExamImageStorage?.isRenderableImage(dataUrl));
     }
 
     function safeImageSrc(dataUrl) {
@@ -524,6 +525,11 @@
         }
         const problems = ExamSafety.wordSearchProblems(fresh.questions || []);
         if (problems.length) throw new Error(problems.join('\n'));
+        const imageStorage = window.ExamImageStorage;
+        imageStorage?.configure(printAuth, fresh.id);
+        const resolved = imageStorage ? await imageStorage.resolveTree({ questions: fresh.questions || [], logo_data_url: fresh.logo_data_url || '' }, { auth: printAuth, scope: fresh.id }) : fresh;
+        fresh.questions = resolved.questions;
+        fresh.logo_data_url = resolved.logo_data_url;
         currentExam = fresh; printProfile = profile; renderExam(currentExam); updatePrintToolbar(currentExam, printAuth, profile);
         await Promise.all([...document.querySelectorAll('#root img')].map(img => img.decode ? img.decode() : Promise.resolve()));
         if (document.fonts?.ready) await document.fonts.ready;
@@ -1545,6 +1551,11 @@
       if (auth.hasRole(['teacher'], profile)) { location.replace(`editor.html?id=${encodeURIComponent(id)}&view=preview`); return; }
       printProfile = profile;
       currentExam = data[0];
+      const imageStorage = window.ExamImageStorage;
+      imageStorage?.configure(auth, id);
+      const resolved = imageStorage ? await imageStorage.resolveTree({ questions: currentExam.questions || [], logo_data_url: currentExam.logo_data_url || '' }, { auth, scope: id }) : currentExam;
+      currentExam.questions = resolved.questions;
+      currentExam.logo_data_url = resolved.logo_data_url;
       updatePrintToolbar(currentExam, auth, profile);
       if (auth.hasRole(['print_operator'], profile) && data[0].print_status === 'impressa') {
         showMessage('PDF bloqueado', 'Esta prova ja foi marcada como impressa. Para imprimir novamente, peça um novo envio da coordenação.');

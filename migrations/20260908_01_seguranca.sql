@@ -107,6 +107,8 @@ BEGIN
   IF jsonb_typeof(NEW.questions) IS DISTINCT FROM 'array' OR octet_length(NEW.questions::text) + octet_length(COALESCE(NEW.logo_data_url, '')) > 8388608 THEN
     RAISE EXCEPTION 'Formato invalido ou prova acima do limite de 8 MB.';
   END IF;
+  NEW.questions_count := public.exam_questions_count(NEW.questions);
+  NEW.questions_score_total := public.exam_questions_score_total(NEW.questions);
   IF NEW.review_status IS NULL OR NEW.review_status NOT IN ('rascunho', 'enviada', 'em_revisao', 'devolvida', 'aprovada', 'bloqueada')
     OR NEW.print_status IS NULL OR NEW.print_status NOT IN ('nao_enviada', 'enviada', 'impressa') THEN
     RAISE EXCEPTION 'Status de prova invalido.';
@@ -119,6 +121,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 DROP TRIGGER IF EXISTS protect_exam_workflow_before_write ON public.exams;
 CREATE TRIGGER protect_exam_workflow_before_write BEFORE INSERT OR UPDATE ON public.exams
 FOR EACH ROW EXECUTE FUNCTION public.protect_exam_workflow();
+
+-- Resumos leves para as listagens. As imagens e questões completas são carregadas apenas no editor.
+ALTER TABLE public.exams ADD COLUMN IF NOT EXISTS questions_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.exams ADD COLUMN IF NOT EXISTS questions_score_total NUMERIC NOT NULL DEFAULT 0;
+UPDATE public.exams SET
+  questions_count = public.exam_questions_count(questions),
+  questions_score_total = public.exam_questions_score_total(questions);
 
 CREATE OR REPLACE FUNCTION public.protect_question_scope()
 RETURNS TRIGGER AS $$

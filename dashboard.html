@@ -624,7 +624,7 @@
   }
 
   function hasExamQuestions(exam) {
-    return getExamQuestions(exam).length > 0;
+    return Number.isFinite(Number(exam?.questions_count)) ? Number(exam.questions_count) > 0 : getExamQuestions(exam).length > 0;
   }
 
   function parsePtNumber(value) {
@@ -638,7 +638,9 @@
 
   function getExamScoreCheck(exam) {
     const questions = getExamQuestions(exam);
-    const questionTotal = questions.reduce((sum, question) => sum + parsePtNumber(question?.points), 0);
+    const questionTotal = Array.isArray(exam?.questions)
+      ? questions.reduce((sum, question) => sum + parsePtNumber(question?.points), 0)
+      : Number(exam?.questions_score_total) || 0;
     const expectedTotal = parsePtNumber(exam?.total_value);
     const difference = Math.round((questionTotal - expectedTotal) * 10) / 10;
     const isConsistent = Math.abs(difference) < 0.05;
@@ -665,9 +667,16 @@
     document.getElementById('examsLoadError').hidden = true;
     try {
       const user = auth.getCurrentUser();
-      const endpoint = `/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`;
-      const data = await auth.authenticatedRequest(endpoint);
-      exams = (Array.isArray(data) ? data : []).filter((exam) => exam.user_id === user.id).map((exam) => ({ ...exam, questions: getExamQuestions(exam) }));
+      const fields = 'id,user_id,school_id,title,school_name,subject,class_name,teacher,term,date,total_value,instructions,is_draft,is_published,review_status,review_notes,reviewed_by,reviewed_at,locked_at,print_status,print_copies,print_notes,print_requested_by,print_requested_at,printed_by,printed_at,created_at,updated_at,review_history,questions_count,questions_score_total';
+      const endpoint = `/exams?user_id=eq.${user.id}&order=created_at.desc&select=${fields}`;
+      let data;
+      try {
+        data = await auth.authenticatedRequest(endpoint);
+      } catch (error) {
+        if (!/questions_count|questions_score_total/i.test(String(error?.message || ''))) throw error;
+        data = await auth.authenticatedRequest(`/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`);
+      }
+      exams = (Array.isArray(data) ? data : []).filter((exam) => exam.user_id === user.id);
       renderSubjectOptions();
       const classes = [...new Set(exams.map(exam => exam.class_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
       if (!classes.includes(currentClass)) currentClass = '';
@@ -763,7 +772,7 @@
       const reviewInProgress = ['enviada', 'em_revisao'].includes(review);
       const date = exam.updated_at || exam.created_at;
       const updated = date ? new Date(date).toLocaleDateString('pt-BR') : 'Não informada';
-      const qCount = getExamQuestions(exam).length;
+      const qCount = Number.isFinite(Number(exam.questions_count)) ? Number(exam.questions_count) : getExamQuestions(exam).length;
       const ownedByCurrentUser = exam.user_id === auth.getCurrentUser()?.id;
       const canEdit = auth.canEditExam(exam, currentProfile);
       const canDelete = auth.canDeleteExam(exam, currentProfile);
@@ -998,12 +1007,23 @@
     window.location.href = `editor.html?id=${encodeURIComponent(id)}&view=preview`;
   }
 
+  async function loadExamContent(exam) {
+    if (Array.isArray(exam?.questions)) return exam;
+    const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(exam.id)}&select=questions,logo_data_url`);
+    if (!Array.isArray(rows) || !rows[0]) throw new Error('A prova não está mais disponível.');
+    Object.assign(exam, rows[0]);
+    return exam;
+  }
+
   async function duplicateExam(id) {
-    const source = exams.find(e => e.id === id);
+    let source = exams.find(e => e.id === id);
     if (!source) return;
 
     const user = auth.getCurrentUser();
     if (!user) return;
+
+    try { source = await loadExamContent(source); }
+    catch (error) { showToast(error.message, 'error'); return; }
 
     const copy = {
       user_id: user.id,
@@ -1058,6 +1078,11 @@
     if (!scoreCheck.isConsistent) {
       showToast(scoreCheck.message, 'error');
       return;
+    }
+
+    if (!Array.isArray(exam.questions) && typeof loadExamContent === 'function') {
+      try { await loadExamContent(exam); }
+      catch (error) { showToast(error.message, 'error'); return; }
     }
 
     const blockers = ExamSafety.inspectExam(exam).filter(issue => issue.blocking);

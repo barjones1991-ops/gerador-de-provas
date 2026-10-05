@@ -325,9 +325,15 @@
     document.getElementById('loadError').hidden = true;
     try {
       const returnedHistory = encodeURIComponent(JSON.stringify([{ action: 'devolvida' }]));
-      const data = await auth.authenticatedRequest(
-        `/exams?or=(review_status.in.(enviada,em_revisao,aprovada,devolvida,bloqueada),and(review_status.eq.rascunho,review_history.cs.${returnedHistory}))&order=updated_at.desc&select=*`
-      );
+      const fields = 'id,user_id,school_id,title,school_name,subject,class_name,teacher,term,date,total_value,instructions,is_draft,is_published,review_status,review_notes,reviewed_by,reviewed_at,locked_at,print_status,print_copies,print_notes,print_requested_by,print_requested_at,printed_by,printed_at,created_at,updated_at,review_history,questions_count,questions_score_total';
+      const baseQuery = `/exams?or=(review_status.in.(enviada,em_revisao,aprovada,devolvida,bloqueada),and(review_status.eq.rascunho,review_history.cs.${returnedHistory}))&order=updated_at.desc`;
+      let data;
+      try {
+        data = await auth.authenticatedRequest(`${baseQuery}&select=${fields}`);
+      } catch (error) {
+        if (!/questions_count|questions_score_total/i.test(String(error?.message || ''))) throw error;
+        data = await auth.authenticatedRequest(`${baseQuery}&select=*`);
+      }
       reviews = (Array.isArray(data) ? data : []).filter(canCurrentProfileReviewExam);
       renderReviewFilters();
       renderReviews();
@@ -468,7 +474,7 @@
       const withTeacher = isWithTeacher(exam);
       const statusLabel = withTeacher ? 'Com o professor' : reviewLabels[exam.review_status] || exam.review_status || 'Rascunho';
       const updated = formatReviewDate(exam.updated_at);
-      const qCount = Array.isArray(exam.questions) ? exam.questions.length : 0;
+      const qCount = Number.isFinite(Number(exam.questions_count)) ? Number(exam.questions_count) : Array.isArray(exam.questions) ? exam.questions.length : 0;
       const history = Array.isArray(exam.review_history) ? exam.review_history : [];
       const returnNotes = withTeacher ? exam.review_notes || [...history].reverse().find(entry => entry.action === 'devolvida')?.notes : exam.review_notes;
       const isApproved = exam.review_status === 'aprovada';

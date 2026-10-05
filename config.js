@@ -26,6 +26,8 @@ const CONFIG = {
   // Outras configurações
   TIMEOUT: 10000, // 10 segundos
   MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+  IMAGE_STORAGE_ENABLED: true,
+  IMAGE_STORAGE_BUCKET: 'exam-images',
 };
 
 // ==========================================

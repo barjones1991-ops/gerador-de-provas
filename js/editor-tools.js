@@ -728,7 +728,10 @@ const EditorTools = {
       const row = rows?.[0];
       if (!row || row.user_id !== user.id || !row.updated_at) throw new Error('Questão indisponível ou sem permissão de edição.');
       this.bankRecord = row;
-      state.questions = [ExamSafety.normalizeQuestion(row.question)]; state.collapsedQuestions = {};
+      const imageStorage = globalThis.ExamImageStorage;
+      imageStorage?.configure(auth, `bank-${this.bankId}`);
+      const resolvedQuestion = imageStorage ? await imageStorage.resolveTree(row.question, { auth, scope: `bank-${this.bankId}` }) : row.question;
+      state.questions = [ExamSafety.normalizeQuestion(resolvedQuestion)]; state.collapsedQuestions = {};
       state.school = { ...defaultSchool, subject: row.subject || '', className: row.grade || '',
         bankTitle: row.title || '', bankGrade: row.grade || '', bankSkill: row.skill || '',
         bankDifficulty: row.difficulty || 'media', bankScope: getBankItemScope(row), totalValue: row.question.points || '0,0' };
@@ -755,10 +758,14 @@ const EditorTools = {
     try {
       if (state.questions.length !== 1) throw new Error('Este registro deve conter exatamente uma questão. Seu rascunho foi preservado.');
       const question = ExamSafety.normalizeQuestion(state.questions[0]);
-      if (new Blob([JSON.stringify(question)]).size > 1700 * 1024) throw new Error('Questão muito pesada para o banco.');
+      setAutoSaveHint('Enviando imagens...');
+      const imageStorage = globalThis.ExamImageStorage;
+      const storedQuestion = imageStorage ? await imageStorage.persistTree(question, { auth, scope: `bank-${this.bankId}`,
+        onProgress: (done, total) => total && setAutoSaveHint(`Enviando imagens ${done}/${total}`),
+        onFallback: () => setAutoSaveHint('Storage indisponível; usando salvamento compatível') }) : question;
       const payload = { title: state.school.bankTitle || questionTitle(question), subject: state.school.subject || '',
         grade: state.school.bankGrade || '', skill: state.school.bankSkill || '', difficulty: state.school.bankDifficulty || 'media',
-        question_type: question.type, question, ...buildBankScopePayload(state.school.bankScope || 'private') };
+        question_type: question.type, question: storedQuestion, ...buildBankScopePayload(state.school.bankScope || 'private') };
       const rows = await auth.authenticatedRequest(`/question_bank?id=eq.${encodeURIComponent(this.bankId)}&updated_at=eq.${encodeURIComponent(currentExamVersion)}&select=id,updated_at`, {
         method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(payload),
       });

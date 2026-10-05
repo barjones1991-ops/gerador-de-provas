@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html', 'setup.html'];
-const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js', 'js/exam-pagination.js'];
+const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js', 'js/exam-pagination.js', 'js/image-storage.js'];
 const questionTypes = [
   'multipla',
   'discursiva',
@@ -549,6 +549,14 @@ async function main() {
     assert(!sql.includes("WHERE email = 'yesley@msn.com'"), 'recurring setup must never promote a mutable profile email');
   });
 
+  await test('private image storage setup is explicit and idempotent', () => {
+    const sql = read('setup_storage.sql');
+    assert(sql.includes("VALUES ('exam-images', 'exam-images', FALSE"), 'private image bucket missing');
+    assert(sql.includes('file_size_limit') && sql.includes('5242880'), 'storage upload limit missing');
+    assert(sql.includes('DROP POLICY IF EXISTS "Imagens de provas: leitura autenticada"'), 'storage read policy should be idempotent');
+    assert(sql.includes("(storage.foldername(name))[1] = auth.uid()::text"), 'storage writes should stay in the user folder');
+  });
+
   await test('AuthManager exposes access profile helpers', () => {
     const auth = read('js/auth.js');
     assert(auth.includes('normalizeRole(role)'), 'role normalizer missing');
@@ -643,7 +651,7 @@ async function main() {
     assert(dashboard.includes('auth.canReviewExams(currentProfile)'), 'dashboard should use role helper for coordination access');
     assert(dashboard.includes('auth.canManageSchools(currentProfile)'), 'dashboard should use role helper for school access');
     assert(dashboard.includes('auth.canDeleteExam(exam, currentProfile)'), 'dashboard should use delete permission helper');
-    assert(dashboard.includes('`/exams?user_id=eq.${user.id}&order=created_at.desc&select=*`'), 'dashboard should load only current user exams');
+    assert(dashboard.includes('questions_count,questions_score_total') && dashboard.includes("if (!/questions_count|questions_score_total/i.test"), 'dashboard should prefer lightweight summaries and retain a legacy-schema fallback');
     assert(dashboard.includes('filter((exam) => exam.user_id === user.id)'), 'dashboard should defensively keep only owned exams');
     assert(dashboard.includes('navPrintLink') && dashboard.includes('auth.canAccessPrintQueue(currentProfile)'), 'dashboard should link allowed users to print queue');
     assert(dashboard.includes('app-sidebar') && dashboard.includes('Módulos do sistema'), 'dashboard should use module sidebar navigation');
@@ -660,7 +668,7 @@ async function main() {
     assert(!dashboard.includes('school_grade: grade'), 'teacher profile save should not update coordination-owned school_grade');
     assert(dashboard.includes('function getExamQuestions(exam)'), 'dashboard should normalize exam questions before counting them');
     assert(dashboard.includes("typeof exam?.questions === 'string'"), 'dashboard should handle question payloads returned as JSON strings');
-    assert(dashboard.includes('questions: getExamQuestions(exam)'), 'dashboard should normalize loaded exams before rendering actions');
+    assert(dashboard.includes('async function loadExamContent(exam)') && dashboard.includes('select=questions,logo_data_url'), 'dashboard should defer full exam content until an action needs it');
     assert(dashboard.includes('if (!hasExamQuestions(exam))'), 'send-to-review should use normalized question count');
     assert(dashboard.includes('function getExamScoreCheck(exam)'), 'dashboard should compare question score total before review');
     assert(dashboard.includes('Divergência de nota: soma das questões'), 'dashboard should warn about score divergence');
