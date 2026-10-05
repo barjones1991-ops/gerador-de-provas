@@ -376,6 +376,10 @@ body { padding-left:var(--editor-sidebar-width); }
 #questionOverview > summary,#readinessDetails > summary { min-height:30px; display:flex; align-items:center; }
 #readinessDetails:not([open]) { color:#405870; }
 #editorSelectionHint { padding:16px 12px; margin:8px 0 0; }
+.layout-optimization { margin-top:10px; padding:10px; border:1px solid #f59e0b; border-radius:10px; background:#fffbeb; color:#78350f; }
+.layout-optimization > div { display:grid; gap:3px; margin-bottom:8px; }
+.layout-optimization span { font-size:12px; line-height:1.4; }
+.layout-optimization button { width:100%; background:#b45309; border-color:#b45309; color:#fff; }
 
 /* Controles da prévia em duas linhas compactas. */
 .preview-toolbar { display:grid; gap:7px; margin-bottom:8px; }

@@ -459,8 +459,8 @@
   </style>
 <script>window.PagedConfig = { auto:false };</script>
   <script defer src="js/vendor/paged-0.4.3.js"></script>
-  <script defer src="js/exam-pagination.js?v=20260917-a4"></script>
-  <link rel="stylesheet" href="css/exam-pagination.css?v=20260917-a4">
+  <script defer src="js/exam-pagination.js?v=20261005-layout-opt1"></script>
+  <link rel="stylesheet" href="css/exam-pagination.css?v=20261005-layout-opt1">
 </head>
 <body>
   <div class="toolbar no-print">
@@ -496,6 +496,11 @@
     let printProfile = null;
     let currentExam = null;
     let previewAnswerKey = false;
+
+    window.reportExamSpaceSuggestion = suggestion => {
+      if (new URLSearchParams(location.search).get('preview') !== '1' || window.parent === window) return;
+      window.parent.postMessage({ type: 'exam-preview-space-suggestion', suggestion }, location.origin);
+    };
 
     function isSafeImageDataUrl(dataUrl) {
       return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || '')) || Boolean(window.ExamImageStorage?.isRenderableImage(dataUrl));
@@ -1391,7 +1396,7 @@
       const headerImage = _buildHeaderHtml(q);
       const besideStatement = headerImage && q.headerImage?.mode === 'one' && ['lado_esquerda','lado_direita'].includes(q.headerImage.align);
       const statement = `<div class="qtext">${renderStatementText(q)}</div>`;
-      return `<div class="question-block" data-question-index="${i}">
+      return `<div class="question-block" data-question-index="${i}" data-unnumbered="${q.hideNumber ? 'true' : 'false'}">
               <div class="qtitle">
                 ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
               </div>

@@ -4,7 +4,7 @@ const EditorTools = {
   bankId: new URLSearchParams(window.location.search).get('bank'), bankRecord: null,
   previewTimer: null, persistTimer: null, historyTimer: null, previewReady: false,
   forceSnapshot: true, previewQuestionCount: -1, dirtyQuestions: new Set(),
-  reviewHistory: [], sending: false,
+  reviewHistory: [], sending: false, spaceSuggestion: null,
   isTeacher() { return Boolean(auth?.hasRole?.(['teacher'], currentProfile)); },
   offerDraftRecovery(draft) {
     autoSaveReady = false; setEditorLoading(true);
@@ -168,6 +168,40 @@ const EditorTools = {
     const bankSave = document.getElementById('saveBankRecordBtn');
     if (bankSave) bankSave.disabled = !enabled || this.bankSaving;
     document.querySelectorAll('.free-image-remove, .free-image-resize').forEach(node => this.lockControl(node, !enabled));
+  },
+  setSpaceSuggestion(suggestion) {
+    const valid = suggestion && Number.isInteger(suggestion.fromIndex) && Number.isInteger(suggestion.toIndex)
+      && suggestion.fromIndex > suggestion.toIndex && suggestion.fromIndex < state.questions.length;
+    this.spaceSuggestion = valid ? suggestion : null;
+    const notice = document.getElementById('layoutOptimization');
+    const copy = document.getElementById('layoutOptimizationCopy');
+    const button = document.getElementById('layoutOptimizationBtn');
+    if (!notice || !copy || !button) return;
+    notice.hidden = !valid || Boolean(this.bankId);
+    if (!valid) return;
+    copy.textContent = `A questão ${suggestion.fromIndex + 1} pode aproveitar o espaço livre da página ${suggestion.page}.`;
+    button.disabled = !this.canEdit();
+  },
+  applySpaceSuggestion() {
+    const suggestion = this.spaceSuggestion;
+    if (!suggestion || !this.canEdit()) return;
+    const { fromIndex, toIndex } = suggestion;
+    if (fromIndex <= toIndex || fromIndex >= state.questions.length || toIndex < 0) {
+      this.setSpaceSuggestion(null); return;
+    }
+    const accepted = confirm(`Mover a questão ${fromIndex + 1} para antes da questão ${toIndex + 1}?\n\nIsso aproveita melhor o espaço da página ${suggestion.page}, mas altera a ordem das questões.`);
+    if (!accepted) return;
+    this.recordHistory();
+    const [question] = state.questions.splice(fromIndex, 1);
+    state.questions.splice(toIndex, 0, question);
+    state.activeQuestionIndex = toIndex;
+    state.collapsedQuestions = {};
+    this.previewSelection = toIndex;
+    this.pendingPreviewFocus = toIndex;
+    this.forceSnapshot = true;
+    this.setSpaceSuggestion(null);
+    renderAll();
+    showToast('Diagramação otimizada. Use Desfazer se quiser restaurar a ordem anterior.', 'ok');
   },
   enhanceFields() {
     const panel = document.querySelector('.card.no-print');
@@ -829,11 +863,12 @@ const EditorTools = {
     details.after(overview);
     document.getElementById('questionSearch').oninput = () => this.filterQuestions();
     const readiness = document.createElement('details'); readiness.id = 'readinessDetails';
-    readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><p class="small">Esta conferência verifica preenchimento, pontuação e estrutura do gabarito. Revise também o conteúdo e as respostas antes de aplicar a prova.</p><div id="examIssues"></div>';
+    readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><p class="small">Esta conferência verifica preenchimento, pontuação, estrutura do gabarito e oportunidades de melhorar a diagramação. Revise também o conteúdo e as respostas antes de aplicar a prova.</p><div id="examIssues"></div><div id="layoutOptimization" class="layout-optimization" hidden><div><strong>Sugestão de diagramação</strong><span id="layoutOptimizationCopy"></span></div><button id="layoutOptimizationBtn" type="button">Sugerir otimização de espaço</button></div>';
     overview.after(readiness);
+    document.getElementById('layoutOptimizationBtn').onclick = () => this.applySpaceSuggestion();
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20260921-math-combined" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20261005-layout-opt1" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
@@ -846,7 +881,9 @@ const EditorTools = {
     }
     window.addEventListener('resize', () => this.resizePreview());
     window.addEventListener('message', event => {
-      if (event.origin === location.origin && event.source === document.getElementById('canonicalPreview').contentWindow && event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); }
+      if (event.origin !== location.origin || event.source !== document.getElementById('canonicalPreview').contentWindow) return;
+      if (event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); return; }
+      if (event.data?.type === 'exam-preview-space-suggestion') this.setSpaceSuggestion(event.data.suggestion);
     });
     // All implemented types have an explicit creation path and a short example.
     const select = document.getElementById('qtypeSelect'); select.replaceChildren();
