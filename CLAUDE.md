@@ -1,654 +1,131 @@
-# GERADOR DE PROVAS - Guia Operacional
+# Gerador de Provas — manual técnico e operacional
 
-## Objetivo do Projeto
+## Finalidade e arquitetura
 
-Plataforma web para professores elaborarem provas e enviarem à coordenação. A coordenação revisa e encaminha ao setor de impressão; o professor consulta a prévia, sem comandos de impressão.
+Aplicação web para criar provas, submetê-las à coordenação, revisar/aprovar e encaminhar provas aprovadas para a fila de impressão. O frontend é HTML, CSS e JavaScript sem framework e sem etapa de build. `config.js` centraliza o endpoint do projeto Supabase; `js/auth.js` implementa Auth e chamadas REST diretamente com `fetch`. O armazenamento principal é o Supabase; `localStorage` mantém sessão, seleção da prova e recuperação local de alterações.
 
-- Frontend em HTML, CSS e JavaScript puro.
-- Backend, autenticação e banco de dados via Supabase.
-- Sem framework, sem build step e sem SDK do Supabase.
-- Hospedagem prevista no GitHub Pages.
+Entradas principais:
 
-Links:
+| Página | Responsabilidade | Código de apoio |
+|---|---|---|
+| `index.html`, `login.html`, `setup.html` | entrada, login, cadastro/recuperação e configuração inicial | `js/auth.js`, `config.js` |
+| `dashboard.html` | listar, criar, duplicar, enviar, excluir e abrir provas | `js/auth.js`, `js/exam-safety.js`, `js/image-storage.js` |
+| `editor.html` | editar prova/banco, autosave, conferência, histórico e prévia; impressão conforme perfil | `js/editor-tools.js`, `js/exam-safety.js`, `js/image-storage.js`, `js/exam-pagination.js` |
+| `coordenacao.html` | revisão, devolução, aprovação/bloqueio e envio para impressão | `js/auth.js` |
+| `print.html` | prévia incorporada e renderização para impressão/PDF, com ou sem gabarito | `js/exam-pagination.js`, `js/exam-safety.js`, `js/image-storage.js` |
+| `impressao.html` | operar a fila de provas aprovadas e concluir impressão | `js/auth.js` |
+| `schools.html`, `master.html` | administração de escolas, usuários e vínculos | `js/auth.js` |
 
-- Site: https://barjones1991-ops.github.io/gerador-de-provas/
-- Repositório: https://github.com/barjones1991-ops/gerador-de-provas
+`js/vendor/paged-0.4.3.js` é dependência vendorizada para paginação A4. `css/editor-tools.css` e `css/exam-pagination.css` sustentam editor/prévia e layout paginado. Não editar o vendor para corrigir comportamento da aplicação.
 
-## Correções da Auditoria de 08/09/2026
+## Executar e validar
 
-O primeiro lote foi publicado por autorização do usuário em `a518f8c`, com testes e deploy do Pages aprovados. O segundo lote (S08, escola permanente da prova) foi publicado em `3cf5d23`. A fonte de acompanhamento por achado é [auditoria/STATUS_CORRECOES.md](auditoria/STATUS_CORRECOES.md). A análise original é histórica; para verificar as correções, executar `npm ci --ignore-scripts` e `npm test` (Node.js 22+).
-
-- O editor somente abre provas já criadas no dashboard; links de nova prova convergem para `dashboard.html?new=1`.
-- Autosave exige carregamento e versão confirmados; PATCH com zero linhas é conflito, não sucesso.
-- Alterações pendentes de provas existentes têm cópia por usuário/prova em `gerador-provas-pending-v2:<userId>:<examId>`, removida após confirmação do salvamento. Não confundir com o antigo rascunho de nova prova.
-- O reset para senha compartilhada foi removido. Recuperação usa link individual do Auth.
-- Em 08/09/2026, o usuário informou que executou os scripts no Supabase e autorizou publicar todo o segundo lote. As migrações 01 e 02 foram testadas em PostgreSQL/PGlite isolado; a execução no ambiente real foi informada pelo usuário. Configuração de confirmação de e-mail/SMTP e testes reais dos cinco perfis ainda não foram confirmados.
-- `migrations/20260908_02_escola_da_prova.sql` fixa a escola no momento da criação, sem transferir provas antigas quando o professor muda de escola. Conferir os vínculos legados antes de aplicar; veja `migrations/README.md`.
-- Validação visual ainda pendente: as ferramentas não encontraram navegador disponível nesta sessão.
-
-## Estado Atual
-
-Em 21/09/2026, usuário autorizou publicar o ajuste de espaçamento da legenda do texto-base. npm test completo aprovado antes do envio; sem migração SQL.
-
-Em 21/09/2026, removido o espaço superior da legenda do texto-base: margin-top 0 e entrelinha 1.3 no editor, prévia e impressão. Cache/fixture atualizados e npm test aprovado. Alteração local, sem publicação.
-
-Em 21/09/2026, usuário autorizou publicar os ajustes acumulados de Interpretação de texto: inclusão/exclusão de alternativas, texto-base antes do enunciado e legenda opcional. npm test completo aprovado antes do envio; cache atualizado, sem migração SQL. Conferência visual automatizada permanece pendente pelo bloqueio de uso do navegador informado anteriormente.
-
-Em 21/09/2026, legenda opcional do texto-base adicionada a Interpretação de texto, para autor/obra/fonte. Campo textBaseCaption salvo no JSON e exibido discretamente abaixo do texto, nas posições antes/depois do enunciado e respostas discursivas/múltipla escolha. Conteúdo escapado, legenda vazia omitida. Suíte executada e teste específico atualizado/aprovado para legenda, persistência e escape. Fixture/cache atualizados, sem publicação; validação visual pendente pelo bloqueio do navegador.
-
-Em 21/09/2026, opção Mostrar antes do enunciado junto ao campo Texto-base em Interpretação de texto. Campo booleano textBaseBeforeStatement preservado no JSON; padrão anterior mantido. Prévia canônica e impressão movem o texto antes do enunciado sem duplicar, tanto em respostas discursivas quanto em múltipla escolha. npm test aprovado com alternância, escape, respostas e reabertura. Fixture/cache atualizados, sem migração SQL e sem publicação; conferência visual pendente pelo bloqueio de uso do navegador.
-
-Em 21/09/2026, Interpretação de texto em múltipla escolha recebe Adicionar alternativa e exclusão por ícone em cada opção. Limites de 2–6 alternativas, imagens removidas junto da opção e índice do gabarito ajustado (resposta removida fica sem seleção). Bloqueios de edição respeitados. npm test completo aprovado, com regressões de inclusão/exclusão, limites, imagens, gabarito, reabertura e leitura bloqueada. Fixture/cache atualizados, sem publicação; conferência visual pendente pelo bloqueio de uso do navegador.
-
-Em 21/09/2026, usuário autorizou publicar Embaralhar caça-palavras. npm test completo aprovado antes do envio; disposição persistida e compartilhada por prévia, impressão, gabarito e validação. Sem migração SQL.
-
-Em 21/09/2026, botão Embaralhar caça-palavras adicionado. Nova disposição usa wordSearchSeed persistido no JSON da questão; editor, impressão, gabarito e validação compartilham o mesmo gerador determinístico. Sem seed, mantém disposição legada. Botão preserva palavras e só aceita grade diferente contendo todas elas, com até 20 tentativas e aviso se não couberem; bloqueio de edição respeitado. npm test aprovado e regressões adicionais de persistência, posições do gabarito e determinismo aprovadas. Caches/fixture atualizados; sem migração SQL, não publicado. Conferência visual pendente pelo bloqueio de uso do navegador.
-
-Em 21/09/2026, usuário autorizou publicar o lote acumulado de imagens abaixo: remoção de Adicionar outra imagem, molduras proporcionais, alinhamento lateral junto ao enunciado, escala progressiva com limites de página e tamanho individual por item. npm test completo aprovado antes do envio; caches atualizados. Sem migração SQL. Conferência visual automatizada permanece pendente pelo bloqueio do navegador informado anteriormente.
-
-Em 21/09/2026, tamanho individual Pequena/Média/Grande integrado ao seletor de imagem de alternativas, V/F, sequência, legenda, grade, relações de imagens, comparação e itens da grade do enunciado. Controle aparece após upload e some ao remover; substituição mantém tamanho. Subitens recebem rótulo Tamanho e nome acessível. Imagens principais mantêm seus controles existentes, ocultos enquanto vazias. Tamanhos por item usam largura proporcional com limite do contêiner; dados antigos preservados e renderizadores respeitam imageSize validado. Normalização de relacione_imagens preserva o novo campo. Testes cobrem envio, troca, remoção, salvamento, reabertura e impressão em oito modelos. Sem migração SQL, fixture/cache atualizados; não publicado. Conferência visual pendente pelo bloqueio de uso do navegador.
-
-Em 21/09/2026, escala das imagens na prévia/impressão unificada: pequena/média/grande/completa usam limites de altura de 55/90/139,5/195mm e larguras-alvo de 28/55/82/100%. Cálculo proporcional aplicado a todos os tamanhos para evitar média maior que grande; laterais mantêm suas larguras específicas. Largura total respeita também altura máxima. Testes verificam progressão em retrato/paisagem/quadrado e preservação da proporção. npm test aprovado, fixture/cache atualizados; sem publicação e conferência visual pendente.
-
-Em 21/09/2026, imagem Grande limitada a 139,5mm de altura (metade da área útil A4) e à largura disponível. Largura máxima calculada a partir das dimensões naturais, incluindo borda/padding, para preservar proporção sem espaço interno; cálculo após carga e em atualizações, antes da paginação. Laterais preservam o espaço do enunciado. npm test aprovado com imagens retrato/paisagem/quadrada. Cache/fixture atualizados, sem publicação; conferência visual pendente.
-
-Em 21/09/2026, tamanhos das imagens em linha própria (esquerda/centro/direita) corrigidos para larguras efetivas de 28/55/82/100% da área da questão, com altura automática. Removidos limites de altura na impressão que reduziam as imagens; regras laterais específicas preservadas. npm test aprovado; fixture/cache atualizados. Sem publicação; conferência visual pendente.
-
-Em 21/09/2026, removido limite lateral único de 155px que anulava a diferença entre tamanhos da imagem junto ao enunciado. Larguras pequena/média/grande/completa: 100/170/270/340px, limitadas a 45% do espaço para preservar o texto. Altura proporcional e regras específicas prevalecem sobre limites genéricos de impressão. Testes aprovados; fixture/cache atualizados. Validação visual pendente, sem publicação.
-
-Em 21/09/2026, corrigido alinhamento lado_esquerda/lado_direita da imagem do enunciado: prévia canônica e impressão agrupam imagem e enunciado em bloco flow-root, com respostas abaixo do conjunto. Alinhamentos simples continuam em linha própria. npm test aprovado com regressão de ambos os lados, ausência de imagem duplicada e preservação das linhas de resposta. Fixture/cache atualizados, sem publicação. Conferência visual permanece pendente pelo bloqueio de uso do navegador.
-
-Em 21/09/2026, ajuste proporcional estendido às imagens .question-image da prévia canônica e impressão: largura/altura automáticas com limites máximos por tamanho, removendo espaços internos impostos por dimensões fixas. Regras de impressão e paginação A4 sincronizadas; alinhamento respeita esquerda/centro/direita. Cache do iframe atualizado. npm test aprovado e fixture atualizada. Conferência visual pendente pelo bloqueio do navegador; não publicado.
-
-Em 21/09/2026, moldura da imagem no editor passa a acompanhar a miniatura após o envio, com largura e altura automáticas, limite pela largura disponível e altura máxima de 240px. Área vazia de upload preservada. Ajuste somente visual no editor, sem alterar dimensões salvas ou impressão. npm test aprovado; fixture local atualizada. Validação visual pendente pelo bloqueio de uso do navegador; não publicado.
-
-Em 21/09/2026, por solicitação do usuário, removida a função Adicionar outra imagem (upload de novas freeImages). Imagens complementares já salvas continuam visíveis, ajustáveis, removíveis e imprimíveis; imagens do enunciado, alternativas e importação em lote dos tipos específicos preservadas. Blocos vazios ficam ocultos. npm test completo aprovado; fixture local atualizada. Sem publicação; conferência visual automatizada ainda indisponível pelo bloqueio de uso do navegador.
-
-Em 21/09/2026, usuário autorizou publicar todos os ajustes locais abaixo: imagens integradas aos campos, imagens extras no acesso do enunciado, nome Discursiva e padrão de numeração/BNCC para todos os tipos. npm test completo aprovado antes do envio. Cache CSS/JS atualizado; sem migração do Supabase. Conferência visual automatizada dos últimos ajustes permanece pendente pelo limite de uso do navegador, informado ao usuário antes da autorização.
-
-Em 21/09/2026, padrão de numeração no cabeçalho e Código BNCC (opcional) estendido a todos os tipos de questão. Removidos os painéis genéricos de aparência; organização das alternativas permanece junto dos seus controles, e configurações matemáticas específicas ficam em Organização das contas/expressões na prova. Testes de todos os tipos verificam alteração da numeração e BNCC. Suíte validada; teste de alternativas atualizado para a nova localização e aprovado em execução específica. Fixture local atualizada, sem publicação. Conferência visual permanece pendente pelo bloqueio do navegador por limite de uso.
-
-Em 21/09/2026, imagens complementares reunidas no acesso de imagem do enunciado, com Adicionar outra imagem, miniaturas e controles existentes de tamanho e posição. Removido o menu separado; tipos com imagens próprias mantêm seus editores e importação em lote dentro do bloco de imagens do enunciado. Dados e impressão preservados. npm test aprovado, incluindo inclusão, ajuste, salvamento, reabertura e remoção de imagens extras. Fixture local atualizada; conferência visual continua pendente pelo bloqueio de uso do navegador registrado abaixo. Sem publicação.
-
-Em 21/09/2026, simplificação local autorizada da questão discursiva: nome exibido corrigido para Discursiva, controle Número na prova no cabeçalho e Código BNCC (opcional) recolhido, mostrando o código preenchido no resumo. Removida a seção Aparência na prova somente desse tipo. Sem agrupamento de questões ou alteração de esquema/payload. npm test aprovado, incluindo persistência dos controles, reabertura e bloqueio de edição. Conferência visual pendente: acesso ao navegador recusado pela revisão automática por limite de uso da ferramenta. Sem publicação.
-
-Em 21/09/2026, ajuste local autorizado: acesso à imagem do enunciado e das alternativas dentro do próprio bloco do campo, com ícone acessível e área reservada. Miniatura e controles ficam abaixo do texto; grades existentes e imagens complementares preservadas. Testes cobrem adicionar, substituir, remover, salvar/reabrir e preservar o campo de enunciado. Sem alteração de esquema/payload e sem publicação.
-
-Em 17/09/2026, usuário autorizou publicar o lote de refinamento matemático. Operações matemáticas: no editor, cada conta aparece em uma linha com os dois números, operador e resultado automático; resposta manual fica recolhida e abre automaticamente quando já existe. Na prova, o padrão agora é sem molduras, com numeração junto da conta, sinal e números agrupados, traço proporcional à quantidade de algarismos e divisão compacta no formato escolar; quatro operações com máximo de três colunas são equilibradas em grade 2×2. Moldura e quadradinhos continuam opcionais. Expressões matemáticas passam a aceitar escrita comum como `1/2`, `√(25)`, `3^2`, `×` e `÷`, mantendo LaTeX recolhido como opção avançada. npm test e validação visual local aprovados; sem mudança de banco ou Supabase.
-
-Correção do foco da prévia incluída no lote autorizado: atualização imediata cancela timer atrasado; rolagem ocorre dentro do iframe com contêiner externo no topo, inclusive para última questão. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
-
-Refinamento da questão única incluído no lote autorizado: selecionar uma questão recolhe Questões da prova e sincroniza Ir à questão na prévia, mantendo o editor aberto. A prévia recebe o mesmo destino após carregar. Sem mudança no conteúdo salvo.
-
-Ajuste local após publicação 78a6940, solicitado pelo usuário: lista Questões da prova é a navegação; cartões ficam ocultos até seleção, com apenas uma questão visível e expandida. Nova questão e inserção pelo banco selecionam o item; fechar/excluir limpa seleção. Registro individual do banco continua aberto. Não altera conteúdo persistido/SQL. Ver auditoria/QUESTAO_UNICA_2026-09-17.md.
-
-Em 17/09/2026, usuário autorizou publicar as etapas 2–11 acumuladas e confirmou que os marcadores funcionaram em outro navegador, identificando cache como causa do relato visual. Lote inclui gabaritos, conferência, formatos abertos, navegação, imagens em lote e marcadores; CSS/JS possuem versão para atualização do cache. npm test aprovado antes do envio; sem migração Supabase. Os registros abaixo descrevem a implementação local anterior à autorização. A revisão visual integral dos 30 tipos/PDF permanece pendente, sem impedir a publicação explicitamente autorizada.
-
-Após relato de divergência visual dos marcadores: superfície imagem/números recebeu geometria explícita no componente e versão do CSS atualizada para invalidar cache. Arraste verificado em navegador real com fixture local, inclusive sem regras externas dos marcadores. Não houve acesso à sessão local autenticada do usuário; verificação da prova real ainda pendente.
-
-Ajuste solicitado pelo usuário após etapa 11: coordenadas recolhidas em Ajuste fino, números também identificam as linhas de resposta, arraste confirma posição antes de liberar a captura e mantém o número no destino. Setas não dependem de Shift; ajuda simplificada. Sem publicação.
-
-Em 17/09/2026, etapa 11 implementada localmente: identificar imagem permite arrastar marcadores ou usar setas/Shift, mantém X/Y e cancela com Esc. Coordenadas 0% preservadas nos renderers. Reusa markers/x/y; sem SQL, sem publicação. Conferência visual com mouse/toque pendente. Ver auditoria/ETAPA11_MARCADORES_2026-09-17.md.
-
-Em 17/09/2026, etapa 10 implementada localmente: upload de até 20 imagens por seleção em grade, sequência, legenda e relação imagem/palavra. Preenche slots vazios e acrescenta itens; preserva conteúdo. Falha cancela o lote; mudanças de conta/questão/conteúdo impedem aplicar resultados atrasados. Reusa conversão e formato de dados; sem SQL. Publicação adiada. Ver auditoria/ETAPA10_LOTE_IMAGENS_2026-09-17.md.
-
-Em 17/09/2026, etapa 9 implementada localmente: seletor Ir à questão e Anterior/Próxima na prévia; navegação por posição independente da numeração impressa, destaque somente em tela e espera pelo carregamento do iframe. Sem dados/SQL adicional; publicação adiada. Ver auditoria/ETAPA9_NAVEGACAO_2026-09-17.md.
-
-Em 17/09/2026, etapa 8 implementada localmente: caracteres de caça-palavras/cruzadinha corrigidos, rótulos de V/F/pistas/zoom contextualizados e resumos atualizados durante a edição sem recriar o formulário. Sem JSON/SQL adicional; publicação adiada. Ver auditoria/ETAPA8_INTERFACE_2026-09-17.md.
-
-Em 17/09/2026, etapa 7 implementada localmente: resposta esperada/critérios opcionais em nove formatos abertos, somente no gabarito. Reutiliza expectedAnswer no JSON existente, sem migração SQL. Publicação adiada; validação visual pendente. Ver auditoria/ETAPA7_CRITERIOS_2026-09-17.md.
-
-Em 17/09/2026, etapa 6 implementada localmente: alternativas de tabela aparecem na prévia/impressão; ocultar espaço discursivo não oculta alternativas de texto-base; gabarito de ambos valida índice e mostra letra. Troca de modo preserva opções. npm test aprovado; sem JSON/SQL adicional e sem publicação. Validação visual pendente. Ver auditoria/ETAPA6_RESPOSTAS_MISTAS_2026-09-17.md.
-
-Em 17/09/2026, etapa 5 implementada localmente: espaço de resposta compartilhado entre prévia e impressão, 1–40 linhas, altura equivalente entre linhas/caixa/branco, ocultação de cálculo/desenho e controles uniformes. Sem alteração de JSON/SQL. Publicação adiada; conferência visual pendente. Ver auditoria/ETAPA5_ESPACOS_2026-09-17.md.
-
-Em 17/09/2026, etapa 4 implementada localmente: conferência por tipo detecta campos/respostas ausentes, pares incompletos e ordens inválidas; erros estruturais usam os bloqueios existentes e rascunhos continuam salváveis. npm test aprovado; sem alteração de SQL ou formato persistido. Publicação continua adiada. Conferência visual pendente. Ver auditoria/ETAPA4_CONFERENCIA_2026-09-17.md.
-
-Em 17/09/2026, etapa 2 validada pelo usuário; publicação adiada a pedido dele. Etapa 3 implementada localmente: prévia/gabarito incluem discursiva, sequência de imagens, legenda, associação entre imagens e expressão matemática; alternativas usam letras. npm test aprovado, sem mudança de SQL/JSON. Ver auditoria/ETAPA3_GABARITO_2026-09-17.md. Conferência visual da etapa 3 ainda pendente.
-
-Em 17/09/2026, etapa 2 implementada localmente: operações mantêm cálculo automático quando result está vazio; respostas salvas/manuais são preservadas, divergências geram aviso e há ação explícita para voltar ao automático. Sem mudança de JSON ou SQL. npm test aprovado; usuário confirmou os resultados corretos e pediu adiar a publicação. Ver auditoria/ETAPA2_OPERACOES_2026-09-17.md.
-
-Em 09/09/2026, reorganização local das questões autorizada pelo usuário: menu Mais removido. Salvar no banco e Excluir questão ficam no rodapé da questão expandida; imagens complementares e seus controles ficam no bloco Imagens; numeração e espaço de resposta usam caixas de seleção explícitas. Questões recolhidas mostram apenas identificação/resumo. Edição do registro do banco continua sem rodapé de exclusão/salvamento duplicado. Sem SQL adicional; publicação e conferência visual pendentes. Testes de comportamento em `tests/flow-refinements.cjs`.
-
-Refinamento local após a revisão de `376776a`: por solicitação do usuário, removidas as ações de duplicar, subir e descer questões. Edição do banco exige exatamente uma questão; painel usa a conferência compartilhada antes de enviar; provas novas recebem o logo escolar; impressão reconsulta o pedido; recuperação de rascunho oferece escolhas explícitas. Não exige nova migração SQL. Ver `auditoria/CORRECOES_REVISAO_376776a.md` e `tests/flow-refinements.cjs`.
-
-Refinamento local do fluxo do professor: envio/reenvio no editor, consulta durante revisão, devolutiva preservada e impressão fora da interface do professor. Requer `migrations/20260908_03_fluxo_professor.sql` no Supabase para impedir edição/exclusão durante revisão também no servidor. A migração está incorporada ao setup, mas o usuário informou sua execução no Supabase em 08/09/2026, sem verificação administrativa independente pelo agente. Consulte `auditoria/REFINAMENTO_PROFESSOR_2026-09-08.md`.
-
-O lote do editor (E01–E16), com publicação autorizada pelo usuário em 08/09/2026, está descrito em [auditoria/CORRECOES_EDITOR_2026-09-08.md](auditoria/CORRECOES_EDITOR_2026-09-08.md). `js/editor-tools.js` controla histórico, conferência, edição independente do banco e prévia; `css/editor-tools.css` contém os ajustes visuais. A prévia usa `print.html?preview=1` por mensagens da mesma origem. `editor.html?bank=ID` atualiza o registro original com PATCH por versão. Não exige SQL adicional; ainda falta validação visual em navegador.
-
-O projeto já tem a base principal implementada:
-
-- Login, cadastro, recuperação de senha e sessão local.
-- Dashboard do professor.
-- Editor visual de provas.
-- Impressão/PDF com e sem gabarito.
-- Banco de questões.
-- Fluxo de coordenação pedagógica.
-- Gestão de escolas, vínculo de professores, séries e disciplinas.
-- Testes automatizados em `tests/run-tests.js`.
-
-Este arquivo não deve virar histórico de tudo que já foi feito. Use-o como mapa rápido para próximas sessões.
-
-## Como Retomar uma Sessão
-
-Antes de alterar qualquer coisa:
+Comandos declarados em `package.json`:
 
 ```bash
-git status --short --branch
+npm ci --ignore-scripts
 npm test
+npm run serve                 # python -m http.server 8000 --bind 127.0.0.1
+npm run test:sql              # somente tests/security-sql.cjs
 ```
 
-Para conferir o remoto:
+A aplicação usa URLs relativas e pode ser servida como arquivos estáticos. `npm test` encadeia os testes de `tests/`, incluindo regressões de editor, segurança SQL, imagens, autosave, respostas, navegação, paginação, layout, UX e alternativas. Os testes são locais; não provam configuração ou estado do Supabase de produção. Não instalar dependências nem iniciar servidor por formalidade em tarefas apenas documentais.
 
-```bash
-git remote -v
-git fetch --dry-run --verbose origin
-```
+O servidor local abre em `http://127.0.0.1:8000/`; requer Python disponível. Os testes usam Node.js e as dependências de desenvolvimento do projeto. Consulte `package.json` para os comandos vigentes e os arquivos de regressão específicos para cada módulo.
 
-Para publicar:
+## Perfis, acesso e fluxos
 
-```bash
-git add -A
-git commit -m "descrição objetiva da alteração"
-git push
-```
+Os papéis canônicos usados por `js/auth.js` e pelas policies são `master`, `school_owner`, `coordinator`, `teacher` e `print_operator`; aliases antigos (`admin`, `coordenadora`, `professor`, `impressao`) são normalizados no frontend. O perfil contém, entre outros, `school_id`, `school_grade`, `disciplines` e `force_password_change`.
 
-Regra de validação local: depois de qualquer alteração, rodar `npm test` e abrir o projeto em servidor local para o usuário verificar se ficou de acordo com as expectativas. Só publicar no GitHub depois dessa validação do usuário.
+- `master`: administração global e acesso previsto pelas funções de segurança.
+- `school_owner`: administra a escola/usuários, revisa e acessa a fila de impressão da escola.
+- `coordinator`: administra usuários conforme escopo, revisa provas da escola e respeita `school_grade`/turma.
+- `teacher`: cria e edita suas provas liberadas, usa o banco de questões, envia para revisão e consulta a prévia, sem comandos de impressão da aplicação. `EditorTools.refreshActions()` oculta o botão; `openPrint()` mantém o professor na prévia; `print.html` redireciona esse perfil para o editor e recusa a ação de imprimir. Preservar esses controles; eles não impedem os comandos próprios do navegador.
+- `print_operator`: não cria provas; acessa somente a fila autorizada e pode concluir um trabalho enviado como `impressa`.
 
-Regra de publicação: sempre verificar se a alteração também exige atualização no Supabase. Se envolver tabelas, colunas, policies RLS, Auth, triggers, roles, storage ou payloads salvos no banco, atualizar `setup_supabase.sql`, aplicar no SQL Editor do Supabase e testar Auth/REST antes de considerar a entrega concluída.
+Autenticação usa Supabase Auth. A sessão é salva em `localStorage['supabase.auth.token']`, renovada por refresh token e compartilhada entre abas. Cadastro cria/atualiza o perfil conforme o fluxo de convite; recuperação usa link individual do Auth. Não existe contrato de senha compartilhada nem RPC de reset fixo. Confirmação de e-mail, SMTP e redirecionamentos são configuração externa, não garantidos pelo código.
 
-## Arquivos Principais
+Estados de revisão: `rascunho → enviada → em_revisao → aprovada`, ou `devolvida` para correção e reenvio; `bloqueada` representa edição bloqueada. Estados de impressão: `nao_enviada → enviada → impressa`. Professor não pode editar/excluir prova enviada, em revisão, aprovada ou bloqueada; depois de devolvida pode voltar a rascunho, corrigir e reenviar. Coordenação pode iniciar revisão, devolver, aprovar, bloquear e reabrir conforme as ações expostas em `coordenacao.html`. Só prova aprovada pode ser enviada à impressão. A proteção definitiva deve estar nas triggers/policies, não apenas nos botões.
 
-- `index.html`: entrada pública.
-- `login.html`: login, cadastro e recuperação de senha.
-- `dashboard.html`: lista de provas, filtros, perfil e ações do professor.
-- `editor.html`: editor principal de provas e banco de questões.
-- `print.html`: renderização limpa para impressão/PDF.
-- `coordenacao.html`: revisão, aprovação, devolução e bloqueio de provas.
-- `schools.html`: gestão de escolas e vínculos.
-- `config.js`: configuração do Supabase e exposição de `window.CONFIG`.
-- `js/auth.js`: `AuthManager`, sessão, login e requisições autenticadas.
-- `setup_supabase.sql`: schema, policies RLS, triggers e tabelas do Supabase.
-- `tests/run-tests.js`: fonte rápida de contratos esperados pelo app.
+A fila é acessível a `master`, `school_owner` e `print_operator` (`AuthManager.canAccessPrintQueue`). `print.html` reconsulta a prova antes de imprimir; no fluxo da fila exige aprovação e pedido ainda enviado. A conclusão usa a RPC `mark_exam_printed`. No SQL, `can_print_exam` permite master ou dono/operador da mesma escola com pedido enviado/impresso; revisar também as policies de leitura e as demais funções de autorização ao alterar esse fluxo.
 
-## Supabase
+Em `schools.html`, escolas mantêm disciplinas e `schools.classes`; vínculos liberam disciplinas e turmas por `profiles.disciplines`/`school_grade`. Convites registram perfil, escola e escopo; cancelamento preserva o registro com `canceled_at`, e `accept_user_invite` recusa convites cancelados. Gestão de escolas e gestão de usuários têm permissões distintas em `js/auth.js`.
 
-Projeto configurado:
+## Contratos de integração
 
-- Project URL: `https://birtgmrtaryfjogegimn.supabase.co`
-- Project ref: `birtgmrtaryfjogegimn`
-- Anon key: configurada em `config.js`
+- `config.js` deve expor `window.CONFIG`, consumido por `initAuthManager()`; uma constante isolada não basta.
+- Links e redirecionamentos internos devem funcionar em subpastas, como no GitHub Pages. Preservar URLs relativas e os parâmetros de retorno ao login.
+- `AuthManager.authenticatedRequest()` aceita corpo vazio, inclusive em DELETE com HTTP 204; não exigir JSON de toda resposta bem-sucedida.
+- PATCH de prova existente não envia `user_id` nem `school_id`. A coordenação não pode trocar o autor ao salvar ajustes. Na criação/duplicação, informar o autor, deixar o servidor atribuir a escola e não copiar estados de revisão/impressão da prova original.
+- Mudanças de conta e respostas assíncronas atrasadas não podem aplicar conteúdo à prova/questão errada; preservar as verificações de usuário, versão e contexto.
 
-Observação importante: o projeto pode ficar pausado por inatividade no plano gratuito. Se a URL não resolver DNS ou Auth/REST não responderem, verificar primeiro no dashboard da Supabase se o projeto precisa ser restaurado.
+## Provas, editor e banco de questões
 
-Teste rápido depois de restaurar:
+`dashboard.html` carrega resumos; `editor.html` carrega o JSON completo de `exams.questions`. Links de nova prova convergem para `dashboard.html?new=1`; o editor abre uma prova existente. A versão `updated_at` carregada é enviada no PATCH. Autosave só é habilitado após carregamento e versão confirmados; PATCH que afeta zero linhas é conflito, não sucesso.
 
-```bash
-# No navegador ou via terminal:
-https://birtgmrtaryfjogegimn.supabase.co/auth/v1/settings
-```
+Alterações pendentes de prova existente ficam em `localStorage` com chave `gerador-provas-pending-v2:<userId>:<examId>`, contendo versão e fingerprint. A cópia é removida após salvar exatamente o conteúdo enviado; em conflito ou divergência deve ser preservada para recuperação. Não confundir com o rascunho antigo de nova prova. `ExamSafety.normalizeQuestion` é o ponto canônico para compatibilidade/validação antes de salvar e renderizar; renderizadores e gabarito devem consumir o formato normalizado.
 
-Se for necessário recriar o backend, executar `setup_supabase.sql` no SQL Editor do Supabase e atualizar `config.js` com a nova URL e anon key.
+Tipos disponíveis para criação no editor (identificadores internos; conferir templates, menu, normalização e renderizadores ao alterar):
 
-## Contratos Que Não Devem Quebrar
+`discursiva`, `vf`, `marcarx`, `lacunas`, `relacione`, `imagem`, `interpretacao_imagem`, `relacione_imagens`, `texto_base`, `matematica_coluna`, `expressao_matematica`, `ditado`, `ordenacao`, `problema_matematico`, `espaco_livre`, `tabela`, `sequencia_numerica`, `leitura_escrita`, `silabas`, `sequencia_imagens`, `comparar_imagens`, `legenda_imagens`, `associacao_imagem_imagem`, `grade_imagens`, `identificar_imagem`, `caca_palavras`, `cruzadinha` e `subitens`.
 
-- `config.js` precisa definir `window.CONFIG`; `const CONFIG` sozinho não basta no navegador.
-- Redirects devem ser relativos, como `dashboard.html`, por causa do GitHub Pages em subpasta.
-- A sessão fica em `localStorage` na chave `supabase.auth.token`.
-- Uma nova prova é criada no dashboard antes de abrir o editor; não reabrir rascunhos antigos nessa ação.
-- A recuperação local usa `gerador-provas-pending-v2:<userId>:<examId>` apenas para alterações pendentes de uma prova existente e carregada.
-- Limpar essa cópia somente após confirmar o salvamento da mesma versão ou descarte explícito do usuário.
-- Ao editar prova existente, não enviar `user_id`; isso evita trocar o dono quando a coordenação salva ajustes.
-- Não enviar `school_id` ao editar ou copiar uma prova. Na criação, o servidor atribui a escola atual do autor; provas antigas preservam sua escola, inclusive quando pessoal (`NULL`).
-- `DELETE` no Supabase pode retornar `204` sem corpo; `AuthManager.authenticatedRequest()` deve aceitar resposta vazia.
-- Provas `aprovada` ou `bloqueada` não devem ser editáveis pelo professor.
-- Questões do banco são privadas por padrão (`is_public: false`).
-- Imagens ficam como data URL; cuidar de tamanho, compressão e peso da prova.
+Tipos legados `multipla` e `associacao_setas` continuam editáveis/renderizáveis em dados salvos, mas não aparecem no menu de criação. `addQuestionOfType()` redireciona novas solicitações desses tipos para `marcarx` e `relacione`, respectivamente. Não remover suporte aos dados antigos nem reintroduzir opções duplicadas.
 
-## Banco de Dados Esperado
+Contratos de conteúdo que não devem ser quebrados:
 
-As tabelas principais estão descritas e criadas em `setup_supabase.sql`:
+- respostas podem ser de escolha, V/F, lacunas, associação, ordenação, critérios/resposta esperada, cálculo, desenho ou linhas; normalização deve preservar respostas legadas;
+- `textBaseCaption` e `textBaseBeforeStatement` controlam legenda e posição do texto-base; conteúdo exibido deve ser escapado;
+- `wordSearchSeed` torna a disposição de caça-palavras determinística e deve ser compartilhada por editor, prévia, impressão, gabarito e validação;
+- imagens de questão/alternativa/item preservam `imageSize`, alinhamento, marcadores `x/y`, nomes e estruturas legadas; exclusão de alternativa deve ajustar imagem e índice do gabarito;
+- `expectedAnswer` é opcional e aparece no gabarito para formatos abertos; não inventar migração para campos já armazenados no JSON;
+- prévia canônica e impressão devem usar o mesmo conteúdo, paginação e regras de resposta. `js/exam-pagination.js` pagina somente regras de impressão, aguarda imagens e invalida renderizações antigas;
+- navegação por questão usa posição no array, não o número impresso. Seleção, busca, anterior/próxima e foco do iframe são comportamento de interface, não dados persistidos.
 
-- `profiles`: professor, coordenadora/admin, escola, série e disciplinas.
-- `exams`: dados da prova, questões JSONB, status de revisão, histórico e bloqueios.
-- `question_bank`: questões reutilizáveis privadas ou públicas.
-- `schools`: escolas, logo e disciplinas.
+O banco (`question_bank`) aceita escopo privado, escola ou público. A questão mantém autor; `school_id` só pode representar a escola do autor (exceto master). Ao alterar o banco, atualizar o editor, normalizador, prévia, gabarito e os testes correspondentes.
 
-O SQL também define:
+`editor.html?bank=ID` edita exatamente uma questão do próprio autor, independentemente de uma prova. `EditorTools.loadBank()`/`saveBank()` carregam e atualizam o registro original por PATCH condicionado a `updated_at`; conflito preserva o rascunho. O escopo padrão é privado. Inserção na prova, edição do registro e alteração de compartilhamento são operações distintas, com permissões próprias.
 
-- RLS nas tabelas principais.
-- Policies idempotentes com `DROP POLICY IF EXISTS`.
-- Funções auxiliares `current_user_role()` e `is_coordinator_or_admin()`.
-- Trigger `on_auth_user_created` para criar perfil ao cadastrar usuário.
+No editor, a lista de questões seleciona um cartão por vez. `js/editor-tools.js` concentra histórico/desfazer, conferência, bloqueios e prévia canônica em `print.html?preview=1`; mensagens do iframe exigem a mesma origem e a janela esperada. Ao investigar divergência entre editor e PDF, conferir também `print.html` e `js/exam-pagination.js`.
 
-## Tipos de Questão
+## Dados, Supabase e imagens
 
-A lista completa e verificável fica em `tests/run-tests.js` na constante `questionTypes`.
+O frontend usa REST/Auth/Storage do Supabase sem SDK. Tabelas e campos relevantes aparecem nas consultas de `dashboard.html`, `coordenacao.html`, `editor.html` e nos SQL: `profiles`, `schools`, `exams`, `question_bank`, `user_invites`, `schema_migrations` e `storage.objects`. A prova guarda `questions` como JSONB e resumos `questions_count`/`questions_score_total`; `review_history` registra transições.
 
-Ao adicionar ou alterar um tipo de questão, revisar todos estes pontos:
+`exams.school_id` é fotografia permanente da escola no momento da criação. O servidor atribui esse valor e rejeita alteração pelo aplicativo; transferir o autor não move provas antigas. Provas pessoais podem permanecer com `NULL`. Não usar `school_name` impresso para inferir vínculo. A consulta e a cautela de migração estão em `migrations/README.md`.
 
-- Opção/entrada no editor.
-- Estado padrão e normalizadores.
-- Renderização no preview.
-- Renderização em `print.html`.
-- Gabarito, quando aplicável.
-- Salvamento/carregamento em `exams.questions`.
-- Compatibilidade com banco de questões.
-- Teste correspondente em `tests/run-tests.js`.
+Com `IMAGE_STORAGE_ENABLED === true`, `js/image-storage.js` converte Data URLs em arquivos para o bucket privado `exam-images`, persiste referências `storage://exam-images/<caminho>` e resolve URLs assinadas para exibição. `durableTree()` recupera referências permanentes de URLs assinadas reconhecidas; não persistir URLs temporárias irrecuperáveis. O bucket permite PNG/JPEG/WebP/GIF até 5 MiB. `setup_storage.sql` e `migrations/20261005_04_controle_acesso_imagens.sql` mantêm vínculos internos por prova/questão e restringem leitura conforme autor e acesso ao conteúdo. A existência do SQL não prova sua aplicação em produção.
 
-## Fluxos Principais
+Preservar os fallbacks de implantação: falha no upload mantém o conteúdo compatível em Data URL; ausência de `questions_count`/`questions_score_total` faz o dashboard consultar o formato antigo. Isso não dispensa investigar falhas de Storage ou migrações pendentes.
 
-Autenticação:
+`importQuestionImages()` em `editor.html` aceita até 20 imagens por seleção para `grade_imagens`, `sequencia_imagens`, `legenda_imagens` e `relacione_imagens`. Preenche espaços vazios antes de criar itens, preserva respostas e rejeita resultados se conta, questão ou conteúdo mudarem durante a leitura. Falha não aplica lote parcial. Novas `freeImages` não têm ação de inclusão; as já salvas continuam visíveis, ajustáveis, removíveis e imprimíveis.
 
-1. `login.html` chama `AuthManager.signIn()` ou `signUp()`.
-2. `AuthManager` salva sessão no localStorage.
-3. Páginas protegidas validam autenticação.
-4. Logout remove a sessão.
+## SQL, instalação e publicação
 
-Professor:
+Para ambiente novo, usar `setup_supabase.sql` e, depois, `setup_storage.sql` conforme seus cabeçalhos; criar e confirmar o primeiro master administrativamente com o UUID conferido no Auth. Para ambiente existente, consultar `migrations/README.md`, conferir o estado aplicado, fazer backup e executar somente as migrações necessárias, inteiras e respeitando a ordem: `20260908_01_seguranca.sql`, `20260908_02_escola_da_prova.sql`, `20260908_03_fluxo_professor.sql`, `20261005_04_controle_acesso_imagens.sql`. Não reaplicar `setup_supabase.sql` em ambiente existente. Antes da migração 02, conferir o vínculo proposto para as provas antigas; o nome impresso não reconstrói transferências de escola.
 
-1. Entra no dashboard.
-2. Cria ou edita prova no editor.
-3. Salva na nuvem.
-4. Envia para coordenação quando necessário.
-5. Imprime prova ou prova com gabarito.
+As migrações criam/atualizam triggers, funções, RLS, escopos de convite, vínculo permanente da escola, proteção do fluxo do professor e controle de Storage. Se uma transação falhar, não executar apenas trechos restantes. Verificar `schema_migrations`, policies, grants e contas controladas. Registros locais ou autorização para publicar não equivalem a aplicação SQL, deploy ou configuração de Auth confirmados.
 
-Coordenação:
+O frontend é compatível com hospedagem estática (GitHub Pages). Antes de publicar, executar `npm test`, revisar o diff e as versões de cache dos recursos alterados, disponibilizar o endereço local e obter a validação do usuário. Commit/push e publicação devem respeitar a autorização da sessão; não pedir novamente uma autorização já concedida para o mesmo escopo. Se o usuário autorizar publicação com validações pendentes, registrar essa condição sem declarar que foram realizadas. Avaliar impacto em schema, RLS, Auth, Storage e dados persistidos; atualizar SQL/migrações quando necessário e distinguir arquivo preparado de aplicação confirmada no ambiente.
 
-1. Abre `coordenacao.html`.
-2. Revisa provas enviadas.
-3. Pode editar ajustes sem trocar o dono original.
-4. Aprova, devolve com observação ou bloqueia.
-5. Histórico fica em `review_history`.
+## Checklist para mudanças
 
-Escolas:
+1. Ler o manual, verificar `git status --short` e consultar o módulo afetado; ampliar a leitura pelas dependências, sem exigir releitura integral do repositório.
+2. Para uma funcionalidade, localizar entrada, perfil, estado, persistência, normalização, renderização, SQL/RLS e testes.
+3. Preservar fallback de imagens, dados legados, escape de texto, controle de versão do autosave e autorização no servidor.
+4. Ao adicionar tipo de questão, atualizar templates/labels, editor, `normalizeQuestion`, renderizadores de prévia/impressão/gabarito, validação, banco se aplicável e regressões.
+5. Para mudanças de comportamento, atualizar regressões pertinentes em `tests/` e executar `npm test`; validar visualmente quando houver impacto de interface/impressão. Em tarefas apenas documentais, conferir referências e coerência sem iniciar o aplicativo por formalidade. Relatar comando, resultado e validações não realizadas.
+6. Revisar o diff dos arquivos alterados e o status final, preservar mudanças preexistentes do usuário e respeitar o escopo autorizado. Atualizar as seções afetadas deste manual conforme as regras abaixo.
 
-1. Coordenação/admin usa `schools.html`.
-2. Cadastra escola, logo e disciplinas.
-3. Vincula professores a escola, série e disciplinas.
-4. Dashboard e editor refletem esses dados.
+## Verificações externas e pendências
 
-## Testes
+- Confirmar SMTP, confirmação de e-mail, redirecionamentos e fluxo completo com contas dos cinco perfis no ambiente alvo; testes locais não comprovam essas configurações.
+- `migrations/README.md` registra aplicação da migração 04 pelo conector em 05/10/2026, com verificações de acesso. O mesmo registro deixa pendentes questão compartilhada com imagem e prova com imagem enviada à fila. Validar esses cenários com dados controlados; essa evidência documental não é uma nova consulta ao ambiente real.
+- Conferir prévia/PDF em navegador, incluindo todos os tipos, imagens, gabaritos e provas longas. Regressões automatizadas não substituem a inspeção visual.
 
-Rodar sempre antes de publicar:
+## Manutenção deste manual
 
-```bash
-npm test
-```
+Consultar o manual no início e verificar o código relevante antes de confiar em qualquer descrição sujeita a mudança. Após alteração relevante, revisar as seções afetadas e substituir descrições superadas, em vez de acrescentar diário cronológico. Manter uma descrição canônica por regra e distinguir implementação local, teste executado, autorização de publicação e implantação confirmada. O código mostra o comportamento implementado; instruções do usuário definem o comportamento solicitado. Se divergirem, registrar a diferença, sem transformar um possível bug em regra de produto.
 
-Os testes verificam:
+Atualizar mapa de arquivos, funcionalidades, fluxos, permissões, persistência, integrações, comandos e tipos de questão quando mudarem. Usar caminhos relativos e identificadores estáveis; evitar números de linha. Não documentar mudanças puramente cosméticas sem efeito operacional, copiar segredos/dados pessoais nem incorporar restrições temporárias de uma tarefa como regras permanentes. Se o escopo proibir editar documentação, informar apenas a atualização necessária, quando houver.
 
-- Existência dos arquivos principais.
-- Sintaxe dos scripts inline e JS.
-- IDs duplicados.
-- Links e scripts locais.
-- Configuração do Supabase.
-- `AuthManager`.
-- Tipos de questão no editor e impressão.
-- Banco de questões.
-- Fluxo de coordenação.
-- SQL do Supabase.
-- Servidor HTTP local retornando 200 nas páginas públicas.
-
-## Pendências Reais / Próximos Cuidados
-
-- Confirmar se o projeto Supabase foi restaurado após pausa por inatividade.
-- Considerar mover credenciais para um fluxo menos manual; hoje a anon key pública fica em `config.js`.
-- Revisar textos com mojibake em alguns arquivos se aparecerem quebrados no navegador.
-- Evitar transformar `CLAUDE.md` em checklist histórico; melhorias concluídas devem sair daqui e ficar no git/testes.
-
-## Fluxo de Trabalho Para Tornar o Projeto Utilizavel
-
-Objetivo: transformar o projeto de piloto funcional em produto confiavel para escola, coordenacao, impressao e professores. Cada melhoria deve passar por descoberta, implementacao, teste tecnico e confirmacao de uso real antes de ser considerada pronta.
-
-### Regra Geral
-
-Antes de iniciar qualquer melhoria:
-
-```bash
-git status --short --branch
-npm test
-```
-
-- Identificar o perfil afetado: professor, coordenacao, impressao, dono de escola ou master.
-- Descrever o fluxo afetado em uma frase: origem, acao, destino e dado salvo.
-- Conferir se existe impacto no Supabase: tabela, coluna, RLS, Auth, roles, storage ou payload JSON.
-- Definir o criterio de pronto antes de editar.
-- Atualizar ou criar teste em `tests/run-tests.js` quando o comportamento puder quebrar no futuro.
-- Rodar `npm test` ao final.
-- Rodar localmente e entregar o link para validacao do usuario.
-- So publicar depois da validacao manual do usuario.
-
-### Ordem Recomendada de Implementacao
-
-1. Estabilizacao e fechamento do pacote atual.
-2. Documentacao e operacao do projeto.
-3. Validacao real dos perfis e permissoes.
-4. Usabilidade do professor no dashboard e editor.
-5. Impressao/PDF e fila de impressao.
-6. Coordenacao pedagogica e devolutivas.
-7. Gestao escolar, convites e vinculos.
-8. Seguranca, backup e escala.
-
-### 1. Estabilizacao Atual
-
-Objetivo: garantir que o estado local atual seja compreendido, testado e versionado.
-
-Confirmacoes obrigatorias:
-
-- `git status --short --branch` revisado.
-- Diff revisado por arquivo alterado.
-- `npm test` passando.
-- Fluxo manual testado: login, dashboard, nova prova, editor, autosave, print limpo, envio para coordenacao.
-- Alteracoes confirmadas pelo usuario antes de commit/push.
-
-Criterio de pronto:
-
-- Nenhuma mudanca local sem explicacao.
-- Testes passando.
-- Usuario validou no navegador local.
-- Commit feito com mensagem objetiva.
-
-### 2. Documentacao e Operacao
-
-Objetivo: deixar o projeto retomavel por qualquer sessao futura e instalavel sem memoria oral.
-
-Tarefas:
-
-- Atualizar `GUIA_SETUP.md` para refletir o schema real atual.
-- Criar ou atualizar `README.md` com execucao local, publicacao e perfis.
-- Documentar checklist de deploy no GitHub Pages.
-- Documentar checklist de aplicacao do `setup_supabase.sql`.
-- Registrar como testar Supabase pausado/restaurado.
-
-Confirmacoes obrigatorias:
-
-- Instrucoes antigas removidas ou marcadas como historicas.
-- SQL documentado bate com `setup_supabase.sql`.
-- Comandos de teste e servidor local documentados.
-
-Criterio de pronto:
-
-- Uma pessoa consegue abrir o projeto, rodar localmente e saber qual SQL aplicar sem perguntar.
-
-### 3. Perfis, Permissoes e Supabase
-
-Objetivo: confirmar que cada perfil ve e faz apenas o que deve.
-
-Perfis a validar:
-
-- `master`
-- `school_owner`
-- `coordinator`
-- `teacher`
-- `print_operator`
-
-Fluxos a confirmar:
-
-- Login redireciona para o modulo correto.
-- Professor cria, edita, duplica, envia e imprime apenas suas provas permitidas.
-- Coordenacao revisa, devolve, aprova, bloqueia e edita sem trocar dono da prova.
-- Impressao acessa fila e marca como impressa.
-- Gestao escolar cria escola, vincula professores, define series e disciplinas.
-- RLS impede acesso indevido via REST.
-
-Criterio de pronto:
-
-- Cada perfil foi testado com usuario real no Supabase.
-- Qualquer ajuste de banco foi refletido em `setup_supabase.sql`.
-- Teste automatizado cobre o contrato critico.
-
-### 4. Usabilidade do Professor
-
-Objetivo: fazer o professor criar prova sem medo e sem depender do desenvolvedor.
-
-Melhorias prioritarias:
-
-- Fluxo guiado de primeira prova.
-- Modelos prontos: bimestral, recuperacao, simulado e atividade.
-- Tipos de questao separados por "mais usados" e "avancados".
-- Busca/filtro para tipos de questao.
-- Mensagem clara de autosave: salvando, salvo, erro ao salvar.
-- Recuperacao amigavel quando internet ou Supabase falhar.
-- Aviso claro quando disciplina/turma nao estiverem vinculadas.
-- Preview e acoes de imprimir/enviar sempre visiveis ou faceis de encontrar.
-
-Confirmacoes obrigatorias:
-
-- Criar prova nova nao reabre prova antiga.
-- Autosave preserva titulo, disciplina, turma, questoes, gabaritos e imagens.
-- Professor entende o que fazer quando nao tem disciplina vinculada.
-- Prova aprovada/bloqueada nao fica editavel para professor.
-
-Criterio de pronto:
-
-- Um professor consegue criar uma prova simples, salvar, sair, voltar e imprimir sem instrucao externa.
-
-### 5. Impressao, PDF e Fila
-
-Objetivo: tornar a impressao previsivel em ambiente escolar.
-
-Fluxos a validar:
-
-- PDF limpo sem gabarito.
-- PDF com gabarito.
-- Prova curta.
-- Prova longa.
-- Prova com imagens.
-- Prova enviada para fila de impressao.
-- Operador marca prova como impressa.
-- Bloqueio de reimpressao quando aplicavel.
-
-Confirmacoes obrigatorias:
-
-- Testar no Chrome ou Edge.
-- Conferir A4 real.
-- Conferir que imagens nao estouram pagina.
-- Conferir que cabecalho e rodape do navegador nao aparecem quando possivel.
-
-Criterio de pronto:
-
-- Escola consegue imprimir uma prova real sem ajuste manual no HTML.
-
-### 6. Coordenacao Pedagogica
-
-Objetivo: deixar revisao, devolucao e aprovacao claras para coordenacao e professor.
-
-Melhorias prioritarias:
-
-- Filtros por professor, turma, disciplina e status.
-- Historico de revisao mais legivel.
-- Observacao de devolucao destacada no dashboard do professor.
-- Acoes com texto claro: enviar revisao, devolver, aprovar, bloquear, enviar para impressao.
-- Confirmacoes para acoes irreversiveis.
-
-Criterio de pronto:
-
-- Coordenacao consegue revisar uma prova, devolver com observacao, professor corrigir e reenviar.
-
-### 7. Gestao Escolar
-
-Objetivo: permitir que a escola se configure sem manutencao manual.
-
-Melhorias prioritarias:
-
-- Onboarding para master/dono de escola.
-- Convites com status claro: pendente, usado, cancelado.
-- Edicao de vinculos de professor com series e disciplinas.
-- Validacao de escola obrigatoria para perfis de gestao.
-- Confirmacao antes de reset de senha e desvinculo.
-
-Criterio de pronto:
-
-- Uma escola nova consegue cadastrar estrutura minima e liberar acesso para professores.
-
-### 8. Seguranca, Backup e Escala
-
-Objetivo: reduzir risco operacional antes de uso amplo.
-
-Melhorias prioritarias:
-
-- Revisar RLS real no Supabase com usuarios de teste.
-- Definir rotina de backup/exportacao.
-- Trocar fluxo de senha padrao por convite/reset mais seguro.
-- Planejar migracao de imagens grandes para Supabase Storage.
-- Registrar limites de payload e tamanho de imagem.
-- Documentar como recuperar projeto pausado no Supabase.
-
-Criterio de pronto:
-
-- Dados de escolas e provas ficam protegidos por perfil.
-- Existe caminho documentado de backup e restauracao.
-
-### Registro de Validacao Manual
-
-Ao concluir uma melhoria, registrar no resumo da entrega:
-
-- Perfil testado.
-- Fluxo testado.
-- Navegador usado.
-- Resultado do `npm test`.
-- Se houve impacto no Supabase.
-- Pendencias restantes.
-
-### Validacao Manual - Etapa 1
-
-Data: 2026-08-24.
-Perfil testado: validacao manual informada pelo usuario.
-Fluxo testado: estabilizacao do pacote atual, criacao/edicao de provas, imagens, impressao e navegacao principal.
-Navegador usado: validacao local pelo usuario.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sem migracao nova; alteracoes usam tabelas e endpoints existentes.
-Pendencias restantes: seguir para a Etapa 2, documentacao operacional e setup confiavel.
-
-### Validacao Manual - Etapa 2
-
-Data: 2026-08-24.
-Perfil testado: documentacao operacional para professor, coordenacao, impressao e gestao escolar.
-Fluxo testado: setup local, configuracao Supabase, testes tecnicos, fluxo de uso e checklist manual.
-Navegador usado: nao aplicavel para documentacao; servidor local segue validado por teste automatizado.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sem migracao nova; documentacao aponta `setup_supabase.sql` como fonte oficial.
-Pendencias restantes: seguir para a Etapa 3, perfis, permissoes e Supabase em profundidade.
-### Validacao Tecnica - Etapa 3
-
-Data: 2026-08-24.
-Perfil testado: matriz tecnica de `master`, `school_owner`, `coordinator`, `teacher` e `print_operator` por codigo e SQL.
-Fluxo testado: helpers de acesso no frontend, RLS/funcoes em `setup_supabase.sql`, fila de impressao e autosave com payload pesado.
-Navegador usado: pendente de validacao manual por usuarios reais no Supabase.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sim; `can_print_exam` agora permite `school_owner` da mesma escola, alinhando banco com `canAccessPrintQueue` do frontend.
-Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar login/acoes com um usuario real de cada perfil.
-### Validacao Manual - Etapa 4
-
-Data: 2026-08-24.
-Perfil testado: professor por fluxo tecnico de dashboard e editor.
-Fluxo testado: criacao de prova com disciplina/turma vinculadas, bloqueio quando falta vinculo, autosave visivel e envio para revisao apenas com questoes.
-Navegador usado: validacao manual do usuario no navegador local.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sem migracao nova; apenas uso dos dados existentes de perfil, turma, disciplina e prova.
-Pendencias restantes: seguir para a Etapa 5, impressao/PDF e fila de impressao.
-
-### Validacao Tecnica - Etapa 5
-
-Data: 2026-08-25.
-Perfil testado: matriz tecnica de `master`, `school_owner` e `print_operator` para fila/PDF.
-Fluxo testado: somente prova aprovada pode ser enviada/mantida na fila de impressao, PDF aberto pela fila mostra acao de marcar como impressa, RPC `mark_exam_printed` continua centralizando a conclusao do trabalho.
-Navegador usado: pendente de validacao manual do usuario em ambiente local conectado ao Supabase real.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sim; `setup_supabase.sql` adiciona limpeza de pedidos invalidos e trigger `prevent_invalid_print_request_before_write` para impedir impressao de prova nao aprovada.
-Pendencias restantes: aplicar `setup_supabase.sql` no Supabase real e validar manualmente: aprovar prova, enviar para impressao, abrir PDF pela fila, imprimir e marcar como impressa.
-### Validacao Tecnica - Etapa 6
-
-Data: 2026-08-25.
-Perfil testado: coordenacao pedagogica por codigo e testes automatizados.
-Fluxo testado: revisao de provas com filtros por professor, disciplina, turma e status; historico de revisao mais legivel com observacoes destacadas.
-Navegador usado: pendente de validacao manual do usuario no navegador local.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sem mudanca de schema ou RLS; usa campos existentes em `exams`.
-Pendencias restantes: validar manualmente uma devolucao com observacao, correcao pelo professor e reenvio para revisao.
-### Validacao Tecnica - Etapa 7
-
-Data: 2026-09-01.
-Perfil testado: gestao escolar por codigo e testes automatizados.
-Fluxo testado: convites de acesso passam a ter status persistente de cancelado; cancelar convite nao apaga historico, remove uso do link e o aceite rejeita convites cancelados; gestao escolar mostra checklist de prontidao para cadastro da escola, disciplinas, coordenacao, professor e convite; aba Master separa a visao geral e atalhos globais do acesso master.
-Navegador usado: pendente de validacao manual do usuario no navegador local.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sim; `user_invites` ganha `canceled_by` e `canceled_at`, e `accept_user_invite` passa a exigir `canceled_at IS NULL`.
-Pendencias restantes: validar no navegador o checklist de prontidao; aplicar `setup_supabase.sql` no Supabase real quando houver banco pendente e validar: gerar convite, cancelar convite, confirmar que aparece como cancelado e que o link cancelado nao funciona.
-### Validacao Tecnica - Etapa 8
-
-Data: 2026-09-01.
-Perfil testado: seguranca operacional, backup e escala por codigo e testes automatizados.
-Fluxo testado: arquivos de exemplo nao carregam credenciais reais, `.gitignore` protege `.env` local e guia de seguranca/backup/escala documenta operacao minima antes de novas mudancas.
-Navegador usado: nao aplicavel nesta etapa documental.
-Resultado do `npm test`: aprovado.
-Impacto no Supabase: sem migracao; orienta backup e revisao antes de futuras mudancas em schema, RLS e RPC.
-Pendencias restantes: revisar paginacao e `select=*` nas telas com maior crescimento, e avaliar mover imagens para Supabase Storage quando houver volume real.
-## Plano de Ajuste de Fluxo
-
-Status: implementado no commit `7908c76`.
-
-Os 10 pontos da auditoria de fluxo foram consolidados em correções no login, editor, dashboard, coordenação, impressão, escolas, testes e SQL do Supabase. Não manter aqui o checklist detalhado como se ainda estivesse pendente; para conferir o comportamento esperado, usar `tests/run-tests.js` e o histórico do git.
-
-Antes de iniciar qualquer correção ou refatoração, verificar o fluxo completo afetado pela mudança: tela de origem, botão/ação, destino, estado salvo no navegador, estado salvo no Supabase, retorno em caso de erro e caminho para desfazer/cancelar. Durante a implementação, se aparecer uma quebra, bug, inconsistência ou novo risco que não faça parte do escopo imediato, registrar o achado neste arquivo em "Achados Para Ajuste Posterior" antes de continuar. Não deixar achados relevantes apenas na memória da sessão.
-
-### Fluxo de Execução
-
-Para cada correção:
-
-```bash
-git status --short --branch
-npm test
-```
-
-- Atualizar ou criar teste em `tests/run-tests.js`.
-- Rodar `npm test`.
-- Rodar o programa localmente e compartilhar o endereço local com o usuário.
-- Aguardar a validação do usuário antes de enviar para o GitHub.
-- Verificar se houve mudança de schema, RLS, Auth, roles ou formato de dados.
-- Se houve impacto Supabase, atualizar `setup_supabase.sql`, aplicar no SQL Editor do Supabase e testar Auth/REST.
-- Commitar com mensagem objetiva.
-
-### Ajuste Tecnico - Perfil Escolar
-
-Data: 2026-09-01.
-Mudanca: `profiles.school_name` foi removido do modelo de perfil. O nome da escola passa a vir apenas de `profiles.school_id` vinculado a `schools.name`; `exams.school_name` permanece para guardar o nome impresso/salvo em cada prova.
-Impacto no Supabase: sim; executar `setup_supabase.sql` para aplicar `ALTER TABLE profiles DROP COLUMN IF EXISTS school_name` e atualizar `handle_new_user`.
-Validacao: `npm test` aprovado.
-### Ajuste Tecnico - Turmas por Escola
-
-Data: 2026-09-01.
-Mudanca: turmas passaram a seguir o mesmo modelo das disciplinas. A escola possui `schools.classes` como lista geral, e cada usuario continua recebendo as turmas liberadas em `profiles.school_grade`.
-Fluxo: Gestão Escolar cadastra/altera turmas da escola; convite/vinculo de usuario escolhe turmas a partir da escola selecionada; professor e coordenacao seguem usando `school_grade` para criacao/revisao de provas.
-Impacto no Supabase: sim; executar `setup_supabase.sql` para aplicar `classes JSONB DEFAULT '[]'` em `schools`.
-Validacao: `npm test` aprovado.
-### Achados Para Ajuste Posterior
-
-Diagnóstico de 17/09/2026: omissões dos cinco tipos no gabarito corrigidas localmente na etapa 3. Conferência ampliada localmente na etapa 4. Permanecem a padronização dos formatos abertos e demais achados de usabilidade. Ver auditoria/ETAPA4_CONFERENCIA_2026-09-17.md.
-
-Achados de respostas mistas da etapa 5 corrigidos localmente na etapa 6. Ver auditoria/ETAPA6_RESPOSTAS_MISTAS_2026-09-17.md.
-
-Registrar aqui bugs ou inconsistências encontrados durante correções/refatorações quando não forem resolvidos no mesmo commit.
-
-
-17/09/2026: prévia paginada A4 e impressão compartilhada, com Paged.js local. Sem impacto Supabase. Ver auditoria/PAGINAS_A4_2026-09-17.md.
-
-17/09/2026: organização visual e busca do editor ajustadas localmente; seleção separada de edição para não indicar salvamento pendente. Aviso duplicado de pontuação removido do painel. Sem impacto Supabase. Ver auditoria/EXPERIENCIA_VISUAL_2026-09-17.md.
-
-17/09/2026: Alternativas simplificadas: pontuação no início, aparência recolhida, imagens por opção e escolha explícita ao reduzir o gabarito para uma resposta. Imagens preservadas na exclusão de opção e renderizadas também no tipo marcarx. Criação acompanha a seleção da prévia. Validado com npm test e navegador local em 1366x768 e 390x844. Sem impacto Supabase; alterações locais, não publicadas.
-
-17/09/2026: edição de Alternativas compactada. Valor e exclusão por ícone foram movidos para o cabeçalho; rótulo e seletor de respostas corretas compartilham uma linha; imagem fica ao lado do texto da alternativa; adicionar alternativa recebeu destaque verde suave. Validado por npm test e navegador local em desktop e 390x844. Cache do editor atualizado para ux4. Sem impacto Supabase; alterações locais, não publicadas.
-
-17/09/2026: estrutura compacta estendida a todos os tipos de questão. Valor curto e exclusão por ícone ficam no cabeçalho; apresentação fica recolhida; título redundante de conteúdo foi removido; ações de adicionar conteúdo recebem destaque suave. Cache atualizado para ux5. Sem impacto Supabase; alterações locais, não publicadas.
-Complemento: painéis preexistentes de aparência foram reutilizados para evitar duplicação em Matemática; imagens opcionais dos demais tipos ficaram recolhidas, sem ocultar as imagens essenciais específicas de cada modelo.
-
-17/09/2026: “Associação por setas” removida da criação por duplicar “Relacione as colunas”. Chamadas antigas de criação são direcionadas ao modelo relacione; questões associacao_setas já salvas continuam editáveis, imprimíveis e válidas. Cache atualizado para ux6. Sem impacto Supabase; alterações locais, não publicadas.
-
-21/09/2026: questões Alternativas receberam a ação “Adicionar espaço” ao lado de “Adicionar alternativa”. O controle permite escolher de 1 a 40 linhas de resposta, aparece na prévia e na impressão e pode ser removido. Compatibilidade mantida com o tipo legado multipla. Validado com npm test. Sem impacto Supabase; alterações locais, não publicadas.
-
-21/09/2026: Problema matemático recebeu ferramentas de enunciado para inserir fração, potência, raiz, multiplicação e divisão em escrita natural. Frações, potências e raízes são reconhecidas no texto e formatadas na prévia e impressão, com escape seguro do restante do enunciado. Sem impacto Supabase; alterações locais, não publicadas.
-
-21/09/2026: Expressões matemáticas passaram a converter estruturas combinadas, incluindo potência no numerador `(3^3)/5` e fração dentro da raiz `√(49/81)`. Atalhos `aⁿ/b` e `√(a/b)` foram adicionados à barra. Sem impacto Supabase; alterações locais, não publicadas.
-
-05/10/2026: usuário autorizou publicar a arquitetura de imagens e escala. A API real confirmou que `questions_count` ainda não existe. O frontend ganhou fallback de implantação: sem os campos, lista o formato antigo; sem bucket, preserva Base64. O plugin Supabase foi instalado e habilitado, mas suas ações SQL não ficaram disponíveis nesta conversa, portanto `setup_supabase.sql` e `setup_storage.sql` continuam pendentes no ambiente real. A suíte `npm test` foi aprovada antes da publicação. Projeto em `auditoria/ARQUITETURA_IMAGENS_E_ESCALA_2026-09-22.md`.
+Registrar achados não resolvidos no formato breve: problema, evidência/caminho, impacto e próxima verificação. Remover pendências só com evidência de resolução. Auditorias e histórico do git guardam detalhes de entregas; este arquivo guarda o mapa operacional e os contratos atuais. Não converter indisponibilidade de uma ferramenta em uma sessão em limitação permanente do projeto.
