@@ -148,6 +148,9 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         showAlert('E-mail confirmado. Entre com sua senha para continuar.', 'success');
       }
+      if (new URLSearchParams(window.location.search).get('access') === 'removed') {
+        showAlert('Seu acesso ao sistema foi removido pela escola. Procure a coordenação caso precise de um novo convite.', 'error');
+      }
       if (auth && auth.isAuthenticated()) {
         if (await requiresPasswordChange()) {
           enableForcedPasswordChangeMode();
@@ -222,6 +225,12 @@
     async function goAfterAuth() {
       try {
         await acceptPendingInvite();
+        const profile = await auth.loadCurrentProfile('id,role,school_id,force_password_change,is_active');
+        if (!auth.isProfileActive(profile)) {
+          await auth.signOut();
+          showAlert('Seu acesso ao sistema foi removido pela escola. Procure a coordenação caso precise de um novo convite.', 'error');
+          return;
+        }
       } catch (err) {
         showAlert('Convite nao aplicado: ' + traduzirErro(err.message), 'error');
         return;

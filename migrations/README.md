@@ -6,6 +6,14 @@ A migração 01 acompanha o frontend publicado em `a518f8c`. A migração 02 int
 
 ## Atualizar um ambiente existente
 
+### Desativação preservadora de professores (migração 05)
+
+Depois das migrações 01 a 04 e de um backup, execute `20261019_05_desativacao_professor.sql` inteiro no SQL Editor. A migração adiciona o estado ativo do perfil, cria a prévia e a confirmação protegidas de remoção e altera as policies de provas, banco de questões e imagens. Professor removido não consegue usar o sistema nem criar conteúdo pessoal; conta, autoria e acervo permanecem registrados. Um convite novo para o mesmo e-mail reativa a conta preservada.
+
+Antes de remover, a RPC bloqueia professores com provas enviadas/em revisão ou trabalhos aguardando impressão. Teste com contas controladas: bloqueio por pendência, remoção sem pendência, tentativa de login e criação após remoção, preservação do acervo e reativação por novo convite. Não exclua o usuário em Authentication.
+
+Migração 05 aplicada pelo conector Supabase no projeto `birtgmrtaryfjogegimn` em 19/10/2026. Foram verificadas as colunas, funções, permissões de execução, policies e o registro da versão. Os 10 perfis existentes permaneceram ativos; nenhum professor foi removido durante a aplicação. A migração 06 foi aplicada em seguida para impedir a chamada direta da função interna de gatilho e indexar a referência de auditoria `deactivated_by`.
+
 ### Refinamento do fluxo do professor (migração 03)
 
 Após as migrações 01/02, execute [20260908_03_fluxo_professor.sql](20260908_03_fluxo_professor.sql) inteiro no SQL Editor. Impede o professor de alterar ou excluir provas enviadas, em revisão, aprovadas ou bloqueadas. A coordenação mantém suas permissões; após devolução, o professor pode editar e reenviar. Não altera os dados das provas. Está incorporada ao setup para instalações novas. Execução no Supabase informada pelo usuário em 08/09/2026; sem verificação administrativa independente pelo agente.

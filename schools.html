@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gerenciar Escola - Gerador de Provas</title>
+  <title>Gestão escolar - Gerador de Provas</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f1f5f9; color: #0f172a; min-height: 100vh; }
@@ -21,10 +21,12 @@
     }
     .btn.primary { background: #0f172a; color: white; border-color: #0f172a; }
     .btn.danger { background: #dc2626; color: white; border-color: #dc2626; }
+    .btn.subtle-danger { background: white; color: #b91c1c; border-color: #fecaca; }
+    .btn.subtle-danger:hover { background: #fef2f2; border-color: #fca5a5; }
     .btn.green { background: #16a34a; color: white; border-color: #16a34a; }
     .btn.sm { font-size: 11px; padding: 5px 9px; }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .main { max-width: 960px; margin: 0 auto; padding: 36px 24px; }
+    .main { max-width: 1040px; margin: 0 auto; padding: 36px 24px; }
     .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     h1 { font-size: 26px; font-weight: 900; }
     .muted { color: #64748b; font-size: 14px; margin-top: 6px; }
@@ -33,7 +35,18 @@
       margin-bottom: 28px; display: grid; gap: 16px;
     }
     .form-card h2 { font-size: 16px; font-weight: 800; }
+    .section-block { margin-bottom: 34px; }
+    .section-heading { margin-bottom: 14px; }
+    .section-heading h2 { font-size: 18px; font-weight: 900; color: #0f172a; }
+    .section-heading p { margin-top: 4px; color: #64748b; font-size: 13px; line-height: 1.5; }
+    .section-block > .form-card:last-child { margin-bottom: 0; }
+    .card-intro { color: #64748b; font-size: 13px; line-height: 1.5; margin-top: -8px; }
+    .form-step-label { display: flex; align-items: center; gap: 7px; }
+    .form-step-number { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 900; }
+    .field-help { color: #64748b; font-size: 12px; line-height: 1.45; margin-top: 7px; }
+    .fixed-role { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #ddd6fe; background: #f5f3ff; color: #5b21b6; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 800; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-row.single-field { grid-template-columns: minmax(0, 1fr); }
     label { display: block; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
     input, select { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-family: inherit; }
     input:focus, select:focus { outline: none; border-color: #667eea; }
@@ -41,13 +54,16 @@
     .school-card {
       background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;
     }
-    .school-card-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .school-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .school-logo-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: contain; border: 1px solid #e2e8f0; flex-shrink: 0; background: #f8fafc; }
     .school-logo-placeholder { width: 44px; height: 44px; border-radius: 8px; border: 1px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
     .school-info { flex: 1; min-width: 0; }
     .school-name { font-size: 16px; font-weight: 800; }
     .school-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
     .school-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .school-details-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; margin-top: 14px; }
+    .school-detail-block { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px; padding: 10px 12px; }
+    .school-detail-block .tag-group-label { margin-top: 0; }
     .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .tag-group-label { display: block; margin-top: 8px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; }
     .tag {
@@ -80,9 +96,20 @@
     }
     .professor-row .pname { font-weight: 700; flex: 1; }
     .professor-row .pmeta { color: #64748b; font-size: 12px; }
+    .profile-details { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
+    .profile-detail { color: #64748b; font-size: 12px; }
+    .profile-detail strong { color: #475569; font-weight: 800; }
+    .team-group + .team-group, .invite-group + .invite-group { margin-top: 18px; }
+    .team-group .professor-row + .professor-row, .invite-group .professor-row + .professor-row { margin-top: 8px; }
+    .team-group-title, .invite-group-title { font-size: 12px; color: #475569; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .team-group-count { color: #94a3b8; font-weight: 800; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
     .logo-preview { width: 60px; height: 60px; border-radius: 10px; object-fit: contain; border: 1px solid #e2e8f0; background: #f8fafc; margin-top: 8px; display: none; }
     .disc-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .choice-groups { display: grid; gap: 12px; width: 100%; }
+    .choice-group { border-left: 3px solid #e2e8f0; padding-left: 10px; }
+    .choice-group-title { color: #475569; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 7px; }
+    .choice-group-options { display: flex; flex-wrap: wrap; gap: 8px; }
     .disc-check-label {
       display: inline-flex; align-items: center; gap: 6px;
       background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 20px;
@@ -97,26 +124,124 @@
     .prof-edit { margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 10px; display: none; }
     .prof-edit.open { display: block; }
     .prof-actions { display: flex; gap: 6px; flex-shrink: 0; }
-    .access-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .summary-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .summary-group-title { font-size: 11px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .access-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .access-summary-item { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc; }
     .access-summary-value { font-size: 22px; font-weight: 900; color: #0f172a; }
     .access-summary-label { font-size: 12px; font-weight: 700; color: #64748b; margin-top: 2px; }
     .access-alert-list { display: grid; gap: 6px; margin-top: 10px; }
     .access-alert-item { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; }
+    .readiness-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-radius: 12px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; }
+    .readiness-progress strong { font-size: 14px; }
+    .readiness-progress span { color: #64748b; font-size: 12px; }
     .readiness-list { display: grid; gap: 8px; }
+    .readiness-complete { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
     .readiness-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
-    .readiness-item.done { border-color: #bbf7d0; background: #f0fdf4; }
+    .readiness-item.pending { border-color: #fde68a; background: #fffbeb; }
+    .readiness-item.done { padding: 8px 10px; border-color: #dcfce7; background: #f8fdf9; }
     .readiness-mark { width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 12px; font-weight: 900; }
-    .readiness-item.done .readiness-mark { background: #16a34a; color: #fff; }
+    .readiness-item.done .readiness-mark { background: #dcfce7; color: #15803d; }
+    .readiness-item.pending .readiness-mark { background: #fef3c7; color: #92400e; }
     .readiness-title { font-size: 13px; font-weight: 900; color: #0f172a; }
     .readiness-text { font-size: 12px; color: #64748b; margin-top: 2px; line-height: 1.4; }
     .invite-link-row { display: flex; gap: 8px; margin-top: 8px; }
     .invite-link-row input { flex: 1; font-size: 12px; }
+    .invite-status { display: inline-flex; width: fit-content; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 800; margin-top: 7px; }
+    .invite-status.pending { color: #92400e; background: #fef3c7; }
+    .invite-status.accepted { color: #166534; background: #dcfce7; }
+    .invite-status.expired, .invite-status.canceled { color: #475569; background: #e2e8f0; }
+    .status-strip { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; }
+    .management-status { display: flex; align-items: stretch; gap: 0; }
+    .status-item { min-width: 0; flex: 1; padding: 3px 16px; border-left: 1px solid #e2e8f0; }
+    .status-item:first-child { border-left: 0; padding-left: 0; }
+    .status-value { font-size: 18px; font-weight: 900; color: #0f172a; }
+    .status-label { font-size: 11px; color: #64748b; font-weight: 700; margin-top: 1px; }
+    .status-item.attention .status-value, .status-item.attention .status-label { color: #b45309; }
+    .onboarding-panel { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; }
+    .onboarding-summary { display: flex; align-items: flex-start; gap: 10px; }
+    .onboarding-summary strong { display: block; font-size: 13px; color: #78350f; }
+    .onboarding-summary p { margin-top: 2px; color: #92400e; font-size: 12px; line-height: 1.45; }
+    .management-tabs { display: flex; gap: 4px; border-bottom: 1px solid #cbd5e1; margin-bottom: 22px; }
+    .management-tab { border: 0; background: transparent; color: #64748b; font: inherit; font-size: 14px; font-weight: 800; padding: 11px 16px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+    .management-tab:hover { color: #0f172a; }
+    .management-tab.active { color: #0f172a; border-bottom-color: #0f172a; }
+    .management-panel[hidden] { display: none !important; }
+    .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+    .panel-heading h2 { font-size: 19px; font-weight: 900; }
+    .panel-heading p { color: #64748b; font-size: 13px; margin-top: 3px; }
+    .management-surface { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 8px; }
+    .invite-composer { margin-bottom: 16px; border-color: #c7d2fe; box-shadow: 0 8px 22px rgba(15,23,42,.06); }
+    .composer-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .team-row { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(150px, .9fr) minmax(240px, 1.5fr) auto; align-items: center; gap: 14px; padding: 12px 10px; border-bottom: 1px solid #eef2f7; }
+    .team-row.coordinator-row { grid-template-columns: minmax(180px, 1.15fr) minmax(230px, 1.45fr) minmax(170px, .9fr) auto; }
+    .team-row:last-child { border-bottom: 0; }
+    .team-identity { min-width: 0; }
+    .team-name { font-size: 14px; font-weight: 800; color: #0f172a; }
+    .team-email { margin-top: 2px; color: #64748b; font-size: 11px; overflow-wrap: anywhere; }
+    .team-access, .team-scope { min-width: 0; }
+    .team-meta-label { display: block; color: #94a3b8; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+    .team-meta-value { color: #475569; font-size: 12px; line-height: 1.4; }
+    .team-actions { display: flex; justify-content: flex-end; }
+    .team-status { display: inline-flex; align-items: center; gap: 6px; width: fit-content; border-radius: 999px; padding: 6px 9px; font-size: 11px; font-weight: 800; line-height: 1.2; }
+    .team-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+    .team-status.complete { color: #166534; background: #dcfce7; }
+    .team-status.attention { color: #92400e; background: #fef3c7; }
+    .profile-contact { margin-bottom: 12px; padding: 10px 12px; border-radius: 9px; background: #f8fafc; color: #475569; font-size: 12px; }
+    .profile-contact strong { color: #0f172a; }
+    .team-row > .prof-edit { grid-column: 1 / -1; width: 100%; }
+    .team-group-title { padding: 10px 10px 5px; margin-bottom: 0; }
+    .team-group + .team-group { border-top: 8px solid #f1f5f9; margin-top: 0; }
+    .edit-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 10px; }
+    .edit-actions-primary, .edit-actions-secondary { display: flex; flex-wrap: wrap; gap: 8px; }
+    .invite-email-group { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .invite-email-group + .invite-email-group { margin-top: 8px; }
+    .invite-email-heading { padding: 9px 12px; background: #f8fafc; font-size: 13px; font-weight: 800; }
+    .invite-record { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-top: 1px solid #eef2f7; }
+    .invite-record-meta { color: #64748b; font-size: 12px; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(15,23,42,.62); }
+    .modal-backdrop.open { display: flex; }
+    .removal-modal { width: min(620px, 100%); max-height: min(760px, calc(100vh - 40px)); overflow: auto; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(15,23,42,.28); }
+    .removal-modal-header { padding: 20px 22px 15px; border-bottom: 1px solid #e2e8f0; }
+    .removal-modal-header h2 { font-size: 19px; }
+    .removal-modal-header p { margin-top: 5px; color: #64748b; font-size: 13px; line-height: 1.5; }
+    .removal-modal-body { padding: 18px 22px; display: grid; gap: 14px; }
+    .removal-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .removal-summary-item { padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    .removal-summary-item strong { display: block; font-size: 18px; color: #0f172a; }
+    .removal-summary-item span { color: #64748b; font-size: 11px; }
+    .removal-warning { padding: 11px 12px; border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb; color: #92400e; font-size: 12px; line-height: 1.5; }
+    .removal-effects { padding-left: 19px; color: #475569; font-size: 13px; line-height: 1.6; }
+    .removal-confirm { display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; border-radius: 10px; background: #f8fafc; }
+    .removal-confirm input { width: auto; margin-top: 2px; }
+    .removal-confirm label { margin: 0; color: #334155; text-transform: none; letter-spacing: 0; line-height: 1.45; cursor: pointer; }
+    .removal-modal-actions { display: flex; justify-content: space-between; gap: 10px; padding: 15px 22px 20px; border-top: 1px solid #e2e8f0; }
     @media (max-width: 600px) {
       .form-row { grid-template-columns: 1fr; }
       .school-card-top { flex-wrap: wrap; }
+      .school-details-grid, .summary-groups, .readiness-complete { grid-template-columns: 1fr; }
+      .access-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .main { padding: 20px 16px; }
       .invite-link-row { flex-direction: column; }
+      .topbar { align-items: stretch; }
+      .topbar .btn { justify-content: center; }
+      .management-status { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .status-item, .status-item:first-child { border: 0; padding: 7px 9px; background: #f8fafc; border-radius: 8px; }
+      .management-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .management-tab { padding: 10px 5px; font-size: 12px; }
+      .panel-heading { align-items: stretch; flex-direction: column; }
+      .panel-heading .btn { justify-content: center; }
+      .team-row, .team-row.coordinator-row { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 13px 10px; }
+      .team-actions { justify-content: flex-start; }
+      .composer-heading { flex-direction: column; }
+      .prof-actions { flex-wrap: wrap; }
+      .profile-details { display: grid; grid-template-columns: 1fr; }
+      .invite-record { align-items: flex-start; flex-direction: column; }
+      .removal-summary { grid-template-columns: minmax(0, 1fr); }
+      .removal-modal-actions { flex-direction: column-reverse; }
+      .removal-modal-actions .btn { justify-content: center; }
+      .management-surface, .form-card { min-width: 0; }
+      .professor-list, .team-group, .professor-row { min-width: 0; width: 100%; }
     }
 
     /* APP NAVIGATION */
@@ -166,129 +291,101 @@
 <main class="main">
   <div class="topbar">
     <div>
-      <h1>Gerenciar Escola</h1>
-      <p class="muted">Gerencie os dados, disciplinas e usuarios desta escola.</p>
+      <h1>Gestão escolar</h1>
+      <p class="muted" id="currentSchoolHeading">Carregando escola...</p>
     </div>
+    <button class="btn primary" id="topInviteBtn" type="button" style="display:none;">＋ Convidar professor</button>
   </div>
 
-  <div class="form-card" id="schoolReadinessSection" style="display:none;">
-    <h2>Checklist da escola</h2>
-    <div id="schoolReadinessList" class="readiness-list"></div>
-  </div>
-  <!-- Formulário de nova escola -->
-  <div class="form-card" id="newSchoolCard">
-    <h2>Nova escola</h2>
-    <div class="form-row">
-      <div>
-        <label>Nome da escola *</label>
-        <input id="schoolNameInput" type="text" placeholder="Ex.: E.M. Prof. Antônio Gomes" />
-      </div>
-      <div>
-        <label>Cidade</label>
-        <input id="schoolCityInput" type="text" placeholder="Ex.: São Paulo" />
-      </div>
-    </div>
-    <div>
-      <label>E-mail do administrador</label>
-      <input id="schoolAdminInput" type="email" placeholder="Ex.: diretor@escola.edu.br" />
-    </div>
-    <div>
-      <label>Logo da escola</label>
-      <input id="logoFileInput" type="file" accept="image/*" class="visually-hidden" />
-      <div style="display:flex; gap:8px; margin-top:6px;">
-        <button class="btn sm" type="button" id="pickLogoBtn">Selecionar imagem</button>
-        <button class="btn sm danger" type="button" id="clearLogoBtn" style="display:none;">Remover</button>
-      </div>
-      <img id="logoPreview" class="logo-preview" alt="Logo" />
-    </div>
-    <div>
-      <label>Disciplinas oferecidas</label>
-      <div id="newSchoolTags" class="tags"></div>
-      <div class="disc-add-row">
-        <input id="newDiscInput" type="text" placeholder="Ex.: Português, Matemática..." />
-        <button class="btn sm primary" type="button" id="addDiscBtn">Adicionar</button>
-      </div>
-      <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Adicione as disciplinas que esta escola oferece. Professores poderão ser vinculados a elas.</div>
-    </div>
-    <div>
-      <label>Turmas da escola</label>
-      <div id="newSchoolClassTags" class="tags"></div>
-      <div class="disc-add-row">
-        <input id="newClassInput" type="text" placeholder="Ex.: 1º Ano A, 2º Ano B..." />
-        <button class="btn sm primary" type="button" id="addClassBtn">Adicionar</button>
-      </div>
-      <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Cadastre as turmas da escola para depois liberar por professor ou coordenação.</div>
-    </div>
-    <div>
-      <button class="btn primary" id="addSchoolBtn" type="button">＋ Cadastrar escola</button>
-    </div>
-  </div>
-
-  <!-- Dados da escola -->
-  <div id="schoolsList">
-    <div class="empty"><h2>Carregando...</h2></div>
-  </div>
-
-  <!-- Convidar ou vincular usuario a esta escola -->
-  <div class="form-card" id="linkProfessorCard" style="margin-top: 28px;">
-    <h2>Convidar ou vincular usuario a esta escola</h2>
-    <div class="form-row">
-      <div>
-        <label>Escola</label>
-        <select id="linkSchoolSelect">
-          <option value="">Selecione a escola</option>
-        </select>
-      </div>
-      <div>
-        <label>E-mail do usuario</label>
-        <input id="linkProfEmail" type="email" placeholder="email@prof.com" />
-      </div>
-    </div>
-    <div>
-      <label>Perfil de acesso</label>
-      <select id="inviteRoleSelect">
-        <option value="teacher">Professor</option>
-        <option value="coordinator">Coordenacao</option>
-        <option value="print_operator">Impressao</option>
-        <option value="school_owner">Dono da escola</option>
-      </select>
-    </div>
-    <div>
-      <label>Séries / anos que leciona</label>
-      <div id="linkGradeCheckboxes" class="disc-checkboxes"></div>
-    </div>
-    <div id="linkDisciplinesSection" style="display:none;">
-      <label>Disciplinas que leciona</label>
-      <div id="linkDisciplinesCheckboxes" class="disc-checkboxes"></div>
-    </div>
-    <div>
-      <button class="btn green" id="createInviteBtn" type="button">Gerar link de convite</button>
-      <button class="btn" id="linkProfBtn" type="button">Vincular usuario existente</button>
-    </div>
-    <div id="linkResult" style="font-size:13px; color:#64748b;"></div>
-  </div>
-
-  <!-- Resumo de acessos -->
-  <div class="form-card" id="accessSummarySection" style="display:none;">
-    <p class="section-title">Resumo de acessos</p>
-    <div id="accessSummaryGrid" class="access-summary-grid"></div>
+  <section id="accessSummarySection" class="status-strip" style="display:none;" aria-label="Situação dos acessos">
+    <div id="accessSummaryGrid" class="management-status"></div>
     <div id="accessSummaryAlerts" class="access-alert-list"></div>
-  </div>
+  </section>
 
-  <!-- Equipe cadastrada -->
-  <div class="form-card" id="professorsSection" style="display:none;">
-    <p class="section-title">Equipe cadastrada no sistema</p>
-    <div id="professorsList" class="professor-list"></div>
-  </div>
+  <section id="schoolReadinessSection" class="onboarding-panel" style="display:none;" aria-label="Configuração pendente">
+    <div id="schoolReadinessList"></div>
+  </section>
 
-  <!-- Convites -->
-  <div class="form-card" id="invitesSection" style="display:none;">
-    <p class="section-title">Convites de acesso</p>
-    <div id="invitesList" class="professor-list"></div>
-  </div>
+  <nav class="management-tabs" role="tablist" aria-label="Áreas da gestão escolar">
+    <button class="management-tab active" id="teamTab" type="button" role="tab" aria-selected="true" aria-controls="teamPanel" data-management-tab="teamPanel">Equipe</button>
+    <button class="management-tab" id="invitesTab" type="button" role="tab" aria-selected="false" aria-controls="invitesPanel" data-management-tab="invitesPanel">Convites</button>
+    <button class="management-tab" id="schoolTab" type="button" role="tab" aria-selected="false" aria-controls="schoolPanel" data-management-tab="schoolPanel">Dados da escola</button>
+  </nav>
+
+  <section class="management-panel active" id="teamPanel" role="tabpanel" aria-labelledby="teamTab">
+    <div class="panel-heading">
+      <div><h2>Equipe</h2><p>Confira os acessos e gerencie os vínculos de cada pessoa.</p></div>
+    </div>
+    <div class="management-surface" id="professorsSection" style="display:none;">
+      <div id="professorsList" class="professor-list"></div>
+    </div>
+  </section>
+
+  <section class="management-panel" id="invitesPanel" role="tabpanel" aria-labelledby="invitesTab" hidden>
+    <div class="panel-heading">
+      <div><h2>Convites</h2><p>Gere novos acessos e acompanhe os convites já criados.</p></div>
+      <button class="btn primary" id="panelInviteBtn" type="button">＋ Novo convite</button>
+    </div>
+    <div class="form-card invite-composer" id="linkProfessorCard" style="display:none;">
+      <div class="composer-heading">
+        <div><h2 id="inviteCardTitle">Convidar ou vincular usuário</h2><p class="card-intro" id="inviteCardIntro">Informe o acesso e selecione as turmas e disciplinas que serão liberadas.</p></div>
+        <button class="btn sm" id="closeInviteComposerBtn" type="button">Fechar</button>
+      </div>
+      <div class="form-row">
+        <div id="inviteSchoolField"><label class="form-step-label"><span class="form-step-number">1</span> Escola</label><select id="linkSchoolSelect"><option value="">Selecione a escola</option></select></div>
+        <div><label class="form-step-label"><span class="form-step-number" id="inviteEmailStep">2</span> E-mail do usuário</label><input id="linkProfEmail" type="email" placeholder="email@prof.com" /></div>
+      </div>
+      <div id="inviteRoleField"><label>Perfil de acesso</label><select id="inviteRoleSelect"><option value="teacher">Professor</option><option value="coordinator">Coordenação</option><option value="print_operator">Impressão</option><option value="school_owner">Dono da escola</option></select></div>
+      <div id="inviteRoleFixed" style="display:none;"></div>
+      <div><label class="form-step-label"><span class="form-step-number" id="inviteGradesStep">3</span> Turmas</label><div id="linkGradeCheckboxes" class="disc-checkboxes"></div><div id="linkAssignmentHint" class="field-help">Selecione uma escola para ver as turmas e disciplinas disponíveis.</div></div>
+      <div id="linkDisciplinesSection" style="display:none;"><label class="form-step-label"><span class="form-step-number" id="inviteDisciplinesStep">4</span> Disciplinas</label><div id="linkDisciplinesCheckboxes" class="disc-checkboxes"></div></div>
+      <div><button class="btn green" id="createInviteBtn" type="button">Gerar link de convite</button><button class="btn" id="linkProfBtn" type="button">Vincular usuário existente</button></div>
+      <div id="linkResult" style="font-size:13px; color:#64748b;"></div>
+    </div>
+    <div class="management-surface" id="invitesSection" style="display:none;">
+      <div id="invitesList" class="professor-list"></div>
+    </div>
+  </section>
+
+  <section class="management-panel" id="schoolPanel" role="tabpanel" aria-labelledby="schoolTab" hidden>
+    <div class="panel-heading"><div><h2>Dados da escola</h2><p>Consulte os dados institucionais, as disciplinas e as turmas disponíveis.</p></div></div>
+    <div class="form-card" id="newSchoolCard">
+      <h2>Nova escola</h2>
+      <div class="form-row"><div><label>Nome da escola *</label><input id="schoolNameInput" type="text" placeholder="Ex.: E.M. Prof. Antônio Gomes" /></div><div><label>Cidade</label><input id="schoolCityInput" type="text" placeholder="Ex.: São Paulo" /></div></div>
+      <div><label>E-mail do administrador</label><input id="schoolAdminInput" type="email" placeholder="Ex.: diretor@escola.edu.br" /></div>
+      <div><label>Logo da escola</label><input id="logoFileInput" type="file" accept="image/*" class="visually-hidden" /><div style="display:flex; gap:8px; margin-top:6px;"><button class="btn sm" type="button" id="pickLogoBtn">Selecionar imagem</button><button class="btn sm danger" type="button" id="clearLogoBtn" style="display:none;">Remover</button></div><img id="logoPreview" class="logo-preview" alt="Logo" /></div>
+      <div><label>Disciplinas oferecidas</label><div id="newSchoolTags" class="tags"></div><div class="disc-add-row"><input id="newDiscInput" type="text" placeholder="Ex.: Português, Matemática..." /><button class="btn sm primary" type="button" id="addDiscBtn">Adicionar</button></div><div class="field-help">Adicione as disciplinas que esta escola oferece. Professores poderão ser vinculados a elas.</div></div>
+      <div><label>Turmas da escola</label><div id="newSchoolClassTags" class="tags"></div><div class="disc-add-row"><input id="newClassInput" type="text" placeholder="Ex.: 1º Ano A, 2º Ano B..." /><button class="btn sm primary" type="button" id="addClassBtn">Adicionar</button></div><div class="field-help">Cadastre as turmas da escola para depois liberar por professor ou coordenação.</div></div>
+      <div><button class="btn primary" id="addSchoolBtn" type="button">＋ Cadastrar escola</button></div>
+    </div>
+    <div id="schoolsList"><div class="empty"><h2>Carregando...</h2></div></div>
+  </section>
 </main>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-backdrop" id="teacherRemovalModal" role="dialog" aria-modal="true" aria-labelledby="teacherRemovalTitle">
+  <div class="removal-modal">
+    <div class="removal-modal-header">
+      <h2 id="teacherRemovalTitle">Remover professor da escola</h2>
+      <p id="teacherRemovalIntro"></p>
+    </div>
+    <div class="removal-modal-body">
+      <div class="removal-summary" id="teacherRemovalSummary"></div>
+      <div class="removal-warning" id="teacherRemovalWarning" style="display:none;"></div>
+      <div id="teacherRemovalEffects"></div>
+      <div class="removal-confirm" id="teacherRemovalConfirmWrap">
+        <input id="teacherRemovalConfirm" type="checkbox" />
+        <label for="teacherRemovalConfirm">Entendi que a conta não será excluída, mas o professor perderá todo o acesso ao sistema até receber um novo convite.</label>
+      </div>
+    </div>
+    <div class="removal-modal-actions">
+      <button class="btn" id="cancelTeacherRemovalBtn" type="button">Cancelar</button>
+      <a class="btn" id="teacherRemovalPendingLink" href="coordenacao.html" style="display:none;">Ver provas pendentes</a>
+      <button class="btn danger" id="confirmTeacherRemovalBtn" type="button" disabled>Confirmar remoção</button>
+    </div>
+  </div>
+</div>
 
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
@@ -301,6 +398,7 @@
   let newSchoolDisciplines = [];
   let newSchoolClasses = [];
   let newSchoolLogoDataUrl = '';
+  let pendingTeacherRemoval = null;
 
   const MAX_LOGO_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
   const MAX_LOGO_DATA_URL_BYTES = 220 * 1024;
@@ -355,12 +453,12 @@
           if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
         }
         if (!isSafeImageDataUrl(dataUrl) || dataUrlBytes(dataUrl) > MAX_LOGO_DATA_URL_BYTES) {
-          showToast(`Nao foi possivel reduzir a logo para ate ${formatBytes(MAX_LOGO_DATA_URL_BYTES)}.`, 'error');
+          showToast(`Não foi possível reduzir a logo para até ${formatBytes(MAX_LOGO_DATA_URL_BYTES)}.`, 'error');
           return;
         }
         onReady(dataUrl);
       };
-      img.onerror = () => showToast('Nao foi possivel carregar esta imagem.', 'error');
+      img.onerror = () => showToast('Não foi possível carregar esta imagem.', 'error');
       img.src = String(reader.result || '');
     };
     reader.readAsDataURL(file);
@@ -393,6 +491,19 @@
     if (schoolForm && !auth.hasRole(['master'], currentProfile)) schoolForm.style.display = 'none';
     const linkCard = document.getElementById('linkProfessorCard');
     if (linkCard && !canManageInvites()) linkCard.style.display = 'none';
+    const topInviteBtn = document.getElementById('topInviteBtn');
+    const panelInviteBtn = document.getElementById('panelInviteBtn');
+    if (canManageInvites()) {
+      topInviteBtn.style.display = '';
+      topInviteBtn.addEventListener('click', openInviteComposer);
+      panelInviteBtn.addEventListener('click', openInviteComposer);
+    } else {
+      panelInviteBtn.style.display = 'none';
+    }
+    document.getElementById('closeInviteComposerBtn').addEventListener('click', closeInviteComposer);
+    document.querySelectorAll('[data-management-tab]').forEach(button => {
+      button.addEventListener('click', () => switchManagementTab(button.dataset.managementTab));
+    });
     updateInviteRoleOptions();
     document.getElementById('addSchoolBtn').addEventListener('click', addSchool);
     document.getElementById('createInviteBtn').addEventListener('click', createInvite);
@@ -400,6 +511,12 @@
     document.getElementById('linkProfBtn').addEventListener('click', linkProfessor);
     document.getElementById('linkSchoolSelect').addEventListener('change', onLinkSchoolChange);
     document.getElementById('inviteRoleSelect').addEventListener('change', onLinkSchoolChange);
+    document.getElementById('cancelTeacherRemovalBtn').addEventListener('click', closeTeacherRemoval);
+    document.getElementById('teacherRemovalConfirm').addEventListener('change', updateTeacherRemovalAction);
+    document.getElementById('confirmTeacherRemovalBtn').addEventListener('click', confirmTeacherRemoval);
+    document.getElementById('teacherRemovalModal').addEventListener('click', event => {
+      if (event.target.id === 'teacherRemovalModal') closeTeacherRemoval();
+    });
     renderGradeCheckboxes('linkGradeCheckboxes');
     updateInviteFieldVisibility();
 
@@ -433,6 +550,35 @@
     await loadProfessors();
     await loadInvites();
   });
+
+  function switchManagementTab(panelId) {
+    document.querySelectorAll('[data-management-tab]').forEach(button => {
+      const active = button.dataset.managementTab === panelId;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    document.querySelectorAll('.management-panel').forEach(panel => {
+      const active = panel.id === panelId;
+      panel.hidden = !active;
+      panel.classList.toggle('active', active);
+    });
+  }
+
+  function openInviteComposer() {
+    switchManagementTab('invitesPanel');
+    const card = document.getElementById('linkProfessorCard');
+    if (card) card.style.display = '';
+    const panelButton = document.getElementById('panelInviteBtn');
+    if (panelButton) panelButton.style.display = 'none';
+    document.getElementById('linkProfEmail')?.focus();
+  }
+
+  function closeInviteComposer() {
+    const card = document.getElementById('linkProfessorCard');
+    if (card) card.style.display = 'none';
+    const panelButton = document.getElementById('panelInviteBtn');
+    if (panelButton && canManageInvites()) panelButton.style.display = '';
+  }
 
   function addNewSchoolDisc() {
     const inp = document.getElementById('newDiscInput');
@@ -519,14 +665,22 @@
             <div class="school-info">
               <div class="school-name">${esc(s.name)}</div>
               <div class="school-meta">${esc(s.city || '')}${s.admin_email ? ' · ' + esc(s.admin_email) : ''}</div>
-              ${discTags ? `<span class="tag-group-label">Disciplinas</span><div class="tags" style="margin-top:4px;">${discTags}</div>` : ''}
-              ${classTags ? `<span class="tag-group-label">Turmas</span><div class="tags" style="margin-top:4px;">${classTags}</div>` : ''}
             </div>
             <div class="school-actions">
               ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleSchoolEdit('${s.id}')">Editar</button>` : ''}
               ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleDiscEdit('${s.id}')">Disciplinas</button>` : ''}
               ${canEditSchool ? `<button class="btn sm" type="button" onclick="toggleClassEdit('${s.id}')">Turmas</button>` : ''}
               ${canDeleteSchool ? `<button class="btn sm danger" type="button" onclick="deleteSchool('${s.id}')">Excluir</button>` : ''}
+            </div>
+          </div>
+          <div class="school-details-grid">
+            <div class="school-detail-block">
+              <span class="tag-group-label">Disciplinas (${discs.length})</span>
+              <div class="tags" style="margin-top:7px;">${discTags || '<span class="field-help">Nenhuma disciplina cadastrada.</span>'}</div>
+            </div>
+            <div class="school-detail-block">
+              <span class="tag-group-label">Turmas (${classes.length})</span>
+              <div class="tags" style="margin-top:7px;">${classTags || '<span class="field-help">Nenhuma turma cadastrada.</span>'}</div>
             </div>
           </div>
 
@@ -612,7 +766,7 @@
 
   async function saveSchoolEdit(schoolId) {
     if (!auth.canManageSchools(currentProfile)) {
-      showToast('Voce nao tem permissao para editar escolas.', 'error');
+      showToast('Você não tem permissão para editar escolas.', 'error');
       return;
     }
     const name = (document.getElementById(`se-name-${schoolId}`)?.value || '').trim();
@@ -735,7 +889,7 @@
 
   async function saveSchoolClasses(schoolId, classes) {
     if (!auth.canManageSchools(currentProfile)) {
-      showToast('Voce nao tem permissao para editar turmas da escola.', 'error');
+      showToast('Você não tem permissão para editar turmas da escola.', 'error');
       return false;
     }
     try {
@@ -757,7 +911,7 @@
   }
   async function saveSchoolDisciplines(schoolId, discs) {
     if (!auth.canManageSchools(currentProfile)) {
-      showToast('Voce nao tem permissao para editar disciplinas da escola.', 'error');
+      showToast('Você não tem permissão para editar disciplinas da escola.', 'error');
       return;
     }
     try {
@@ -777,8 +931,19 @@
 
   function updateSchoolSelects() {
     const sel = document.getElementById('linkSchoolSelect');
+    const heading = document.getElementById('currentSchoolHeading');
+    const previousValue = sel.value;
     sel.innerHTML = '<option value="">Selecione a escola</option>' +
       schools.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    if (auth.hasRole(['coordinator'], currentProfile) && currentProfile.school_id) sel.value = currentProfile.school_id;
+    else if (schools.some(s => s.id === previousValue)) sel.value = previousValue;
+    else if (schools.length === 1) sel.value = schools[0].id;
+    if (heading) {
+      if (schools.length === 1) heading.textContent = schools[0].name;
+      else if (schools.length > 1) heading.textContent = `${schools.length} escolas disponíveis`;
+      else heading.textContent = 'Nenhuma escola cadastrada';
+    }
+    onLinkSchoolChange();
   }
 
   function onLinkSchoolChange() {
@@ -788,9 +953,19 @@
     const gradeBox = document.getElementById('linkGradeCheckboxes');
     const section = document.getElementById('linkDisciplinesSection');
     const box = document.getElementById('linkDisciplinesCheckboxes');
-    if (!schoolId) { gradeBox.innerHTML = ''; section.style.display = 'none'; box.innerHTML = ''; return; }
+    const hint = document.getElementById('linkAssignmentHint');
+    if (!schoolId) {
+      gradeBox.innerHTML = '';
+      section.style.display = 'none';
+      box.innerHTML = '';
+      if (hint) hint.textContent = 'Selecione uma escola para ver as turmas e disciplinas disponíveis.';
+      return;
+    }
     const s = getSchool(schoolId);
     gradeBox.innerHTML = role === 'print_operator' ? '' : renderGradeCheckboxesHtml('linkGradeCheckboxes', [], s);
+    if (hint) hint.textContent = role === 'print_operator'
+      ? 'Este perfil não utiliza turmas ou disciplinas.'
+      : 'Marque todas as turmas que este usuário poderá acessar.';
     if (role === 'print_operator') return;
     const discs = s && Array.isArray(s.disciplines) ? s.disciplines : [];
     if (!discs.length) { section.style.display = 'none'; box.innerHTML = ''; return; }
@@ -879,9 +1054,17 @@
       renderAccessSummary();
       const section = document.getElementById('professorsSection');
       const list = document.getElementById('professorsList');
-      if (!profs.length) { section.style.display = 'none'; return; }
+      const coordinatorView = auth.hasRole(['coordinator'], currentProfile);
+      const visibleProfiles = coordinatorView
+        ? profs.filter(p => auth.normalizeRole(p.role) === 'teacher' && p.school_id === currentProfile.school_id)
+        : profs;
+      if (!visibleProfiles.length) {
+        section.style.display = '';
+        list.innerHTML = '<div class="empty" style="padding:24px;"><h2>Nenhum professor cadastrado</h2><p>Os professores vinculados à escola aparecerão aqui.</p></div>';
+        return;
+      }
       section.style.display = '';
-      list.innerHTML = profs.map(p => {
+      const renderProfileCard = (p) => {
         const role = auth.normalizeRole(p.role);
         const school = schools.find(s => s.id === p.school_id);
         const discs = Array.isArray(p.disciplines) ? p.disciplines : [];
@@ -896,24 +1079,26 @@
         const canEditProfile = canEditTeamProfile(p);
         const canChangeRole = canChangeTeamRole(p);
         const canUnlink = canEditProfile && p.school_id && role === 'teacher';
-        const roleControl = canChangeRole ? renderRoleSelect(p.id, role) : `<span class="tag">${esc(roleLabel(role))}</span>`;
+        const roleBadge = `<span class="tag">${esc(roleLabel(role))}</span>`;
+        const gradeCount = profGrades.length;
+        const scopeText = role === 'teacher'
+          ? `${gradeCount} ${gradeCount === 1 ? 'turma' : 'turmas'} · ${discs.length} ${discs.length === 1 ? 'disciplina' : 'disciplinas'}`
+          : (gradeCount || discs.length ? `${gradeCount} turma(s) · ${discs.length} disciplina(s)` : 'Acesso geral da escola');
+        const accessStatus = getTeacherAccessStatus(p);
+        const coordinatorSummary = coordinatorView ? `
+          <div class="team-identity"><div class="team-name">${esc(p.full_name || '—')}</div></div>
+          <div class="team-scope"><span class="team-meta-label">Abrangência</span><div class="team-meta-value">${esc(scopeText)}</div></div>
+          <div><span class="team-meta-label">Situação do acesso</span><span class="team-status ${accessStatus.complete ? 'complete' : 'attention'}">${esc(accessStatus.label)}</span></div>` : `
+          <div class="team-identity"><div class="team-name">${esc(p.full_name || '—')}</div><div class="team-email">${esc(p.email || 'E-mail não informado')}</div></div>
+          <div class="team-access"><span class="team-meta-label">Acesso</span><div class="team-meta-value">${roleBadge}<span style="display:block;margin-top:4px;">${esc(school ? school.name : 'Sem escola')}</span></div></div>
+          <div class="team-scope"><span class="team-meta-label">Abrangência</span><div class="team-meta-value">${esc(scopeText)}</div></div>`;
         return `
-        <div class="professor-row" style="flex-direction:column; align-items:stretch;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="flex:1;">
-              <div class="pname">${esc(p.full_name || '—')}</div>
-              <div class="pmeta">${esc(p.email || '')}${profGrades.length ? ' · ' + esc(profGrades.join(', ')) : ''}${school ? ' · ' + esc(school.name) : ' · Sem escola'}</div>
-              <div class="tags" style="margin-top:6px;">${roleControl}</div>
-              ${discs.length ? `<div class="tags" style="margin-top:6px;">${discs.map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>` : ''}
-            </div>
-            <div class="prof-actions">
-              ${canEditProfile ? `<button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Editar</button>` : ''}
-              ${canEditProfile ? `<button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Enviar recuperação</button>` : ''}
-              ${canChangeRole && role === 'teacher' ? `<button class="btn sm primary" type="button" onclick="promoteProfessor('${p.id}')">Promover a coordenador(a)</button>` : ''}
-              ${canUnlink ? `<button class="btn sm danger" type="button" onclick="unlinkProfessor('${p.id}')">Desvincular</button>` : ''}
-            </div>
-          </div>
+        <div class="team-row${coordinatorView ? ' coordinator-row' : ''}">
+          ${coordinatorSummary}
+          <div class="team-actions">${canEditProfile ? `<button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Gerenciar</button>` : ''}</div>
           <div class="prof-edit" id="pe-${p.id}">
+            ${coordinatorView ? `<div class="profile-contact"><strong>E-mail:</strong> ${esc(p.email || 'Não informado')}</div>` : ''}
+            ${canChangeRole ? `<div style="margin-bottom:10px;">${renderRoleSelect(p.id, role)}</div>` : ''}
             ${schoolControl ? `
             <div style="margin-bottom:8px;">
               <label>Escola de acesso</label>
@@ -927,13 +1112,35 @@
               <label>Disciplinas</label>
               <div id="pe-discs-${p.id}" class="disc-checkboxes" style="margin-top:6px;">${discCheckboxes}</div>
             </div>
-            <div style="display:flex;gap:8px;">
-              <button class="btn sm primary" type="button" onclick="saveProfEdit('${p.id}')">Salvar</button>
-              <button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Cancelar</button>
+            <div class="edit-actions">
+              <div class="edit-actions-primary"><button class="btn sm primary" type="button" onclick="saveProfEdit('${p.id}')">Salvar alterações</button><button class="btn sm" type="button" onclick="toggleProfEdit('${p.id}')">Cancelar</button></div>
+              <div class="edit-actions-secondary">
+                ${canEditProfile ? `<button class="btn sm" type="button" onclick="resetProfessorPassword('${p.id}')">Enviar recuperação</button>` : ''}
+                ${canChangeRole && role === 'teacher' ? `<button class="btn sm" type="button" onclick="promoteProfessor('${p.id}')">Promover a coordenador(a)</button>` : ''}
+                ${canUnlink ? `<button class="btn sm subtle-danger" type="button" onclick="openTeacherRemoval('${p.id}')">Remover da escola</button>` : ''}
+              </div>
             </div>
           </div>
         </div>`;
+      };
+      const teamGroups = coordinatorView ? [
+        ['teacher', 'Professores'],
+      ] : [
+        ['school_owner', 'Donos da escola'],
+        ['coordinator', 'Coordenação'],
+        ['print_operator', 'Impressão'],
+        ['teacher', 'Professores'],
+      ];
+      const renderedRoles = new Set(teamGroups.map(([role]) => role));
+      const groupedHtml = teamGroups.map(([role, label]) => {
+        const profiles = visibleProfiles.filter(p => auth.normalizeRole(p.role) === role);
+        if (!profiles.length) return '';
+        return `<div class="team-group"><div class="team-group-title">${esc(label)} <span class="team-group-count">(${profiles.length})</span></div>${profiles.map(renderProfileCard).join('')}</div>`;
       }).join('');
+      const otherProfiles = coordinatorView ? [] : visibleProfiles.filter(p => !renderedRoles.has(auth.normalizeRole(p.role)));
+      list.innerHTML = groupedHtml + (otherProfiles.length
+        ? `<div class="team-group"><div class="team-group-title">Outros perfis <span class="team-group-count">(${otherProfiles.length})</span></div>${otherProfiles.map(renderProfileCard).join('')}</div>`
+        : '');
     } catch {}
   }
 
@@ -941,10 +1148,20 @@
     return {
       master: 'Master',
       school_owner: 'Dono da escola',
-      coordinator: 'Coordenacao',
-      print_operator: 'Impressao',
+      coordinator: 'Coordenação',
+      print_operator: 'Impressão',
       teacher: 'Professor',
     }[role] || role || 'Professor';
+  }
+
+  function getTeacherAccessStatus(profile) {
+    if (!profile?.school_id) return { complete: false, label: 'Sem escola definida' };
+    const hasGrades = normalizeGrades(profile.school_grade).length > 0;
+    const hasDisciplines = Array.isArray(profile.disciplines) && profile.disciplines.length > 0;
+    if (!hasGrades && !hasDisciplines) return { complete: false, label: 'Faltam turmas e disciplinas' };
+    if (!hasGrades) return { complete: false, label: 'Falta definir turmas' };
+    if (!hasDisciplines) return { complete: false, label: 'Falta definir disciplinas' };
+    return { complete: true, label: 'Acesso completo' };
   }
 
   function canManageInvites() {
@@ -961,6 +1178,32 @@
       allowed = ['teacher', 'coordinator', 'print_operator'];
     }
     select.innerHTML = allowed.map(role => `<option value="${role}">${esc(roleLabel(role))}</option>`).join('');
+    const roleField = document.getElementById('inviteRoleField');
+    const fixedRole = document.getElementById('inviteRoleFixed');
+    const title = document.getElementById('inviteCardTitle');
+    const intro = document.getElementById('inviteCardIntro');
+    const button = document.getElementById('createInviteBtn');
+    const fixedTeacherRole = allowed.length === 1 && allowed[0] === 'teacher';
+    const coordinatorView = auth.hasRole(['coordinator'], currentProfile);
+    const schoolField = document.getElementById('inviteSchoolField');
+    const emailStep = document.getElementById('inviteEmailStep');
+    const gradesStep = document.getElementById('inviteGradesStep');
+    const disciplinesStep = document.getElementById('inviteDisciplinesStep');
+    if (schoolField) schoolField.style.display = coordinatorView ? 'none' : '';
+    if (schoolField?.parentElement) schoolField.parentElement.classList.toggle('single-field', coordinatorView);
+    if (emailStep) emailStep.textContent = coordinatorView ? '1' : '2';
+    if (gradesStep) gradesStep.textContent = coordinatorView ? '2' : '3';
+    if (disciplinesStep) disciplinesStep.textContent = coordinatorView ? '3' : '4';
+    if (roleField) roleField.style.display = fixedTeacherRole ? 'none' : '';
+    if (fixedRole) {
+      fixedRole.style.display = 'none';
+      fixedRole.innerHTML = '';
+    }
+    if (title) title.textContent = fixedTeacherRole ? 'Convidar professor' : 'Convidar ou vincular usuário a esta escola';
+    if (intro) intro.textContent = fixedTeacherRole
+      ? 'Informe o e-mail e selecione as turmas e disciplinas que serão liberadas.'
+      : 'Informe o acesso e selecione as turmas e disciplinas que serão liberadas.';
+    if (button) button.textContent = fixedTeacherRole ? 'Gerar convite para professor' : 'Gerar link de convite';
   }
 
   function canEditTeamProfile(profile) {
@@ -1039,7 +1282,7 @@
   async function saveProfEdit(profId) {
     const profile = teamProfiles.find(p => p.id === profId);
     if (!canEditTeamProfile(profile)) {
-      showToast('Voce nao tem permissao para editar este perfil.', 'error');
+      showToast('Você não tem permissão para editar este perfil.', 'error');
       return;
     }
     const grade = getCheckedValues(`pe-grades-${profId}`).join(', ');
@@ -1051,7 +1294,7 @@
       return;
     }
     if (auth.hasRole(['school_owner'], currentProfile) && schoolId !== currentProfile.school_id) {
-      showToast('Voce so pode vincular usuarios a sua escola.', 'error');
+      showToast('Você só pode vincular usuários à sua escola.', 'error');
       return;
     }
     const update = { school_grade: grade || null, disciplines: checked };
@@ -1071,7 +1314,7 @@
   async function changeProfileRole(profId, role) {
     const profile = teamProfiles.find(p => p.id === profId);
     if (!canChangeTeamRole(profile)) {
-      showToast('Voce nao tem permissao para alterar este perfil.', 'error');
+      showToast('Você não tem permissão para alterar este perfil.', 'error');
       await loadProfessors();
       return;
     }
@@ -1092,7 +1335,7 @@
       return;
     }
     if (auth.hasRole(['school_owner'], currentProfile) && schoolId !== currentProfile.school_id) {
-      showToast('Voce so pode alterar perfis da sua escola.', 'error');
+      showToast('Você só pode alterar perfis da sua escola.', 'error');
       await loadProfessors();
       return;
     }
@@ -1112,14 +1355,14 @@
   }
 
   async function promoteProfessor(profId) {
-    if (!confirm('Promover este professor para coordenador(a)? Este usuario passara a acessar as areas de coordenacao.')) return;
+    if (!confirm('Promover este professor para coordenador(a)? Este usuário passará a acessar as áreas de coordenação.')) return;
     await changeProfileRole(profId, 'coordinator');
   }
 
   async function resetProfessorPassword(profId) {
     const profile = teamProfiles.find(p => p.id === profId);
     if (!canEditTeamProfile(profile)) {
-      showToast('Voce nao tem permissao para resetar este usuario.', 'error');
+      showToast('Você não tem permissão para enviar recuperação a este usuário.', 'error');
       return;
     }
     if (!confirm('Enviar um link de recuperação de senha para o e-mail deste usuário?')) return;
@@ -1132,22 +1375,97 @@
     }
   }
 
-  async function unlinkProfessor(profId) {
+  async function openTeacherRemoval(profId) {
     const profile = teamProfiles.find(p => p.id === profId);
     if (!canEditTeamProfile(profile)) {
-      showToast('Voce nao tem permissao para desvincular este usuario.', 'error');
+      showToast('Você não tem permissão para remover este professor.', 'error');
       return;
     }
-    if (!confirm('Desvincular este professor da escola? Ele perderá a associação de escola, série e disciplinas.')) return;
+    const modal = document.getElementById('teacherRemovalModal');
+    const summary = document.getElementById('teacherRemovalSummary');
+    const warning = document.getElementById('teacherRemovalWarning');
+    const effects = document.getElementById('teacherRemovalEffects');
+    const confirmWrap = document.getElementById('teacherRemovalConfirmWrap');
+    const confirmBox = document.getElementById('teacherRemovalConfirm');
+    const confirmBtn = document.getElementById('confirmTeacherRemovalBtn');
+    const pendingLink = document.getElementById('teacherRemovalPendingLink');
+    pendingTeacherRemoval = null;
+    document.getElementById('teacherRemovalIntro').textContent = `Verificando o acesso de ${profile.full_name || profile.email || 'este professor'}...`;
+    summary.innerHTML = '<div class="removal-summary-item"><span>Carregando informações...</span></div>';
+    warning.style.display = 'none';
+    effects.innerHTML = '';
+    confirmWrap.style.display = 'none';
+    pendingLink.style.display = 'none';
+    confirmBox.checked = false;
+    confirmBtn.disabled = true;
+    modal.classList.add('open');
     try {
-      await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ school_id: null, school_grade: null, disciplines: [] }),
+      const preview = await auth.authenticatedRequest('/rpc/teacher_removal_preview', {
+        method: 'POST',
+        body: JSON.stringify({ target_profile_id: profId }),
       });
-      showToast('Professor desvinculado.');
-      await loadProfessors();
+      pendingTeacherRemoval = { profile, preview };
+      const reviewPending = Number(preview?.review_pending || 0);
+      const printPending = Number(preview?.print_pending || 0);
+      const editableExams = Number(preview?.editable_exams || 0);
+      const preservedExams = Number(preview?.preserved_exams || 0);
+      const sharedQuestions = Number(preview?.shared_questions || 0);
+      document.getElementById('teacherRemovalIntro').textContent = `Confira o que acontecerá ao remover ${profile.full_name || profile.email || 'este professor'} da escola.`;
+      summary.innerHTML = [
+        [reviewPending, 'provas em revisão'],
+        [printPending, 'trabalhos aguardando impressão'],
+        [editableExams, 'rascunhos ou provas devolvidas'],
+        [sharedQuestions, 'questões compartilhadas'],
+      ].map(([value, label]) => `<div class="removal-summary-item"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`).join('');
+      const blocked = preview?.can_remove === false || reviewPending > 0 || printPending > 0;
+      warning.style.display = blocked ? '' : 'none';
+      warning.textContent = blocked
+        ? 'A remoção está bloqueada. Conclua as provas em revisão e os trabalhos de impressão antes de continuar.'
+        : `${preservedExams + editableExams} prova(s) serão preservadas com a autoria e o histórico atuais.`;
+      effects.innerHTML = blocked ? '' : `<strong style="font-size:13px;">Após a remoção:</strong><ul class="removal-effects"><li>o acesso ao sistema será desativado;</li><li>escola, turmas e disciplinas serão removidas;</li><li>não será possível criar nem editar provas pessoais;</li><li>provas e questões existentes serão preservadas;</li><li>um novo convite poderá reativar a mesma conta futuramente.</li></ul>`;
+      confirmWrap.style.display = blocked ? 'none' : 'flex';
+      pendingLink.style.display = blocked && reviewPending > 0 ? '' : 'none';
+      confirmBtn.style.display = blocked ? 'none' : '';
+      updateTeacherRemovalAction();
     } catch (err) {
-      showToast('Erro ao desvincular: ' + err.message, 'error');
+      closeTeacherRemoval();
+      showToast('Não foi possível verificar a remoção: ' + err.message, 'error');
+    }
+  }
+
+  function updateTeacherRemovalAction() {
+    const checkbox = document.getElementById('teacherRemovalConfirm');
+    const button = document.getElementById('confirmTeacherRemovalBtn');
+    const canRemove = pendingTeacherRemoval?.preview?.can_remove === true;
+    button.disabled = !canRemove || !checkbox.checked;
+  }
+
+  function closeTeacherRemoval() {
+    document.getElementById('teacherRemovalModal').classList.remove('open');
+    document.getElementById('teacherRemovalConfirm').checked = false;
+    pendingTeacherRemoval = null;
+  }
+
+  async function confirmTeacherRemoval() {
+    if (!pendingTeacherRemoval?.profile || !pendingTeacherRemoval?.preview?.can_remove) return;
+    const profile = pendingTeacherRemoval.profile;
+    const button = document.getElementById('confirmTeacherRemovalBtn');
+    button.disabled = true;
+    button.textContent = 'Removendo...';
+    try {
+      await auth.authenticatedRequest('/rpc/deactivate_teacher_profile', {
+        method: 'POST',
+        body: JSON.stringify({ target_profile_id: profile.id }),
+      });
+      closeTeacherRemoval();
+      showToast(`${profile.full_name || 'Professor'} foi removido da escola. A conta e o histórico foram preservados.`);
+      await loadProfessors();
+      await loadInvites();
+    } catch (err) {
+      showToast('Erro ao remover professor: ' + err.message, 'error');
+    } finally {
+      button.textContent = 'Confirmar remoção';
+      updateTeacherRemovalAction();
     }
   }
 
@@ -1185,27 +1503,23 @@
     const hasClasses = schools.some(s => Array.isArray(s.classes) && s.classes.length > 0);
     const hasCoordinator = teamProfiles.some(p => auth.normalizeRole(p.role) === 'coordinator' && p.school_id);
     const hasTeacher = teamProfiles.some(p => auth.normalizeRole(p.role) === 'teacher' && p.school_id && normalizeGrades(p.school_grade).length > 0 && Array.isArray(p.disciplines) && p.disciplines.length > 0);
-    const hasActiveInvite = invites.some(invite => inviteStatus(invite).key === 'pending');
-
     const steps = [
-      { done: hasSchool, title: 'Cadastro da escola', text: hasSchool ? `${schools.length} escola(s) cadastrada(s).` : 'Cadastre a escola com nome e cidade.' },
-      { done: hasDisciplines, title: 'Definir disciplinas', text: hasDisciplines ? 'Ha disciplinas disponiveis para vincular aos professores.' : 'Adicione as disciplinas oferecidas pela escola.' },
-      { done: hasClasses, title: 'Definir turmas', text: hasClasses ? 'Ha turmas disponiveis para vincular aos usuarios.' : 'Cadastre as turmas da escola.' },
-      { done: hasCoordinator, title: 'Vincular coordenacao', text: hasCoordinator ? 'Ha coordenacao vinculada a uma escola.' : 'Convide ou promova uma pessoa para revisar provas.' },
-      { done: hasTeacher, title: 'Liberar professor', text: hasTeacher ? 'Ha professor com escola, serie e disciplina.' : 'Vincule pelo menos um professor com serie e disciplina.' },
-      { done: hasActiveInvite, title: 'Gerar convite de acesso', text: hasActiveInvite ? 'Ha convite pendente pronto para envio.' : 'Gere um link de convite para o proximo usuario.' },
+      { done: hasSchool, title: 'Cadastrar a escola', text: 'Cadastre a escola com nome e cidade.' },
+      { done: hasDisciplines, title: 'Definir disciplinas', text: hasDisciplines ? 'Há disciplinas disponíveis para vincular aos professores.' : 'Adicione as disciplinas oferecidas pela escola.' },
+      { done: hasClasses, title: 'Definir turmas', text: hasClasses ? 'Há turmas disponíveis para vincular aos usuários.' : 'Cadastre as turmas da escola.' },
+      ...(!auth.hasRole(['coordinator'], currentProfile) ? [{ done: hasCoordinator, title: 'Vincular coordenação', text: hasCoordinator ? 'Há coordenação vinculada a uma escola.' : 'Convide ou promova uma pessoa para revisar provas.' }] : []),
+      { done: hasTeacher, title: 'Liberar professor', text: hasTeacher ? 'Há professor com escola, turma e disciplina.' : 'Vincule pelo menos um professor com turma e disciplina.' },
     ];
 
+    const pendingSteps = steps.filter(step => !step.done);
+    if (!pendingSteps.length) {
+      section.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
     section.style.display = '';
-    list.innerHTML = steps.map(step => `
-      <div class="readiness-item ${step.done ? 'done' : ''}">
-        <span class="readiness-mark">${step.done ? 'OK' : '!'}</span>
-        <div>
-          <div class="readiness-title">${esc(step.title)}</div>
-          <div class="readiness-text">${esc(step.text)}</div>
-        </div>
-      </div>
-    `).join('');
+    const first = pendingSteps[0];
+    list.innerHTML = `<div class="onboarding-summary"><span class="readiness-mark">!</span><div><strong>${pendingSteps.length === 1 ? 'Configuração pendente' : `${pendingSteps.length} configurações pendentes`}</strong><p>${esc(first.title)}: ${esc(first.text)}${pendingSteps.length > 1 ? ` E mais ${pendingSteps.length - 1}.` : ''}</p></div></div>`;
   }
   function renderAccessSummary() {
     const section = document.getElementById('accessSummarySection');
@@ -1218,7 +1532,11 @@
       return;
     }
 
-    const counts = teamProfiles.reduce((acc, profile) => {
+    const coordinatorView = auth.hasRole(['coordinator'], currentProfile);
+    const profilesInView = coordinatorView
+      ? teamProfiles.filter(profile => profile.school_id === currentProfile.school_id)
+      : teamProfiles;
+    const counts = profilesInView.reduce((acc, profile) => {
       const role = auth.normalizeRole(profile.role);
       acc[role] = (acc[role] || 0) + 1;
       return acc;
@@ -1226,32 +1544,37 @@
     const pendingInvites = invites.filter(invite => inviteStatus(invite).key === 'pending').length;
     const expiredInvites = invites.filter(invite => inviteStatus(invite).key === 'expired').length;
     const canceledInvites = invites.filter(invite => inviteStatus(invite).key === 'canceled').length;
-    const withoutSchool = teamProfiles.filter(profile => {
+    const withoutSchool = coordinatorView ? [] : profilesInView.filter(profile => {
       const role = auth.normalizeRole(profile.role);
       return role !== 'master' && !profile.school_id;
     });
+    const incompleteTeachers = profilesInView.filter(profile => {
+      if (auth.normalizeRole(profile.role) !== 'teacher') return false;
+      return !getTeacherAccessStatus(profile).complete;
+    });
 
     section.style.display = '';
-    grid.innerHTML = [
-      ['Donos', counts.school_owner || 0],
-      ['Coordenacao', counts.coordinator || 0],
-      ['Professores', counts.teacher || 0],
-      ['Sem escola', withoutSchool.length],
-      ['Convites pendentes', pendingInvites],
-      ['Convites cancelados', canceledInvites],
-    ].map(([label, value]) => `
-      <div class="access-summary-item">
-        <div class="access-summary-value">${esc(value)}</div>
-        <div class="access-summary-label">${esc(label)}</div>
-      </div>
-    `).join('');
+    const statusItems = coordinatorView ? [
+      ['Professores', counts.teacher || 0, false],
+      ['Acessos incompletos', incompleteTeachers.length, incompleteTeachers.length > 0],
+      ['Convites pendentes', pendingInvites, pendingInvites > 0],
+    ] : [
+      ['Coordenação', counts.coordinator || 0, false],
+      ['Professores', counts.teacher || 0, false],
+      ['Convites pendentes', pendingInvites, pendingInvites > 0],
+      ['Acessos incompletos', incompleteTeachers.length, incompleteTeachers.length > 0],
+    ];
+    grid.innerHTML = statusItems.map(([label, value, attention]) => `<div class="status-item${attention ? ' attention' : ''}"><div class="status-value">${esc(value)}</div><div class="status-label">${esc(label)}</div></div>`).join('');
 
     const notes = [];
     if (withoutSchool.length) {
-      notes.push(`${withoutSchool.length} usuario(s) ainda precisam ser vinculados a uma escola.`);
+      notes.push(`${withoutSchool.length} usuário(s) ainda precisam ser vinculados a uma escola.`);
     }
     if (expiredInvites) {
       notes.push(`${expiredInvites} convite(s) expirados podem ser cancelados e gerados novamente.`);
+    }
+    if (canceledInvites) {
+      notes.push(`${canceledInvites} convite(s) cancelados estão disponíveis no histórico.`);
     }
     alerts.innerHTML = notes.map(note => `<div class="access-alert-item">${esc(note)}</div>`).join('');
   }
@@ -1266,32 +1589,43 @@
     }
     section.style.display = '';
     if (!invites.length) {
-      list.innerHTML = '<div class="empty" style="padding:24px;"><h2>Nenhum convite criado</h2><p>Os convites gerados aparecerao aqui.</p></div>';
+      list.innerHTML = '<div class="empty" style="padding:24px;"><h2>Nenhum convite criado</h2><p>Os convites gerados aparecerão aqui.</p></div>';
       return;
     }
-    list.innerHTML = invites.map(invite => {
+    const renderInviteRecord = (invite) => {
       const school = schools.find(s => s.id === invite.school_id);
       const status = inviteStatus(invite);
       const link = invite.token ? buildInviteLink(invite.token) : '';
       const canCancel = ['pending', 'expired'].includes(status.key);
+      const statusText = status.key === 'pending' ? `Pendente · expira em ${formatDate(invite.expires_at)}` : status.label;
       const linkRow = status.key === 'pending' && link
         ? `<div class="invite-link-row"><input readonly value="${esc(link)}" onclick="this.select()" /><button class="btn sm" type="button" onclick="copyInviteLink('${invite.id}')">Copiar</button></div>`
         : '';
       return `
-      <div class="professor-row" style="flex-direction:column; align-items:stretch;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="flex:1;">
-            <div class="pname">${esc(invite.email)}</div>
-            <div class="pmeta">${esc(school ? school.name : 'Sem escola')} &middot; ${esc(roleLabel(auth.normalizeRole(invite.role)))} &middot; Expira em ${esc(formatDate(invite.expires_at))}</div>
-            <div class="tags" style="margin-top:6px;"><span class="tag">${esc(status.label)}</span></div>
-          </div>
-          <div class="prof-actions">
-            ${canCancel ? `<button class="btn sm danger" type="button" onclick="deleteInvite('${invite.id}')">Cancelar</button>` : ''}
-          </div>
+      <div class="invite-record">
+        <div style="flex:1;min-width:0;">
+          <div class="invite-record-meta">${esc(school ? school.name : 'Sem escola')} · ${esc(roleLabel(auth.normalizeRole(invite.role)))}</div>
+          <span class="invite-status ${esc(status.key)}">${esc(statusText)}</span>
+          ${linkRow}
         </div>
-        ${linkRow}
+        ${canCancel ? `<button class="btn sm subtle-danger" type="button" onclick="deleteInvite('${invite.id}')">Cancelar</button>` : ''}
       </div>`;
-    }).join('');
+    };
+    const renderEmailGroups = items => {
+      const groups = new Map();
+      items.forEach(invite => {
+        const key = String(invite.email || 'E-mail não informado').toLowerCase();
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(invite);
+      });
+      return Array.from(groups.values()).map(group => `<div class="invite-email-group"><div class="invite-email-heading">${esc(group[0].email || 'E-mail não informado')}${group.length > 1 ? ` <span class="team-group-count">(${group.length} registros)</span>` : ''}</div>${group.map(renderInviteRecord).join('')}</div>`).join('');
+    };
+    const pending = invites.filter(invite => inviteStatus(invite).key === 'pending');
+    const history = invites.filter(invite => inviteStatus(invite).key !== 'pending');
+    list.innerHTML = [
+      pending.length ? `<div class="invite-group"><div class="invite-group-title">Convites pendentes <span class="team-group-count">(${pending.length})</span></div>${renderEmailGroups(pending)}</div>` : '',
+      history.length ? `<div class="invite-group"><div class="invite-group-title">Histórico de convites <span class="team-group-count">(${history.length})</span></div>${renderEmailGroups(history)}</div>` : '',
+    ].join('');
   }
 
   function inviteStatus(invite) {
@@ -1316,14 +1650,14 @@
       await navigator.clipboard.writeText(link);
       showToast('Link copiado.');
     } catch {
-      showToast('Nao foi possivel copiar automaticamente. Clique no campo e copie manualmente.', 'error');
+      showToast('Não foi possível copiar automaticamente. Clique no campo e copie manualmente.', 'error');
     }
   }
 
   async function deleteInvite(inviteId) {
     const invite = invites.find(item => item.id === inviteId);
     if (!invite || invite.accepted_at || invite.canceled_at) return;
-    if (!confirm('Cancelar este convite? O link deixara de funcionar, mas o historico ficara visivel.')) return;
+    if (!confirm('Cancelar este convite? O link deixará de funcionar, mas o histórico ficará visível.')) return;
     try {
       await auth.authenticatedRequest(`/user_invites?id=eq.${inviteId}&accepted_at=is.null&canceled_at=is.null`, {
         method: 'PATCH',
@@ -1351,22 +1685,22 @@
     const resultEl = document.getElementById('linkResult');
 
     if (!canManageInvites()) {
-      showToast('Voce nao tem permissao para gerar convites.', 'error');
+      showToast('Você não tem permissão para gerar convites.', 'error');
       return;
     }
     if (!schoolId) { showToast('Selecione a escola do convite.', 'error'); return; }
-    if (!email) { showToast('Digite o e-mail do usuario.', 'error'); return; }
+    if (!email) { showToast('Digite o e-mail do usuário.', 'error'); return; }
     if (!['teacher', 'coordinator', 'print_operator', 'school_owner'].includes(role)) { showToast('Perfil invalido.', 'error'); return; }
     if (role === 'school_owner' && !auth.hasRole(['master'], currentProfile)) {
       showToast('Apenas o acesso master pode convidar dono da escola.', 'error');
       return;
     }
     if (auth.hasRole(['school_owner', 'coordinator'], currentProfile) && schoolId !== currentProfile.school_id) {
-      showToast('Voce so pode convidar usuarios para a sua escola.', 'error');
+      showToast('Você só pode convidar usuários para a sua escola.', 'error');
       return;
     }
     if (auth.hasRole(['coordinator'], currentProfile) && role !== 'teacher') {
-      showToast('Coordenacao pode convidar apenas professores.', 'error');
+      showToast('A coordenação pode convidar apenas professores.', 'error');
       return;
     }
 
@@ -1403,7 +1737,7 @@
 
   async function linkProfessor() {
     if (!auth.hasRole(['master'], currentProfile)) {
-      showToast('Apenas o acesso master pode vincular usuarios existentes.', 'error');
+      showToast('Apenas o acesso master pode vincular usuários existentes.', 'error');
       return;
     }
     const schoolId = document.getElementById('linkSchoolSelect').value;
@@ -1457,9 +1791,27 @@
 
   function renderGradeCheckboxesHtml(containerId, selected = [], school = null) {
     const chosen = new Set(normalizeGrades(selected));
-    return getSchoolClasses(school).map(g =>
-      `<label class="disc-check-label"><input type="checkbox" value="${esc(g)}" ${chosen.has(g) ? 'checked' : ''} />${esc(g)}</label>`
-    ).join('');
+    const groups = [
+      { label: 'Anos iniciais', classes: [] },
+      { label: 'Anos finais', classes: [] },
+      { label: 'Ensino Médio', classes: [] },
+      { label: 'Outras turmas', classes: [] },
+    ];
+    getSchoolClasses(school).forEach(grade => {
+      const normalized = String(grade || '').toUpperCase();
+      const yearMatch = normalized.match(/^(\d+)/);
+      const year = yearMatch ? Number(yearMatch[1]) : null;
+      if (/\bEM\b|ENSINO MÉDIO|ENSINO MEDIO/.test(normalized)) groups[2].classes.push(grade);
+      else if (year && year <= 5) groups[0].classes.push(grade);
+      else if (year && year <= 9) groups[1].classes.push(grade);
+      else groups[3].classes.push(grade);
+    });
+    const renderOption = grade => `<label class="disc-check-label"><input type="checkbox" value="${esc(grade)}" ${chosen.has(grade) ? 'checked' : ''} />${esc(grade)}</label>`;
+    return `<div class="choice-groups">${groups.filter(group => group.classes.length).map(group => `
+      <div class="choice-group">
+        <div class="choice-group-title">${esc(group.label)}</div>
+        <div class="choice-group-options">${group.classes.map(renderOption).join('')}</div>
+      </div>`).join('')}</div>`;
   }
 
   function renderGradeCheckboxes(containerId, selected = [], school = null) {
@@ -1472,7 +1824,7 @@
   }
 
   function esc(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   let toastTimer;

@@ -51,6 +51,12 @@ A fila é acessível a `master`, `school_owner` e `print_operator` (`AuthManager
 
 Em `schools.html`, escolas mantêm disciplinas e `schools.classes`; vínculos liberam disciplinas e turmas por `profiles.disciplines`/`school_grade`. Convites registram perfil, escola e escopo; cancelamento preserva o registro com `canceled_at`, e `accept_user_invite` recusa convites cancelados. Gestão de escolas e gestão de usuários têm permissões distintas em `js/auth.js`.
 
+A interface de `schools.html` é adaptada ao perfil. Para coordenação, a escola atual e o perfil de professor são implícitos no convite; a aba Equipe exibe somente professores da escola, deixa o e-mail nos detalhes de gerenciamento e destaca se faltam turmas, disciplinas ou ambas. Perfis administrativos mais amplos continuam vendo escola, papel e os demais grupos de acesso.
+
+A remoção de professor é uma desativação preservadora, definida em `migrations/20261019_05_desativacao_professor.sql`: pendências de revisão ou impressão bloqueiam a ação; depois da confirmação, escola, turmas e disciplinas são limpas e `profiles.is_active` fica falso. O usuário removido não pode acessar, criar ou editar provas, questões ou imagens, inclusive pessoais. Um novo convite aceito reativa a mesma conta, sem apagar autoria ou histórico.
+
+A interface de `schools.html` abre na equipe e separa equipe, convites e dados da escola por navegação interna. A faixa superior prioriza coordenação, professores, convites pendentes e acessos incompletos; o aviso de configuração só aparece enquanto faltarem escola, disciplinas, turmas, coordenação ou professor liberado. O formulário de convite abre sob demanda, turmas são agrupadas visualmente por segmento, ações sensíveis ficam dentro da gestão do usuário e o histórico de convites agrupa registros repetidos por e-mail, sem alterar permissões ou estados persistidos.
+
 ## Contratos de integração
 
 - `config.js` deve expor `window.CONFIG`, consumido por `initAuthManager()`; uma constante isolada não basta.

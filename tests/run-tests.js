@@ -557,6 +557,18 @@ async function main() {
     assert(sql.includes("(storage.foldername(name))[1] = auth.uid()::text"), 'storage writes should stay in the user folder');
   });
 
+  await test('teacher removal migration preserves data and blocks access', () => {
+    const sql = read('migrations/20261019_05_desativacao_professor.sql');
+    assert(sql.includes('ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE'), 'profile active flag missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.teacher_removal_preview'), 'teacher removal preview RPC missing');
+    assert(sql.includes('CREATE OR REPLACE FUNCTION public.deactivate_teacher_profile'), 'teacher deactivation RPC missing');
+    assert(sql.includes("COALESCE(review_status, 'rascunho') IN ('enviada', 'em_revisao')"), 'teacher removal should block active review work');
+    assert(sql.includes("COALESCE(print_status, 'nao_enviada') = 'enviada'"), 'teacher removal should block active print work');
+    assert(sql.includes('public.current_user_is_active() AND auth.uid() = user_id'), 'removed teacher should not create personal exams');
+    assert(sql.includes('is_active = TRUE, deactivated_at = NULL, deactivated_by = NULL'), 'a new accepted invite should reactivate the preserved account');
+    assert(!/DELETE\s+FROM\s+public\.profiles/i.test(sql), 'teacher removal must not delete the profile');
+  });
+
   await test('AuthManager exposes access profile helpers', () => {
     const auth = read('js/auth.js');
     assert(auth.includes('normalizeRole(role)'), 'role normalizer missing');
@@ -565,6 +577,8 @@ async function main() {
     assert(auth.includes("professor: 'teacher'"), 'teacher alias missing');
     assert(auth.includes("impressao: 'print_operator'"), 'print alias missing');
     assert(auth.includes('async loadCurrentProfile'), 'current profile loader missing');
+    assert(auth.includes('isProfileActive'), 'profile active access helper missing');
+    assert(auth.includes("login.html?access=removed"), 'inactive profiles should be returned to login');
     assert(auth.includes('canManageSchools'), 'school management helper missing');
     assert(auth.includes('canManageUsers'), 'user management helper missing');
     assert(auth.includes('canReviewExams'), 'exam review helper missing');
@@ -855,19 +869,23 @@ async function main() {
     assert(page.includes("auth.hasRole(['master', 'school_owner', 'coordinator'], currentProfile)"), 'master, school owner and coordinator should manage invites');
     assert(page.includes("auth.hasRole(['coordinator'], currentProfile) && role !== 'teacher'"), 'coordinator should only invite teachers');
     assert(page.includes('print_operator'), 'school page should support print operator role');
-    assert(page.includes('Impressao'), 'school page should label print operator role');
+    assert(page.includes('Impressão'), 'school page should label print operator role');
     assert(page.includes("role === 'school_owner' && !auth.hasRole(['master'], currentProfile)"), 'only master should invite school owner role');
     assert(page.includes("document.getElementById('linkProfBtn').style.display = 'none'"), 'existing-user linking should remain master-only');
-    assert(page.includes("Apenas o acesso master pode vincular usuarios existentes."), 'non-master existing-user linking should be blocked');
+    assert(page.includes("Apenas o acesso master pode vincular usuários existentes."), 'non-master existing-user linking should be blocked');
     assert(page.includes('Promover a coordenador(a)'), 'professor list should show promotion action');
     assert(page.includes("if (invite.canceled_at) return { key: 'canceled'"), 'school invites should show canceled status');
-    assert(page.includes('Convites cancelados'), 'school access summary should count canceled invites');
-    assert(page.includes('Gerenciar Escola'), 'school page should use singular management title');
-    assert(page.includes('Checklist da escola'), 'school checklist title should focus on the current school');
-    assert(page.includes('Cadastro da escola'), 'school readiness should call the first step school registration');
+    assert(page.includes('const canceledInvites ='), 'school access summary should count canceled invites');
+    assert(page.includes('<h1>Gestão escolar</h1>'), 'school page should use the module name consistently');
+    assert(page.includes('Configuração pendente'), 'school readiness should appear only as a pending setup notice');
+    assert(page.includes('Cadastrar a escola'), 'school readiness should call the first step school registration');
     assert(!page.includes('Definir responsavel'), 'school readiness should not ask the logged owner to define itself as responsible');
     assert(page.includes('Escola cadastrada'), 'school list label should be singular in school management');
-    assert(page.includes('Convidar ou vincular usuario a esta escola'), 'invite section should refer to this school');
+    assert(page.includes("title.textContent = fixedTeacherRole ? 'Convidar professor'"), 'coordinator invite section should use a direct title');
+    assert(page.includes("String(s ?? '')"), 'school page should preserve zero values in access summaries');
+    assert(page.includes("['Coordenação', counts.coordinator || 0, false]"), 'access summary should use readable role labels');
+    assert(page.includes('Histórico de convites'), 'school page should separate invite history');
+    assert(page.includes('Anos iniciais') && page.includes('Ensino Médio'), 'school class choices should be grouped by segment');
     assert(!page.includes("['Master', counts.master || 0]"), 'school access summary should not count master users');
     assert(page.includes('schoolReadinessSection') && page.includes('schoolReadinessList'), 'school page should show readiness checklist');
     assert(page.includes('function renderSchoolReadiness'), 'school page should compute onboarding readiness');
@@ -876,7 +894,24 @@ async function main() {
     assert(page.includes("title: 'Definir turmas'"), 'readiness should include class setup step');
     assert(page.includes("auth.normalizeRole(p.role) === 'coordinator'"), 'readiness should check coordinator assignment');
     assert(page.includes("auth.normalizeRole(p.role) === 'teacher'"), 'readiness should check teacher assignment');
-    assert(page.includes("inviteStatus(invite).key === 'pending'"), 'readiness should check active invites');
+    assert(!page.includes('const hasActiveInvite ='), 'school readiness should not require a permanently pending invite');
+    assert(page.includes('data-management-tab="teamPanel"') && page.includes('data-management-tab="invitesPanel"') && page.includes('data-management-tab="schoolPanel"'), 'school management should separate team, invites and school data');
+    assert(page.includes('function switchManagementTab'), 'school management tabs should switch existing content without changing business rules');
+    assert(page.includes('function openInviteComposer'), 'invite form should open only when requested');
+    assert(page.includes('Acessos incompletos'), 'school status should prioritize incomplete teacher access');
+    assert(page.includes("const coordinatorView = auth.hasRole(['coordinator'], currentProfile)"), 'school management should adapt the interface for coordinators');
+    assert(page.includes("schoolField.style.display = coordinatorView ? 'none' : ''"), 'coordinator invite should not ask for the current school');
+    assert(page.includes("fixedRole.style.display = 'none'"), 'coordinator invite should not repeat the fixed teacher role');
+    assert(page.includes('function getTeacherAccessStatus(profile)'), 'teacher list should explain incomplete access');
+    assert(page.includes("label: 'Faltam turmas e disciplinas'") && page.includes("label: 'Falta definir turmas'") && page.includes("label: 'Falta definir disciplinas'"), 'teacher access status should identify what is missing');
+    assert(page.includes('profile-contact"><strong>E-mail:</strong>'), 'coordinator should see professor email only in management details');
+    assert(page.includes("profs.filter(p => auth.normalizeRole(p.role) === 'teacher'"), 'coordinator team should focus on teachers from the current school');
+    assert(page.includes('function openTeacherRemoval(profId)'), 'school management should preview teacher removal');
+    assert(page.includes('/rpc/teacher_removal_preview'), 'teacher removal should load blockers before confirmation');
+    assert(page.includes('/rpc/deactivate_teacher_profile'), 'teacher removal should use the protected deactivation RPC');
+    assert(page.includes('não será possível criar nem editar provas pessoais'), 'teacher removal should explain the complete access block');
+    assert(!page.includes("onclick=\"unlinkProfessor("), 'legacy unlink action should be removed');
+    assert(page.includes('invite-email-group'), 'invite history should group repeated records by email');
     assert(page.includes('newSchoolCard') && page.includes("document.getElementById('newSchoolCard')"), 'school page should keep new school form targeted by id');
     assert(page.includes('navMasterLink'), 'school page should include master navigation tab');
     assert(page.includes('canceled_at:is.null') || page.includes('canceled_at=is.null'), 'cancel invite should target only active invites');
@@ -936,6 +971,8 @@ async function main() {
     assert(page.includes('function getInviteToken()'), 'login should read invite token');
     assert(page.includes('/rpc/accept_user_invite'), 'login should accept invite through RPC');
     assert(page.includes('await acceptPendingInvite()'), 'login should apply invite before redirect');
+    assert(page.includes('auth.isProfileActive(profile)'), 'login should reject inactive profiles');
+    assert(page.includes('Seu acesso ao sistema foi removido pela escola'), 'inactive profile should receive a clear login message');
   });
 
   await test('dashboard allows the current user to change password', () => {

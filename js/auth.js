@@ -255,7 +255,17 @@ class AuthManager {
   async loadCurrentProfile(select = 'id,email,full_name,role,school_id,school_grade,disciplines,force_password_change') {
     const user = this.getCurrentUser();
     if (!user?.id) return null;
-    const data = await this.authenticatedRequest(`/profiles?id=eq.${user.id}&select=${select}`);
+    const requestedFields = String(select || '').split(',').map(field => field.trim()).filter(Boolean);
+    const extendedFields = [...requestedFields];
+    if (!extendedFields.includes('is_active')) extendedFields.push('is_active');
+    if (!extendedFields.includes('deactivated_at')) extendedFields.push('deactivated_at');
+    let data;
+    try {
+      data = await this.authenticatedRequest(`/profiles?id=eq.${user.id}&select=${extendedFields.join(',')}`);
+    } catch (error) {
+      // Compatibilidade temporária enquanto a migração de desativação ainda não foi aplicada.
+      data = await this.authenticatedRequest(`/profiles?id=eq.${user.id}&select=${requestedFields.join(',')}`);
+    }
     if (this.currentUser?.id !== user.id) throw new Error('A conta foi alterada durante o carregamento.');
     const profile = Array.isArray(data) ? data[0] : null;
     this.currentProfile = profile ? { ...profile, normalized_role: this.normalizeRole(profile.role) } : null;
@@ -263,7 +273,16 @@ class AuthManager {
       this.session.profile = this.currentProfile;
       localStorage.setItem('supabase.auth.token', JSON.stringify(this.session));
     }
+    if (this.currentProfile?.is_active === false && typeof window !== 'undefined' && !/\/login\.html$/.test(window.location.pathname)) {
+      await this.signOut();
+      window.location.href = 'login.html?access=removed';
+      throw new Error('Este acesso foi removido pela escola.');
+    }
     return this.currentProfile;
+  }
+
+  isProfileActive(profile = this.currentProfile) {
+    return profile?.is_active !== false;
   }
 
   getCurrentProfile() {
