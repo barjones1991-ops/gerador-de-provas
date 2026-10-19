@@ -1282,6 +1282,18 @@ async function main() {
     assert(imageEngine.includes('cropW = displayCanvas.width') && imageEngine.includes('cropH = displayCanvas.height'), 'crop defaults must match the visible full-image selection');
   });
 
+  await test('mobile preview preserves the canonical A4 pagination', () => {
+    const editor = read('editor.html');
+    const print = read('print.html');
+    const tools = read('js/editor-tools.js');
+    assert(print.includes('-webkit-text-size-adjust: none;') && print.includes('text-size-adjust: none;'), 'mobile browsers must not auto-resize exam text');
+    assert(!print.includes('.info-grid, .student-grid { grid-template-columns: 1fr; }'), 'mobile width must not stack the printable header');
+    assert(!print.includes('.pv-header { flex-direction: column; }'), 'mobile width must not change the printable header direction');
+    assert(!print.includes('.two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }'), 'mobile width must not collapse printable question columns');
+    assert(editor.includes('js/editor-tools.js?v=20261019-layout1'), 'editor must invalidate the cached preview controller');
+    assert(tools.includes('print.html?preview=1&v=20261019-layout1'), 'canonical preview must load the fixed mobile layout revision');
+  });
+
   await test('image markers retain zero at the edge in both renderers', () => {
     const safety = require('../js/exam-safety.js');
     assert(safety.markerPosition(0) === 0, 'zero must not become the center');

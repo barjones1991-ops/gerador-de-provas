@@ -10,6 +10,10 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style data-exam-layout>
     * { box-sizing: border-box; }
+    html {
+      -webkit-text-size-adjust: none;
+      text-size-adjust: none;
+    }
     body {
       margin: 0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -365,20 +369,12 @@
       font-size: 14px;
     }
     @media (max-width: 700px) {
-      .page { margin: 0; padding: 24px 18px; width: 100%; box-shadow: none; }
       .toolbar { align-items: flex-start; }
       .toolbar-actions { width: 100%; display: grid; grid-template-columns: 1fr; }
       .btn { width: 100%; }
-      .info-grid, .student-grid { grid-template-columns: 1fr; }
-      .pv-header { align-items: flex-start; }
-      .pv-school { font-size: 22px; }
     }
     @media (max-width: 430px) {
       .toolbar { display: grid; grid-template-columns: 1fr; }
-      .page { padding: 18px 14px; }
-      .pv-header { flex-direction: column; }
-      .two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }
-      .chipbar { display: grid; grid-template-columns: 1fr; }
     }
     @media print {
       body { background: #fff; }

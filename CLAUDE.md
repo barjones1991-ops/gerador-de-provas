@@ -87,7 +87,7 @@ Contratos de conteúdo que não devem ser quebrados:
 - `wordSearchSeed` torna a disposição de caça-palavras determinística e deve ser compartilhada por editor, prévia, impressão, gabarito e validação;
 - imagens de questão/alternativa/item preservam `imageSize`, alinhamento, marcadores `x/y`, nomes e estruturas legadas; exclusão de alternativa deve ajustar imagem e índice do gabarito;
 - `expectedAnswer` é opcional e aparece no gabarito para formatos abertos; não inventar migração para campos já armazenados no JSON;
-- prévia canônica e impressão devem usar o mesmo conteúdo, paginação e regras de resposta. `js/exam-pagination.js` pagina somente regras de impressão, aguarda imagens e invalida renderizações antigas;
+- prévia canônica e impressão devem usar o mesmo conteúdo, paginação e regras de resposta. `js/exam-pagination.js` pagina somente regras de impressão, aguarda imagens e invalida renderizações antigas. A largura do dispositivo não pode reorganizar o conteúdo A4 nem acionar redimensionamento automático de texto; no celular, somente os controles externos respondem e a folha é reduzida proporcionalmente;
 - navegação por questão usa posição no array, não o número impresso. Seleção, busca, anterior/próxima e foco do iframe são comportamento de interface, não dados persistidos.
 
 O banco (`question_bank`) aceita escopo privado, escola ou público. A questão mantém autor; `school_id` só pode representar a escola do autor (exceto master). Ao alterar o banco, atualizar o editor, normalizador, prévia, gabarito e os testes correspondentes.
