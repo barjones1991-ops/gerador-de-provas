@@ -390,6 +390,7 @@
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/image-storage.js?v=20261019-assets1"></script>
+  <script src="js/image-engine.js?v=20261019-unified1"></script>
 <script>
   let auth = null;
   let currentProfile = null;
@@ -406,14 +407,11 @@
   const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
 
   function formatBytes(b) {
-    if (b < 1024) return b + ' B';
-    if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
-    return (b / 1024 / 1024).toFixed(1) + ' MB';
+    return window.ExamImageEngine.formatBytes(b);
   }
 
   function dataUrlBytes(dataUrl) {
-    const base64 = String(dataUrl || '').split(',')[1] || '';
-    return Math.round(base64.length * 3 / 4);
+    return window.ExamImageEngine.dataUrlBytes(dataUrl);
   }
 
   function isSafeImageDataUrl(dataUrl) {
@@ -430,39 +428,17 @@
   }
 
   function isAllowedImageFile(file) {
-    return !!file && ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
+    return window.ExamImageEngine.isAllowedFile(file);
   }
 
   function readCompressedLogo(file, onReady) {
-    if (!isAllowedImageFile(file)) { showToast('Selecione uma imagem PNG, JPG, WebP ou GIF.', 'error'); return; }
-    if (file.size > MAX_LOGO_FILE_BYTES) { showToast(`Logo muito grande. Use ate ${formatBytes(MAX_LOGO_FILE_BYTES)}.`, 'error'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const maxSide = 420;
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(img.width * scale));
-        canvas.height = Math.max(1, Math.round(img.height * scale));
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        let dataUrl = canvas.toDataURL('image/webp', 0.78);
-        if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', 0.78);
-        for (const quality of [0.68, 0.58]) {
-          if (dataUrlBytes(dataUrl) <= MAX_LOGO_DATA_URL_BYTES) break;
-          dataUrl = canvas.toDataURL('image/webp', quality);
-          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
-        }
-        if (!isSafeImageDataUrl(dataUrl) || dataUrlBytes(dataUrl) > MAX_LOGO_DATA_URL_BYTES) {
-          showToast(`Não foi possível reduzir a logo para até ${formatBytes(MAX_LOGO_DATA_URL_BYTES)}.`, 'error');
-          return;
-        }
-        onReady(dataUrl);
-      };
-      img.onerror = () => showToast('Não foi possível carregar esta imagem.', 'error');
-      img.src = String(reader.result || '');
-    };
-    reader.readAsDataURL(file);
+    window.ExamImageEngine.processFile(file, {
+      maxFileBytes: MAX_LOGO_FILE_BYTES,
+      maxOutputBytes: MAX_LOGO_DATA_URL_BYTES,
+      maxSide: 420,
+      quality: 0.78,
+      qualitySteps: [0.68, 0.58],
+    }).then(result => onReady(result.dataUrl)).catch(error => showToast(error.message, 'error'));
   }
 
   document.addEventListener('DOMContentLoaded', async () => {

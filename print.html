@@ -65,6 +65,11 @@
     .questions { margin-top: 22px; display: grid; gap: 22px; }
     .question-block { break-inside: avoid; page-break-inside: avoid; border-bottom:1px solid #dbe2ea; padding-bottom:12px; }
     .question-block:last-child { border-bottom:0; padding-bottom:0; }
+    .pagedjs_pagebox { position:relative; }
+    .exam-decoration-layer { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:20; }
+    .exam-decoration { position:absolute; transform-origin:center; }
+    .exam-decoration img { display:block; width:100%; height:auto; max-width:none; }
+    .embedded-preview.decoration-editing .exam-decoration-layer { visibility:hidden; }
     .free-image-item { position: relative; float: left; margin: 4px 14px 8px 0; border: 0; background: transparent; shape-outside: margin-box; }
     .free-image-item.right { float: right; margin: 4px 0 8px 14px; }
     .free-image-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -459,7 +464,8 @@
   </style>
 <script>window.PagedConfig = { auto:false };</script>
   <script defer src="js/vendor/paged-0.4.3.js"></script>
-  <script defer src="js/exam-pagination.js?v=20261005-layout-race1"></script>
+  <script defer src="js/exam-decorations.js?v=20261019-decor1"></script>
+  <script defer src="js/exam-pagination.js?v=20261019-decor1"></script>
   <link rel="stylesheet" href="css/exam-pagination.css?v=20261005-layout-race1">
 </head>
 <body>
@@ -552,13 +558,17 @@
         if (problems.length) throw new Error(problems.join('\n'));
         const imageStorage = window.ExamImageStorage;
         imageStorage?.configure(printAuth, fresh.id);
-        const resolved = imageStorage ? await imageStorage.resolveTree({ questions: fresh.questions || [], logo_data_url: fresh.logo_data_url || '' }, { auth: printAuth, scope: fresh.id }) : fresh;
+        const resolved = imageStorage ? await imageStorage.resolveTree({ questions: fresh.questions || [], logo_data_url: fresh.logo_data_url || '', decorative_images: fresh.decorative_images || [] }, { auth: printAuth, scope: fresh.id }) : fresh;
         fresh.questions = resolved.questions;
         fresh.logo_data_url = resolved.logo_data_url;
+        fresh.decorative_images = globalThis.ExamDecorations?.normalizeList
+          ? globalThis.ExamDecorations.normalizeList(resolved.decorative_images)
+          : (Array.isArray(resolved.decorative_images) ? resolved.decorative_images : []);
         currentExam = fresh; printProfile = profile; renderExam(currentExam); updatePrintToolbar(currentExam, printAuth, profile);
         await waitForPrintableImages(imageStorage);
         if (document.fonts?.ready) await document.fonts.ready;
         await window.ExamPagination?.ready();
+        await waitForPrintableImages(imageStorage, '#paper-preview .exam-decoration img');
         if (printAuth.getCurrentUser()?.id !== printViewerId) throw new Error('A conta mudou durante a preparação. Reabra a prova.');
         const originalTitle = document.title;
         document.title = ' ';
@@ -569,9 +579,9 @@
       finally { printing = false; }
     }
 
-    async function waitForPrintableImages(imageStorage) {
+    async function waitForPrintableImages(imageStorage, selector = '#root img') {
       const failed = [];
-      await Promise.all([...document.querySelectorAll('#root img')].map(async (img, index) => {
+      await Promise.all([...document.querySelectorAll(selector)].map(async (img, index) => {
         const decode = () => img.decode ? img.decode() : new Promise((resolve, reject) => {
           if (img.complete && img.naturalWidth) return resolve();
           img.addEventListener('load', resolve, { once: true });
@@ -1404,10 +1414,16 @@
           instructions: exam.school.instructions,
           questions: exam.questions || [],
           logo_data_url: exam.logoDataUrl || '',
+          decorative_images: exam.decorativeImages || [],
         };
       }
       return exam;
     }
+
+    window.renderExamDecorations = root => globalThis.ExamDecorations?.renderPaged?.(
+      root,
+      normalizeExam(currentExam || {}).decorative_images || []
+    );
 
     function fitQuestionImages() {
       document.querySelectorAll('#root .question-image img').forEach(img => {
@@ -1607,9 +1623,12 @@
       currentExam = data[0];
       const imageStorage = window.ExamImageStorage;
       imageStorage?.configure(auth, id);
-      const resolved = imageStorage ? await imageStorage.resolveTree({ questions: currentExam.questions || [], logo_data_url: currentExam.logo_data_url || '' }, { auth, scope: id }) : currentExam;
+      const resolved = imageStorage ? await imageStorage.resolveTree({ questions: currentExam.questions || [], logo_data_url: currentExam.logo_data_url || '', decorative_images: currentExam.decorative_images || [] }, { auth, scope: id }) : currentExam;
       currentExam.questions = resolved.questions;
       currentExam.logo_data_url = resolved.logo_data_url;
+      currentExam.decorative_images = globalThis.ExamDecorations?.normalizeList
+        ? globalThis.ExamDecorations.normalizeList(resolved.decorative_images)
+        : (Array.isArray(resolved.decorative_images) ? resolved.decorative_images : []);
       updatePrintToolbar(currentExam, auth, profile);
       if (auth.hasRole(['print_operator'], profile) && data[0].print_status === 'impressa') {
         showMessage('PDF bloqueado', 'Esta prova ja foi marcada como impressa. Para imprimir novamente, peça um novo envio da coordenação.');
@@ -1629,10 +1648,22 @@
       if (new URLSearchParams(location.search).get('preview') === '1' && window.parent !== window) {
         document.documentElement.classList.add('embedded-preview-root');
         document.body.classList.add('embedded-preview');
+        let previewScrollFrame = 0;
+        window.addEventListener('scroll', () => {
+          if (previewScrollFrame) return;
+          previewScrollFrame = requestAnimationFrame(() => {
+            previewScrollFrame = 0;
+            window.parent.postMessage({ type: 'exam-preview-scroll' }, location.origin);
+          });
+        }, { passive:true });
         window.addEventListener('message', event => {
           if (event.origin !== location.origin || event.source !== window.parent) return;
           try {
             if (event.data?.type === 'exam-preview-focus') { focusPreviewQuestion(event.data.index); return; }
+            if (event.data?.type === 'exam-preview-decoration-editing') {
+              document.body.classList.toggle('decoration-editing', Boolean(event.data.enabled));
+              return;
+            }
             const context = previewContextFromMessage(event.data);
             if (event.data?.type === 'exam-preview-patch') { patchPreviewQuestion(event.data.index, event.data.question, context); return; }
             if (event.data?.type !== 'exam-preview') return;

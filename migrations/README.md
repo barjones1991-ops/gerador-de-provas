@@ -6,6 +6,12 @@ A migração 01 acompanha o frontend publicado em `a518f8c`. A migração 02 int
 
 ## Atualizar um ambiente existente
 
+### Decoração livre da prova (migração 09)
+
+Depois das migrações 07 e 08, execute `supabase/migrations/20261019190000_decoracoes_prova.sql` inteiro. A migração acrescenta `exams.decorative_images`, uma lista JSON separada das questões. Cada item guarda página, posição e tamanho, enquanto o arquivo continua no bucket privado e é vinculado à prova pelo gatilho de imagens já existente. O script não altera questões nem cria imagens.
+
+Após aplicar, teste a inclusão, movimentação, redimensionamento, recorte, reabertura, duplicação e impressão de uma prova de teste com mais de uma página. Mudanças no conteúdo podem alterar a paginação; o editor mantém a página escolhida e exige conferência visual antes do envio.
+
 ### Imagens centralizadas e cópias independentes (migração 07)
 
 Depois das migrações 04, 05 e 06, execute `supabase/migrations/20261019173319_centralizar_imagens.sql` inteiro. A migração cria `image_assets` e vínculos internos para provas, questões e escolas. Novas referências usam `asset://UUID`; referências `storage://` permanecem legíveis para compatibilidade. Uma imagem introduzida em outro documento precisa pertencer ao usuário que realiza a operação, impedindo que uma duplicação apenas compartilhe o arquivo de origem.
@@ -89,6 +95,10 @@ O nome impresso é editável e serve apenas como apoio à conferência. Havendo 
 Provas pessoais ficam com `school_id = NULL`. Reaplicar a migração ou o setup não vincula essas provas a uma escola adquirida posteriormente. O registro em `schema_migrations` controla esse preenchimento único; não remova esse registro para forçar reaplicação.
 
 Depois da aplicação, confira que a escola A ainda acessa a prova antiga após transferir seu autor para B, que B não a acessa e que uma prova nova pertence a B. Confira também desvinculação, prova pessoal, limite de turma da coordenação e conclusão de impressão pela escola de origem.
+
+## Migrações de imagens de 19/10/2026
+
+As migrações em `supabase/migrations/` centralizam arquivos no Storage, adicionam as imagens decorativas por página e corrigem a leitura do registro recém-criado pelo proprietário. A migração `20261019200000_corrigir_leitura_imagens_proprias.sql` é necessária porque o Data API usa `INSERT ... RETURNING`: a política de `SELECT` precisa reconhecer diretamente `owner_id = auth.uid()` antes de consultar os vínculos de conteúdo. A migração `20261019210000_persistir_revisao_decoracoes.sql` guarda o aviso de revisão quando uma alteração de conteúdo pode deslocar as imagens entre páginas; o aviso só é encerrado ao concluir a revisão.
 
 ## Verificação local
 

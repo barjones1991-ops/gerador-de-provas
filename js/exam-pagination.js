@@ -83,10 +83,15 @@
         if (!enabled || version !== revision) { stage.remove(); continue; }
         output.replaceChildren(...stage.childNodes);
         stage.remove();
+        window.renderExamDecorations?.(output);
         document.body.classList.add('paper-ready');
         failed = null;
         output.removeAttribute('aria-busy');
         reportSuggestion(detectSpaceSuggestion(), context);
+        if (window.parent && window.parent !== window && typeof window.parent.postMessage === 'function') window.parent.postMessage({
+          type: 'exam-preview-paginated',
+          pages: output.querySelectorAll('.pagedjs_page').length,
+        }, location.origin);
         if (focusIndex !== null) window.focusPreviewQuestion(focusIndex);
         break;
       } catch (error) {

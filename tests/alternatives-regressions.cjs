@@ -225,9 +225,11 @@ for(const question of [
  sizes.event(remove,'click'); assert(control.hidden,question.type+' oculta tamanho ao remover');
  sizes.run('readImageFile=(file,done)=>done("data:image/png;base64,BB==",file.name,1)');
  const fileInput=picker.querySelector('input[type="file"]'); fileInput.files=[{name:'nova.png'}]; sizes.event(fileInput,'change');
+ await new Promise(resolve=>setImmediate(resolve));
  assert(!control.hidden,question.type+' mostra tamanho depois do envio');
  select.value='medium'; sizes.event(select,'change');
  fileInput.files=[{name:'substituta.png'}]; sizes.event(fileInput,'change');
+ await new Promise(resolve=>setImmediate(resolve));
  assert.equal(select.value,'medium',question.type+' substituição preserva tamanho');
 }
 console.log('OK TAMANHO POR ITEM alternativas, afirmações, sequência, legenda, grade, relações e comparação: salvar, imprimir, reabrir e remover');

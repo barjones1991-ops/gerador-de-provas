@@ -6,7 +6,9 @@
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-math-combined"></script>
   <script src="js/image-storage.js?v=20261019-assets1"></script>
-  <script src="js/editor-tools.js?v=20261005-layout-race1"></script>
+  <script src="js/image-engine.js?v=20261019-unified2"></script>
+  <script src="js/exam-decorations.js?v=20261019-decor1"></script>
+  <script src="js/editor-tools.js?v=20261019-decor3"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1502,7 +1504,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20261005-layout-race1" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20261019-decor3" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -2386,6 +2388,7 @@
       availableClasses: [],
       logoDataUrl: '',
       logoFileName: '',
+      decorativeImages: [],
       questions: [],
       collapsedQuestions: {},
       activeQuestionIndex: null,
@@ -2413,6 +2416,8 @@
       state.availableClasses = [];
       state.logoDataUrl = '';
       state.logoFileName = '';
+      state.decorativeImages = [];
+      decorationsNeedReview = false;
       state.questions = [];
       state.activeQuestionIndex = null;
       state.collapsedQuestions = {};
@@ -2489,19 +2494,17 @@
     }
 
     function formatBytes(b) {
-      if (b < 1024) return b + ' B';
-      if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
-      return (b / 1024 / 1024).toFixed(1) + ' MB';
+      return window.ExamImageEngine.formatBytes(b);
     }
 
     function dataUrlBytes(dataUrl) {
-      const base64 = dataUrl.split(',')[1] || '';
-      return Math.round(base64.length * 3 / 4);
+      return window.ExamImageEngine.dataUrlBytes(dataUrl);
     }
 
     const MAX_IMAGE_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
     const MAX_IMAGE_DATA_URL_BYTES = 850 * 1024;
     const MAX_EXAM_IMAGE_BYTES = 25 * 1024 * 1024;
+    const MAX_DECORATIVE_IMAGES = 50;
     const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
 
     function isSafeImageDataUrl(dataUrl) {
@@ -2518,29 +2521,12 @@
     }
 
     function isAllowedImageFile(file) {
-      return !!file && ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
+      return window.ExamImageEngine.isAllowedFile(file);
     }
 
     function imagePayloadBytes() {
-      const payload = JSON.stringify({ logoDataUrl: state.logoDataUrl, questions: state.questions });
+      const payload = JSON.stringify({ logoDataUrl: state.logoDataUrl, decorativeImages: state.decorativeImages, questions: state.questions });
       return new Blob([payload]).size;
-    }
-
-    function compressDataUrl(dataUrl, quality, maxSide = 1400) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          let out = canvas.toDataURL('image/webp', quality);
-          if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', quality);
-          resolve(out);
-        };
-        img.src = dataUrl;
-      });
     }
 
     function createMarkerPositioner(q, index, onChange) {
@@ -2620,359 +2606,57 @@
     }
 
     function readImageFile(file, onReady, options = {}) {
-      const fail = message => { if (options.onError) options.onError(new Error(message)); else window.alert(message); };
-      if (!isAllowedImageFile(file)) {
-        fail('Selecione uma imagem PNG, JPG, WebP ou GIF.');
-        return;
-      }
-      if (file.size > MAX_IMAGE_FILE_BYTES) {
-        fail(`Imagem muito grande. Use um arquivo de ate ${formatBytes(MAX_IMAGE_FILE_BYTES)}.`);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const maxSide = options.maxSide || 1400;
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const maxOutputBytes = options.maxOutputBytes || MAX_IMAGE_DATA_URL_BYTES;
-          let quality = options.quality || 0.82;
-          let dataUrl = canvas.toDataURL('image/webp', quality);
-          if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
-          for (const nextQuality of [0.72, 0.62, 0.52]) {
-            if (dataUrlBytes(dataUrl) <= maxOutputBytes) break;
-            quality = nextQuality;
-            dataUrl = canvas.toDataURL('image/webp', quality);
-            if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/jpeg', quality);
-          }
-          const bytes = dataUrlBytes(dataUrl);
-          if (!isSafeImageDataUrl(dataUrl) || bytes > maxOutputBytes) {
-            fail(`Nao foi possivel reduzir esta imagem para ate ${formatBytes(maxOutputBytes)}.`);
-            return;
-          }
-          if (EditorTools.canEdit()) onReady(dataUrl, file.name, bytes);
-          else fail('A edição não está mais disponível. Reabra a questão.');
-        };
-        img.onerror = () => fail('Nao foi possivel carregar esta imagem.');
-        img.src = String(reader.result || '');
-      };
-      reader.onerror = () => fail('Não foi possível ler o arquivo.');
-      reader.onabort = () => fail('Leitura cancelada.');
-      reader.readAsDataURL(file);
+      window.ExamImageEngine.processFile(file, {
+        maxFileBytes: MAX_IMAGE_FILE_BYTES,
+        maxOutputBytes: options.maxOutputBytes || MAX_IMAGE_DATA_URL_BYTES,
+        maxSide: options.maxSide || 1400,
+        quality: options.quality || 0.82,
+        canEdit: () => EditorTools.canEdit(),
+      }).then(result => onReady(result.dataUrl, result.fileName, result.bytes)).catch(error => {
+        if (options.onError) options.onError(error);
+        else window.alert(error.message);
+      });
     }
 
     function rotateImageDataUrl(dataUrl, degrees) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const rad = (degrees * Math.PI) / 180;
-          if (degrees === 90 || degrees === 270) {
-            canvas.width = img.height;
-            canvas.height = img.width;
-          } else {
-            canvas.width = img.width;
-            canvas.height = img.height;
-          }
-          const ctx = canvas.getContext('2d');
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate(rad);
-          ctx.drawImage(img, -img.width / 2, -img.height / 2);
-          let out = canvas.toDataURL('image/webp', 0.82);
-          if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.82);
-          resolve(out);
-        };
-        img.src = dataUrl;
-      });
+      return window.ExamImageEngine.rotate(dataUrl, degrees);
     }
 
     function openCropModal(dataUrl, onConfirm) {
-      if (!EditorTools.canEdit()) return;
-      const events = new AbortController();
-      const overlay = document.createElement('div');
-      overlay.className = 'crop-modal-overlay';
-
-      const box = document.createElement('div');
-      box.className = 'crop-modal-box';
-      box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Recortar imagem');
-      const close = () => { events.abort(); overlay.remove(); EditorTools.closeModal(); };
-      overlay.dismiss = close;
-
-      const title = document.createElement('div');
-      title.className = 'crop-modal-title';
-      title.textContent = 'Recortar imagem — arraste para selecionar a área';
-
-      const canvasWrap = document.createElement('div');
-      canvasWrap.className = 'crop-canvas-wrap';
-
-      const displayCanvas = document.createElement('canvas');
-      const selDiv = document.createElement('div');
-      selDiv.className = 'crop-selection';
-      selDiv.style.display = 'none';
-      canvasWrap.appendChild(displayCanvas);
-      canvasWrap.appendChild(selDiv);
-
-      const img = new Image();
-      img.onload = () => {
-        const MAX = 640;
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-        displayCanvas.width = Math.round(img.width * scale);
-        displayCanvas.height = Math.round(img.height * scale);
-        displayCanvas.getContext('2d').drawImage(img, 0, 0, displayCanvas.width, displayCanvas.height);
-        canvasWrap.dataset.scale = scale;
-        canvasWrap.dataset.origW = img.width;
-        canvasWrap.dataset.origH = img.height;
-      };
-      img.src = dataUrl;
-
-      let startX = 0, startY = 0, isDragging = false;
-      let cropX = 0, cropY = 0, cropW = 0, cropH = 0;
-
-      const getPos = (e) => {
-        const rect = displayCanvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return {
-          x: Math.max(0, Math.min(displayCanvas.width, Math.round((clientX - rect.left) * (displayCanvas.width / rect.width)))),
-          y: Math.max(0, Math.min(displayCanvas.height, Math.round((clientY - rect.top) * (displayCanvas.height / rect.height)))),
-        };
-      };
-
-      displayCanvas.addEventListener('pointerdown', (e) => {
-        const p = getPos(e);
-        startX = p.x; startY = p.y; isDragging = true;
-        selDiv.style.display = 'block';
+      return window.ExamImageEngine.openCrop(dataUrl, onConfirm, {
+        canEdit: () => EditorTools.canEdit(),
+        openModal: overlay => EditorTools.openModal(overlay),
+        closeModal: () => EditorTools.closeModal(),
+        showError: message => showToast(message, 'err'),
       });
-      document.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-        const p = getPos(e);
-        cropX = Math.min(startX, p.x); cropY = Math.min(startY, p.y);
-        cropW = Math.abs(p.x - startX); cropH = Math.abs(p.y - startY);
-        const rect = displayCanvas.getBoundingClientRect();
-        const scaleX = rect.width / displayCanvas.width;
-        const scaleY = rect.height / displayCanvas.height;
-        selDiv.style.left = (cropX * scaleX) + 'px';
-        selDiv.style.top = (cropY * scaleY) + 'px';
-        selDiv.style.width = (cropW * scaleX) + 'px';
-        selDiv.style.height = (cropH * scaleY) + 'px';
-      }, { signal: events.signal });
-      document.addEventListener('pointerup', () => { isDragging = false; }, { signal: events.signal });
-
-      const btnBar = document.createElement('div');
-      btnBar.className = 'crop-modal-btns';
-
-      const confirmBtn = document.createElement('button');
-      confirmBtn.className = 'primary';
-      confirmBtn.textContent = '✂️ Confirmar recorte';
-      confirmBtn.type = 'button';
-      confirmBtn.addEventListener('click', () => {
-        if (cropW < 4 || cropH < 4) {
-          showToast('Selecione uma área de recorte primeiro.', 'err');
-          return;
-        }
-        const scale = parseFloat(canvasWrap.dataset.scale || '1');
-        const origX = Math.round(cropX / scale);
-        const origY = Math.round(cropY / scale);
-        const origW = Math.round(cropW / scale);
-        const origH = Math.round(cropH / scale);
-        const cropCanvas = document.createElement('canvas');
-        cropCanvas.width = origW;
-        cropCanvas.height = origH;
-        const srcImg = new Image();
-        srcImg.onload = () => {
-          cropCanvas.getContext('2d').drawImage(srcImg, origX, origY, origW, origH, 0, 0, origW, origH);
-          let out = cropCanvas.toDataURL('image/webp', 0.82);
-          if (!out.startsWith('data:image/webp')) out = cropCanvas.toDataURL('image/jpeg', 0.82);
-          close();
-          if (EditorTools.canEdit()) onConfirm(out);
-        };
-        srcImg.src = dataUrl;
-      });
-
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'outline';
-      cancelBtn.textContent = 'Cancelar';
-      cancelBtn.type = 'button';
-      cancelBtn.addEventListener('click', close);
-
-      const hint = document.createElement('div');
-      hint.className = 'small';
-      hint.textContent = 'Clique e arraste sobre a imagem para marcar a área de recorte.';
-
-      btnBar.appendChild(confirmBtn);
-      btnBar.appendChild(cancelBtn);
-      box.appendChild(title);
-      box.appendChild(hint);
-      box.appendChild(canvasWrap);
-      const numeric = document.createElement('div'); numeric.className = 'row two';
-      const controls = {};
-      for (const [key, labelText, value] of [['x','Esquerda (%)',0], ['y','Topo (%)',0], ['w','Largura (%)',100], ['h','Altura (%)',100]]) {
-        const label = document.createElement('label'); label.textContent = labelText;
-        const input = document.createElement('input'); input.type = 'number'; input.min = 0; input.max = 100; input.value = value; controls[key] = input;
-        input.addEventListener('input', () => {
-          const val = name => Math.max(0, Math.min(100, Number(controls[name].value) || 0)) / 100;
-          cropX = val('x') * displayCanvas.width; cropY = val('y') * displayCanvas.height;
-          cropW = Math.min(val('w') * displayCanvas.width, displayCanvas.width - cropX);
-          cropH = Math.min(val('h') * displayCanvas.height, displayCanvas.height - cropY);
-          selDiv.style.display = 'block'; selDiv.style.left = `${val('x') * 100}%`; selDiv.style.top = `${val('y') * 100}%`;
-          selDiv.style.width = `${cropW / displayCanvas.width * 100}%`; selDiv.style.height = `${cropH / displayCanvas.height * 100}%`;
-        });
-        label.appendChild(input); numeric.appendChild(label);
-      }
-      box.appendChild(numeric);
-      box.appendChild(btnBar);
-      overlay.appendChild(box);
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-      document.body.appendChild(overlay);
-      EditorTools.openModal(overlay);
     }
 
     function createImagePicker({ getImage, setImage, clearImage, getSize, setSize }) {
-      const wrap = document.createElement('div');
-      wrap.className = 'row image-picker';
-      const fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'image/*';
-      fileInput.className = 'visually-hidden';
-
-      const drop = document.createElement('div');
-      drop.className = 'image-drop';
-      drop.setAttribute('role', 'button');
-      drop.tabIndex = 0;
-      drop.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (EditorTools.canEdit()) fileInput.click(); }
+      return window.ExamImageEngine.createPicker({
+        getImage,
+        setImage,
+        clearImage,
+        getSize,
+        setSize,
+        canEdit: () => EditorTools.canEdit(),
+        processFile: file => new Promise((resolve, reject) => {
+          readImageFile(file, (dataUrl, fileName, bytes) => resolve({ dataUrl, fileName, bytes }), { onError: reject });
+        }),
+        onChange: () => renderPreview(),
+        onError: error => window.alert(error.message),
+        processing: {
+          maxFileBytes: MAX_IMAGE_FILE_BYTES,
+          maxOutputBytes: MAX_IMAGE_DATA_URL_BYTES,
+          maxSide: 1400,
+        },
+        modal: {
+          canEdit: () => EditorTools.canEdit(),
+          openModal: overlay => EditorTools.openModal(overlay),
+          closeModal: () => EditorTools.closeModal(),
+          showError: message => showToast(message, 'err'),
+        },
       });
-
-      const sizeInfo = document.createElement('div');
-      sizeInfo.className = 'img-size-info';
-      const sizeControl = document.createElement('label'); sizeControl.className = 'item-image-size-control';
-      sizeControl.appendChild(document.createTextNode('Tamanho'));
-      const sizeSelect = document.createElement('select'); sizeSelect.setAttribute('aria-label', 'Tamanho da imagem');
-      sizeSelect.innerHTML = '<option value="small">Pequena</option><option value="medium">Média</option><option value="large">Grande</option>';
-      sizeControl.appendChild(sizeSelect);
-      sizeSelect.addEventListener('change', () => {
-        if (!EditorTools.canEdit() || !setSize) return;
-        setSize(sizeSelect.value); renderPreview();
-      });
-
-      const refresh = () => {
-        const image = getImage();
-        const hasImg = !!image.dataUrl;
-        sizeControl.hidden = !hasImg || !setSize;
-        sizeSelect.value = getSize?.() || 'small';
-        drop.setAttribute('aria-label', hasImg ? 'Substituir imagem' : 'Selecionar imagem do computador');
-        drop.innerHTML = hasImg
-          ? `<img ${safeImageAttr(image.dataUrl)} alt="${esc(image.fileName || 'Imagem da questao')}" />`
-          : '<div><strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span></div>';
-        [rotateLeftBtn, rotateRightBtn, cropBtn, removeBtn].forEach(b => {
-          b.style.display = hasImg ? '' : 'none';
-        });
-        if (hasImg) {
-          const bytes = dataUrlBytes(image.dataUrl);
-          const label = formatBytes(bytes);
-          sizeInfo.textContent = label;
-          sizeInfo.className = bytes > 600 * 1024 ? 'img-size-warn' : 'img-size-info';
-          if (bytes > 600 * 1024) sizeInfo.textContent += ' pesado';
-          drop.appendChild(sizeInfo);
-        } else {
-          sizeInfo.textContent = '';
-        }
-      };
-
-      const applyFile = (file) => readImageFile(file, (dataUrl, fileName, bytes) => {
-        setImage(dataUrl, fileName);
-        if (setSize && !getSize?.()) setSize('small');
-        refresh();
-        renderPreview();
-      });
-
-      drop.addEventListener('click', () => fileInput.click());
-      drop.addEventListener('dragover', (event) => { event.preventDefault(); drop.classList.add('dragover'); });
-      drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
-      drop.addEventListener('drop', (event) => {
-        event.preventDefault();
-        drop.classList.remove('dragover');
-        applyFile(event.dataTransfer.files && event.dataTransfer.files[0]);
-      });
-      fileInput.addEventListener('change', (event) => {
-        applyFile(event.target.files && event.target.files[0]);
-        event.target.value = '';
-      });
-
-      const actions = document.createElement('div');
-      actions.className = 'image-actions';
-      const rotateLeftBtn = document.createElement('button');
-      rotateLeftBtn.type = 'button'; rotateLeftBtn.className = 'outline';
-      rotateLeftBtn.textContent = '↶';
-      rotateLeftBtn.title = 'Girar 90° para a esquerda';
-      rotateLeftBtn.style.display = 'none';
-      rotateLeftBtn.addEventListener('click', () => {
-        const img = getImage();
-        if (!img.dataUrl) return;
-        rotateLeftBtn.disabled = true;
-        rotateImageDataUrl(img.dataUrl, 270).then(out => {
-          if (EditorTools.canEdit()) setImage(out, img.fileName);
-          refresh(); renderPreview();
-          rotateLeftBtn.disabled = false;
-        });
-      });
-
-      const rotateRightBtn = document.createElement('button');
-      rotateRightBtn.type = 'button'; rotateRightBtn.className = 'outline';
-      rotateRightBtn.textContent = '↷';
-      rotateRightBtn.title = 'Girar 90° para a direita';
-      rotateRightBtn.style.display = 'none';
-      rotateRightBtn.addEventListener('click', () => {
-        const img = getImage();
-        if (!img.dataUrl) return;
-        rotateRightBtn.disabled = true;
-        rotateImageDataUrl(img.dataUrl, 90).then(out => {
-          if (EditorTools.canEdit()) setImage(out, img.fileName);
-          refresh(); renderPreview();
-          rotateRightBtn.disabled = false;
-        });
-      });
-
-      const cropBtn = document.createElement('button');
-      cropBtn.type = 'button'; cropBtn.className = 'outline';
-      cropBtn.textContent = '✂';
-      cropBtn.title = 'Recortar imagem';
-      cropBtn.style.display = 'none';
-      cropBtn.addEventListener('click', () => {
-        const img = getImage();
-        if (!img.dataUrl) return;
-        openCropModal(img.dataUrl, (croppedUrl) => {
-          setImage(croppedUrl, img.fileName);
-          refresh(); renderPreview();
-        });
-      });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button'; removeBtn.className = 'danger';
-      removeBtn.textContent = '×';
-      removeBtn.title = 'Remover imagem';
-      removeBtn.style.display = 'none';
-      removeBtn.addEventListener('click', () => {
-        clearImage(); refresh(); renderPreview();
-      });
-      actions.appendChild(rotateLeftBtn);
-      actions.appendChild(rotateRightBtn);
-      actions.appendChild(cropBtn);
-      actions.appendChild(removeBtn);
-
-      refresh();
-      wrap.appendChild(drop);
-      wrap.appendChild(fileInput);
-      wrap.appendChild(actions);
-      if (setSize) wrap.appendChild(sizeControl);
-      return wrap;
     }
-
     function renderQuestionsEditor() {
       // Test coverage markers for the grouped question editor:
       // secEnun.textContent = 'Enunciado'
@@ -6172,8 +5856,490 @@
     }
 
     function renderPreview() {
+      if (autoSaveReady && !decorationMode && state.decorativeImages.length) {
+        decorationsNeedReview = true;
+        updateDecorationReviewCue();
+      }
       EditorTools.changed();
     }
+
+    let decorationMode = false;
+    let selectedDecorationId = null;
+    let decorationPageCount = 1;
+    let replacingDecoration = false;
+    let decorationsNeedReview = false;
+    let decorationOperationBusy = false;
+    let pendingDecorationRevealId = null;
+
+    function updateDecorationReviewCue() {
+      const button = document.getElementById('decorationModeBtn');
+      if (!button) return;
+      button.textContent = decorationsNeedReview ? 'Revisar decoração' : 'Decorar prova';
+      button.classList.toggle('needs-review', decorationsNeedReview);
+    }
+
+    function selectedDecoration() {
+      return state.decorativeImages.find(item => item.id === selectedDecorationId) || null;
+    }
+
+    function selectedDecorationVisible() {
+      const selected = selectedDecoration();
+      if (!selected || !decorationMode) return Boolean(selected);
+      const element = [...document.querySelectorAll('.decoration-editor-item')]
+        .find(node => node.dataset.decorationId === selected.id);
+      const viewport = document.querySelector('.preview-scroll');
+      if (!element || !viewport) return false;
+      const rect = element.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      return rect.right > viewportRect.left && rect.left < viewportRect.right
+        && rect.bottom > viewportRect.top && rect.top < viewportRect.bottom;
+    }
+
+    function decorationChanged() {
+      if (decorationMode && selectedDecoration()) pendingDecorationRevealId = selectedDecorationId;
+      decorationsNeedReview = false;
+      updateDecorationReviewCue();
+      EditorTools.forceSnapshot = true;
+      EditorTools.changed();
+      refreshDecorationLayer();
+    }
+
+    function updateDecorationControls() {
+      const selected = selectedDecoration();
+      const selectedVisible = selectedDecorationVisible();
+      const pageSelect = document.getElementById('decorationPage');
+      if (!pageSelect) return;
+      pageSelect.replaceChildren(...Array.from({ length: Math.max(1, decorationPageCount) }, (_, index) => {
+        const option = document.createElement('option');
+        option.value = String(index + 1);
+        option.textContent = String(index + 1);
+        return option;
+      }));
+      pageSelect.value = String(Math.min(selected?.page || 1, Math.max(1, decorationPageCount)));
+      ['decorationPage','decorationRotateLeft','decorationRotateRight','decorationCrop','replaceDecorationBtn','removeDecorationBtn']
+        .forEach(id => { const control = document.getElementById(id); if (control) control.disabled = !selected || !selectedVisible || !EditorTools.canEdit() || decorationOperationBusy; });
+      const add = document.getElementById('addDecorationBtn');
+      if (add) {
+        add.disabled = !EditorTools.canEdit() || decorationOperationBusy || state.decorativeImages.length >= MAX_DECORATIVE_IMAGES;
+        add.title = state.decorativeImages.length >= MAX_DECORATIVE_IMAGES ? `Limite de ${MAX_DECORATIVE_IMAGES} imagens decorativas atingido.` : '';
+      }
+      const finish = document.getElementById('finishDecorationBtn');
+      if (finish) finish.disabled = decorationOperationBusy;
+      const status = document.getElementById('decorationStatus');
+      if (status) status.textContent = decorationOperationBusy
+        ? 'Processando a imagem…'
+        : state.decorativeImages.length >= MAX_DECORATIVE_IMAGES && !selected
+          ? `Limite de ${MAX_DECORATIVE_IMAGES} imagens decorativas atingido.`
+          : selected && !selectedVisible
+            ? `A imagem selecionada está na página ${selected.page}, fora da área visível. Role até ela para editar.`
+          : selected
+            ? `Imagem selecionada na página ${selected.page}. Arraste para mover ou use o ponto azul para redimensionar.`
+            : 'Adicione uma imagem e arraste-a para qualquer posição da página.';
+    }
+
+    function decorationMaxY(element, metric) {
+      const height = element?.getBoundingClientRect?.().height || 0;
+      return Math.max(0, 100 - height / Math.max(1, metric.height) * 100);
+    }
+
+    function constrainDecorationToPage(item, element, metric) {
+      const before = `${item.x}:${item.y}:${item.width}`;
+      item.width = Math.min(60, Math.max(5, item.width));
+      item.x = Math.min(100 - item.width, Math.max(0, item.x));
+      item.y = Math.min(decorationMaxY(element, metric), Math.max(0, item.y));
+      return before !== `${item.x}:${item.y}:${item.width}`;
+    }
+
+    function focusDecorationItem(id) {
+      [...document.querySelectorAll('.decoration-editor-item')]
+        .find(element => element.dataset.decorationId === id)?.focus({ preventScroll: true });
+    }
+
+    function selectDecorationItem(id, focus = false) {
+      selectedDecorationId = id;
+      document.querySelectorAll('.decoration-editor-item').forEach(element => {
+        element.classList.toggle('selected', element.dataset.decorationId === id);
+      });
+      updateDecorationControls();
+      if (focus) requestAnimationFrame(() => focusDecorationItem(id));
+    }
+
+    function previewPageMetrics() {
+      const frame = document.getElementById('canonicalPreview');
+      const viewport = frame?.closest('.preview-scroll');
+      const pages = Array.from(frame?.contentDocument?.querySelectorAll?.('.pagedjs_page') || []);
+      if (!frame || !viewport || !pages.length) return [];
+      const frameRect = frame.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const scale = frameRect.width / Math.max(1, frame.offsetWidth || 850);
+      const baseLeft = frameRect.left - viewportRect.left + viewport.scrollLeft;
+      const baseTop = frameRect.top - viewportRect.top + viewport.scrollTop;
+      return pages.map((page, index) => {
+        const rect = page.getBoundingClientRect();
+        return {
+          page: index + 1,
+          left: baseLeft + rect.left * scale,
+          top: baseTop + rect.top * scale,
+          width: rect.width * scale,
+          height: rect.height * scale,
+        };
+      });
+    }
+
+    function visiblePreviewPage() {
+      const frame = document.getElementById('canonicalPreview');
+      const pages = Array.from(frame?.contentDocument?.querySelectorAll?.('.pagedjs_page') || []);
+      if (!frame || !pages.length) return 1;
+      const center = (frame.contentWindow?.innerHeight || frame.offsetHeight || 1) / 2;
+      const closest = pages.reduce((best, page) => {
+        const rect = page.getBoundingClientRect();
+        const distance = Math.abs(rect.top + rect.height / 2 - center);
+        return distance < best.distance ? { page, distance } : best;
+      }, { page: pages[0], distance: Infinity }).page;
+      return pages.indexOf(closest) + 1;
+    }
+
+    function positionDecorationElement(element, item, metric) {
+      element.style.left = `${metric.left + item.x / 100 * metric.width}px`;
+      element.style.top = `${metric.top + item.y / 100 * metric.height}px`;
+      element.style.width = `${item.width / 100 * metric.width}px`;
+      element.style.transform = `rotate(${item.rotation}deg)`;
+    }
+
+    function scrollDecorationIntoView(item, behavior = 'auto') {
+      const viewport = document.querySelector('.preview-scroll');
+      const frame = document.getElementById('canonicalPreview');
+      const page = frame?.contentDocument?.querySelectorAll?.('.pagedjs_page')?.[Math.max(0, (Number(item?.page) || 1) - 1)];
+      if (!viewport || !frame?.contentWindow || !page) return;
+      viewport.scrollTop = 0;
+      const innerScrollTop = frame.contentWindow.scrollY || frame.contentDocument?.documentElement?.scrollTop || 0;
+      const target = Math.max(0, page.getBoundingClientRect().top + innerScrollTop - 12);
+      frame.contentWindow.scrollTo({ top: target, behavior });
+      requestAnimationFrame(() => syncDecorationLayerPositions());
+    }
+
+    function syncDecorationLayerPositions() {
+      const layer = document.getElementById('decorationEditorLayer');
+      const viewport = document.querySelector('.preview-scroll');
+      if (!layer || !viewport || !decorationMode) return;
+      const metrics = previewPageMetrics();
+      decorationPageCount = Math.max(1, metrics.length || decorationPageCount);
+      layer.style.width = `${viewport.scrollWidth}px`;
+      layer.style.height = `${viewport.scrollHeight}px`;
+      layer.querySelectorAll('.decoration-editor-item').forEach(element => {
+        const item = state.decorativeImages.find(candidate => candidate.id === element.dataset.decorationId);
+        const metric = item && metrics[item.page - 1];
+        element.hidden = !item || !metric;
+        if (item && metric) positionDecorationElement(element, item, metric);
+      });
+      updateDecorationControls();
+    }
+
+    function attachDecorationDrag(element, item, metric) {
+      element.addEventListener('pointerdown', event => {
+        if (!EditorTools.canEdit() || event.target.classList.contains('decoration-resize-handle')) return;
+        event.preventDefault();
+        selectDecorationItem(item.id, true);
+        const current = element;
+        const start = { x: event.clientX, y: event.clientY, itemX: item.x, itemY: item.y };
+        let moved = false;
+        current.setPointerCapture?.(event.pointerId);
+        const move = moveEvent => {
+          moved = true;
+          item.x = Math.min(100 - item.width, Math.max(0, start.itemX + (moveEvent.clientX - start.x) / metric.width * 100));
+          item.y = Math.min(decorationMaxY(current, metric), Math.max(0, start.itemY + (moveEvent.clientY - start.y) / metric.height * 100));
+          positionDecorationElement(current, item, metric);
+        };
+        const finish = () => {
+          current.removeEventListener('pointermove', move);
+          current.removeEventListener('pointerup', finish);
+          current.removeEventListener('pointercancel', finish);
+          if (moved) decorationChanged();
+        };
+        current.addEventListener('pointermove', move);
+        current.addEventListener('pointerup', finish);
+        current.addEventListener('pointercancel', finish);
+      });
+      const handle = element.querySelector('.decoration-resize-handle');
+      handle?.addEventListener('pointerdown', event => {
+        if (!EditorTools.canEdit()) return;
+        event.preventDefault(); event.stopPropagation();
+        selectDecorationItem(item.id, true);
+        const start = { x: event.clientX, width: item.width };
+        let resized = false;
+        handle.setPointerCapture?.(event.pointerId);
+        const move = moveEvent => {
+          resized = true;
+          item.width = Math.min(60, Math.max(5, start.width + (moveEvent.clientX - start.x) / metric.width * 100));
+          if (item.x + item.width > 100) item.width = 100 - item.x;
+          item.y = Math.min(item.y, decorationMaxY(element, metric));
+          positionDecorationElement(element, item, metric);
+        };
+        const finish = () => {
+          handle.removeEventListener('pointermove', move);
+          handle.removeEventListener('pointerup', finish);
+          handle.removeEventListener('pointercancel', finish);
+          if (resized) decorationChanged();
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', finish);
+        handle.addEventListener('pointercancel', finish);
+      });
+    }
+
+    function refreshDecorationLayer(pageCount) {
+      const receivedPageCount = Number.isFinite(Number(pageCount));
+      if (receivedPageCount) decorationPageCount = Math.max(1, Number(pageCount));
+      let recoveredPage = false;
+      if (receivedPageCount) {
+        for (const item of state.decorativeImages) {
+          if (item.page > decorationPageCount) {
+            item.page = decorationPageCount;
+            item.x = Math.min(item.x, 100 - item.width);
+            recoveredPage = true;
+          }
+        }
+        if (recoveredPage) {
+          decorationsNeedReview = true;
+          updateDecorationReviewCue();
+          if (autoSaveReady && !EditorTools.applyingHistory) {
+            EditorTools.forceSnapshot = true;
+            EditorTools.changed();
+          }
+        }
+      }
+      const layer = document.getElementById('decorationEditorLayer');
+      const viewport = document.querySelector('.preview-scroll');
+      if (!layer || !viewport) return;
+      layer.replaceChildren();
+      layer.style.width = `${viewport.scrollWidth}px`;
+      layer.style.height = `${viewport.scrollHeight}px`;
+      if (!decorationMode) { updateDecorationControls(); return; }
+      const metrics = previewPageMetrics();
+      decorationPageCount = Math.max(1, metrics.length || decorationPageCount);
+      for (const item of state.decorativeImages) {
+        const metric = metrics[item.page - 1];
+        if (!metric) continue;
+        const element = document.createElement('div');
+        element.className = `decoration-editor-item${item.id === selectedDecorationId ? ' selected' : ''}`;
+        element.dataset.decorationId = item.id;
+        element.setAttribute('role', 'button');
+        element.tabIndex = 0;
+        element.setAttribute('aria-label', `${item.imageFileName || 'Imagem decorativa'} na página ${item.page}`);
+        const image = document.createElement('img');
+        image.alt = '';
+        image.draggable = false;
+        image.addEventListener('load', () => {
+          if (constrainDecorationToPage(item, element, metric)) {
+            positionDecorationElement(element, item, metric);
+            if (autoSaveReady) decorationChanged();
+          }
+        }, { once: true });
+        image.src = item.imageDataUrl;
+        const handle = document.createElement('span');
+        handle.className = 'decoration-resize-handle';
+        handle.title = 'Redimensionar imagem';
+        element.append(image, handle);
+        positionDecorationElement(element, item, metric);
+        attachDecorationDrag(element, item, metric);
+        element.addEventListener('click', event => {
+          event.stopPropagation();
+          selectDecorationItem(item.id, true);
+        });
+        element.addEventListener('keydown', event => {
+          if (['Enter', ' '].includes(event.key)) {
+            event.preventDefault();
+            selectDecorationItem(item.id, true);
+            return;
+          }
+          if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key) || !EditorTools.canEdit() || decorationOperationBusy) return;
+          event.preventDefault();
+          selectedDecorationId = item.id;
+          const step = event.shiftKey ? 5 : 1;
+          if (event.key === 'ArrowLeft') item.x = Math.max(0, item.x - step);
+          if (event.key === 'ArrowRight') item.x = Math.min(100 - item.width, item.x + step);
+          if (event.key === 'ArrowUp') item.y = Math.max(0, item.y - step);
+          if (event.key === 'ArrowDown') item.y = Math.min(decorationMaxY(element, metric), item.y + step);
+          decorationChanged();
+          requestAnimationFrame(() => focusDecorationItem(item.id));
+        });
+        layer.appendChild(element);
+      }
+      updateDecorationControls();
+      if (receivedPageCount && pendingDecorationRevealId) {
+        const target = state.decorativeImages.find(item => item.id === pendingDecorationRevealId);
+        pendingDecorationRevealId = null;
+        if (target) requestAnimationFrame(() => scrollDecorationIntoView(target));
+      }
+    }
+
+    function setDecorationMode(enabled) {
+      decorationMode = Boolean(enabled) && !EditorTools.bankId && EditorTools.canEdit();
+      let revealTarget = null;
+      if (decorationMode && state.decorativeImages.length) {
+        const currentPage = visiblePreviewPage();
+        revealTarget = state.decorativeImages.find(item => item.page === currentPage) || state.decorativeImages[0];
+        selectedDecorationId = revealTarget.id;
+      }
+      updateDecorationReviewCue();
+      document.getElementById('decorationBar').hidden = !decorationMode;
+      document.getElementById('decorationModeBtn').setAttribute('aria-pressed', String(decorationMode));
+      document.querySelector('.preview-scroll')?.classList.toggle('decoration-mode', decorationMode);
+      document.getElementById('canonicalPreview')?.contentWindow?.postMessage({
+        type: 'exam-preview-decoration-editing', enabled: decorationMode,
+      }, location.origin);
+      if (!decorationMode) {
+        selectedDecorationId = null;
+        pendingDecorationRevealId = null;
+      }
+      refreshDecorationLayer();
+      if (revealTarget) requestAnimationFrame(() => scrollDecorationIntoView(revealTarget));
+    }
+
+    function finishDecorationMode() {
+      if (decorationOperationBusy) return;
+      const acknowledged = decorationsNeedReview;
+      decorationsNeedReview = false;
+      updateDecorationReviewCue();
+      setDecorationMode(false);
+      if (acknowledged) {
+        EditorTools.forceSnapshot = true;
+        EditorTools.changed();
+      }
+    }
+
+    async function applyDecorationFile(file) {
+      if (!file || !EditorTools.canEdit() || decorationOperationBusy) return;
+      const replaceTargetId = replacingDecoration ? selectedDecorationId : null;
+      replacingDecoration = false;
+      if (!replaceTargetId && state.decorativeImages.length >= MAX_DECORATIVE_IMAGES) {
+        showToast(`A prova aceita até ${MAX_DECORATIVE_IMAGES} imagens decorativas.`, 'err');
+        updateDecorationControls();
+        return;
+      }
+      decorationOperationBusy = true;
+      updateDecorationControls();
+      try {
+        const result = await window.ExamImageEngine.processFile(file, {
+          maxFileBytes: MAX_IMAGE_FILE_BYTES,
+          maxOutputBytes: MAX_IMAGE_DATA_URL_BYTES,
+          maxSide: 1400,
+          canEdit: () => EditorTools.canEdit(),
+        });
+        const selected = replaceTargetId ? state.decorativeImages.find(item => item.id === replaceTargetId) : null;
+        if (replaceTargetId && !selected) throw new Error('A imagem selecionada não está mais disponível.');
+        if (selected) {
+          selected.imageDataUrl = result.dataUrl;
+          selected.imageFileName = result.fileName;
+        } else {
+          const item = window.ExamDecorations.normalizeItem({
+            id: globalThis.crypto?.randomUUID?.() || `decoration-${Date.now()}`,
+            imageDataUrl: result.dataUrl,
+            imageFileName: result.fileName,
+            page: visiblePreviewPage(), x: 70, y: 8, width: 16, rotation: 0,
+          }, state.decorativeImages.length);
+          state.decorativeImages.push(item);
+          selectedDecorationId = item.id;
+        }
+        decorationChanged();
+      } catch (error) {
+        showToast(error.message, 'err');
+      } finally {
+        decorationOperationBusy = false;
+        updateDecorationControls();
+      }
+    }
+
+    function initDecorationEditor() {
+      const modeButton = document.getElementById('decorationModeBtn');
+      if (!modeButton || modeButton.dataset.ready) return;
+      modeButton.dataset.ready = 'true';
+      const fileInput = document.getElementById('decorationFileInput');
+      fileInput.tabIndex = -1;
+      fileInput.setAttribute('aria-hidden', 'true');
+      document.getElementById('decorationRotateLeft').setAttribute('aria-label', 'Girar imagem 90 graus para a esquerda');
+      document.getElementById('decorationRotateRight').setAttribute('aria-label', 'Girar imagem 90 graus para a direita');
+      modeButton.addEventListener('click', () => decorationMode ? finishDecorationMode() : setDecorationMode(true));
+      document.getElementById('finishDecorationBtn').addEventListener('click', finishDecorationMode);
+      document.getElementById('addDecorationBtn').addEventListener('click', () => {
+        if (state.decorativeImages.length >= MAX_DECORATIVE_IMAGES || decorationOperationBusy) return;
+        replacingDecoration = false; fileInput.click();
+      });
+      document.getElementById('replaceDecorationBtn').addEventListener('click', () => {
+        if (selectedDecoration() && selectedDecorationVisible()) { replacingDecoration = true; fileInput.click(); }
+      });
+      fileInput.addEventListener('change', () => { applyDecorationFile(fileInput.files?.[0]); fileInput.value = ''; });
+      document.getElementById('decorationPage').addEventListener('change', event => {
+        const selected = selectedDecoration(); if (!selected) return;
+        selected.page = Number(event.target.value) || 1;
+        selected.x = Math.min(selected.x, 100 - selected.width);
+        decorationChanged();
+      });
+      const rotateSelected = async degrees => {
+        const selected = selectedDecoration(); if (!selected || !selectedDecorationVisible() || decorationOperationBusy) return;
+        const targetId = selected.id;
+        decorationOperationBusy = true;
+        updateDecorationControls();
+        try {
+          const output = await window.ExamImageEngine.rotate(selected.imageDataUrl, degrees);
+          if (!EditorTools.canEdit()) throw new Error('A edição não está mais disponível. Reabra a prova.');
+          const target = state.decorativeImages.find(item => item.id === targetId);
+          if (!target) throw new Error('A imagem selecionada não está mais disponível.');
+          target.imageDataUrl = output;
+          target.rotation = 0; decorationChanged();
+        } catch (error) { showToast(error.message, 'err'); }
+        finally { decorationOperationBusy = false; updateDecorationControls(); }
+      };
+      document.getElementById('decorationRotateLeft').addEventListener('click', () => rotateSelected(270));
+      document.getElementById('decorationRotateRight').addEventListener('click', () => rotateSelected(90));
+      document.getElementById('decorationCrop').addEventListener('click', () => {
+        const selected = selectedDecoration(); if (!selected || !selectedDecorationVisible() || decorationOperationBusy) return;
+        const targetId = selected.id;
+        decorationOperationBusy = true;
+        updateDecorationControls();
+        window.ExamImageEngine.openCrop(selected.imageDataUrl, output => {
+          const target = state.decorativeImages.find(item => item.id === targetId);
+          if (target && EditorTools.canEdit()) { target.imageDataUrl = output; decorationChanged(); }
+        }, {
+          canEdit: () => EditorTools.canEdit(), openModal: overlay => EditorTools.openModal(overlay),
+          closeModal: () => EditorTools.closeModal(), showError: message => showToast(message, 'err'),
+          onClose: () => {
+            decorationOperationBusy = false;
+            updateDecorationControls();
+            requestAnimationFrame(() => document.getElementById('decorationCrop')?.focus());
+          },
+        });
+      });
+      document.getElementById('removeDecorationBtn').addEventListener('click', () => {
+        const selected = selectedDecoration();
+        if (!selected || !selectedDecorationVisible()) return;
+        const label = selected.imageFileName || 'esta imagem';
+        if (!window.confirm(`Remover "${label}" da prova? Você poderá usar Desfazer logo depois.`)) return;
+        const index = state.decorativeImages.findIndex(item => item.id === selectedDecorationId);
+        if (index < 0) return;
+        state.decorativeImages.splice(index, 1); selectedDecorationId = null; decorationChanged();
+      });
+      document.querySelector('.preview-scroll').addEventListener('click', event => {
+        if (decorationMode && event.target.classList.contains('preview-scroll')) { selectedDecorationId = null; refreshDecorationLayer(); }
+      });
+      document.getElementById('decorationEditorLayer').addEventListener('wheel', event => {
+        if (!decorationMode || !event.target.closest('.decoration-editor-item')) return;
+        const frame = document.getElementById('canonicalPreview');
+        if (!frame?.contentWindow) return;
+        event.preventDefault();
+        frame.contentWindow.scrollBy({ top: event.deltaY, left: event.deltaX, behavior: 'auto' });
+      }, { passive:false });
+      window.addEventListener('message', event => {
+        const frame = document.getElementById('canonicalPreview');
+        if (event.origin === location.origin && event.source === frame?.contentWindow && event.data?.type === 'exam-preview-scroll') {
+          syncDecorationLayerPositions();
+        }
+      });
+      updateDecorationControls();
+    }
+    window.initDecorationEditor = initDecorationEditor;
+    window.refreshDecorationLayer = refreshDecorationLayer;
+
     function initFreeImageInteractions() {
       document.querySelectorAll('.free-image-remove').forEach((btn) => {
         btn.addEventListener('click', (event) => {
@@ -6666,7 +6832,7 @@
     let bankRequestSequence = 0;
 
     function examFingerprint() {
-      const content = { school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl };
+      const content = { school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl, decorativeImages: state.decorativeImages };
       const imageStorage = globalThis.ExamImageStorage;
       return JSON.stringify(imageStorage?.durableTree ? imageStorage.durableTree(content) : content);
     }
@@ -7334,11 +7500,22 @@
           totalValue: exam.total_value ?? defaultSchool.totalValue,
           instructions: exam.instructions ?? defaultSchool.instructions,
         };
-        const storedContent = { questions: Array.isArray(exam.questions) ? exam.questions : [], logoDataUrl: exam.logo_data_url || '' };
+        const storedContent = {
+          questions: Array.isArray(exam.questions) ? exam.questions : [],
+          logoDataUrl: exam.logo_data_url || '',
+          decorativeImages: globalThis.ExamDecorations?.normalizeList
+            ? globalThis.ExamDecorations.normalizeList(exam.decorative_images)
+            : (Array.isArray(exam.decorative_images) ? exam.decorative_images : []),
+        };
         const imageStorage = globalThis.ExamImageStorage;
         imageStorage?.configure(auth, examId);
         const resolvedContent = imageStorage ? await imageStorage.resolveTree(storedContent, { auth, scope: examId }) : storedContent;
         state.questions = resolvedContent.questions.map(ExamSafety.normalizeQuestion);
+        state.decorativeImages = globalThis.ExamDecorations?.normalizeList
+          ? globalThis.ExamDecorations.normalizeList(resolvedContent.decorativeImages)
+          : (Array.isArray(resolvedContent.decorativeImages) ? resolvedContent.decorativeImages : []);
+        decorationsNeedReview = Boolean(exam.decorations_need_review);
+        updateDecorationReviewCue();
         collapseAllQuestions();
         currentReviewStatus = exam.review_status || 'rascunho';
         EditorTools.reviewHistory = Array.isArray(exam.review_history) ? exam.review_history : [];
@@ -7454,7 +7631,7 @@
         }
 
         const imageStorage = globalThis.ExamImageStorage;
-        const content = { questions: state.questions, logoDataUrl: state.logoDataUrl };
+        const content = { questions: state.questions, logoDataUrl: state.logoDataUrl, decorativeImages: state.decorativeImages };
         const storedContent = imageStorage ? await imageStorage.persistTree(content, {
           auth, scope: currentExamId,
           onProgress: (done, total) => total && setAutoSaveHint(`Enviando imagens ${done}/${total}`),
@@ -7473,6 +7650,8 @@
           instructions: state.school.instructions,
           questions: storedContent.questions,
           logo_data_url: storedContent.logoDataUrl,
+          decorative_images: storedContent.decorativeImages,
+          decorations_need_review: decorationsNeedReview,
           is_draft: true,
           ...reviewPayload,
           updated_at: new Date().toISOString(),

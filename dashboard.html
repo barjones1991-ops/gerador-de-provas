@@ -1032,8 +1032,8 @@
   }
 
   async function loadExamContent(exam) {
-    if (Array.isArray(exam?.questions)) return exam;
-    const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(exam.id)}&select=questions,logo_data_url`);
+    if (Array.isArray(exam?.questions) && Array.isArray(exam?.decorative_images)) return exam;
+    const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(exam.id)}&select=questions,logo_data_url,decorative_images,decorations_need_review`);
     if (!Array.isArray(rows) || !rows[0]) throw new Error('A prova não está mais disponível.');
     Object.assign(exam, rows[0]);
     return exam;
@@ -1057,11 +1057,11 @@
     let copiedContent = null;
     try {
       copiedContent = imageStorage
-        ? await imageStorage.cloneTree({ questions: source.questions || [], logo_data_url: source.logo_data_url || null }, {
+        ? await imageStorage.cloneTree({ questions: source.questions || [], logo_data_url: source.logo_data_url || null, decorative_images: source.decorative_images || [] }, {
           auth, scope: newExamId,
           onProgress: (done, total) => total && showToast(`Copiando imagens ${done}/${total}...`, 'success'),
         })
-        : { questions: source.questions || [], logo_data_url: source.logo_data_url || null };
+        : { questions: source.questions || [], logo_data_url: source.logo_data_url || null, decorative_images: source.decorative_images || [] };
     } catch (error) {
       showToast('Não foi possível criar uma cópia independente: ' + error.message, 'error');
       return;
@@ -1080,6 +1080,8 @@
       instructions: source.instructions || '',
       questions: copiedContent.questions,
       logo_data_url: copiedContent.logo_data_url,
+      decorative_images: copiedContent.decorative_images,
+      decorations_need_review: Boolean(source.decorations_need_review),
       is_draft: true,
       is_published: false,
       review_status: 'rascunho',

@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html', 'setup.html'];
-const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js', 'js/exam-pagination.js', 'js/image-storage.js'];
+const jsFiles = ['config.js', 'js/auth.js', 'js/exam-safety.js', 'js/exam-pagination.js', 'js/image-storage.js', 'js/image-engine.js', 'js/exam-decorations.js'];
 const questionTypes = [
   'multipla',
   'discursiva',
@@ -1172,10 +1172,55 @@ async function main() {
     assert(!focusPreviewQuestion.includes('target.focus('), 'preview navigation should scroll and highlight without stealing keyboard focus from the editor');
   });
 
-  await test('batch images reuse the existing image conversion and error handling', () => {
+  await test('batch images reuse the shared image conversion and error handling', () => {
     const editor = read('editor.html');
+    const engine = read('js/image-engine.js');
     assert(editor.includes('async function importQuestionImages'), 'batch importer missing');
-    assert(editor.includes('reader.onerror =') && editor.includes('reader.onabort ='), 'file reading must report failure');
+    assert(editor.includes('ExamImageEngine.processFile'), 'editor must delegate file conversion to the shared engine');
+    assert(engine.includes('reader.onerror =') && engine.includes('reader.onabort ='), 'file reading must report failure');
+    assert(engine.includes('function createPicker') && engine.includes('function openCrop'), 'shared image controls are missing');
+    assert(read('schools.html').includes('ExamImageEngine.processFile'), 'school logos must use the shared image engine');
+  });
+
+  await test('decorative images belong to the exam and use the paged preview', () => {
+    const editor = read('editor.html');
+    const tools = read('js/editor-tools.js');
+    const print = read('print.html');
+    const dashboard = read('dashboard.html');
+    const imageEngine = read('js/image-engine.js');
+    const editorCss = read('css/editor-tools.css');
+    const migration = read('supabase/migrations/20261019190000_decoracoes_prova.sql');
+    const reviewMigration = read('supabase/migrations/20261019210000_persistir_revisao_decoracoes.sql');
+    assert(editor.includes('decorative_images: storedContent.decorativeImages'), 'editor must save decorations separately from questions');
+    assert(tools.includes('id="decorationModeBtn"') && tools.includes('id="decorationEditorLayer"'), 'preview decoration controls are missing');
+    assert(print.includes('renderExamDecorations') && print.includes('decorative_images'), 'print must render exam decorations');
+    assert(dashboard.includes('decorative_images: copiedContent.decorative_images'), 'duplication must copy decoration assets independently');
+    assert(migration.includes('decorative_images JSONB') && migration.includes("jsonb_typeof(decorative_images) = 'array'"), 'decoration migration contract is missing');
+    assert(editor.includes('if (autoSaveReady && !decorationMode && state.decorativeImages.length)'), 'opening a decorated exam must not create a false review warning');
+    assert(editor.includes('if (moved) decorationChanged()') && editor.includes('if (resized) decorationChanged()'), 'selection without movement must not dirty the exam');
+    assert(editor.includes('pendingDecorationRevealId = selectedDecorationId') && editor.includes('receivedPageCount && pendingDecorationRevealId'), 'changing decoration data must reveal the image only after the new preview pagination');
+    assert(editor.includes('state.decorativeImages.find(item => item.page === currentPage) || state.decorativeImages[0]') && editor.includes('scrollDecorationIntoView(revealTarget)'), 'opening decoration mode must reveal an existing image even from another page');
+    assert(editor.includes('frame.contentWindow.scrollTo({ top: target, behavior })') && editor.includes('viewport.scrollTop = 0;'), 'decoration navigation must scroll the real iframe page instead of exposing an empty outer layer');
+    assert(editor.includes('decorations_need_review: decorationsNeedReview') && editor.includes('decorationsNeedReview = Boolean(exam.decorations_need_review);\n        updateDecorationReviewCue();'), 'decoration review cue must survive reopening and appear immediately');
+    assert(reviewMigration.includes('decorations_need_review BOOLEAN NOT NULL DEFAULT FALSE'), 'persistent decoration review migration is missing');
+    assert(print.includes("waitForPrintableImages(imageStorage, '#paper-preview .exam-decoration img')"), 'printing must wait for decorative images');
+    assert(print.includes('exam-preview-decoration-editing') && print.includes('.embedded-preview.decoration-editing .exam-decoration-layer'), 'editing must hide the duplicate printable decoration layer');
+    assert(editor.includes('MAX_DECORATIVE_IMAGES = 50') && editor.includes('state.decorativeImages.length >= MAX_DECORATIVE_IMAGES'), 'decoration limit must be enforced before data is lost');
+    assert(editor.includes('if (item.page > decorationPageCount)') && editor.includes('item.page = decorationPageCount'), 'decorations on removed pages must be recovered');
+    assert(editor.includes('decorationOperationBusy') && editor.includes('targetId = selected.id'), 'image operations must serialize against a stable target');
+    assert(editor.includes('element.tabIndex = 0') && editor.includes("['ArrowLeft','ArrowRight','ArrowUp','ArrowDown']"), 'decorations must be keyboard operable');
+    assert(editorCss.includes('.decoration-editor-item.selected .decoration-resize-handle'), 'resize handle must only appear on the selected decoration');
+    assert(!editor.includes("outline.className = 'decoration-page-outline'") && !editorCss.includes('.decoration-page-outline'), 'decoration editing must not place full-page overlays above exam text');
+    assert(print.includes("type: 'exam-preview-scroll'") && editor.includes("event.data?.type === 'exam-preview-scroll'"), 'decoration layer must follow iframe scrolling');
+    assert(editor.includes('function syncDecorationLayerPositions()') && editor.includes('syncDecorationLayerPositions();\n        }'), 'iframe scrolling must reposition existing decorations without rebuilding the layer');
+    assert(editorCss.includes('.preview-scroll.decoration-mode { overflow:hidden;') && editor.includes("frame.contentWindow.scrollBy({ top: event.deltaY"), 'decoration mode must keep wheel scrolling inside the exam preview');
+    assert(editor.includes('function selectedDecorationVisible()') && editor.includes('!selected || !selectedVisible || !EditorTools.canEdit()'), 'actions must be unavailable while the selected image is outside the visible preview area');
+    assert(editor.includes("fileInput.tabIndex = -1") && editor.includes("fileInput.setAttribute('aria-hidden', 'true')"), 'the hidden file chooser must not enter keyboard navigation');
+    assert(editor.includes("setAttribute('aria-label', 'Girar imagem 90 graus para a esquerda')") && editor.includes("setAttribute('aria-label', 'Girar imagem 90 graus para a direita')"), 'rotation actions need explicit accessible names');
+    assert(editor.includes("document.getElementById('decorationCrop')?.focus()"), 'closing the crop dialog must return focus to its trigger');
+    assert(editor.includes('function selectDecorationItem(id, focus = false)') && editor.includes('selectDecorationItem(item.id, true);'), 'selecting or dragging a decoration must preserve its live element and keyboard focus');
+    assert(editor.includes('if (!window.confirm(`Remover "${label}" da prova?'), 'removing a decorative image must require confirmation');
+    assert(imageEngine.includes('cropW = displayCanvas.width') && imageEngine.includes('cropH = displayCanvas.height'), 'crop defaults must match the visible full-image selection');
   });
 
   await test('image markers retain zero at the edge in both renderers', () => {

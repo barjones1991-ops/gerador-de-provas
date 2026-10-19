@@ -28,6 +28,9 @@ const EditorTools = {
         if (this.bankId && questions.length !== 1) throw new Error('O rascunho do banco deve conter uma questão. Sua cópia foi mantida para conferência.');
         if (!resolved.school || typeof resolved.school !== 'object') throw new Error('Dados da avaliação inválidos.');
         state.school = resolved.school; state.questions = questions; state.logoDataUrl = resolved.logoDataUrl || '';
+        state.decorativeImages = window.ExamDecorations?.normalizeList
+          ? window.ExamDecorations.normalizeList(resolved.decorativeImages)
+          : (Array.isArray(resolved.decorativeImages) ? resolved.decorativeImages : []);
         finish(); applyStateToInputs(); this.refreshBankFields(); renderAll();
       } catch (error) { showToast(error.message || 'Não foi possível recuperar. Sua cópia foi mantida.', 'err'); }
     };
@@ -145,6 +148,9 @@ const EditorTools = {
       state.school = resolved.school;
       state.questions = resolved.questions.map(ExamSafety.normalizeQuestion);
       state.logoDataUrl = resolved.logoDataUrl;
+      state.decorativeImages = window.ExamDecorations?.normalizeList
+        ? window.ExamDecorations.normalizeList(resolved.decorativeImages)
+        : (Array.isArray(resolved.decorativeImages) ? resolved.decorativeImages : []);
       state.collapsedQuestions = {};
       if (state.activeQuestionIndex >= state.questions.length) state.activeQuestionIndex = null;
       applyStateToInputs(); this.refreshBankFields(); renderAll();
@@ -179,6 +185,12 @@ const EditorTools = {
     if (redo) redo.disabled = !enabled || this.historyIndex >= this.history.length - 1;
     const bankSave = document.getElementById('saveBankRecordBtn');
     if (bankSave) bankSave.disabled = !enabled || this.bankSaving;
+    const decorationButton = document.getElementById('decorationModeBtn');
+    if (decorationButton) {
+      decorationButton.hidden = Boolean(this.bankId);
+      decorationButton.disabled = !enabled || Boolean(this.bankId);
+    }
+    document.querySelectorAll('#decorationBar button, #decorationBar select').forEach(node => this.lockControl(node, !enabled));
     document.querySelectorAll('.free-image-remove, .free-image-resize').forEach(node => this.lockControl(node, !enabled));
   },
   questionFingerprint() {
@@ -733,6 +745,7 @@ const EditorTools = {
         }, location.origin);
       } else frame.contentWindow.postMessage({ type: 'exam-preview', exam: {
         school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl,
+        decorativeImages: state.decorativeImages,
       }, answerKey: Boolean(document.getElementById('previewAnswerKey')?.checked), revision, fingerprint }, location.origin);
       if (Number.isInteger(this.pendingPreviewFocus)) {
         const index = Math.min(this.pendingPreviewFocus, state.questions.length - 1);
@@ -922,13 +935,14 @@ const EditorTools = {
     document.getElementById('layoutOptimizationBtn').onclick = () => this.applySpaceSuggestion();
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><iframe id="canonicalPreview" src="print.html?preview=1&v=20261005-layout-race1" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><div class="preview-tools"><button type="button" id="decorationModeBtn" class="outline">Decorar prova</button><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div></div><div id="decorationBar" class="decoration-bar" hidden><span id="decorationStatus">Arraste as imagens pela página.</span><button type="button" id="addDecorationBtn">+ Adicionar imagem</button><label>Página <select id="decorationPage" aria-label="Página da imagem decorativa"></select></label><button type="button" id="decorationRotateLeft" title="Girar para a esquerda">↶</button><button type="button" id="decorationRotateRight" title="Girar para a direita">↷</button><button type="button" id="decorationCrop">Recortar</button><button type="button" id="replaceDecorationBtn">Substituir</button><button type="button" id="removeDecorationBtn" class="danger">Remover</button><button type="button" id="finishDecorationBtn" class="primary">Concluir</button><input id="decorationFileInput" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><div id="decorationEditorLayer" class="decoration-editor-layer" aria-label="Imagens decorativas da prova"></div><iframe id="canonicalPreview" src="print.html?preview=1&v=20261019-decor2" title="Prévia da prova em formato A4"></iframe></div>';
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
     document.getElementById('previewNext').onclick = () => this.previewQuestion(this.previewSelection + 1);
     document.getElementById('previewAnswerKey').onchange = () => { this.forceSnapshot = true; this.updatePreview(); };
     document.getElementById('previewZoom').onchange = () => this.resizePreview();
+    window.initDecorationEditor?.();
     if (typeof ResizeObserver !== 'undefined') {
       const workspaceObserver = new ResizeObserver(() => this.resizePreview());
       workspaceObserver.observe(preview); workspaceObserver.observe(editorColumn);
@@ -938,6 +952,7 @@ const EditorTools = {
       if (event.origin !== location.origin || event.source !== document.getElementById('canonicalPreview').contentWindow) return;
       if (event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); return; }
       if (event.data?.type === 'exam-preview-space-suggestion') this.setSpaceSuggestion(event.data.suggestion, event.data);
+      if (event.data?.type === 'exam-preview-paginated') window.refreshDecorationLayer?.(event.data.pages);
     });
     // All implemented types have an explicit creation path and a short example.
     const select = document.getElementById('qtypeSelect'); select.replaceChildren();
@@ -1022,6 +1037,7 @@ const EditorTools = {
     viewport.style.maxHeight = 'none';
     document.getElementById('viewEditBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'edit'));
     document.getElementById('viewPreviewBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'preview'));
+    window.refreshDecorationLayer?.();
   },
   filterQuestions() {
     const query = (document.getElementById('questionSearch')?.value || '').trim().toLocaleLowerCase('pt-BR');
