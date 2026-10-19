@@ -1286,12 +1286,16 @@ async function main() {
     const editor = read('editor.html');
     const print = read('print.html');
     const tools = read('js/editor-tools.js');
+    assert(fs.existsSync(path.join(root, 'assets/fonts/NotoSans-exam.ttf')), 'canonical exam font asset is missing');
+    assert(fs.existsSync(path.join(root, 'assets/fonts/OFL-NotoSans.txt')), 'canonical exam font license is missing');
+    assert(print.includes("font-family: 'Exam Noto Sans';") && print.includes("font-family: 'Exam Noto Sans', sans-serif;"), 'print layout must use the bundled canonical font');
+    assert(print.includes('font-display: block;') && read('js/exam-pagination.js').includes('await document.fonts.ready'), 'pagination must wait for the canonical font');
     assert(print.includes('-webkit-text-size-adjust: none;') && print.includes('text-size-adjust: none;'), 'mobile browsers must not auto-resize exam text');
     assert(!print.includes('.info-grid, .student-grid { grid-template-columns: 1fr; }'), 'mobile width must not stack the printable header');
     assert(!print.includes('.pv-header { flex-direction: column; }'), 'mobile width must not change the printable header direction');
     assert(!print.includes('.two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }'), 'mobile width must not collapse printable question columns');
-    assert(editor.includes('js/editor-tools.js?v=20261019-layout1'), 'editor must invalidate the cached preview controller');
-    assert(tools.includes('print.html?preview=1&v=20261019-layout1'), 'canonical preview must load the fixed mobile layout revision');
+    assert(editor.includes('js/editor-tools.js?v=20261019-font1'), 'editor must invalidate the cached preview controller');
+    assert(tools.includes('print.html?preview=1&v=20261019-font1'), 'canonical preview must load the fixed mobile layout revision');
   });
 
   await test('image markers retain zero at the edge in both renderers', () => {

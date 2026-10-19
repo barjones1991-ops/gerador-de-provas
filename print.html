@@ -9,6 +9,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style data-exam-layout>
+    @font-face {
+      font-family: 'Exam Noto Sans';
+      src: url('assets/fonts/NotoSans-exam.ttf?v=20261019-font1') format('truetype');
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: block;
+    }
     * { box-sizing: border-box; }
     html {
       -webkit-text-size-adjust: none;
@@ -16,7 +23,8 @@
     }
     body {
       margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-family: 'Exam Noto Sans', sans-serif;
+      font-synthesis: none;
       background: #e2e8f0;
       color: #0f172a;
     }
