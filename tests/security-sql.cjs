@@ -35,6 +35,7 @@ let checks = 0;
     const schoolMigration = fs.readFileSync(path.join(root, 'migrations/20260908_02_escola_da_prova.sql'), 'utf8').replace(/\r\n/g, '\n');
     const imageMigration = fs.readFileSync(path.join(root, 'migrations/20261005_04_controle_acesso_imagens.sql'), 'utf8').replace(/\r\n/g, '\n');
     const removalMigration = fs.readFileSync(path.join(root, 'migrations/20261019_05_desativacao_professor.sql'), 'utf8').replace(/\r\n/g, '\n');
+    const centralImageMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261019173319_centralizar_imagens.sql'), 'utf8').replace(/\r\n/g, '\n');
     const storageSetup = fs.readFileSync(path.join(root, 'setup_storage.sql'), 'utf8').replace(/\r\n/g, '\n');
     for (const contract of ['private.exam_image_links', 'private.can_read_exam_image', 'Imagens de provas: leitura vinculada']) {
       assert(imageMigration.includes(contract) && storageSetup.includes(contract), `storage setup missing ${contract}`);
@@ -155,7 +156,7 @@ let checks = 0;
     await asUser(4, 'UPDATE question_bank SET is_public=false WHERE id=$1', [bank]);
     assert.equal((await asUser(8, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 1);
     assert.equal((await asUser(3, 'SELECT name FROM storage.objects WHERE name=$1', [bankObject])).rows.length, 0);
-    checks++; console.log('OK SQL imagem reutilizada acompanha a prova duplicada sem depender do upload');
+    checks++; console.log('OK SQL referencia storage legada permanece compativel durante a transicao');
     const token = 'a'.repeat(32);
     await asUser(2, 'INSERT INTO user_invites(email,role,school_id,token) VALUES ($1,$2,$3,$4)', ['test4@example.invalid','teacher',schoolA,token]);
     const invites = await asUser(4, 'SELECT token FROM user_invites');
@@ -228,6 +229,29 @@ let checks = 0;
     assert.equal((await asUser(6, 'SELECT is_active,school_id FROM profiles WHERE id=$1', [uuid(6)])).rows[0].is_active, true);
     await asUser(6, 'INSERT INTO exams(user_id) VALUES ($1)', [uuid(6)]);
     checks++; console.log('OK SQL remocao bloqueia todo acesso e novo convite reativa a conta preservada');
+
+    await db.exec(centralImageMigration);
+    await db.exec(centralImageMigration);
+    const sourceAsset = uuid(401), copiedAsset = uuid(402), assetExam = uuid(403);
+    const sourceAssetObject = `${uuid(4)}/bank-${bank}/${sourceAsset}.png`;
+    await asUser(4, "INSERT INTO storage.objects(bucket_id,name) VALUES ('exam-images',$1)", [sourceAssetObject]);
+    await asUser(4, `INSERT INTO image_assets(id,owner_id,object_name,mime_type,byte_size)
+      VALUES ($1,$2,$3,'image/png',100)`, [sourceAsset, uuid(4), sourceAssetObject]);
+    await asUser(4, 'UPDATE question_bank SET question=$1 WHERE id=$2', [JSON.stringify({ imageDataUrl: `asset://${sourceAsset}` }), bank]);
+    await denied('asset de outro autor exige copia independente', 6,
+      'INSERT INTO exams(id,user_id,class_name,questions,total_value) VALUES ($1,$2,$3,$4,$5)',
+      [assetExam, uuid(6), '5A', JSON.stringify([{ points: '1,0', imageDataUrl: `asset://${sourceAsset}` }]), '1,0']);
+
+    const copiedAssetObject = `${uuid(6)}/${assetExam}/${copiedAsset}.png`;
+    await asUser(6, "INSERT INTO storage.objects(bucket_id,name) VALUES ('exam-images',$1)", [copiedAssetObject]);
+    await asUser(6, `INSERT INTO image_assets(id,owner_id,object_name,mime_type,byte_size,source_asset_id)
+      VALUES ($1,$2,$3,'image/png',100,$4)`, [copiedAsset, uuid(6), copiedAssetObject, sourceAsset]);
+    await asUser(6, 'INSERT INTO exams(id,user_id,class_name,questions,total_value) VALUES ($1,$2,$3,$4,$5)',
+      [assetExam, uuid(6), '5A', JSON.stringify([{ points: '1,0', imageDataUrl: `asset://${copiedAsset}` }]), '1,0']);
+    await asUser(4, 'UPDATE question_bank SET is_public=false,school_id=NULL WHERE id=$1', [bank]);
+    assert.equal((await asUser(8, 'SELECT name FROM storage.objects WHERE name=$1', [copiedAssetObject])).rows.length, 1);
+    assert.equal((await asUser(8, 'SELECT name FROM storage.objects WHERE name=$1', [sourceAssetObject])).rows.length, 0);
+    checks++; console.log('OK SQL copia de imagem tem arquivo, dono e acesso independentes da origem');
     console.log(`${checks} verificacoes SQL aprovadas em PostgreSQL/PGlite isolado.`);
   } finally { await db.close(); }
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

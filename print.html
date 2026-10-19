@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Imprimir Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-math-combined"></script>
-  <script src="js/image-storage.js?v=20260922-storage1"></script>
+  <script src="js/image-storage.js?v=20261019-assets1"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style data-exam-layout>
@@ -533,6 +533,7 @@
       const src = safeImageSrc(dataUrl);
       return src ? `src="${src}"${['small','medium','large'].includes(imageSize) ? ` data-item-image-size="${imageSize}"` : ''}` : '';
     }
+
     async function printCleanDocument() {
       if (printing || !currentExam?.id || !printAuth) return;
       printing = true;
@@ -555,7 +556,7 @@
         fresh.questions = resolved.questions;
         fresh.logo_data_url = resolved.logo_data_url;
         currentExam = fresh; printProfile = profile; renderExam(currentExam); updatePrintToolbar(currentExam, printAuth, profile);
-        await Promise.all([...document.querySelectorAll('#root img')].map(img => img.decode ? img.decode() : Promise.resolve()));
+        await waitForPrintableImages(imageStorage);
         if (document.fonts?.ready) await document.fonts.ready;
         await window.ExamPagination?.ready();
         if (printAuth.getCurrentUser()?.id !== printViewerId) throw new Error('A conta mudou durante a preparação. Reabra a prova.');
@@ -566,6 +567,33 @@
         window.print(); setTimeout(restoreTitle, 1000);
       } catch (error) { alert(error.message || 'Não foi possível conferir a prova. Tente novamente.'); }
       finally { printing = false; }
+    }
+
+    async function waitForPrintableImages(imageStorage) {
+      const failed = [];
+      await Promise.all([...document.querySelectorAll('#root img')].map(async (img, index) => {
+        const decode = () => img.decode ? img.decode() : new Promise((resolve, reject) => {
+          if (img.complete && img.naturalWidth) return resolve();
+          img.addEventListener('load', resolve, { once: true });
+          img.addEventListener('error', reject, { once: true });
+        });
+        try {
+          await decode();
+        } catch {
+          try {
+            const refreshed = await imageStorage?.refreshUrl?.(img.currentSrc || img.src, { auth: printAuth, scope: currentExam.id });
+            if (!refreshed || refreshed === img.src) throw new Error('sem endereço renovado');
+            img.src = refreshed;
+            await decode();
+          } catch {
+            failed.push(img.alt || `imagem ${index + 1}`);
+          }
+        }
+      }));
+      if (failed.length) {
+        const sample = failed.slice(0, 3).join(', ');
+        throw new Error(`A impressão foi interrompida porque ${failed.length} imagem(ns) não carregaram${sample ? `: ${sample}` : ''}. Reabra a prova e tente novamente.`);
+      }
     }
 
     function normalizeRelacioneQuestion(q) {

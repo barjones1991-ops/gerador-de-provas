@@ -389,6 +389,7 @@
 
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/image-storage.js?v=20261019-assets1"></script>
 <script>
   let auth = null;
   let currentProfile = null;
@@ -416,7 +417,7 @@
   }
 
   function isSafeImageDataUrl(dataUrl) {
-    return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || ''));
+    return SAFE_IMAGE_DATA_URL_RE.test(String(dataUrl || '')) || Boolean(window.ExamImageStorage?.isRenderableImage(dataUrl));
   }
 
   function safeImageSrc(dataUrl) {
@@ -630,6 +631,16 @@
     try {
       const data = await auth.authenticatedRequest('/schools?order=name.asc&select=*');
       schools = Array.isArray(data) ? data : [];
+      const imageStorage = window.ExamImageStorage;
+      if (imageStorage) {
+        schools = await Promise.all(schools.map(async school => {
+          if (!school.logo_data_url) return school;
+          try {
+            const resolved = await imageStorage.resolveTree({ logo: school.logo_data_url }, { auth, scope: `school-${school.id}` });
+            return { ...school, logo_data_url: resolved.logo };
+          } catch { return school; }
+        }));
+      }
       renderSchools();
       updateSchoolSelects();
       renderSchoolReadiness();
@@ -774,8 +785,15 @@
     const email = (document.getElementById(`se-email-${schoolId}`)?.value || '').trim();
     if (!name) { showToast('O nome da escola é obrigatório.', 'error'); return; }
     const payload = { name, city: city || null, admin_email: email || null };
-    if (schoolId in pendingLogos) payload.logo_data_url = pendingLogos[schoolId]; // null remove, string troca
+    const imageStorage = window.ExamImageStorage;
+    let storedLogo = null;
     try {
+      if (schoolId in pendingLogos) {
+        storedLogo = pendingLogos[schoolId] === null
+          ? null
+          : imageStorage ? (await imageStorage.persistTree({ logo: pendingLogos[schoolId] }, { auth, scope: `school-${schoolId}` })).logo : pendingLogos[schoolId];
+        payload.logo_data_url = storedLogo;
+      }
       await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
@@ -784,6 +802,7 @@
       showToast('Escola atualizada!');
       await loadSchools();
     } catch (err) {
+      if (storedLogo) await imageStorage?.discardTree?.({ logo: storedLogo }, { auth, scope: `school-${schoolId}` });
       showToast('Erro ao salvar: ' + err.message, 'error');
     }
   }
@@ -1000,14 +1019,24 @@
     if (!name) { showToast('Digite o nome da escola.', 'error'); return; }
     const btn = document.getElementById('addSchoolBtn');
     btn.disabled = true;
+    const schoolId = globalThis.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+      const value = Math.random() * 16 | 0;
+      return (char === 'x' ? value : (value & 3 | 8)).toString(16);
+    });
+    const imageStorage = window.ExamImageStorage;
+    let storedLogo = null;
     try {
+      storedLogo = newSchoolLogoDataUrl && imageStorage
+        ? (await imageStorage.persistTree({ logo: newSchoolLogoDataUrl }, { auth, scope: `school-${schoolId}` })).logo
+        : newSchoolLogoDataUrl || null;
       await auth.authenticatedRequest('/schools', {
         method: 'POST',
         body: JSON.stringify({
+          id: schoolId,
           name,
           city: city || null,
           admin_email: adminEmail || null,
-          logo_data_url: newSchoolLogoDataUrl || null,
+          logo_data_url: storedLogo,
           disciplines: newSchoolDisciplines.length ? newSchoolDisciplines : [],
           classes: newSchoolClasses.length ? newSchoolClasses : [],
         }),
@@ -1026,6 +1055,7 @@
       showToast('Escola cadastrada com sucesso!');
       await loadSchools();
     } catch (err) {
+      if (storedLogo) await imageStorage?.discardTree?.({ logo: storedLogo }, { auth, scope: `school-${schoolId}` });
       showToast('Erro ao cadastrar escola: ' + err.message, 'error');
     }
     btn.disabled = false;

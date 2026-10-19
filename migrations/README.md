@@ -6,6 +6,14 @@ A migração 01 acompanha o frontend publicado em `a518f8c`. A migração 02 int
 
 ## Atualizar um ambiente existente
 
+### Imagens centralizadas e cópias independentes (migração 07)
+
+Depois das migrações 04, 05 e 06, execute `supabase/migrations/20261019173319_centralizar_imagens.sql` inteiro. A migração cria `image_assets` e vínculos internos para provas, questões e escolas. Novas referências usam `asset://UUID`; referências `storage://` permanecem legíveis para compatibilidade. Uma imagem introduzida em outro documento precisa pertencer ao usuário que realiza a operação, impedindo que uma duplicação apenas compartilhe o arquivo de origem.
+
+O script não converte nem exclui os registros existentes. Neste ambiente, o usuário confirmou em 19/10/2026 que provas e questões atuais são somente testes. A limpeza de arquivos órfãos respeita sete dias e usa a API do Storage; não remova objetos diretamente por SQL. Execute em seguida `supabase/migrations/20261019174600_otimizar_imagens.sql` (migração 08), que adiciona o índice da linhagem e otimiza as policies. Para uma instalação nova, execute `setup_supabase.sql`, `setup_storage.sql` e depois as migrações 07 e 08.
+
+Migrações 07 e 08 aplicadas pelo conector Supabase no projeto `birtgmrtaryfjogegimn` em 19/10/2026. Foram confirmados RLS, policies, gatilhos, índices, versões e preservação das contagens existentes. `image_assets` iniciou vazia, sem converter os 10 objetos de teste legados.
+
 ### Desativação preservadora de professores (migração 05)
 
 Depois das migrações 01 a 04 e de um backup, execute `20261019_05_desativacao_professor.sql` inteiro no SQL Editor. A migração adiciona o estado ativo do perfil, cria a prévia e a confirmação protegidas de remoção e altera as policies de provas, banco de questões e imagens. Professor removido não consegue usar o sistema nem criar conteúdo pessoal; conta, autoria e acervo permanecem registrados. Um convite novo para o mesmo e-mail reativa a conta preservada.

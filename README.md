@@ -59,6 +59,9 @@ const CONFIG = {
   SUPABASE_ANON_KEY: 'sua-anon-key-publica',
   API_URL: 'https://seu-projeto.supabase.co/rest/v1',
   AUTH_URL: 'https://seu-projeto.supabase.co/auth/v1',
+  MAX_FILE_SIZE: 5 * 1024 * 1024,
+  IMAGE_STORAGE_ENABLED: true,
+  IMAGE_STORAGE_BUCKET: 'exam-images',
 };
 ```
 
@@ -76,7 +79,7 @@ Use `setup_supabase.sql` como fonte oficial do schema. Ele cria/atualiza:
 - funcoes auxiliares de permissao e impressao
 - policies RLS
 
-Para um ambiente novo, execute todo o arquivo no SQL Editor do Supabase.
+Para um ambiente novo, execute `setup_supabase.sql`, depois `setup_storage.sql` e por fim, em ordem, as duas migrações em `supabase/migrations/` no SQL Editor do Supabase.
 
 Para atualizar um ambiente existente, faça backup e siga [o guia das migrações](migrations/README.md): execute a migração 01 de segurança e, após conferir o acervo legado, a migração 02 de escola permanente da prova. O usuário informou a execução dos scripts no Supabase em 08/09/2026. A criação inicial do master deve ser feita por UUID conferido em `auth.users`, conforme o mesmo guia.
 
@@ -108,8 +111,10 @@ Aliases antigos como `professor`, `coordenadora` e `impressao` sao normalizados 
 - Aceita PNG, JPG, JPEG, WebP e GIF.
 - Arquivos acima de `CONFIG.MAX_FILE_SIZE` sao recusados.
 - Logos e imagens de questoes sao comprimidas antes de salvar.
-- Renderizacao aceita apenas data URLs seguras de imagem.
-- Provas muito pesadas sao bloqueadas antes do autosave.
+- Imagens novas recebem identidade `asset://UUID` e ficam no bucket privado `exam-images`.
+- Duplicar prova ou copiar questão cria um arquivo independente; editar a cópia não altera a origem.
+- Referências antigas `storage://` continuam legíveis.
+- A impressão renova links expirados e avisa claramente se alguma imagem não puder ser carregada.
 
 ## Checklist Manual
 

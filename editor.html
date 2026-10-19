@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-math-combined"></script>
-  <script src="js/image-storage.js?v=20260922-storage1"></script>
+  <script src="js/image-storage.js?v=20261019-assets1"></script>
   <script src="js/editor-tools.js?v=20261005-layout-race1"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
@@ -6802,10 +6802,9 @@
         const bankId = crypto.randomUUID();
         setAutoSaveHint('Enviando imagens da questão...');
         const imageStorage = globalThis.ExamImageStorage;
-        const storedQuestion = imageStorage ? await imageStorage.persistTree(question, {
+        const storedQuestion = imageStorage ? await imageStorage.cloneTree(question, {
           auth, scope: `bank-${bankId}`,
-          onProgress: (done, total) => total && setAutoSaveHint(`Enviando imagens ${done}/${total}`),
-          onFallback: () => setAutoSaveHint('Storage indisponível; usando salvamento compatível'),
+          onProgress: (done, total) => total && setAutoSaveHint(`Copiando imagens ${done}/${total}`),
         }) : question;
         const bankPayload = {
           id: bankId,
@@ -6819,11 +6818,16 @@
           question: storedQuestion,
           ...buildBankScopePayload(scope),
         };
-        await auth.authenticatedRequest('/question_bank', {
-          method: 'POST',
-          headers: { 'Prefer': 'return=minimal' },
-          body: JSON.stringify(bankPayload),
-        });
+        try {
+          await auth.authenticatedRequest('/question_bank', {
+            method: 'POST',
+            headers: { 'Prefer': 'return=minimal' },
+            body: JSON.stringify(bankPayload),
+          });
+        } catch (error) {
+          await imageStorage?.discardTree?.(storedQuestion, { auth, scope: `bank-${bankId}` });
+          throw error;
+        }
         showToast('Questão salva no banco.', 'ok');
       } catch (err) {
         showToast('Erro ao salvar no banco: ' + err.message, 'err');
@@ -6945,9 +6949,13 @@
       const item = window.currentQuestionBankResults?.[index];
       if (!item?.question) return;
       try {
-        setAutoSaveHint('Carregando imagens da questão...');
+        setAutoSaveHint('Criando uma cópia independente das imagens...');
         const imageStorage = globalThis.ExamImageStorage;
-        const question = imageStorage ? await imageStorage.resolveTree(item.question, { auth, scope: `bank-${item.id}` }) : item.question;
+        const copied = imageStorage ? await imageStorage.cloneTree(item.question, {
+          auth, scope: currentExamId,
+          onProgress: (done, total) => total && setAutoSaveHint(`Copiando imagens ${done}/${total}`),
+        }) : item.question;
+        const question = imageStorage ? await imageStorage.resolveTree(copied, { auth, scope: currentExamId }) : copied;
         state.questions.push(cloneQuestion(question));
         state.activeQuestionIndex = state.questions.length - 1;
         state.collapsedQuestions[state.activeQuestionIndex] = false;

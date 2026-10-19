@@ -478,7 +478,7 @@
 
 <script src="config.js"></script>
 <script src="js/exam-safety.js?v=20260921-word-search"></script>
-<script src="js/image-storage.js"></script>
+<script src="js/image-storage.js?v=20261019-assets1"></script>
 <script src="js/auth.js"></script>
 <script>
   let auth = null;
@@ -581,6 +581,11 @@
       });
     });
     await loadExams();
+    globalThis.ExamImageStorage?.cleanupOrphanedAssets?.({
+      auth,
+      days: 7,
+      all: auth.hasRole(['master'], currentProfile),
+    }).catch(error => console.warn('Limpeza adiada; as imagens continuam preservadas.', error));
 
     if (new URLSearchParams(window.location.search).get('new') === '1') openNewExamModal();
 
@@ -961,7 +966,24 @@
       }
     }
 
+    const newExamId = globalThis.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+      const value = Math.random() * 16 | 0;
+      return (char === 'x' ? value : (value & 3 | 8)).toString(16);
+    });
+    const imageStorage = globalThis.ExamImageStorage;
+    let copiedLogo = schoolLogo;
+    try {
+      if (schoolLogo && imageStorage) {
+        copiedLogo = (await imageStorage.cloneTree({ logo: schoolLogo }, { auth, scope: newExamId })).logo;
+      }
+    } catch (error) {
+      btn.disabled = false; btn.textContent = 'Criar prova';
+      showToast('Não foi possível copiar a logo da escola: ' + error.message, 'error');
+      return;
+    }
+
     const payload = {
+      id: newExamId,
       user_id: user.id,
       title: `Nova prova - ${subject}`,
       school_name: schoolName,
@@ -973,7 +995,7 @@
       total_value: '10,0',
       instructions: 'Leia atentamente cada questão. Responda com letra legível. Revise antes de entregar.',
       questions: [],
-      logo_data_url: schoolLogo,
+      logo_data_url: copiedLogo,
       is_draft: true,
       is_published: false,
       review_status: 'rascunho',
@@ -993,6 +1015,7 @@
       localStorage.setItem('editExamId', newId);
       window.location.href = `editor.html?id=${encodeURIComponent(newId)}`;
     } catch (err) {
+      if (copiedLogo && copiedLogo !== schoolLogo) await imageStorage?.discardTree?.({ logo: copiedLogo }, { auth, scope: newExamId });
       showToast('Erro ao criar prova: ' + err.message, 'error');
       btn.disabled = false;
       btn.textContent = 'Criar prova';
@@ -1027,10 +1050,24 @@
     catch (error) { showToast(error.message, 'error'); return; }
 
     const imageStorage = globalThis.ExamImageStorage;
-    const durableContent = imageStorage?.durableTree
-      ? imageStorage.durableTree({ questions: source.questions || [], logo_data_url: source.logo_data_url || null })
-      : { questions: source.questions || [], logo_data_url: source.logo_data_url || null };
+    const newExamId = globalThis.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+      const value = Math.random() * 16 | 0;
+      return (char === 'x' ? value : (value & 3 | 8)).toString(16);
+    });
+    let copiedContent = null;
+    try {
+      copiedContent = imageStorage
+        ? await imageStorage.cloneTree({ questions: source.questions || [], logo_data_url: source.logo_data_url || null }, {
+          auth, scope: newExamId,
+          onProgress: (done, total) => total && showToast(`Copiando imagens ${done}/${total}...`, 'success'),
+        })
+        : { questions: source.questions || [], logo_data_url: source.logo_data_url || null };
+    } catch (error) {
+      showToast('Não foi possível criar uma cópia independente: ' + error.message, 'error');
+      return;
+    }
     const copy = {
+      id: newExamId,
       user_id: user.id,
       title: `${source.title || 'Prova'} (cópia)`,
       school_name: source.school_name || '',
@@ -1041,8 +1078,8 @@
       date: source.date || '',
       total_value: source.total_value || '',
       instructions: source.instructions || '',
-      questions: durableContent.questions,
-      logo_data_url: durableContent.logo_data_url,
+      questions: copiedContent.questions,
+      logo_data_url: copiedContent.logo_data_url,
       is_draft: true,
       is_published: false,
       review_status: 'rascunho',
@@ -1068,6 +1105,7 @@
         window.location.href = 'editor.html';
       }
     } catch (e) {
+      await imageStorage?.discardTree?.(copiedContent, { auth, scope: newExamId });
       showToast('Erro ao duplicar prova: ' + e.message, 'error');
     }
   }

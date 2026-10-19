@@ -120,7 +120,7 @@ function extract(file,name,spaces) {
     const fresh={id:'e1',title:'Atualizada',review_status:mode==='withdrawn'?'em_revisao':'aprovada',print_status:mode==='printed'?'impressa':'enviada',questions:[]};
     const ctx=vm.createContext({ExamSafety,printing:false,printViewerId:'u1',currentExam:{id:'e1',title:'Antiga'},printProfile:null,Promise,
       printAuth:{getCurrentUser:()=>({id:mode==='account'?'u2':'u1'}),loadCurrentProfile:async()=>({role:'print_operator'}),hasRole:roles=>roles.includes('print_operator'),authenticatedRequest:async()=>{if(mode==='offline')throw new Error('offline');return mode==='missing'?[]:[fresh];}},
-      isFromPrintQueue:()=>true,renderExam:exam=>{rendered=exam;},updatePrintToolbar(){},document:{title:'Prova',querySelectorAll:()=>[]},window:{addEventListener(){},print(){prints++;}},setTimeout(){},alert(){},
+      isFromPrintQueue:()=>true,renderExam:exam=>{rendered=exam;},updatePrintToolbar(){},waitForPrintableImages:async()=>{},document:{title:'Prova',querySelectorAll:()=>[]},window:{addEventListener(){},print(){prints++;}},setTimeout(){},alert(){},
     });
     vm.runInContext(extract('print.html','printCleanDocument',4),ctx); await ctx.printCleanDocument();
     assert.equal(prints,mode==='active'?1:0,mode); assert.equal(ctx.printing,false);
