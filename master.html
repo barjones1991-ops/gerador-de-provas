@@ -225,13 +225,22 @@
     }
 
     async function loadMasterData() {
+      const loadProfiles = async () => {
+        const base = '/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)';
+        try {
+          return await auth.authenticatedRequest(`${base}&order=full_name.asc&select=id,email,full_name,role,school_id,school_grade,disciplines,is_active`);
+        } catch (error) {
+          if (!/is_active/i.test(String(error?.message || ''))) throw error;
+          return auth.authenticatedRequest(`${base}&order=full_name.asc&select=id,email,full_name,role,school_id,school_grade,disciplines`);
+        }
+      };
       const [schoolData, profileData, inviteData] = await Promise.all([
         auth.authenticatedRequest('/schools?order=name.asc&select=*'),
-        auth.authenticatedRequest('/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)&order=full_name.asc&select=id,email,full_name,role,school_id,school_grade,disciplines'),
+        loadProfiles(),
         auth.authenticatedRequest('/user_invites?order=created_at.desc&select=*'),
       ]);
       schools = Array.isArray(schoolData) ? schoolData : [];
-      teamProfiles = Array.isArray(profileData) ? profileData : [];
+      teamProfiles = (Array.isArray(profileData) ? profileData : []).filter(item => item.is_active !== false);
       invites = Array.isArray(inviteData) ? inviteData : [];
       renderSummary();
       renderSchools();
@@ -244,6 +253,11 @@
         return;
       }
 
+      document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await auth.signOut();
+        window.location.href = 'login.html';
+      });
+
       try {
         profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
         if (!auth.hasRole(['master'], profile)) {
@@ -252,12 +266,10 @@
           return;
         }
         applyModuleNavigation();
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-          await auth.signOut();
-          window.location.href = 'login.html';
-        });
         await loadMasterData();
       } catch (err) {
+        document.getElementById('masterSummaryGrid').innerHTML = '<div class="empty">Resumo indisponível. Verifique a conexão e atualize a página.</div>';
+        document.getElementById('masterSchoolList').innerHTML = '<div class="empty">Mapa de escolas indisponível.</div>';
         showToast('Erro ao carregar painel master: ' + err.message, 'error');
       }
     });

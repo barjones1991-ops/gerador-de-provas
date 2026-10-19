@@ -108,13 +108,30 @@ function extract(file,name,spaces) {
   console.log('OK REFINAMENTO painel e editor recusam o mesmo passatempo invalido');
   const fields={newExamSubject:{value:'Matemática'},newExamClass:{value:'5A'},confirmNewExamBtn:{}};
   let payload;
-  const create=vm.createContext({document:{getElementById:id=>fields[id]},currentProfile:{school_id:'s1',full_name:'Professor'},localStorage:{setItem(){}},window:{location:{}},showToast(){},auth:{getCurrentUser:()=>({id:'u1'}),authenticatedRequest:async(url,opt)=>{
-    if(url.startsWith('/schools'))return [{name:'Escola',logo_data_url:'data:image/png;base64,AA=='}]; payload=JSON.parse(opt.body); return [{id:'e1'}];
+  const create=vm.createContext({document:{getElementById:id=>fields[id]},currentProfile:{school_id:'s1',full_name:'Professor'},uniqueCleanList:value=>Array.isArray(value)?value:[],localStorage:{setItem(){}},window:{location:{}},showToast(){},auth:{getCurrentUser:()=>({id:'u1'}),authenticatedRequest:async(url,opt)=>{
+    if(url.startsWith('/schools'))return [{name:'Escola',logo_data_url:'data:image/png;base64,AA==',classes:['5A'],disciplines:['Matemática']}]; payload=JSON.parse(opt.body); return [{id:'e1'}];
   }}});
   vm.runInContext(extract('dashboard.html','createNewExamFromModal',2),create); await create.createNewExamFromModal();
   assert.equal(payload.logo_data_url,'data:image/png;base64,AA==');
+  payload=null; fields.newExamClass.value='Turma removida'; await create.createNewExamFromModal(); assert.equal(payload,null);
+  fields.newExamClass.value='5A';
   payload=null; create.auth.authenticatedRequest=async()=>{throw new Error('offline');}; await create.createNewExamFromModal(); assert.equal(payload,null); assert.equal(fields.confirmNewExamBtn.disabled,false);
   console.log('OK REFINAMENTO nova prova herda logo e falha escolar nao cria cabecalho incompleto');
+  const duplicateRequests=[];
+  const duplicateSource={id:'old',school_id:'old-school',school_name:'Escola antiga',logo_data_url:'old-logo',title:'Prova',questions:[],decorative_images:[]};
+  const duplicate=vm.createContext({exams:[duplicateSource],currentProfile:{school_id:'new-school',full_name:'Professora atual'},pendingExamOperations:new Set(),renderExams(){},showToast(){},localStorage:{setItem(){}},window:{location:{}},
+    loadExamContent:async exam=>exam,auth:{getCurrentUser:()=>({id:'u1',email:'atual@example.com'}),authenticatedRequest:async(url,opt)=>{
+      if(url.startsWith('/schools'))return [{name:'Escola atual',logo_data_url:'new-logo'}];
+      duplicateRequests.push(JSON.parse(opt.body)); return [{id:'copy'}];
+    }},globalThis:{crypto:{randomUUID:()=> 'copy'}},
+  });
+  vm.runInContext(extract('dashboard.html','duplicateExam',2),duplicate);
+  await Promise.all([duplicate.duplicateExam('old'), duplicate.duplicateExam('old')]);
+  assert.equal(duplicateRequests[0].school_name,'Escola atual');
+  assert.equal(duplicateRequests[0].logo_data_url,'new-logo');
+  assert.equal(duplicateRequests[0].teacher,'Professora atual');
+  assert.equal(duplicateRequests.length,1);
+  console.log('OK REFINAMENTO copia usa cabecalho da escola atual apos mudanca de vinculo');
   for(const mode of ['active','withdrawn','printed','missing','offline','account']) {
     let prints=0,rendered=null;
     const fresh={id:'e1',title:'Atualizada',review_status:mode==='withdrawn'?'em_revisao':'aprovada',print_status:mode==='printed'?'impressa':'enviada',questions:[]};

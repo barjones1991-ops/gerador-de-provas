@@ -125,11 +125,21 @@
     if (!response.ok && response.status !== 404) throw new Error(`Falha ao excluir imagem (${response.status}).`);
   }
 
+  async function deleteAssetRecord(id) {
+    const rows = await auth.authenticatedRequest(`/image_assets?id=eq.${encodeURIComponent(id)}&select=id`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    if (!Array.isArray(rows) || rows.length !== 1 || rows[0].id !== id) {
+      throw new Error('A remoção do registro da imagem não foi confirmada.');
+    }
+  }
+
   async function discardAsset(ref) {
     if (!isAssetRef(ref)) return;
     const record = await getAssetRecord(ref);
     await removeObject(record.object_name);
-    await auth.authenticatedRequest(`/image_assets?id=eq.${encodeURIComponent(record.id)}`, { method: 'DELETE' });
+    await deleteAssetRecord(record.id);
     assetRecords.delete(record.id);
     refToUrl.delete(ref);
   }
@@ -385,7 +395,7 @@
     for (const row of Array.isArray(rows) ? rows : []) {
       try {
         await removeObject(row.object_name);
-        await auth.authenticatedRequest(`/image_assets?id=eq.${encodeURIComponent(row.id)}`, { method: 'DELETE' });
+        await deleteAssetRecord(row.id);
         assetRecords.delete(row.id);
         removed++;
       } catch (error) {

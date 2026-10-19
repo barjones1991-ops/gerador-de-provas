@@ -258,12 +258,16 @@
   }
 
   function createPicker(options) {
+    let busy = false;
     const wrap = document.createElement('div');
     wrap.className = 'row image-picker';
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
     fileInput.className = 'visually-hidden';
+    fileInput.hidden = true;
+    fileInput.tabIndex = -1;
+    fileInput.setAttribute('aria-hidden', 'true');
     const drop = document.createElement('div');
     drop.className = 'image-drop';
     drop.setAttribute('role', 'button');
@@ -291,6 +295,7 @@
       button.className = className;
       button.textContent = text;
       button.title = title;
+      button.setAttribute('aria-label', title);
       actions.appendChild(button);
       return button;
     };
@@ -302,8 +307,13 @@
     const refresh = () => {
       const image = options.getImage() || {};
       const hasImage = !!image.dataUrl;
+      const editable = !options.canEdit || options.canEdit();
       drop.replaceChildren();
       drop.setAttribute('aria-label', hasImage ? 'Substituir imagem' : 'Selecionar imagem do computador');
+      drop.setAttribute('aria-busy', String(busy));
+      drop.setAttribute('aria-disabled', String(busy || !editable));
+      drop.tabIndex = busy || !editable ? -1 : 0;
+      fileInput.disabled = busy || !editable;
       if (hasImage) {
         const preview = document.createElement('img');
         preview.src = image.dataUrl;
@@ -320,25 +330,37 @@
       }
       sizeControl.hidden = !hasImage || !options.setSize;
       sizeSelect.value = options.getSize?.() || 'small';
-      [rotateLeft, rotateRight, crop, remove].forEach(button => { button.hidden = !hasImage; });
+      sizeSelect.disabled = busy || !editable;
+      [rotateLeft, rotateRight, crop, remove].forEach(button => {
+        button.hidden = !hasImage;
+        button.disabled = busy || !editable;
+      });
+    };
+
+    const setBusy = value => {
+      busy = Boolean(value);
+      refresh();
     };
 
     const fail = error => options.onError?.(error instanceof Error ? error : new Error(String(error)));
     const applyFile = async file => {
-      if (!file) return;
+      if (!file || busy || (options.canEdit && !options.canEdit())) return;
+      setBusy(true);
       try {
         const processor = options.processFile || processFile;
         const result = await processor(file, { ...options.processing, canEdit: options.canEdit });
+        if (options.canEdit && !options.canEdit()) throw new Error('A edição não está mais disponível. Reabra a questão.');
         options.setImage(result.dataUrl, result.fileName);
         if (options.setSize && !options.getSize?.()) options.setSize('small');
-        refresh();
         options.onChange?.();
       } catch (error) {
         fail(error);
+      } finally {
+        setBusy(false);
       }
     };
     const chooseFile = () => {
-      if (!options.canEdit || options.canEdit()) fileInput.click();
+      if (!busy && (!options.canEdit || options.canEdit())) fileInput.click();
     };
     drop.addEventListener('click', chooseFile);
     drop.addEventListener('keydown', event => {
@@ -352,6 +374,7 @@
     drop.addEventListener('drop', event => {
       event.preventDefault();
       drop.classList.remove('dragover');
+      if (busy || (options.canEdit && !options.canEdit())) return;
       applyFile(event.dataTransfer.files?.[0]);
     });
     fileInput.addEventListener('change', event => {
@@ -361,31 +384,40 @@
 
     const applyRotation = async (degrees, button) => {
       const image = options.getImage() || {};
-      if (!image.dataUrl) return;
-      button.disabled = true;
+      if (!image.dataUrl || busy || (options.canEdit && !options.canEdit())) return;
+      setBusy(true);
       try {
         const output = await rotate(image.dataUrl, degrees);
-        if (!options.canEdit || options.canEdit()) options.setImage(output, image.fileName);
-        refresh();
+        if (options.canEdit && !options.canEdit()) throw new Error('A edição não está mais disponível. Reabra a questão.');
+        options.setImage(output, image.fileName);
         options.onChange?.();
       } catch (error) {
         fail(error);
       } finally {
-        button.disabled = false;
+        setBusy(false);
       }
     };
     rotateLeft.addEventListener('click', () => applyRotation(270, rotateLeft));
     rotateRight.addEventListener('click', () => applyRotation(90, rotateRight));
     crop.addEventListener('click', () => {
       const image = options.getImage() || {};
-      if (!image.dataUrl) return;
+      if (!image.dataUrl || busy || (options.canEdit && !options.canEdit())) return;
+      setBusy(true);
       openCrop(image.dataUrl, output => {
         options.setImage(output, image.fileName);
         refresh();
         options.onChange?.();
-      }, options.modal || {});
+      }, {
+        ...(options.modal || {}),
+        canEdit: options.modal?.canEdit || options.canEdit,
+        onClose: () => {
+          options.modal?.onClose?.();
+          setBusy(false);
+        },
+      });
     });
     remove.addEventListener('click', () => {
+      if (busy || (options.canEdit && !options.canEdit())) return;
       options.clearImage();
       refresh();
       options.onChange?.();

@@ -316,6 +316,10 @@ body[data-editor-view="preview"] #canonicalPreviewPanel { width:100%; max-width:
   align-self:center; font-size:12px; font-weight:700; padding:7px 9px; border-radius:8px;
   border:1px solid #c8ddef; background:#edf5fc; color:#315b83; white-space:nowrap;
 }
+.subitem-card .subitem-image-button::-webkit-details-marker { display:none; }
+.subitem-card .subitem-main:has(> details[open]) { flex-wrap:wrap; }
+.subitem-card .subitem-main > details[open] { flex:1 0 100%; order:5; }
+.subitem-card .subitem-main > details[open] > .subitem-image-button { display:block; width:max-content; margin-left:auto; }
 .subitem-card .subitem-image-tools[hidden] { display:none; }
 
 @media (max-width:600px) {

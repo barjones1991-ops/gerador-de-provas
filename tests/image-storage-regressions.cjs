@@ -60,8 +60,10 @@ const auth = {
       return [row];
     }
     if (path.startsWith('/image_assets?id=eq.') && options.method === 'DELETE') {
-      assets.delete(decodeURIComponent(path.split('/image_assets?id=eq.')[1]));
-      return null;
+      const id = decodeURIComponent(path.split('/image_assets?id=eq.')[1].split('&')[0]);
+      const row = assets.get(id);
+      assets.delete(id);
+      return row ? [{ id }] : [];
     }
     if (path.startsWith('/image_assets?id=eq.')) {
       const id = decodeURIComponent(path.split('/image_assets?id=eq.')[1].split('&')[0]);
@@ -116,6 +118,16 @@ const auth = {
   );
 
   const createdCount = assets.size;
+  const authenticatedRequest = auth.authenticatedRequest;
+  const copiedId = storage.assetIdFromRef(copied.first);
+  auth.authenticatedRequest = async (path, options = {}) => {
+    if (options.method === 'DELETE' && path.includes(encodeURIComponent(copiedId))) return [];
+    return authenticatedRequest(path, options);
+  };
+  const unconfirmed = await storage.discardTree(copied, { auth, scope: 'exam-2' });
+  assert.equal(unconfirmed.failed, 1, 'exclusão sem linha retornada não deve ser anunciada como concluída');
+  assert.equal(assets.has(copiedId), true, 'registro não confirmado deve permanecer disponível para nova limpeza');
+  auth.authenticatedRequest = authenticatedRequest;
   await storage.discardTree(copied, { auth, scope: 'exam-2' });
   assert.equal(assets.size, createdCount - 1, 'rollback remove o registro do asset copiado');
   assert.equal(objects.size, 2, 'rollback remove apenas o arquivo copiado e preserva o legado de teste');

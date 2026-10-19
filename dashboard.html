@@ -483,6 +483,7 @@
 <script>
   let auth = null;
   let exams = [];
+  const pendingExamOperations = new Set();
   let currentProfile = { full_name: '', role: 'professor', normalized_role: 'teacher', school_id: null, school_grade: '', disciplines: [], force_password_change: false };
   let currentSchool = null;
   let currentFilter = 'all';
@@ -506,34 +507,37 @@
     const user = auth.getCurrentUser();
     document.getElementById('userEmail').textContent = user.email;
 
-    // Fetch básico: papel e nome — links de menu dependem disso
-    try {
-      const profile = await auth.loadCurrentProfile('id,email,full_name,role,force_password_change');
-      currentProfile = { ...currentProfile, ...(profile || {}) };
-    } catch {}
-    applyProfileToHeader();
-    applyRoleActions();
-
-    // Fetch estendido: colunas opcionais (falha silenciosa se migration não foi rodada)
-    try {
-      const ext = await auth.authenticatedRequest(`/profiles?id=eq.${user.id}&select=school_id,school_grade,disciplines`);
-      if (Array.isArray(ext) && ext[0]) {
-        currentProfile = { ...currentProfile, ...ext[0], normalized_role: auth.normalizeRole(currentProfile.role) };
-        auth.currentProfile = currentProfile;
-        if (currentProfile.school_id) {
-          try {
-            const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name,classes`);
-            currentSchool = Array.isArray(sd) ? (sd[0] || null) : null;
-          } catch {}
-        }
-      }
-    } catch {}
-
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await auth.signOut();
       localStorage.removeItem('editExamId');
       window.location.href = 'login.html';
     });
+
+    // O perfil completo precisa ser validado antes de liberar qualquer ação.
+    try {
+      const profile = await auth.loadCurrentProfile();
+      if (!profile?.id) throw new Error('Perfil de acesso não encontrado.');
+      currentProfile = { ...currentProfile, ...profile };
+    } catch (error) {
+      const loadError = document.getElementById('examsLoadError');
+      loadError.textContent = 'Não foi possível validar seu perfil. Atualize a página para tentar novamente.';
+      loadError.hidden = false;
+      document.getElementById('examsGrid').innerHTML = '';
+      document.getElementById('reloadExamsBtn').addEventListener('click', () => window.location.reload());
+      showToast('Erro ao validar acesso: ' + error.message, 'error');
+      return;
+    }
+    applyProfileToHeader();
+    applyRoleActions();
+
+    if (currentProfile.school_id) {
+      try {
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(currentProfile.school_id)}&select=name,classes`);
+        currentSchool = Array.isArray(sd) ? (sd[0] || null) : null;
+      } catch (error) {
+        showToast('Não foi possível carregar as turmas da escola. Algumas opções podem ficar indisponíveis.', 'error');
+      }
+    }
 
     document.getElementById('newExamBtn').addEventListener('click', openNewExamModal);
     document.getElementById('cancelNewExamBtn').addEventListener('click', closeNewExamModal);
@@ -811,7 +815,7 @@
             <details class="exam-menu"><summary aria-label="Mais ações para ${esc(exam.title || 'prova')}" title="Mais ações">⋯</summary><div class="exam-menu-items">
 
 
-              <button class="card-btn" onclick="duplicateExam('${exam.id}')">Criar cópia</button>
+              <button class="card-btn" ${pendingExamOperations.has(exam.id) ? 'disabled' : ''} onclick="duplicateExam('${exam.id}')">${pendingExamOperations.has(exam.id) ? 'Copiando...' : 'Criar cópia'}</button>
               ${canDelete ? `<button class="card-btn delete" onclick="askDelete('${exam.id}')">Excluir prova</button>` : ''}
             </div></details>
           </div>
@@ -955,13 +959,22 @@
     let schoolLogo = null;
     if (currentProfile.school_id) {
       try {
-        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name,logo_data_url`);
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(currentProfile.school_id)}&select=name,logo_data_url,classes,disciplines`);
         if (!Array.isArray(sd) || !sd[0]) throw new Error('Escola indisponível.');
-        schoolName = (Array.isArray(sd) && sd[0]) ? sd[0].name : '';
-        schoolLogo = (Array.isArray(sd) && sd[0]) ? sd[0].logo_data_url || null : null;
+        const school = sd[0];
+        const officialClasses = uniqueCleanList(school.classes);
+        const officialDisciplines = uniqueCleanList(school.disciplines, { discipline: true });
+        if (officialClasses.length && !officialClasses.some(item => item.toLowerCase() === className.toLowerCase())) {
+          throw new Error('A turma selecionada não está mais disponível na escola. Atualize a página.');
+        }
+        if (officialDisciplines.length && !officialDisciplines.some(item => item.toLowerCase() === subject.toLowerCase())) {
+          throw new Error('A disciplina selecionada não está mais disponível na escola. Atualize a página.');
+        }
+        schoolName = school.name || '';
+        schoolLogo = school.logo_data_url || null;
       } catch (error) {
         btn.disabled = false; btn.textContent = 'Criar prova';
-        showToast('Não foi possível carregar o cabeçalho da escola. Tente criar a prova novamente.', 'error');
+        showToast(error.message || 'Não foi possível validar os dados da escola. Tente criar a prova novamente.', 'error');
         return;
       }
     }
@@ -1040,6 +1053,10 @@
   }
 
   async function duplicateExam(id) {
+    if (pendingExamOperations.has(id)) return;
+    pendingExamOperations.add(id);
+    renderExams();
+    try {
     let source = exams.find(e => e.id === id);
     if (!source) return;
 
@@ -1050,6 +1067,23 @@
     catch (error) { showToast(error.message, 'error'); return; }
 
     const imageStorage = globalThis.ExamImageStorage;
+    let copySchoolName = source.school_name || '';
+    let copyLogo = source.logo_data_url || null;
+    if ((source.school_id || null) !== (currentProfile.school_id || null)) {
+      copySchoolName = '';
+      copyLogo = null;
+      if (currentProfile.school_id) {
+        try {
+          const rows = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(currentProfile.school_id)}&select=name,logo_data_url`);
+          if (!Array.isArray(rows) || !rows[0]) throw new Error('Escola atual indisponível.');
+          copySchoolName = rows[0].name || '';
+          copyLogo = rows[0].logo_data_url || null;
+        } catch (error) {
+          showToast('Não foi possível carregar o cabeçalho da escola atual. A cópia não foi criada.', 'error');
+          return;
+        }
+      }
+    }
     const newExamId = globalThis.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
       const value = Math.random() * 16 | 0;
       return (char === 'x' ? value : (value & 3 | 8)).toString(16);
@@ -1057,11 +1091,11 @@
     let copiedContent = null;
     try {
       copiedContent = imageStorage
-        ? await imageStorage.cloneTree({ questions: source.questions || [], logo_data_url: source.logo_data_url || null, decorative_images: source.decorative_images || [] }, {
+        ? await imageStorage.cloneTree({ questions: source.questions || [], logo_data_url: copyLogo, decorative_images: source.decorative_images || [] }, {
           auth, scope: newExamId,
           onProgress: (done, total) => total && showToast(`Copiando imagens ${done}/${total}...`, 'success'),
         })
-        : { questions: source.questions || [], logo_data_url: source.logo_data_url || null, decorative_images: source.decorative_images || [] };
+        : { questions: source.questions || [], logo_data_url: copyLogo, decorative_images: source.decorative_images || [] };
     } catch (error) {
       showToast('Não foi possível criar uma cópia independente: ' + error.message, 'error');
       return;
@@ -1070,10 +1104,10 @@
       id: newExamId,
       user_id: user.id,
       title: `${source.title || 'Prova'} (cópia)`,
-      school_name: source.school_name || '',
+      school_name: copySchoolName,
       subject: source.subject || '',
       class_name: source.class_name || '',
-      teacher: source.teacher || '',
+      teacher: currentProfile.full_name || user.email || '',
       term: source.term || '',
       date: source.date || '',
       total_value: source.total_value || '',
@@ -1100,6 +1134,7 @@
         }
       );
       const newId = Array.isArray(data) ? data[0]?.id : data?.id;
+      if (!newId) throw new Error('O servidor não confirmou a criação da cópia.');
       showToast('Prova duplicada com sucesso!', 'success');
       await loadExams();
       if (newId) {
@@ -1109,6 +1144,10 @@
     } catch (e) {
       await imageStorage?.discardTree?.(copiedContent, { auth, scope: newExamId });
       showToast('Erro ao duplicar prova: ' + e.message, 'error');
+    }
+    } finally {
+      pendingExamOperations.delete(id);
+      renderExams();
     }
   }
 
@@ -1184,14 +1223,16 @@
     document.getElementById('profilePasswordConfirmInput').value = '';
     // Escola vinculada
     let schoolName = '';
+    let schoolLoadFailed = false;
     if (currentProfile.school_id) {
       try {
-        const sd = await auth.authenticatedRequest(`/schools?id=eq.${currentProfile.school_id}&select=name`);
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(currentProfile.school_id)}&select=name`);
         schoolName = (Array.isArray(sd) && sd[0]) ? sd[0].name : '';
-      } catch {}
+      } catch { schoolLoadFailed = true; }
     }
     const schoolEl = document.getElementById('profileSchoolValue');
     if (schoolName) { schoolEl.textContent = schoolName; schoolEl.className = 'pib-value'; }
+    else if (currentProfile.school_id && schoolLoadFailed) { schoolEl.textContent = 'Indisponível no momento'; schoolEl.className = 'pib-empty'; }
     else { schoolEl.textContent = 'Não vinculado'; schoolEl.className = 'pib-empty'; }
 
     // Série
@@ -1233,12 +1274,14 @@
     btn.textContent = 'Salvando...';
 
     try {
-      await auth.authenticatedRequest(`/profiles?id=eq.${user.id}`, {
+      const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(user.id)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({
           full_name: fullName,
         }),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('O perfil não existe mais ou não pôde ser atualizado.');
 
       currentProfile = { ...currentProfile, full_name: fullName };
       applyProfileToHeader();
@@ -1277,10 +1320,12 @@
       const result = await auth.updatePassword(password, { force_password_change: false });
       if (!result.success) throw new Error(result.error || 'Erro ao alterar senha');
 
-      await auth.authenticatedRequest(`/profiles?id=eq.${user.id}`, {
+      const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(user.id)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ force_password_change: false }),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A senha mudou, mas o perfil não confirmou a atualização. Entre novamente e tente concluir a troca.');
 
       currentProfile = { ...currentProfile, force_password_change: false };
       document.getElementById('profilePasswordInput').value = '';
@@ -1310,14 +1355,16 @@
     renderExams();
 
     try {
-      await auth.authenticatedRequest(`/exams?id=eq.${id}`, {
+      const saved = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({
           is_published: willPublish,
           is_draft: !willPublish,
           updated_at: new Date().toISOString(),
         }),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A prova não existe mais ou não pôde ser alterada.');
       showToast(willPublish ? 'Prova marcada como publicada.' : 'Prova voltou para rascunho.', 'success');
     } catch (err) {
       exam.is_published = previous.is_published;

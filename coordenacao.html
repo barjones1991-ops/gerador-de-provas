@@ -274,6 +274,12 @@
       return;
     }
 
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await auth.signOut();
+      localStorage.removeItem('editExamId');
+      window.location.href = 'login.html';
+    });
+
     try {
       profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id,school_grade');
       if (!auth.canReviewExams(profile)) {
@@ -283,15 +289,14 @@
       }
       applyModuleNavigation();
     } catch (err) {
+      const loadError = document.getElementById('loadError');
+      loadError.textContent = 'Não foi possível validar seu acesso à coordenação. Atualize a página para tentar novamente.';
+      loadError.hidden = false;
+      document.getElementById('reviewsGrid').innerHTML = '<div class="empty"><h2>Coordenação indisponível</h2><p>Verifique a conexão e atualize a página.</p></div>';
       showToast('Erro ao verificar perfil: ' + err.message, 'error');
       return;
     }
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await auth.signOut();
-      localStorage.removeItem('editExamId');
-      window.location.href = 'login.html';
-    });
     document.getElementById('reloadBtn').addEventListener('click', loadReviews);
     document.getElementById('searchInput').addEventListener('input', renderReviews);
     document.getElementById('profFilter').addEventListener('change', renderReviews);

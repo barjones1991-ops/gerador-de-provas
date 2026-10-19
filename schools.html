@@ -390,7 +390,7 @@
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/image-storage.js?v=20261019-assets1"></script>
-  <script src="js/image-engine.js?v=20261019-unified1"></script>
+  <script src="js/image-engine.js?v=20261019-unified3"></script>
 <script>
   let auth = null;
   let currentProfile = null;
@@ -401,6 +401,8 @@
   let newSchoolClasses = [];
   let newSchoolLogoDataUrl = '';
   let pendingTeacherRemoval = null;
+  const pendingSchoolSaves = new Set();
+  const queuedSchoolSaves = new Set();
 
   const MAX_LOGO_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
   const MAX_LOGO_DATA_URL_BYTES = 220 * 1024;
@@ -447,6 +449,10 @@
       window.location.href = 'login.html';
       return;
     }
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await auth.signOut();
+      window.location.href = 'login.html';
+    });
     try {
       currentProfile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
       if (!auth.canManageSchools(currentProfile) && !auth.canManageUsers(currentProfile)) {
@@ -456,14 +462,11 @@
       }
       applyModuleNavigation();
     } catch (err) {
+      document.getElementById('schoolsList').innerHTML = '<div class="empty"><h2>Gestão escolar indisponível</h2><p>Não foi possível validar seu acesso. Verifique a conexão e atualize a página.</p></div>';
       showToast('Erro ao verificar perfil.', 'error');
       return;
     }
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await auth.signOut();
-      window.location.href = 'login.html';
-    });
     const schoolForm = document.getElementById('newSchoolCard');
     if (schoolForm && !auth.hasRole(['master'], currentProfile)) schoolForm.style.display = 'none';
     const linkCard = document.getElementById('linkProfessorCard');
@@ -621,9 +624,9 @@
       updateSchoolSelects();
       renderSchoolReadiness();
     } catch (err) {
-      schools = [];
-      renderSchools();
-      renderSchoolReadiness();
+      if (!schools.length) {
+        document.getElementById('schoolsList').innerHTML = '<div class="empty"><h2>Escolas indisponíveis</h2><p>Não foi possível carregar os cadastros. Verifique a conexão e atualize a página.</p></div>';
+      }
       showToast('Erro ao carregar escolas: ' + err.message, 'error');
     }
   }
@@ -756,30 +759,42 @@
       showToast('Você não tem permissão para editar escolas.', 'error');
       return;
     }
+    if (pendingSchoolSaves.has(schoolId)) {
+      queuedSchoolSaves.add(schoolId);
+      return;
+    }
     const name = (document.getElementById(`se-name-${schoolId}`)?.value || '').trim();
     const city = (document.getElementById(`se-city-${schoolId}`)?.value || '').trim();
     const email = (document.getElementById(`se-email-${schoolId}`)?.value || '').trim();
     if (!name) { showToast('O nome da escola é obrigatório.', 'error'); return; }
     const payload = { name, city: city || null, admin_email: email || null };
     const imageStorage = window.ExamImageStorage;
+    const hasPendingLogo = schoolId in pendingLogos;
+    const pendingLogoSnapshot = pendingLogos[schoolId];
     let storedLogo = null;
+    pendingSchoolSaves.add(schoolId);
     try {
-      if (schoolId in pendingLogos) {
-        storedLogo = pendingLogos[schoolId] === null
+      if (hasPendingLogo) {
+        storedLogo = pendingLogoSnapshot === null
           ? null
-          : imageStorage ? (await imageStorage.persistTree({ logo: pendingLogos[schoolId] }, { auth, scope: `school-${schoolId}` })).logo : pendingLogos[schoolId];
+          : imageStorage ? (await imageStorage.persistTree({ logo: pendingLogoSnapshot }, { auth, scope: `school-${schoolId}` })).logo : pendingLogoSnapshot;
         payload.logo_data_url = storedLogo;
       }
-      await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
+      const saved = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify(payload),
       });
-      delete pendingLogos[schoolId];
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A escola não existe mais ou não pôde ser atualizada.');
+      if (hasPendingLogo && pendingLogos[schoolId] === pendingLogoSnapshot) delete pendingLogos[schoolId];
       showToast('Escola atualizada!');
       await loadSchools();
     } catch (err) {
       if (storedLogo) await imageStorage?.discardTree?.({ logo: storedLogo }, { auth, scope: `school-${schoolId}` });
       showToast('Erro ao salvar: ' + err.message, 'error');
+    } finally {
+      pendingSchoolSaves.delete(schoolId);
+      if (queuedSchoolSaves.delete(schoolId)) saveSchoolEdit(schoolId);
     }
   }
 
@@ -831,16 +846,23 @@
       .map(invite => ({ invite, next: filterGradesBySchoolClasses(invite.school_grade, classes) }))
       .filter(({ invite, next }) => (invite.school_grade || null) !== next);
 
-    await Promise.all([
-      ...profileUpdates.map(({ profile, next }) => auth.authenticatedRequest(`/profiles?id=eq.${profile.id}`, {
+    const changes = [
+      ...profileUpdates.map(({ profile, next }) => ({ type: 'perfil', id: profile.id, path: 'profiles', next })),
+      ...inviteUpdates.map(({ invite, next }) => ({ type: 'convite', id: invite.id, path: 'user_invites', next })),
+    ];
+    const results = await Promise.allSettled(changes.map(async change => {
+      const rows = await auth.authenticatedRequest(`/${change.path}?id=eq.${encodeURIComponent(change.id)}&select=id`, {
         method: 'PATCH',
-        body: JSON.stringify({ school_grade: next }),
-      })),
-      ...inviteUpdates.map(({ invite, next }) => auth.authenticatedRequest(`/user_invites?id=eq.${invite.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ school_grade: next }),
-      })),
-    ]);
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ school_grade: change.next }),
+      });
+      if (!Array.isArray(rows) || rows.length !== 1 || rows[0].id !== change.id) {
+        throw new Error(`${change.type} ${change.id} não confirmou a atualização`);
+      }
+    }));
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length) throw new Error(`${failed.length} vínculo(s) não puderam ser ajustados à nova lista de turmas.`);
+    return { updated: changes.length };
   }
   function removeSchoolDisc(schoolId, idx) {
     const s = getSchool(schoolId);
@@ -887,12 +909,16 @@
       showToast('Você não tem permissão para editar turmas da escola.', 'error');
       return false;
     }
+    let schoolSaved = false;
     try {
       const cleanClasses = getUniqueList(classes);
-      await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
+      const saved = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ classes: cleanClasses }),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A escola não existe mais ou não pôde ser atualizada.');
+      schoolSaved = true;
       await cleanupRemovedSchoolClasses(schoolId, cleanClasses);
       showToast('Turmas atualizadas!');
       await Promise.all([loadSchools(), loadProfessors(), loadInvites()]);
@@ -900,7 +926,12 @@
       if (el) el.classList.add('open');
       return true;
     } catch (err) {
-      showToast('Erro ao salvar turmas: ' + err.message, 'error');
+      if (schoolSaved) {
+        showToast('As turmas foram salvas, mas houve falha ao ajustar vínculos: ' + err.message + ' Atualize e tente novamente.', 'error');
+        await Promise.allSettled([loadSchools(), loadProfessors(), loadInvites()]);
+      } else {
+        showToast('Erro ao salvar turmas: ' + err.message, 'error');
+      }
       return false;
     }
   }
@@ -910,10 +941,12 @@
       return;
     }
     try {
-      await auth.authenticatedRequest(`/schools?id=eq.${schoolId}`, {
+      const saved = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ disciplines: discs }),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A escola não existe mais ou não pôde ser atualizada.');
       showToast('Disciplinas atualizadas!');
       await loadSchools();
       // Re-open the edit panel after re-render
@@ -1005,8 +1038,9 @@
       storedLogo = newSchoolLogoDataUrl && imageStorage
         ? (await imageStorage.persistTree({ logo: newSchoolLogoDataUrl }, { auth, scope: `school-${schoolId}` })).logo
         : newSchoolLogoDataUrl || null;
-      await auth.authenticatedRequest('/schools', {
+      const created = await auth.authenticatedRequest('/schools?select=id', {
         method: 'POST',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({
           id: schoolId,
           name,
@@ -1017,6 +1051,7 @@
           classes: newSchoolClasses.length ? newSchoolClasses : [],
         }),
       });
+      if (!Array.isArray(created) || created.length !== 1 || created[0].id !== schoolId) throw new Error('O servidor não confirmou a criação da escola.');
       document.getElementById('schoolNameInput').value = '';
       document.getElementById('schoolCityInput').value = '';
       document.getElementById('schoolAdminInput').value = '';
@@ -1044,7 +1079,13 @@
     }
     if (!confirm('Excluir esta escola? Os professores vinculados perderão a associação.')) return;
     try {
-      await auth.authenticatedRequest(`/schools?id=eq.${id}`, { method: 'DELETE' });
+      const removed = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(id)}&select=id`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=representation' },
+      });
+      if (!Array.isArray(removed) || removed.length !== 1 || removed[0].id !== id) {
+        throw new Error('A exclusão não foi confirmada. Atualize a lista e tente novamente.');
+      }
       showToast('Escola excluída.');
       await loadSchools();
     } catch (err) {
@@ -1054,8 +1095,15 @@
 
   async function loadProfessors() {
     try {
-      const data = await auth.authenticatedRequest('/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)&select=id,full_name,email,role,school_grade,school_id,disciplines&order=full_name.asc');
-      const profs = Array.isArray(data) ? data : [];
+      const base = '/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)';
+      let data;
+      try {
+        data = await auth.authenticatedRequest(`${base}&select=id,full_name,email,role,school_grade,school_id,disciplines,is_active&order=full_name.asc`);
+      } catch (error) {
+        if (!/is_active/i.test(String(error?.message || ''))) throw error;
+        data = await auth.authenticatedRequest(`${base}&select=id,full_name,email,role,school_grade,school_id,disciplines&order=full_name.asc`);
+      }
+      const profs = (Array.isArray(data) ? data : []).filter(profile => profile.is_active !== false);
       teamProfiles = profs;
       renderAccessSummary();
       const section = document.getElementById('professorsSection');
@@ -1147,7 +1195,9 @@
       list.innerHTML = groupedHtml + (otherProfiles.length
         ? `<div class="team-group"><div class="team-group-title">Outros perfis <span class="team-group-count">(${otherProfiles.length})</span></div>${otherProfiles.map(renderProfileCard).join('')}</div>`
         : '');
-    } catch {}
+    } catch (error) {
+      showToast('Erro ao carregar equipe: ' + error.message, 'error');
+    }
   }
 
   function roleLabel(role) {
@@ -1306,10 +1356,12 @@
     const update = { school_grade: grade || null, disciplines: checked };
     if (canChangeTeamSchool(profile)) update.school_id = schoolId || null;
     try {
-      await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
+      const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(profId)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify(update),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('O perfil não existe mais ou não pôde ser atualizado.');
       showToast('Vínculo atualizado!');
       await loadProfessors();
     } catch (err) {
@@ -1348,10 +1400,12 @@
     const update = { role };
     if (schoolId) update.school_id = schoolId;
     try {
-      await auth.authenticatedRequest(`/profiles?id=eq.${profId}`, {
+      const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(profId)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify(update),
       });
+      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('O perfil não existe mais ou não pôde ser atualizado.');
       showToast('Perfil de acesso atualizado.');
       await loadProfessors();
     } catch (err) {
@@ -1488,10 +1542,11 @@
       renderAccessSummary();
       renderInvites();
     } catch (err) {
-      invites = [];
-      renderAccessSummary();
-      if (section) section.style.display = 'none';
-      if (list) list.innerHTML = '';
+      if (section) section.style.display = '';
+      if (list && !invites.length) {
+        list.innerHTML = '<div class="empty" style="padding:24px;"><h2>Convites indisponíveis</h2><p>Não foi possível carregar os convites. Verifique a conexão e tente novamente.</p></div>';
+      }
+      showToast('Erro ao carregar convites: ' + err.message, 'error');
     }
   }
 
@@ -1665,10 +1720,14 @@
     if (!invite || invite.accepted_at || invite.canceled_at) return;
     if (!confirm('Cancelar este convite? O link deixará de funcionar, mas o histórico ficará visível.')) return;
     try {
-      await auth.authenticatedRequest(`/user_invites?id=eq.${inviteId}&accepted_at=is.null&canceled_at=is.null`, {
+      const updated = await auth.authenticatedRequest(`/user_invites?id=eq.${encodeURIComponent(inviteId)}&accepted_at=is.null&canceled_at=is.null&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ canceled_at: new Date().toISOString(), canceled_by: auth.getCurrentUser().id })
       });
+      if (!Array.isArray(updated) || updated.length !== 1 || updated[0].id !== inviteId) {
+        throw new Error('O convite já foi aceito, cancelado ou alterado. Atualize a lista.');
+      }
       showToast('Convite cancelado.');
       await loadInvites();
     } catch (err) {
@@ -1727,6 +1786,7 @@
         }),
       });
       const invite = Array.isArray(data) ? data[0] : data;
+      if (!invite?.id || !invite?.token) throw new Error('O servidor não confirmou a criação do convite.');
       const link = invite?.token ? buildInviteLink(invite.token) : '';
       resultEl.innerHTML = link
         ? `Convite criado para ${esc(email)}.<br><input readonly style="margin-top:6px;" value="${esc(link)}" onclick="this.select()" />`
@@ -1761,18 +1821,34 @@
     const resultEl = document.getElementById('linkResult');
     resultEl.textContent = 'Buscando professor...';
     try {
-      const profData = await auth.authenticatedRequest(`/profiles?email=eq.${encodeURIComponent(email)}&select=id,full_name,email`);
+      let profData;
+      try {
+        profData = await auth.authenticatedRequest(`/profiles?email=eq.${encodeURIComponent(email)}&select=id,full_name,email,is_active`);
+      } catch (error) {
+        if (!/is_active/i.test(String(error?.message || ''))) throw error;
+        profData = await auth.authenticatedRequest(`/profiles?email=eq.${encodeURIComponent(email)}&select=id,full_name,email`);
+      }
       const prof = Array.isArray(profData) ? profData[0] : null;
       if (!prof) { resultEl.textContent = 'Professor não encontrado com este e-mail.'; btn.disabled = false; return; }
+      if (prof.is_active === false) {
+        resultEl.textContent = 'Este acesso foi removido. Gere um novo convite para que a própria pessoa reative a conta.';
+        showToast('Conta desativada: use um novo convite para reativá-la.', 'error');
+        btn.disabled = false;
+        return;
+      }
       const update = {};
       update.role = role || 'teacher';
       if (schoolId) update.school_id = schoolId;
       if (grade) update.school_grade = grade;
       if (checkedDiscs.length) update.disciplines = checkedDiscs;
-      await auth.authenticatedRequest(`/profiles?id=eq.${prof.id}`, {
+      const updated = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(prof.id)}&select=id`, {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify(update),
       });
+      if (!Array.isArray(updated) || updated.length !== 1 || updated[0].id !== prof.id) {
+        throw new Error('O vínculo não foi confirmado. Atualize a equipe e tente novamente.');
+      }
       resultEl.textContent = `Professor "${prof.full_name || prof.email}" vinculado com sucesso.`;
       showToast('Professor vinculado!');
       document.getElementById('linkProfEmail').value = '';

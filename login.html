@@ -140,12 +140,12 @@
       const recovery = getRecoveryParams();
       if (recovery.accessToken && recovery.type === 'recovery' && auth) {
         auth.startRecoverySession(recovery.accessToken, recovery.refreshToken);
-        window.history.replaceState({}, document.title, window.location.pathname);
+        clearAuthCallbackSecrets();
         enableRecoveryMode();
         return;
       }
       if (recovery.accessToken) {
-        window.history.replaceState({}, document.title, window.location.pathname);
+        clearAuthCallbackSecrets();
         showAlert('E-mail confirmado. Entre com sua senha para continuar.', 'success');
       }
       if (new URLSearchParams(window.location.search).get('access') === 'removed') {
@@ -198,6 +198,23 @@
       return /^[a-f0-9]{16,128}$/i.test(value) ? value : '';
     }
 
+    function clearAuthCallbackSecrets() {
+      const url = new URL(window.location.href);
+      url.hash = '';
+      ['access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'].forEach(key => url.searchParams.delete(key));
+      window.history.replaceState({}, document.title, `${url.pathname}${url.search}`);
+    }
+
+    function getSignupRedirectUrl() {
+      const url = new URL('login.html', window.location.href);
+      url.search = '';
+      const invite = getInviteToken();
+      const returnTo = getSafeReturnTo();
+      if (invite) url.searchParams.set('invite', invite);
+      if (returnTo) url.searchParams.set('return_to', returnTo);
+      return url.href;
+    }
+
     async function acceptPendingInvite() {
       const token = getInviteToken();
       if (!token) return false;
@@ -223,16 +240,18 @@
     }
 
     async function goAfterAuth() {
+      const hasInvite = Boolean(getInviteToken());
       try {
         await acceptPendingInvite();
         const profile = await auth.loadCurrentProfile('id,role,school_id,force_password_change,is_active');
+        if (!profile) throw new Error('Perfil de acesso não encontrado. Procure a coordenação.');
         if (!auth.isProfileActive(profile)) {
           await auth.signOut();
           showAlert('Seu acesso ao sistema foi removido pela escola. Procure a coordenação caso precise de um novo convite.', 'error');
           return;
         }
       } catch (err) {
-        showAlert('Convite nao aplicado: ' + traduzirErro(err.message), 'error');
+        showAlert((hasInvite ? 'Convite não aplicado: ' : 'Não foi possível concluir o acesso: ') + traduzirErro(err.message), 'error');
         return;
       }
       window.location.href = getSafeReturnTo() || await getDefaultDestinationForRole();
@@ -268,17 +287,17 @@
     }
 
     async function requiresPasswordChange() {
+      if (!auth?.currentUser?.id) return false;
       try {
-        if (!auth?.currentUser?.id) return false;
-        const data = await auth.authenticatedRequest(`/profiles?id=eq.${auth.currentUser.id}&select=force_password_change`);
+        const data = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(auth.currentUser.id)}&select=force_password_change`);
         const profile = Array.isArray(data) ? data[0] : null;
-        if (profile) return Boolean(profile.force_password_change);
+        if (!profile) throw new Error('Perfil de acesso não encontrado.');
+        return Boolean(profile.force_password_change);
       } catch (err) {
-        console.warn('Nao foi possivel verificar troca obrigatoria de senha:', err.message);
+        const metadata = auth?.currentUser?.user_metadata || {};
+        if (metadata.force_password_change === true || metadata.force_password_change === 'true') return true;
+        throw new Error('Não foi possível verificar se sua senha precisa ser alterada. Confira a conexão e tente entrar novamente.');
       }
-
-      const metadata = auth?.currentUser?.user_metadata || {};
-      return metadata.force_password_change === true || metadata.force_password_change === 'true';
     }
 
     function showAlert(msg, type) {
@@ -350,10 +369,12 @@
             showAlert(traduzirErro(result.error), 'error');
             return;
           }
-          await auth.authenticatedRequest(`/profiles?id=eq.${auth.currentUser.id}`, {
+          const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(auth.currentUser.id)}&select=id`, {
             method: 'PATCH',
+            headers: { Prefer: 'return=representation' },
             body: JSON.stringify({ force_password_change: false }),
           });
+          if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A senha mudou, mas o perfil não confirmou a atualização. Entre novamente e conclua a troca.');
           showAlert('Senha atualizada! Redirecionando...', 'success');
           setTimeout(() => goAfterAuth(), 1200);
         } catch (err) {
@@ -384,7 +405,7 @@
           showAlert('✓ Login realizado! Redirecionando...', 'success');
           setTimeout(() => goAfterAuth(), 1200);
         } else {
-          const result = await auth.signUp(email, password, { full_name: name });
+          const result = await auth.signUp(email, password, { full_name: name }, getSignupRedirectUrl());
           if (!result.success) {
             showAlert(traduzirErro(result.error), 'error');
             return;

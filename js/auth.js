@@ -142,9 +142,12 @@ class AuthManager {
   /**
    * Criar conta (sign up)
    */
-  async signUp(email, password, metadata = {}) {
+  async signUp(email, password, metadata = {}, redirectTo = '') {
     try {
-      const response = await this.fetchWithTimeout(`${this.config.AUTH_URL}/signup`, {
+      const signupUrl = redirectTo
+        ? `${this.config.AUTH_URL}/signup?redirect_to=${encodeURIComponent(redirectTo)}`
+        : `${this.config.AUTH_URL}/signup`;
+      const response = await this.fetchWithTimeout(signupUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -464,7 +464,7 @@
   </style>
 <script>window.PagedConfig = { auto:false };</script>
   <script defer src="js/vendor/paged-0.4.3.js"></script>
-  <script defer src="js/exam-decorations.js?v=20261019-decor1"></script>
+  <script defer src="js/exam-decorations.js?v=20261019-decor2"></script>
   <script defer src="js/exam-pagination.js?v=20261019-decor1"></script>
   <link rel="stylesheet" href="css/exam-pagination.css?v=20261005-layout-race1">
 </head>
@@ -1596,7 +1596,8 @@
     }
 
     async function loadExam() {
-      const id = new URLSearchParams(window.location.search).get('id');
+      const pageParams = new URLSearchParams(window.location.search);
+      const id = pageParams.get('id');
       if (!id) {
         showMessage('Nenhuma prova selecionada', 'Salve a prova na nuvem ou escolha uma prova salva no dashboard para gerar o PDF limpo.');
         return;
@@ -1607,34 +1608,42 @@
       printViewerId = auth?.getCurrentUser()?.id || null;
       if (!auth || !auth.isAuthenticated()) {
         localStorage.setItem('editExamId', id);
-        const returnTo = `print.html?id=${encodeURIComponent(id)}`;
+        const returnParams = new URLSearchParams({ id });
+        if (pageParams.get('from') === 'impressao') returnParams.set('from', 'impressao');
+        if (pageParams.get('gabarito') === '1') returnParams.set('gabarito', '1');
+        const returnTo = `print.html?${returnParams.toString()}`;
         window.location.href = `login.html?return_to=${encodeURIComponent(returnTo)}`;
         return;
       }
 
-      const data = await auth.authenticatedRequest(`/exams?id=eq.${id}&select=*`);
-      if (!Array.isArray(data) || !data[0]) {
-        showMessage('Prova não encontrada', 'Verifique se você está na conta correta.');
-        return;
+      try {
+        const data = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&select=*`);
+        if (!Array.isArray(data) || !data[0]) {
+          showMessage('Prova não encontrada', 'Verifique se você está na conta correta.');
+          return;
+        }
+        const profile = await auth.loadCurrentProfile('id,role,school_id');
+        if (!profile?.id) throw new Error('Perfil de acesso não encontrado.');
+        if (auth.hasRole(['teacher'], profile)) { location.replace(`editor.html?id=${encodeURIComponent(id)}&view=preview`); return; }
+        printProfile = profile;
+        currentExam = data[0];
+        const imageStorage = window.ExamImageStorage;
+        imageStorage?.configure(auth, id);
+        const resolved = imageStorage ? await imageStorage.resolveTree({ questions: currentExam.questions || [], logo_data_url: currentExam.logo_data_url || '', decorative_images: currentExam.decorative_images || [] }, { auth, scope: id }) : currentExam;
+        currentExam.questions = resolved.questions;
+        currentExam.logo_data_url = resolved.logo_data_url;
+        currentExam.decorative_images = globalThis.ExamDecorations?.normalizeList
+          ? globalThis.ExamDecorations.normalizeList(resolved.decorative_images)
+          : (Array.isArray(resolved.decorative_images) ? resolved.decorative_images : []);
+        updatePrintToolbar(currentExam, auth, profile);
+        if (auth.hasRole(['print_operator'], profile) && data[0].print_status === 'impressa') {
+          showMessage('PDF bloqueado', 'Esta prova ja foi marcada como impressa. Para imprimir novamente, peça um novo envio da coordenação.');
+          return;
+        }
+        renderExam(currentExam);
+      } catch (error) {
+        showMessage('Não foi possível carregar a prova', 'Verifique sua conexão, atualize a página e tente novamente.');
       }
-      const profile = await auth.loadCurrentProfile('id,role,school_id');
-      if (auth.hasRole(['teacher'], profile)) { location.replace(`editor.html?id=${encodeURIComponent(id)}&view=preview`); return; }
-      printProfile = profile;
-      currentExam = data[0];
-      const imageStorage = window.ExamImageStorage;
-      imageStorage?.configure(auth, id);
-      const resolved = imageStorage ? await imageStorage.resolveTree({ questions: currentExam.questions || [], logo_data_url: currentExam.logo_data_url || '', decorative_images: currentExam.decorative_images || [] }, { auth, scope: id }) : currentExam;
-      currentExam.questions = resolved.questions;
-      currentExam.logo_data_url = resolved.logo_data_url;
-      currentExam.decorative_images = globalThis.ExamDecorations?.normalizeList
-        ? globalThis.ExamDecorations.normalizeList(resolved.decorative_images)
-        : (Array.isArray(resolved.decorative_images) ? resolved.decorative_images : []);
-      updatePrintToolbar(currentExam, auth, profile);
-      if (auth.hasRole(['print_operator'], profile) && data[0].print_status === 'impressa') {
-        showMessage('PDF bloqueado', 'Esta prova ja foi marcada como impressa. Para imprimir novamente, peça um novo envio da coordenação.');
-        return;
-      }
-      renderExam(currentExam);
     }
 
     document.addEventListener('DOMContentLoaded', () => {

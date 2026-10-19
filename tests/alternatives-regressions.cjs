@@ -80,7 +80,8 @@ for(const {question,stored} of embeddedCases){
 const subitems=await boot({questions:[{type:'subitens',text:'Responda',points:'1',items:[{text:'A',lines:1},{text:'B',lines:1}]}]});
 subitems.ctx.EditorTools.focusQuestion(0);
 assert.equal(subitems.document.querySelectorAll('.subitem-main .subitem-image-button').length,2);
-assert([...subitems.document.querySelectorAll('.subitem-image-tools')].every(row=>row.hidden));
+assert([...subitems.document.querySelectorAll('.subitem-main details')].every(details=>!details.open));
+assert.equal(subitems.document.querySelectorAll('.subitem-image-tools .image-picker').length,2);
 const imageDelete=await boot({questions:[{type:'imagem',text:'Observe',imageAnswerType:'multipla',points:'1',options:['A','B','C'],correctOption:2,optionImages:[{fileName:'A'},{fileName:'B'},{fileName:'C'}]}]});
 imageDelete.ctx.EditorTools.focusQuestion(0);
 imageDelete.event(imageDelete.document.querySelectorAll('#question-0 .option-row .danger')[1],'click');

@@ -47,6 +47,7 @@
     .actions { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #f1f5f9; padding-top: 12px; }
     .empty { grid-column: 1/-1; text-align: center; padding: 80px 24px; color: #64748b; }
     .empty h2 { color: #0f172a; font-size: 20px; margin-bottom: 8px; }
+    .load-error { margin-bottom: 16px; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; color: #991b1b; font-size: 13px; font-weight: 700; }
     .toast {
       position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 12px; color: #fff; background: #16a34a;
       font-size: 14px; font-weight: 700; transform: translateY(80px); opacity: 0; transition: all .3s; z-index: 100;
@@ -115,13 +116,15 @@
   </div>
 
   <div class="controls">
-    <input id="searchInput" type="text" placeholder="Buscar por título, professor, turma..." />
-    <select id="statusFilter">
+    <input id="searchInput" type="text" aria-label="Buscar trabalhos de impressão" placeholder="Buscar por título, professor, turma..." />
+    <select id="statusFilter" aria-label="Filtrar por situação da impressão">
       <option value="">Todas</option>
       <option value="enviada">Pendentes</option>
       <option value="impressa">Impressas</option>
     </select>
   </div>
+
+  <div class="load-error" id="loadError" role="alert" hidden>Não foi possível atualizar a fila. Os dados exibidos podem estar desatualizados.</div>
 
   <div class="grid" id="printGrid">
     <div class="empty"><h2>Carregando...</h2><p>Aguarde um instante.</p></div>
@@ -136,6 +139,8 @@
   let auth = null;
   let profile = null;
   let jobs = [];
+  let loadingPrintQueue = false;
+  const pendingPrintJobs = new Set();
 
   document.addEventListener('DOMContentLoaded', async () => {
     auth = initAuthManager();
@@ -143,6 +148,11 @@
       window.location.href = 'login.html';
       return;
     }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await auth.signOut();
+      window.location.href = 'login.html';
+    });
 
     try {
       profile = await auth.loadCurrentProfile('id,email,full_name,role,school_id');
@@ -153,14 +163,14 @@
       }
       applyModuleNavigation();
     } catch (err) {
+      const loadError = document.getElementById('loadError');
+      loadError.textContent = 'Não foi possível validar seu acesso à impressão. Atualize a página para tentar novamente.';
+      loadError.hidden = false;
+      document.getElementById('printGrid').innerHTML = '<div class="empty"><h2>Fila indisponível</h2><p>Verifique a conexão e atualize a página.</p></div>';
       showToast('Erro ao verificar perfil: ' + err.message, 'error');
       return;
     }
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await auth.signOut();
-      window.location.href = 'login.html';
-    });
     document.getElementById('reloadBtn').addEventListener('click', loadPrintQueue);
     document.getElementById('searchInput').addEventListener('input', renderPrintQueue);
     document.getElementById('statusFilter').addEventListener('change', renderPrintQueue);
@@ -175,14 +185,27 @@
     document.getElementById('navSchoolsLink')?.classList.toggle('show', auth.canManageSchools(profile) || auth.canManageUsers(profile));
   }
   async function loadPrintQueue() {
+    if (loadingPrintQueue) return;
+    loadingPrintQueue = true;
+    const reload = document.getElementById('reloadBtn');
+    const error = document.getElementById('loadError');
+    reload.disabled = true;
+    reload.textContent = 'Atualizando...';
+    error.hidden = true;
     try {
       const data = await auth.authenticatedRequest('/exams?print_status=in.(enviada,impressa)&order=print_requested_at.desc&select=id,title,teacher,subject,class_name,print_status,print_copies,print_notes,print_requested_at,printed_at');
       jobs = Array.isArray(data) ? data : [];
       renderPrintQueue();
     } catch (err) {
-      jobs = [];
-      renderPrintQueue();
+      error.hidden = false;
+      if (!jobs.length) {
+        document.getElementById('printGrid').innerHTML = '<div class="empty"><h2>Fila indisponível</h2><p>Verifique a conexão e tente novamente em Atualizar.</p></div>';
+      }
       showToast('Erro ao carregar fila: ' + err.message, 'error');
+    } finally {
+      loadingPrintQueue = false;
+      reload.disabled = false;
+      reload.textContent = 'Atualizar';
     }
   }
 
@@ -206,6 +229,7 @@
     grid.innerHTML = filtered.map((job) => {
       const statusValue = job.print_status || 'nao_enviada';
       const isPrinted = statusValue === 'impressa';
+      const pending = pendingPrintJobs.has(job.id);
       const requested = job.print_requested_at ? new Date(job.print_requested_at).toLocaleString('pt-BR') : '—';
       const printed = job.printed_at ? new Date(job.printed_at).toLocaleString('pt-BR') : '';
       return `
@@ -222,8 +246,8 @@
           </div>
           ${job.print_notes ? `<div class="note">${esc(job.print_notes)}</div>` : ''}
           <div class="actions">
-            ${!isPrinted ? `<button class="btn primary" type="button" onclick="openPdf('${job.id}')">Abrir PDF</button>` : '<button class="btn" type="button" disabled>PDF bloqueado</button>'}
-            ${!isPrinted ? `<button class="btn green" type="button" onclick="markPrinted('${job.id}')">Marcar como impressa</button>` : '<button class="btn" type="button" disabled>Concluída</button>'}
+            ${!isPrinted ? `<button class="btn primary" type="button" ${pending ? 'disabled' : ''} onclick="openPdf('${job.id}')">Abrir PDF</button>` : '<button class="btn" type="button" disabled>PDF bloqueado</button>'}
+            ${!isPrinted ? `<button class="btn green" type="button" ${pending ? 'disabled' : ''} onclick="markPrinted('${job.id}')">${pending ? 'Concluindo...' : 'Marcar como impressa'}</button>` : '<button class="btn" type="button" disabled>Concluída</button>'}
           </div>
         </div>
       `;
@@ -235,9 +259,12 @@
   }
 
   async function markPrinted(id) {
+    if (pendingPrintJobs.has(id)) return;
     if (!confirm('Marcar esta prova como impressa? Depois disso o PDF ficará bloqueado para este perfil.')) return;
     const previous = jobs.map((job) => ({ ...job }));
     const job = jobs.find((item) => item.id === id);
+    if (!job || job.print_status !== 'enviada') return;
+    pendingPrintJobs.add(id);
     if (job) {
       job.print_status = 'impressa';
       job.printed_at = new Date().toISOString();
@@ -254,6 +281,9 @@
       jobs = previous;
       renderPrintQueue();
       showToast('Erro ao marcar impressão: ' + err.message, 'error');
+    } finally {
+      pendingPrintJobs.delete(id);
+      renderPrintQueue();
     }
   }
 

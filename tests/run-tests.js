@@ -263,6 +263,15 @@ async function main() {
     await auth.signOut();
     assert(!auth.isAuthenticated(), 'signOut should clear session');
 
+    let signupUrl = '';
+    global.fetch = async (url) => {
+      signupUrl = String(url);
+      return { ok: true, json: async () => ({ user: { id: 'u2' } }) };
+    };
+    const signup = await auth.signUp('new@example.com', 'secret1', { full_name: 'Nova' }, 'https://app.example/login.html?invite=abc123');
+    assert(signup.success, 'signup with redirect should succeed');
+    assert(new URL(signupUrl).searchParams.get('redirect_to') === 'https://app.example/login.html?invite=abc123', 'signup should preserve the complete confirmation redirect');
+
     delete global.fetch;
     delete global.localStorage;
   });
@@ -288,11 +297,17 @@ async function main() {
     assert(editor.includes('deleteBankQuestion'), 'question bank delete action missing');
     assert(editor.includes('changeBankQuestionScope'), 'question bank scope action missing');
     assert(editor.includes('toggleBankQuestionVisibility'), 'legacy question bank visibility action missing');
+    assert(editor.includes("return changeBankQuestionScope(index, item.is_public ? 'private' : 'public')"), 'legacy visibility action should use the canonical bank scope transition');
     assert(editor.includes('handleQuestionBankAction'), 'question bank delegated action handler missing');
     assert(editor.includes('data-bank-action="insert"'), 'question bank insert action data attribute missing');
     assert(editor.includes('bankSaveScope'), 'question bank save scope control missing');
     assert(editor.includes('bankScopeFilter'), 'question bank scope filter missing');
     assert(editor.includes('data-bank-scope-action'), 'question bank scope select data attribute missing');
+    assert(editor.includes('const pendingBankOperations = new Set()'), 'question bank should guard against duplicate rapid actions');
+    assert(editor.includes('const pendingBankSaves = new Set()'), 'question bank should prevent duplicate saves from rapid clicks');
+    assert(editor.includes('previousBtn.disabled = offset === 0') && editor.includes('nextBtn.disabled = true'), 'question bank pagination should recover after a failed request');
+    assert(editor.includes("headers: { 'Prefer': 'return=representation' }"), 'question bank mutations should require returned rows');
+    assert(editor.includes("rows.length !== 1"), 'question bank mutations should reject false success when no row changed');
     assert(editor.includes('bankScopeLabel(scope)'), 'question bank scope label missing');
     assert(editor.includes('Criada por voce'), 'own question label missing');
     assert(editor.includes('readImageFile'), 'image upload helper missing');
@@ -417,6 +432,9 @@ async function main() {
     });
     assert(print.includes('renderAnswerKey'), 'print answer key renderer missing');
     assert(print.includes('gabarito'), 'print answer key query toggle missing');
+    assert(print.includes("pageParams.get('from') === 'impressao'") && print.includes("returnParams.set('from', 'impressao')"), 'print login return should preserve print queue context');
+    assert(print.includes('/exams?id=eq.${encodeURIComponent(id)}&select=*'), 'print page should encode the exam id before querying');
+    assert(print.includes('Não foi possível carregar a prova'), 'print page should show a recoverable loading error');
     assert(print.includes("q.type === 'vf'"), 'print true/false renderer missing');
     assert(print.includes("item.answer ? `${i + 1}-${item.answer}`"), 'print true/false answer key missing');
     assert(print.includes("q.type === 'marcarx'"), 'print mark-x renderer missing');
@@ -647,6 +665,7 @@ async function main() {
   await test('coordination page has review history', () => {
     const page = read('coordenacao.html');
     assert(page.includes('review_history'), 'review_history missing in coordination page');
+    assert(page.includes('Coordenação indisponível'), 'coordination profile failures should leave a persistent error state');
     assert(page.includes('toggleHistory'), 'history toggle function missing');
     assert(page.includes('history-log'), 'history log CSS class missing');
     assert(page.includes('openReturnModal'), 'return modal opener missing');
@@ -662,6 +681,7 @@ async function main() {
     assert(dashboard.includes('currentClass'), 'class filter state missing');
     assert(dashboard.includes('schools.html'), 'schools link missing in dashboard');
     assert(dashboard.includes('auth.loadCurrentProfile'), 'dashboard should load current profile through AuthManager');
+    assert(dashboard.includes("if (!profile?.id) throw new Error('Perfil de acesso não encontrado.')"), 'dashboard must not continue with a default role when profile validation fails');
     assert(dashboard.includes('auth.canReviewExams(currentProfile)'), 'dashboard should use role helper for coordination access');
     assert(dashboard.includes('auth.canManageSchools(currentProfile)'), 'dashboard should use role helper for school access');
     assert(dashboard.includes('auth.canDeleteExam(exam, currentProfile)'), 'dashboard should use delete permission helper');
@@ -815,6 +835,8 @@ async function main() {
   await test('schools admin page exists and is valid', () => {
     const page = read('schools.html');
     assert(page.includes('loadSchools'), 'loadSchools function missing');
+    assert(page.includes('Escolas indisponíveis') && page.includes('Convites indisponíveis'), 'school management should distinguish loading failures from empty records');
+    assert(page.includes('Gestão escolar indisponível'), 'school profile failures should leave a persistent error state');
     assert(page.includes('addSchool'), 'addSchool function missing');
     assert(page.includes('linkProfessor'), 'linkProfessor function missing');
     assert(page.includes('createInvite'), 'school page should create invite links');
@@ -823,6 +845,8 @@ async function main() {
     assert(page.includes('accessSummarySection'), 'school page should include access summary section');
     assert(page.includes('withoutSchool'), 'school page should flag users without school');
     assert(page.includes('pendingInvites'), 'school page should count pending invites');
+    assert(page.includes('pendingSchoolSaves') && page.includes('queuedSchoolSaves'), 'school edits should serialize rapid saves without losing the latest logo change');
+    assert(page.includes('Promise.allSettled(changes.map') && page.includes('não confirmou a atualização'), 'removed classes should verify every affected profile and invite update');
     assert(page.includes('expiredInvites'), 'school page should count expired invites');
     assert(page.includes('loadInvites'), 'school page should list generated invites');
     assert(page.includes('deleteInvite'), 'school page should allow canceling unused invites');
@@ -832,9 +856,11 @@ async function main() {
     assert(page.includes('expires_at'), 'school page should distinguish expired invites');
     assert(page.includes('buildInviteLink(invite.token)'), 'school page should show reusable pending invite links');
     assert(page.includes('accepted_at=is.null'), 'invite cancel should only target unused invites');
+    assert(page.includes('O convite já foi aceito, cancelado ou alterado.'), 'invite cancellation should reject a zero-row update');
     assert(page.includes('buildInviteLink'), 'school page should build login invite links');
     assert(page.includes('inviteRoleSelect'), 'school page should choose invited access role');
     assert(page.includes('deleteSchool'), 'deleteSchool function missing');
+    assert(page.includes('A exclusão não foi confirmada.'), 'school deletion should reject a zero-row response');
     assert(page.includes('school_id'), 'school_id reference missing');
     assert(page.includes('auth.canManageSchools(currentProfile)') && page.includes('auth.canManageUsers(currentProfile)'), 'role guard helper reference missing');
     assert(page.includes('se-logo-preview'), 'school edit should show logo preview');
@@ -906,6 +932,7 @@ async function main() {
     assert(page.includes("label: 'Faltam turmas e disciplinas'") && page.includes("label: 'Falta definir turmas'") && page.includes("label: 'Falta definir disciplinas'"), 'teacher access status should identify what is missing');
     assert(page.includes('profile-contact"><strong>E-mail:</strong>'), 'coordinator should see professor email only in management details');
     assert(page.includes("profs.filter(p => auth.normalizeRole(p.role) === 'teacher'"), 'coordinator team should focus on teachers from the current school');
+    assert(page.includes('profile.is_active !== false'), 'inactive preserved profiles should not appear as active team members');
     assert(page.includes('function openTeacherRemoval(profId)'), 'school management should preview teacher removal');
     assert(page.includes('/rpc/teacher_removal_preview'), 'teacher removal should load blockers before confirmation');
     assert(page.includes('/rpc/deactivate_teacher_profile'), 'teacher removal should use the protected deactivation RPC');
@@ -918,6 +945,8 @@ async function main() {
     assert(page.includes("method: 'PATCH'") && page.includes('canceled_by: auth.getCurrentUser().id'), 'cancel invite should persist cancellation instead of deleting history');
     assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
     assert(page.includes('auth.resetPassword(profile.email'), 'password recovery must use an individual email link');
+    assert(page.includes('Conta desativada: use um novo convite para reativá-la.'), 'direct linking should not pretend to reactivate a removed account');
+    assert(page.includes('O servidor não confirmou a criação do convite.'), 'invite creation should require a returned token');
     assert(!page.includes('/rpc/admin_reset_user_password'), 'UI must not call the legacy shared-password RPC');
     assert(!page.includes('linkGradeSelect'), 'school page should not use a single grade select for linking');
   });
@@ -931,8 +960,10 @@ async function main() {
     assert(page.includes('/schools?order=name.asc&select=*'), 'master page should load schools');
     assert(page.includes('/profiles?role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)'), 'master page should load all managed profile roles');
     assert(page.includes('/user_invites?order=created_at.desc&select=*'), 'master page should load invites');
+    assert(page.includes('item.is_active !== false'), 'master metrics should exclude deactivated profiles');
     assert(page.includes('masterSummaryGrid'), 'master page should render global summary');
     assert(page.includes('masterSchoolList'), 'master page should render school map');
+    assert(page.includes('Resumo indisponível') && page.includes('Mapa de escolas indisponível'), 'master loading errors should replace indefinite loading placeholders');
     assert(page.includes('schools.html#newSchoolCard'), 'master page should link to school creation');
     assert(page.includes('schools.html#linkProfessorCard'), 'master page should link to existing-user linking');
     assert(page.includes('schools.html#accessSummarySection'), 'master page should link to access summary');
@@ -948,6 +979,8 @@ async function main() {
     const auth = read('js/auth.js');
     assert(page.includes('isForcedPasswordChange'), 'forced password change mode missing');
     assert(page.includes('requiresPasswordChange'), 'forced password change profile check missing');
+    assert(page.includes('Não foi possível verificar se sua senha precisa ser alterada.'), 'forced password verification should fail closed when neither profile nor metadata can confirm the state');
+    assert(page.includes('/profiles?id=eq.${encodeURIComponent(auth.currentUser.id)}&select=force_password_change'), 'forced password profile lookup should encode the user id');
     assert(page.includes('force_password_change'), 'login should read forced password flag');
     assert(page.indexOf('select=force_password_change') < page.indexOf('user_metadata'), 'login should prefer profile flag before Auth metadata fallback');
     assert(page.includes("password === '123456'"), 'login should reject keeping temporary password');
@@ -971,6 +1004,10 @@ async function main() {
     assert(page.includes('function getInviteToken()'), 'login should read invite token');
     assert(page.includes('/rpc/accept_user_invite'), 'login should accept invite through RPC');
     assert(page.includes('await acceptPendingInvite()'), 'login should apply invite before redirect');
+    assert(page.includes('getSignupRedirectUrl()'), 'signup confirmation should preserve the invite return URL');
+    assert(page.includes('clearAuthCallbackSecrets()'), 'auth callbacks should clear session secrets without discarding the invite');
+    assert(page.includes('Perfil de acesso não encontrado.'), 'login should not redirect an account without an application profile');
+    assert(read('js/auth.js').includes('/signup?redirect_to='), 'signup should send the explicit confirmation redirect to Supabase Auth');
     assert(page.includes('auth.isProfileActive(profile)'), 'login should reject inactive profiles');
     assert(page.includes('Seu acesso ao sistema foi removido pela escola'), 'inactive profile should receive a clear login message');
   });
@@ -1110,11 +1147,14 @@ async function main() {
     const auth = read('js/auth.js');
     const sql = read('setup_supabase.sql');
     assert(page.includes('Fila de impressão'), 'print queue page title missing');
+    assert(page.includes('Não foi possível validar seu acesso à impressão.'), 'print profile failures should leave a persistent error state');
     assert(page.includes("auth.canAccessPrintQueue(profile)"), 'print queue guard missing');
     assert(auth.includes("return this.hasRole(['master', 'school_owner', 'print_operator'], profile);"), 'frontend should allow school owners to access the print queue');
     assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'Supabase print permission should match frontend school owner access');
     assert(page.includes("print_status=in.(enviada,impressa)"), 'print queue should load pending and printed jobs');
     assert(page.includes('/rpc/mark_exam_printed'), 'print queue should mark jobs as printed through RPC');
+    assert(page.includes('loadingPrintQueue') && page.includes('pendingPrintJobs'), 'print queue should block concurrent loads and completions');
+    assert(page.includes('id="loadError"') && page.includes('Fila indisponível'), 'print queue should distinguish a loading failure from an empty queue');
     assert(page.includes('PDF bloqueado'), 'printed jobs should hide PDF action');
     assert(print.includes('id="markPrintedBtn"'), 'print PDF should expose mark-printed action from queue');
     assert(print.includes('id="printQueueLink"'), 'print PDF should link back to queue when opened from queue');

@@ -6,8 +6,8 @@
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-math-combined"></script>
   <script src="js/image-storage.js?v=20261019-assets1"></script>
-  <script src="js/image-engine.js?v=20261019-unified2"></script>
-  <script src="js/exam-decorations.js?v=20261019-decor1"></script>
+  <script src="js/image-engine.js?v=20261019-unified3"></script>
+  <script src="js/exam-decorations.js?v=20261019-decor2"></script>
   <script src="js/editor-tools.js?v=20261019-decor3"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
@@ -2631,14 +2631,14 @@
       });
     }
 
-    function createImagePicker({ getImage, setImage, clearImage, getSize, setSize }) {
+    function createImagePicker({ getImage, setImage, clearImage, getSize, setSize, isCurrent = () => true }) {
       return window.ExamImageEngine.createPicker({
         getImage,
         setImage,
         clearImage,
         getSize,
         setSize,
-        canEdit: () => EditorTools.canEdit(),
+        canEdit: () => EditorTools.canEdit() && isCurrent(),
         processFile: file => new Promise((resolve, reject) => {
           readImageFile(file, (dataUrl, fileName, bytes) => resolve({ dataUrl, fileName, bytes }), { onError: reject });
         }),
@@ -2971,70 +2971,30 @@
             const imgRow = document.createElement('div');
             imgRow.style.cssText = 'display:flex; align-items:center; gap:8px; padding:4px 10px 5px; border-top:1px solid #e2e8f0; background:#fff;';
 
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
-
-            const imgBtn = document.createElement('button');
-            imgBtn.type = 'button';
-            imgBtn.className = 'subitem-image-button';
-            imgBtn.textContent = item.imageDataUrl ? 'Imagem ✓' : 'Imagem';
-            imgBtn.title = `Adicionar ou editar imagem do item ${labelFor(j)}`;
-            imgBtn.setAttribute('aria-label', imgBtn.title);
-            imgBtn.addEventListener('click', () => fileInput.click());
-
-            const thumb = document.createElement('img');
-            thumb.style.cssText = 'height:40px; width:auto; border-radius:6px; border:1px solid #e2e8f0; display:' + (item.imageDataUrl ? 'block' : 'none') + ';';
-            if (item.imageDataUrl) thumb.src = item.imageDataUrl;
-
-            const sizeWrap = document.createElement('div');
-            sizeWrap.style.display = item.imageDataUrl ? 'flex' : 'none';
-            sizeWrap.style.cssText += ' align-items:center; gap:4px;';
-            const sizeLbl = document.createElement('span');
-            sizeLbl.textContent = 'Tamanho';
-            sizeLbl.style.cssText = 'font-size:11px; color:#64748b;';
-            const sizeSelect = document.createElement('select');
-            sizeSelect.setAttribute('aria-label', 'Tamanho da imagem');
-            sizeSelect.style.cssText = 'height:26px; font-size:11px; border-radius:6px; border:1px solid #e2e8f0; padding:0 4px;';
-            [['small','Pequena'],['medium','Média'],['large','Grande']].forEach(([v,l]) => {
-              const o = document.createElement('option'); o.value = v; o.textContent = l;
-              if ((item.imageSize || 'small') === v) o.selected = true;
-              sizeSelect.appendChild(o);
-            });
-            sizeSelect.addEventListener('change', () => { item.imageSize = sizeSelect.value; renderPreview(); });
-            sizeWrap.appendChild(sizeLbl); sizeWrap.appendChild(sizeSelect);
-
-            const rmImgBtn = document.createElement('button');
-            rmImgBtn.type = 'button';
-            rmImgBtn.title = 'Remover imagem';
-            rmImgBtn.textContent = '✕';
-            rmImgBtn.style.cssText = 'background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; font-weight:700; padding:2px 4px; display:' + (item.imageDataUrl ? 'block' : 'none') + ';';
-            rmImgBtn.addEventListener('click', () => {
-              item.imageDataUrl = ''; item.imageFileName = '';
-              thumb.style.display = 'none'; thumb.src = '';
-              sizeWrap.style.display = 'none'; rmImgBtn.style.display = 'none';
-              imgRow.hidden = true;
-              imgBtn.textContent = 'Imagem';
-              renderPreview();
-            });
-
-            fileInput.addEventListener('change', () => {
-              if (!fileInput.files[0]) return;
-              readImageFile(fileInput.files[0], (dataUrl, fileName) => {
-                item.imageDataUrl = dataUrl; item.imageFileName = fileName;
-                if (!item.imageSize) item.imageSize = 'small';
-                thumb.src = dataUrl; thumb.style.display = 'block';
-                sizeWrap.style.display = 'flex'; rmImgBtn.style.display = 'block';
-                imgRow.hidden = false;
-                imgBtn.textContent = 'Imagem ✓';
-                renderPreview();
-              });
-            });
-
+            const imageDetails = document.createElement('details');
+            const imageSummary = document.createElement('summary');
+            imageSummary.className = 'subitem-image-button';
+            imageSummary.textContent = item.imageDataUrl ? 'Imagem ✓' : 'Imagem';
+            imageSummary.setAttribute('aria-label', `Adicionar ou editar imagem do item ${labelFor(j)}`);
+            imageDetails.appendChild(imageSummary);
             imgRow.className = 'subitem-image-tools';
-            imgRow.hidden = !item.imageDataUrl;
-            imgRow.appendChild(thumb);
-            imgRow.appendChild(sizeWrap);
-            imgRow.appendChild(rmImgBtn);
+            imgRow.appendChild(createImagePicker({
+              getImage: () => ({ dataUrl: item.imageDataUrl || '', fileName: item.imageFileName || '' }),
+              getSize: () => item.imageSize,
+              setSize: value => { item.imageSize = value; },
+              isCurrent: () => q.items.includes(item),
+              setImage: (dataUrl, fileName) => {
+                item.imageDataUrl = dataUrl;
+                item.imageFileName = fileName;
+                imageSummary.textContent = 'Imagem ✓';
+              },
+              clearImage: () => {
+                item.imageDataUrl = '';
+                item.imageFileName = '';
+                imageSummary.textContent = 'Imagem';
+              },
+            }));
+            imageDetails.appendChild(imgRow);
 
             // ── Linha inferior: nº de linhas ──
             const botRow = document.createElement('div');
@@ -3054,10 +3014,8 @@
             botRow.appendChild(linesInp);
             botRow.appendChild(linesNote);
 
-            topRow.insertBefore(fileInput, removeBtn);
-            topRow.insertBefore(imgBtn, removeBtn);
+            topRow.insertBefore(imageDetails, removeBtn);
             row.appendChild(topRow);
-            row.appendChild(imgRow);
             row.appendChild(botRow);
             sbox.appendChild(row);
           });
@@ -6830,6 +6788,8 @@
     let bankPageOffset = 0;
     let bankLastQuery = '';
     let bankRequestSequence = 0;
+    const pendingBankOperations = new Set();
+    const pendingBankSaves = new Set();
 
     function examFingerprint() {
       const content = { school: state.school, questions: state.questions, logoDataUrl: state.logoDataUrl, decorativeImages: state.decorativeImages };
@@ -6956,13 +6916,15 @@
         showToast('Entre na conta para usar o banco de questões.', 'err');
         return;
       }
-
       syncSchoolFromInputs();
       const question = cloneQuestion(state.questions[idx]);
       const grade = document.getElementById('bankGrade').value.trim() || state.school.className || '';
       const skill = document.getElementById('bankSkill').value.trim();
       const difficulty = document.getElementById('bankDifficulty').value || 'media';
       const scope = document.getElementById('bankSaveScope')?.value || 'private';
+      const saveKey = `${currentExamId || 'new'}:${idx}`;
+      if (pendingBankSaves.has(saveKey)) return;
+      pendingBankSaves.add(saveKey);
 
       try {
         const bankId = crypto.randomUUID();
@@ -6997,6 +6959,8 @@
         showToast('Questão salva no banco.', 'ok');
       } catch (err) {
         showToast('Erro ao salvar no banco: ' + err.message, 'err');
+      } finally {
+        pendingBankSaves.delete(saveKey);
       }
     }
 
@@ -7104,6 +7068,8 @@
         renderQuestionBank(items.slice(0, 30));
       } catch (err) {
         if (sequence !== bankRequestSequence) return;
+        previousBtn.disabled = offset === 0;
+        nextBtn.disabled = true;
         root.innerHTML = `<div class="small">Não foi possível buscar as questões. ${esc(err.message)}</div>`;
         showToast('Erro ao buscar banco: ' + err.message, 'err');
       }
@@ -7114,6 +7080,8 @@
       if (!EditorTools.canEdit()) return;
       const item = window.currentQuestionBankResults?.[index];
       if (!item?.question) return;
+      if (pendingBankOperations.has(item.id)) return;
+      pendingBankOperations.add(item.id);
       try {
         setAutoSaveHint('Criando uma cópia independente das imagens...');
         const imageStorage = globalThis.ExamImageStorage;
@@ -7132,6 +7100,8 @@
       } catch (err) {
         setAutoSaveHint('Não foi possível carregar as imagens.');
         showToast('Erro ao inserir questão: ' + err.message, 'err');
+      } finally {
+        pendingBankOperations.delete(item.id);
       }
     }
 
@@ -7148,14 +7118,22 @@
         return;
       }
       if (!window.confirm('Excluir esta questão do banco?')) return;
+      if (pendingBankOperations.has(item.id)) return;
+      pendingBankOperations.add(item.id);
 
       try {
-        await auth.authenticatedRequest(`/question_bank?id=eq.${item.id}`, { method: 'DELETE' });
+        const rows = await auth.authenticatedRequest(`/question_bank?id=eq.${encodeURIComponent(item.id)}&select=id`, {
+          method: 'DELETE',
+          headers: { 'Prefer': 'return=representation' },
+        });
+        if (!Array.isArray(rows) || rows.length !== 1) throw new Error('A questão não existe mais ou não pôde ser excluída.');
         window.currentQuestionBankResults = (window.currentQuestionBankResults || []).filter((_, i) => i !== index);
         renderQuestionBank(window.currentQuestionBankResults);
         showToast('Questão excluída do banco.', 'ok');
       } catch (err) {
         showToast('Erro ao excluir questão: ' + err.message, 'err');
+      } finally {
+        pendingBankOperations.delete(item.id);
       }
     }
 
@@ -7166,26 +7144,7 @@
         showToast('Você só pode alterar a visibilidade de questões criadas por você.', 'err');
         return;
       }
-
-      const nextVisibility = !item.is_public;
-      const previous = item.is_public;
-      item.is_public = nextVisibility;
-      renderQuestionBank(window.currentQuestionBankResults || []);
-
-      try {
-        await auth.authenticatedRequest(`/question_bank?id=eq.${item.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            is_public: nextVisibility,
-            updated_at: new Date().toISOString(),
-          }),
-        });
-        showToast(nextVisibility ? 'Questão marcada como pública.' : 'Questão voltou a ser privada.', 'ok');
-      } catch (err) {
-        item.is_public = previous;
-        renderQuestionBank(window.currentQuestionBankResults || []);
-        showToast('Erro ao alterar visibilidade: ' + err.message, 'err');
-      }
+      return changeBankQuestionScope(index, item.is_public ? 'private' : 'public');
     }
 
     async function changeBankQuestionScope(index, scope) {
@@ -7197,6 +7156,10 @@
         || (auth?.hasRole?.(['school_owner'], currentProfile) && item.school_id === currentProfile?.school_id);
       if (!canChange) {
         showToast('Voce nao pode alterar o escopo desta questao.', 'err');
+        renderQuestionBank(window.currentQuestionBankResults || []);
+        return;
+      }
+      if (pendingBankOperations.has(item.id)) {
         renderQuestionBank(window.currentQuestionBankResults || []);
         return;
       }
@@ -7216,21 +7179,26 @@
       };
       Object.assign(item, payload);
       renderQuestionBank(window.currentQuestionBankResults || []);
+      pendingBankOperations.add(item.id);
 
       try {
-        await auth.authenticatedRequest(`/question_bank?id=eq.${item.id}`, {
+        const rows = await auth.authenticatedRequest(`/question_bank?id=eq.${encodeURIComponent(item.id)}&select=id`, {
           method: 'PATCH',
+          headers: { 'Prefer': 'return=representation' },
           body: JSON.stringify({
             ...payload,
             updated_at: new Date().toISOString(),
           }),
         });
+        if (!Array.isArray(rows) || rows.length !== 1) throw new Error('A questão não existe mais ou não pôde ser alterada.');
         showToast(`Questao marcada como ${bankScopeLabel(scope).toLowerCase()}.`, 'ok');
       } catch (err) {
         item.is_public = previous.is_public;
         item.school_id = previous.school_id;
         renderQuestionBank(window.currentQuestionBankResults || []);
         showToast('Erro ao alterar escopo: ' + err.message, 'err');
+      } finally {
+        pendingBankOperations.delete(item.id);
       }
     }
 

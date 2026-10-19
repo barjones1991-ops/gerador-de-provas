@@ -7,20 +7,29 @@
     const item = raw && typeof raw === 'object' ? raw : {};
     const dataUrl = String(item.imageDataUrl || item.dataUrl || '');
     if (!dataUrl) return null;
+    const width = clamp(item.width ?? 16, 5, 60);
     return {
       id: String(item.id || `decoration-${index + 1}`),
       imageDataUrl: dataUrl,
       imageFileName: String(item.imageFileName || item.fileName || `Decoração ${index + 1}`),
       page: Math.max(1, Math.round(Number(item.page) || 1)),
-      x: clamp(item.x ?? 70, 0, 95),
+      x: clamp(item.x ?? 70, 0, 100 - width),
       y: clamp(item.y ?? 8, 0, 95),
-      width: clamp(item.width ?? 16, 5, 60),
+      width,
       rotation: clamp(item.rotation ?? 0, -180, 180),
     };
   }
 
   function normalizeList(value) {
-    return (Array.isArray(value) ? value : []).map(normalizeItem).filter(Boolean).slice(0, 50);
+    const usedIds = new Set();
+    return (Array.isArray(value) ? value : []).map(normalizeItem).filter(Boolean).slice(0, 50).map((item, index) => {
+      const baseId = item.id;
+      let candidate = baseId;
+      let suffix = 2;
+      while (usedIds.has(candidate)) candidate = `${baseId}-${suffix++}`;
+      usedIds.add(candidate);
+      return candidate === item.id ? item : { ...item, id: candidate || `decoration-${index + 1}` };
+    });
   }
 
   function pageElements(root) {
