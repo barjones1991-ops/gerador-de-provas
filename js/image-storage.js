@@ -101,11 +101,27 @@
   }
 
   async function registerAsset(record) {
-    const rows = await auth.authenticatedRequest('/image_assets?select=id,object_name,bucket_id,mime_type,original_name,source_asset_id', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(record),
-    });
+    const select = 'id,object_name,bucket_id,mime_type,original_name,source_asset_id';
+    let rows;
+    try {
+      rows = await auth.authenticatedRequest(`/image_assets?select=${select}`, {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(record),
+      });
+    } catch (requestError) {
+      try {
+        rows = await auth.authenticatedRequest(`/image_assets?id=eq.${encodeURIComponent(record.id)}&select=${select}`);
+      } catch {
+        const ambiguousError = new Error('A conexão caiu durante o registro da imagem. Atualize a página antes de tentar enviá-la novamente.');
+        ambiguousError.preserveUploadedObject = true;
+        throw ambiguousError;
+      }
+      if (!Array.isArray(rows) || !rows.some(row => row?.id === record.id)) {
+        requestError.assetRecordConfirmedAbsent = true;
+        throw requestError;
+      }
+    }
     const row = Array.isArray(rows) ? rows[0] : rows;
     if (!row?.id) throw new Error('Não foi possível registrar a imagem.');
     assetRecords.set(row.id, row);
@@ -188,7 +204,9 @@
         source_asset_id: options.sourceAssetId || null,
       });
     } catch (error) {
-      try { await removeObject(objectName); } catch {}
+      if (!error?.preserveUploadedObject) {
+        try { await removeObject(objectName); } catch {}
+      }
       throw error;
     }
   }

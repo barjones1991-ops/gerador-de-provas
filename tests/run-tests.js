@@ -291,6 +291,7 @@ async function main() {
     assert(editor.includes("questionLabel.textContent = 'Questões'"), 'top question menu should support direct consolidated options');
     assert(qtypeSelect.includes('Alternativas') && !qtypeSelect.includes('Múltipla escolha') && !qtypeSelect.includes('Verdadeiro ou Falso'), 'multiple choice, mark-x, and true/false should be unified as alternatives');
     assert(editor.includes('saveQuestionToBank'), 'question bank save function missing');
+    assert(editor.includes('/question_bank?id=eq.${encodeURIComponent(bankId)}&select=id'), 'question bank creation should reconcile ambiguous network failures');
     assert(editor.includes('loadQuestionBank'), 'question bank search function missing');
     assert(editor.includes('questionBankModal'), 'question bank modal missing');
     assert(editor.includes('editBankQuestion'), 'question bank edit action missing');
@@ -703,6 +704,8 @@ async function main() {
     assert(dashboard.includes('function getExamQuestions(exam)'), 'dashboard should normalize exam questions before counting them');
     assert(dashboard.includes("typeof exam?.questions === 'string'"), 'dashboard should handle question payloads returned as JSON strings');
     assert(dashboard.includes('async function loadExamContent(exam)') && dashboard.includes('select=questions,logo_data_url'), 'dashboard should defer full exam content until an action needs it');
+    assert(dashboard.includes('async function checkCreatedExam(examId)'), 'exam creation should reconcile ambiguous network failures before deleting copied images');
+    assert(dashboard.includes("['enviada', 'em_revisao', 'aprovada', 'bloqueada'].includes(fresh.review_status)"), 'review submission should reconcile an ambiguous PATCH timeout');
     assert(dashboard.includes('if (!hasExamQuestions(exam))'), 'send-to-review should use normalized question count');
     assert(dashboard.includes('function getExamScoreCheck(exam)'), 'dashboard should compare question score total before review');
     assert(dashboard.includes('Divergência de nota: soma das questões'), 'dashboard should warn about score divergence');
@@ -747,6 +750,7 @@ async function main() {
     assert(editor.includes('select=name,logo_data_url,disciplines,classes'), 'editor should fetch official school classes');
     assert(editor.includes('profileClasses = profileClasses.filter(item => allowedClasses.has(item.toLowerCase()))'), 'editor should ignore profile classes removed from the school');
     assert(dashboard.includes('function filterClassesByCurrentSchool'), 'dashboard should filter profile classes by official school classes');
+    assert(dashboard.includes('if (!currentSchool || !Array.isArray(currentSchool.disciplines)) return profileDisciplines;') && dashboard.includes('const schoolDisciplines = uniqueCleanList(currentSchool.disciplines'), 'dashboard should filter profile disciplines even when the current school list is empty');
     assert(dashboard.includes('if (getCurrentSchoolClasses().length) return []'), 'dashboard should not fall back to old exam classes when school classes exist');
     assert(editor.includes('function setClassOptions'), 'editor should populate class options');
     assert(editor.includes('if (!currentExamId) state.school.className = profileClasses[0];'), 'existing exam class must not be replaced by profile defaults');
@@ -773,7 +777,7 @@ async function main() {
     assert(index.includes('href="login.html?return_to=dashboard.html%3Fnew%3D1"'), 'home create action must use the dashboard creation flow');
     assert(dashboard.includes('id="newExamModal"'), 'dashboard should ask for subject/class before creating a new exam');
     assert(dashboard.includes('id="newExamSubject"') && dashboard.includes('id="newExamClass"'), 'new exam modal should collect subject and class');
-    assert(dashboard.includes('return uniqueCleanList(currentProfile.disciplines, { discipline: true });'), 'new exam modal should only list disciplines linked to the logged-in profile');
+    assert(dashboard.includes('const profileDisciplines = uniqueCleanList(currentProfile.disciplines, { discipline: true });') && dashboard.includes('return profileDisciplines.filter(item => allowed.has(item.toLowerCase()));'), 'new exam modal should only list current school disciplines linked to the logged-in profile');
     assert(dashboard.includes('Nenhuma disciplina vinculada'), 'new exam modal should explain when the profile has no linked disciplines');
     assert(dashboard.includes('subjectSelect.disabled = disciplines.length === 0'), 'new exam subject select should be disabled without linked disciplines');
     assert(dashboard.includes('classSelect.disabled = classes.length === 0'), 'new exam class select should be disabled without linked classes');
@@ -835,6 +839,7 @@ async function main() {
   await test('schools admin page exists and is valid', () => {
     const page = read('schools.html');
     assert(page.includes('loadSchools'), 'loadSchools function missing');
+    assert(page.includes("return { ...school, logo_data_url: '' }"), 'an unresolved school asset should not be rendered as a broken asset URL');
     assert(page.includes('Escolas indisponíveis') && page.includes('Convites indisponíveis'), 'school management should distinguish loading failures from empty records');
     assert(page.includes('Gestão escolar indisponível'), 'school profile failures should leave a persistent error state');
     assert(page.includes('addSchool'), 'addSchool function missing');
@@ -846,6 +851,9 @@ async function main() {
     assert(page.includes('withoutSchool'), 'school page should flag users without school');
     assert(page.includes('pendingInvites'), 'school page should count pending invites');
     assert(page.includes('pendingSchoolSaves') && page.includes('queuedSchoolSaves'), 'school edits should serialize rapid saves without losing the latest logo change');
+    assert(page.includes('pendingClassSaves') && page.includes('queuedClassSaves'), 'rapid class edits should be serialized without losing the latest list');
+    assert(page.includes('pendingDisciplineSaves') && page.includes('queuedDisciplineSaves'), 'rapid discipline edits should be serialized without losing the latest list');
+    assert(page.includes('pendingProfileUpdates') && page.includes('queuedProfileUpdates'), 'rapid role and profile edits should be serialized per user');
     assert(page.includes('Promise.allSettled(changes.map') && page.includes('não confirmou a atualização'), 'removed classes should verify every affected profile and invite update');
     assert(page.includes('expiredInvites'), 'school page should count expired invites');
     assert(page.includes('loadInvites'), 'school page should list generated invites');
@@ -890,6 +898,10 @@ async function main() {
     assert(page.includes('Selecione a escola de acesso deste perfil.'), 'existing-user linking should require access school');
     assert(page.includes('renderRoleSelect'), 'school page should render role select');
     assert(page.includes("role=in.(professor,teacher,coordenadora,coordinator,impressao,print_operator,school_owner,admin,master)"), 'school page should list all school access roles');
+    assert(page.includes('let createdConfirmed = false') && page.includes("rows.some((row) => row?.id === schoolId)"), 'school creation should reconcile ambiguous POST timeouts before deleting the logo');
+    assert(page.includes('savedAfterRecovery') && page.includes('fresh?.logo_data_url === storedLogo'), 'school editing should reconcile ambiguous PATCH timeouts before deleting the logo');
+    assert(page.includes('async function cleanupRemovedSchoolDisciplines') && page.includes('getValidProfileDisciplines'), 'removed school disciplines should be cleaned from profiles and ignored by access summaries');
+    assert(page.includes('pendingInviteAttempt?.fingerprint === inviteFingerprint') && page.includes('id: inviteId'), 'invite creation should reuse a client-known id for timeout reconciliation');
     assert(page.includes("role === 'school_owner' && !auth.hasRole(['master'], currentProfile)"), 'only master should assign school owner role');
     assert(page.includes('function canManageInvites()'), 'school page should centralize invite permission');
     assert(page.includes("auth.hasRole(['master', 'school_owner', 'coordinator'], currentProfile)"), 'master, school owner and coordinator should manage invites');
@@ -978,6 +990,7 @@ async function main() {
     const page = read('login.html');
     const auth = read('js/auth.js');
     assert(page.includes('isForcedPasswordChange'), 'forced password change mode missing');
+    assert(page.includes('authRedirectPending') && page.includes('if (!authRedirectPending) setLoading(false)'), 'login should remain locked while a successful redirect is pending');
     assert(page.includes('requiresPasswordChange'), 'forced password change profile check missing');
     assert(page.includes('Não foi possível verificar se sua senha precisa ser alterada.'), 'forced password verification should fail closed when neither profile nor metadata can confirm the state');
     assert(page.includes('/profiles?id=eq.${encodeURIComponent(auth.currentUser.id)}&select=force_password_change'), 'forced password profile lookup should encode the user id');
@@ -1153,6 +1166,7 @@ async function main() {
     assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'Supabase print permission should match frontend school owner access');
     assert(page.includes("print_status=in.(enviada,impressa)"), 'print queue should load pending and printed jobs');
     assert(page.includes('/rpc/mark_exam_printed'), 'print queue should mark jobs as printed through RPC');
+    assert(page.includes('async function getPrintState(id)') && page.includes("fresh?.print_status === 'impressa'"), 'print queue should reconcile an ambiguous completion timeout');
     assert(page.includes('loadingPrintQueue') && page.includes('pendingPrintJobs'), 'print queue should block concurrent loads and completions');
     assert(page.includes('id="loadError"') && page.includes('Fila indisponível'), 'print queue should distinguish a loading failure from an empty queue');
     assert(page.includes('PDF bloqueado'), 'printed jobs should hide PDF action');
@@ -1160,6 +1174,7 @@ async function main() {
     assert(print.includes('id="printQueueLink"'), 'print PDF should link back to queue when opened from queue');
     assert(print.includes("get('from') === 'impressao'"), 'print PDF should detect queue origin');
     assert(print.includes('/rpc/mark_exam_printed'), 'print PDF should mark the current job as printed through RPC');
+    assert(print.includes("fresh?.print_status === 'impressa'") && print.includes('Confirmação pendente'), 'print PDF should reconcile or safely stop after an ambiguous completion timeout');
     assert(print.includes("auth.hasRole(['master', 'school_owner', 'print_operator'], profile)"), 'print PDF mark action should match print queue roles');
     assert(print.includes('currentExam = data[0]') && print.includes('renderExam(currentExam)'), 'print PDF should render the loaded exam state');
     assert(print.includes("auth.hasRole(['print_operator'], profile)") && print.includes("data[0].print_status === 'impressa'"), 'print page should block printed jobs for print operator');
@@ -1167,8 +1182,12 @@ async function main() {
 
   await test('teacher dashboard shows returned review notes', () => {
     const dashboard = read('dashboard.html');
+    const coordination = read('coordenacao.html');
     assert(dashboard.includes('Devolutiva da coordenação'), 'dashboard returned note display missing');
     assert(dashboard.includes('review_notes'), 'dashboard review_notes field missing');
+    assert(coordination.includes('async function loadExamState(id)') && coordination.includes("entry?.action === historyAction && entry?.date === now"), 'coordination decisions should reconcile ambiguous PATCH timeouts');
+    assert(coordination.includes("['enviada', 'impressa'].includes(fresh.print_status)"), 'coordination print requests should reconcile ambiguous PATCH timeouts');
+    assert(coordination.includes('fresh?.print_requested_at === now') && coordination.includes('fresh?.print_requested_by === user.id'), 'coordination should only reconcile the current print request');
   });
 
   await test('readiness validates raw ordering before numeric normalization', () => {

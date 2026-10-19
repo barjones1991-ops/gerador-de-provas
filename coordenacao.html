@@ -640,6 +640,11 @@
 
   function returnExam(id) { openReturnModal(id); }
 
+  async function loadExamState(id) {
+    const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&select=*`);
+    return Array.isArray(rows) ? rows[0] || null : null;
+  }
+
   async function sendToPrint() {
     const examId = pendingPrintId;
     const exam = reviews.find((item) => item.id === examId);
@@ -679,7 +684,21 @@
       closePrintModal();
       showToast('Prova enviada para impressão.');
     } catch (err) {
-      showToast('Erro ao enviar para impressão: ' + err.message, 'error');
+      try {
+        const fresh = await loadExamState(examId);
+        const belongsToThisRequest = fresh?.print_requested_at === now
+          && fresh?.print_requested_by === user.id;
+        if (belongsToThisRequest && ['enviada', 'impressa'].includes(fresh.print_status)) {
+          Object.assign(exam, fresh);
+          pendingActions.delete(examId);
+          closePrintModal();
+          showToast('Prova enviada para impressão. A confirmação foi recuperada após a falha de conexão.');
+        } else {
+          showToast('Erro ao enviar para impressão: ' + err.message, 'error');
+        }
+      } catch {
+        showToast('A conexão caiu antes da confirmação. Atualize a lista antes de tentar enviar novamente.', 'error');
+      }
     } finally {
       pendingActions.delete(examId);
       document.getElementById('confirmPrintBtn').disabled = false;
@@ -731,8 +750,22 @@
       showToast(message, 'success');
       return true;
     } catch (err) {
-      showToast('Erro ao atualizar revisão: ' + err.message, 'error');
-      return false;
+      try {
+        const fresh = await loadExamState(id);
+        const applied = Array.isArray(fresh?.review_history) && fresh.review_history.some((entry) =>
+          entry?.action === historyAction && entry?.date === now
+        );
+        if (applied) {
+          Object.assign(exam, fresh);
+          showToast(`${message} A confirmação foi recuperada após a falha de conexão.`, 'success');
+          return true;
+        }
+        showToast('Erro ao atualizar revisão: ' + err.message, 'error');
+        return false;
+      } catch {
+        showToast('A conexão caiu antes da confirmação. Atualize a lista antes de repetir esta ação.', 'error');
+        return false;
+      }
     } finally {
       pendingActions.delete(id);
       renderReviews();

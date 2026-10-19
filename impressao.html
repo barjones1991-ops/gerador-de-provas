@@ -258,6 +258,11 @@
     window.location.href = `print.html?id=${encodeURIComponent(id)}&from=impressao`;
   }
 
+  async function getPrintState(id) {
+    const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&select=id,print_status,printed_at`);
+    return Array.isArray(rows) ? rows[0] || null : null;
+  }
+
   async function markPrinted(id) {
     if (pendingPrintJobs.has(id)) return;
     if (!confirm('Marcar esta prova como impressa? Depois disso o PDF ficará bloqueado para este perfil.')) return;
@@ -278,9 +283,19 @@
       showToast('Prova marcada como impressa.');
       await loadPrintQueue();
     } catch (err) {
-      jobs = previous;
-      renderPrintQueue();
-      showToast('Erro ao marcar impressão: ' + err.message, 'error');
+      try {
+        const fresh = await getPrintState(id);
+        if (fresh?.print_status === 'impressa') {
+          jobs = jobs.map((item) => item.id === id ? { ...item, ...fresh } : item);
+          showToast('Prova marcada como impressa. A confirmação foi recuperada após a falha de conexão.');
+        } else {
+          jobs = previous;
+          renderPrintQueue();
+          showToast('Erro ao marcar impressão: ' + err.message, 'error');
+        }
+      } catch {
+        showToast('A conexão caiu antes da confirmação. Atualize a fila antes de tentar novamente.', 'error');
+      }
     } finally {
       pendingPrintJobs.delete(id);
       renderPrintQueue();

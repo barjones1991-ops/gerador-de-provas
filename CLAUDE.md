@@ -53,6 +53,8 @@ Em `schools.html`, escolas mantêm disciplinas e `schools.classes`; vínculos li
 
 A interface de `schools.html` é adaptada ao perfil. Para coordenação, a escola atual e o perfil de professor são implícitos no convite; a aba Equipe exibe somente professores da escola, deixa o e-mail nos detalhes de gerenciamento e destaca se faltam turmas, disciplinas ou ambas. Perfis administrativos mais amplos continuam vendo escola, papel e os demais grupos de acesso.
 
+Ao remover turmas ou disciplinas da escola, `schools.html` também elimina esses valores dos perfis de professor e dos convites pendentes correspondentes. Os indicadores de acesso e o modal de nova prova consideram somente a interseção com as listas oficiais atuais, inclusive quando uma delas fica vazia. A criação de convite usa UUID conhecido pelo navegador e reutiliza uma tentativa cuja confirmação ficou incerta, evitando registros duplicados após timeout.
+
 A remoção de professor é uma desativação preservadora, definida em `migrations/20261019_05_desativacao_professor.sql`: pendências de revisão ou impressão bloqueiam a ação; depois da confirmação, escola, turmas e disciplinas são limpas e `profiles.is_active` fica falso. O usuário removido não pode acessar, criar ou editar provas, questões ou imagens, inclusive pessoais, e não deve ser contado como integrante ativo nas telas administrativas. Um novo convite aceito reativa a mesma conta, sem apagar autoria ou histórico; o vínculo direto de usuário existente não substitui essa reativação.
 
 A interface de `schools.html` abre na equipe e separa equipe, convites e dados da escola por navegação interna. A faixa superior prioriza coordenação, professores, convites pendentes e acessos incompletos; o aviso de configuração só aparece enquanto faltarem escola, disciplinas, turmas, coordenação ou professor liberado. O formulário de convite abre sob demanda, turmas são agrupadas visualmente por segmento, ações sensíveis ficam dentro da gestão do usuário e o histórico de convites agrupa registros repetidos por e-mail, sem alterar permissões ou estados persistidos.
@@ -64,6 +66,7 @@ A interface de `schools.html` abre na equipe e separa equipe, convites e dados d
 - `AuthManager.authenticatedRequest()` aceita corpo vazio, inclusive em DELETE com HTTP 204; não exigir JSON de toda resposta bem-sucedida.
 - PATCH de prova existente não envia `user_id` nem `school_id`. A coordenação não pode trocar o autor ao salvar ajustes. Na criação/duplicação, informar o autor, deixar o servidor atribuir a escola e não copiar estados de revisão/impressão da prova original.
 - Mudanças de conta e respostas assíncronas atrasadas não podem aplicar conteúdo à prova/questão errada; preservar as verificações de usuário, versão e contexto.
+- Operações com UUID criado no navegador devem consultar esse identificador depois de resposta perdida. Uploads e logotipos só podem ser descartados quando o registro consumidor for confirmado como ausente; reenvios à impressão devem conferir `print_requested_at` e `print_requested_by` da tentativa atual.
 
 ## Provas, editor e banco de questões
 

@@ -6953,8 +6953,17 @@
             body: JSON.stringify(bankPayload),
           });
         } catch (error) {
-          await imageStorage?.discardTree?.(storedQuestion, { auth, scope: `bank-${bankId}` });
-          throw error;
+          let confirmed = null;
+          try {
+            const rows = await auth.authenticatedRequest(`/question_bank?id=eq.${encodeURIComponent(bankId)}&select=id`);
+            confirmed = Array.isArray(rows) && rows[0]?.id === bankId;
+          } catch { /* resultado da criação permanece incerto */ }
+          if (!confirmed) {
+            if (confirmed === false) await imageStorage?.discardTree?.(storedQuestion, { auth, scope: `bank-${bankId}` });
+            throw confirmed === null
+              ? new Error('A conexão caiu durante o salvamento. Atualize o banco antes de tentar novamente.')
+              : error;
+          }
         }
         showToast('Questão salva no banco.', 'ok');
       } catch (err) {

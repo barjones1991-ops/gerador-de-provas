@@ -1589,9 +1589,22 @@
         alert('Prova marcada como impressa.');
         window.location.href = 'impressao.html';
       } catch (err) {
-        markBtn.disabled = false;
-        markBtn.textContent = 'Marcar como impressa';
-        alert(err.message || 'Nao foi possivel marcar a prova como impressa.');
+        try {
+          const rows = await printAuth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(currentExam.id)}&select=id,print_status,printed_at`);
+          const fresh = Array.isArray(rows) ? rows[0] : null;
+          if (fresh?.print_status === 'impressa') {
+            currentExam.print_status = 'impressa';
+            alert('Prova marcada como impressa. A confirmação foi recuperada após a falha de conexão.');
+            window.location.href = 'impressao.html';
+            return;
+          }
+          markBtn.disabled = false;
+          markBtn.textContent = 'Marcar como impressa';
+          alert(err.message || 'Nao foi possivel marcar a prova como impressa.');
+        } catch {
+          markBtn.textContent = 'Confirmação pendente';
+          alert('A conexão caiu antes da confirmação. Volte à fila e atualize antes de tentar novamente.');
+        }
       }
     }
 

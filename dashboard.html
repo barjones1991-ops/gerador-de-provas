@@ -532,7 +532,7 @@
 
     if (currentProfile.school_id) {
       try {
-        const sd = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(currentProfile.school_id)}&select=name,classes`);
+        const sd = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(currentProfile.school_id)}&select=name,classes,disciplines`);
         currentSchool = Array.isArray(sd) ? (sd[0] || null) : null;
       } catch (error) {
         showToast('Não foi possível carregar as turmas da escola. Algumas opções podem ficar indisponíveis.', 'error');
@@ -878,7 +878,11 @@
   }
 
   function getNewExamDisciplines() {
-    return uniqueCleanList(currentProfile.disciplines, { discipline: true });
+    const profileDisciplines = uniqueCleanList(currentProfile.disciplines, { discipline: true });
+    if (!currentSchool || !Array.isArray(currentSchool.disciplines)) return profileDisciplines;
+    const schoolDisciplines = uniqueCleanList(currentSchool.disciplines, { discipline: true });
+    const allowed = new Set(schoolDisciplines.map(item => item.toLowerCase()));
+    return profileDisciplines.filter(item => allowed.has(item.toLowerCase()));
   }
 
   function getCurrentSchoolClasses() {
@@ -1028,8 +1032,16 @@
       localStorage.setItem('editExamId', newId);
       window.location.href = `editor.html?id=${encodeURIComponent(newId)}`;
     } catch (err) {
-      if (copiedLogo && copiedLogo !== schoolLogo) await imageStorage?.discardTree?.({ logo: copiedLogo }, { auth, scope: newExamId });
-      showToast('Erro ao criar prova: ' + err.message, 'error');
+      const created = await checkCreatedExam(newExamId);
+      if (created) {
+        localStorage.setItem('editExamId', newExamId);
+        window.location.href = `editor.html?id=${encodeURIComponent(newExamId)}`;
+        return;
+      }
+      if (created === false && copiedLogo && copiedLogo !== schoolLogo) await imageStorage?.discardTree?.({ logo: copiedLogo }, { auth, scope: newExamId });
+      showToast(created === null
+        ? 'A conexão caiu durante a criação. Atualize Minhas provas antes de tentar novamente.'
+        : 'Erro ao criar prova: ' + err.message, 'error');
       btn.disabled = false;
       btn.textContent = 'Criar prova';
     }
@@ -1050,6 +1062,15 @@
     if (!Array.isArray(rows) || !rows[0]) throw new Error('A prova não está mais disponível.');
     Object.assign(exam, rows[0]);
     return exam;
+  }
+
+  async function checkCreatedExam(examId) {
+    try {
+      const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(examId)}&select=id`);
+      return Array.isArray(rows) && rows[0]?.id === examId;
+    } catch {
+      return null;
+    }
   }
 
   async function duplicateExam(id) {
@@ -1142,8 +1163,18 @@
         window.location.href = 'editor.html';
       }
     } catch (e) {
-      await imageStorage?.discardTree?.(copiedContent, { auth, scope: newExamId });
-      showToast('Erro ao duplicar prova: ' + e.message, 'error');
+      const created = await checkCreatedExam(newExamId);
+      if (created) {
+        showToast('Cópia confirmada após reconectar.', 'success');
+        await loadExams();
+        localStorage.setItem('editExamId', newExamId);
+        window.location.href = 'editor.html';
+        return;
+      }
+      if (created === false) await imageStorage?.discardTree?.(copiedContent, { auth, scope: newExamId });
+      showToast(created === null
+        ? 'A conexão caiu durante a cópia. Atualize Minhas provas antes de tentar novamente.'
+        : 'Erro ao duplicar prova: ' + e.message, 'error');
     }
     } finally {
       pendingExamOperations.delete(id);
@@ -1209,11 +1240,23 @@
       renderExams();
       showToast('Prova enviada para a coordenação.', 'success');
     } catch (err) {
-      exam.review_status = previous.review_status;
-      exam.is_draft = previous.is_draft;
-      exam.is_published = previous.is_published;
-      renderExams();
-      showToast('Erro ao enviar para coordenação: ' + err.message, 'error');
+      try {
+        const rows = await auth.authenticatedRequest(`/exams?id=eq.${encodeURIComponent(id)}&select=*`);
+        const fresh = Array.isArray(rows) ? rows[0] : null;
+        if (fresh && ['enviada', 'em_revisao', 'aprovada', 'bloqueada'].includes(fresh.review_status)) {
+          Object.assign(exam, fresh);
+          renderExams();
+          showToast('Prova enviada para a coordenação. A confirmação foi recuperada após a falha de conexão.', 'success');
+          return;
+        }
+        exam.review_status = previous.review_status;
+        exam.is_draft = previous.is_draft;
+        exam.is_published = previous.is_published;
+        renderExams();
+        showToast('Erro ao enviar para coordenação: ' + err.message, 'error');
+      } catch {
+        showToast('A conexão caiu antes da confirmação. Atualize Minhas provas antes de tentar enviar novamente.', 'error');
+      }
     }
   }
 

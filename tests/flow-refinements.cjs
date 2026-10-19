@@ -108,7 +108,7 @@ function extract(file,name,spaces) {
   console.log('OK REFINAMENTO painel e editor recusam o mesmo passatempo invalido');
   const fields={newExamSubject:{value:'Matemática'},newExamClass:{value:'5A'},confirmNewExamBtn:{}};
   let payload;
-  const create=vm.createContext({document:{getElementById:id=>fields[id]},currentProfile:{school_id:'s1',full_name:'Professor'},uniqueCleanList:value=>Array.isArray(value)?value:[],localStorage:{setItem(){}},window:{location:{}},showToast(){},auth:{getCurrentUser:()=>({id:'u1'}),authenticatedRequest:async(url,opt)=>{
+  const create=vm.createContext({document:{getElementById:id=>fields[id]},currentProfile:{school_id:'s1',full_name:'Professor'},uniqueCleanList:value=>Array.isArray(value)?value:[],checkCreatedExam:async()=>null,localStorage:{setItem(){}},window:{location:{}},showToast(){},auth:{getCurrentUser:()=>({id:'u1'}),authenticatedRequest:async(url,opt)=>{
     if(url.startsWith('/schools'))return [{name:'Escola',logo_data_url:'data:image/png;base64,AA==',classes:['5A'],disciplines:['Matemática']}]; payload=JSON.parse(opt.body); return [{id:'e1'}];
   }}});
   vm.runInContext(extract('dashboard.html','createNewExamFromModal',2),create); await create.createNewExamFromModal();
@@ -119,7 +119,7 @@ function extract(file,name,spaces) {
   console.log('OK REFINAMENTO nova prova herda logo e falha escolar nao cria cabecalho incompleto');
   const duplicateRequests=[];
   const duplicateSource={id:'old',school_id:'old-school',school_name:'Escola antiga',logo_data_url:'old-logo',title:'Prova',questions:[],decorative_images:[]};
-  const duplicate=vm.createContext({exams:[duplicateSource],currentProfile:{school_id:'new-school',full_name:'Professora atual'},pendingExamOperations:new Set(),renderExams(){},showToast(){},localStorage:{setItem(){}},window:{location:{}},
+  const duplicate=vm.createContext({exams:[duplicateSource],currentProfile:{school_id:'new-school',full_name:'Professora atual'},pendingExamOperations:new Set(),renderExams(){},showToast(){},checkCreatedExam:async()=>null,localStorage:{setItem(){}},window:{location:{}},
     loadExamContent:async exam=>exam,auth:{getCurrentUser:()=>({id:'u1',email:'atual@example.com'}),authenticatedRequest:async(url,opt)=>{
       if(url.startsWith('/schools'))return [{name:'Escola atual',logo_data_url:'new-logo'}];
       duplicateRequests.push(JSON.parse(opt.body)); return [{id:'copy'}];
@@ -132,6 +132,105 @@ function extract(file,name,spaces) {
   assert.equal(duplicateRequests[0].teacher,'Professora atual');
   assert.equal(duplicateRequests.length,1);
   console.log('OK REFINAMENTO copia usa cabecalho da escola atual apos mudanca de vinculo');
+  let releaseClassSave;
+  const classSaveGate=new Promise(resolve=>{releaseClassSave=resolve;});
+  const classPayloads=[];
+  const cleanedClassPayloads=[];
+  const classSaves=vm.createContext({pendingClassSaves:new Set(),queuedClassSaves:new Map(),currentProfile:{},
+    getUniqueList:value=>[...new Set(value)],cleanupRemovedSchoolClasses:async(id,value)=>{cleanedClassPayloads.push(value);return {updated:0};},showToast(){},
+    loadSchools:async()=>{},loadProfessors:async()=>{},loadInvites:async()=>{},Promise,
+    auth:{canManageSchools:()=>true,authenticatedRequest:async(url,opt)=>{classPayloads.push(JSON.parse(opt.body).classes);if(classPayloads.length===1)await classSaveGate;return [{id:'s1'}];}},
+    document:{getElementById:()=>null},
+  });
+  vm.runInContext(extract('schools.html','saveSchoolClasses',2),classSaves);
+  const firstClassSave=classSaves.saveSchoolClasses('s1',['1A']);
+  await classSaves.saveSchoolClasses('s1',['1A','2A']);
+  releaseClassSave(); await firstClassSave; await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(classPayloads,[['1A'],['1A','2A']]);
+  assert.deepEqual(cleanedClassPayloads,[['1A','2A']]);
+  console.log('OK REFINAMENTO alteracoes rapidas de turmas preservam a lista mais recente');
+  const dashboardSource=fs.readFileSync(path.join(__dirname,'..','dashboard.html'),'utf8').replace(/\r\n/g,'\n');
+  const disciplineStart=dashboardSource.indexOf('  function getNewExamDisciplines()');
+  const disciplineEnd=dashboardSource.indexOf('  function getCurrentSchoolClasses()',disciplineStart);
+  const disciplineContext=vm.createContext({
+    currentProfile:{disciplines:['Matemática']},currentSchool:{disciplines:[]},
+    uniqueCleanList:value=>Array.isArray(value)?value:[],
+  });
+  vm.runInContext(dashboardSource.slice(disciplineStart,disciplineEnd),disciplineContext);
+  assert.deepEqual([...disciplineContext.getNewExamDisciplines()],[], 'escola sem disciplinas nao deve reativar vinculos antigos');
+  const disciplineUpdates=[];
+  const disciplineCleanup=vm.createContext({teamProfiles:[{id:'p1',role:'teacher',school_id:'s1',disciplines:['Matemática']}],invites:[{id:'i1',role:'teacher',school_id:'s1',disciplines:['Matemática']}],
+    getUniqueList:value=>Array.isArray(value)?[...new Set(value)]:[],filterDisciplinesBySchool:(values,official)=>values.filter(value=>official.includes(value)),Promise,
+    auth:{normalizeRole:role=>role,authenticatedRequest:async(url,opt)=>{disciplineUpdates.push({url,body:JSON.parse(opt.body)});return [{id:url.includes('p1')?'p1':'i1'}];}},
+  });
+  vm.runInContext(extract('schools.html','cleanupRemovedSchoolDisciplines',2),disciplineCleanup);
+  await disciplineCleanup.cleanupRemovedSchoolDisciplines('s1',[]);
+  assert.equal(disciplineUpdates.length,2);
+  assert(disciplineUpdates.every(update=>Array.isArray(update.body.disciplines)&&update.body.disciplines.length===0));
+  console.log('OK REFINAMENTO remocao da ultima disciplina bloqueia vinculos antigos');
+
+  let discardedRecoveredLogo=false;
+  const schoolFields={'se-name-s1':{value:'Escola'},'se-city-s1':{value:'Cidade'},'se-email-s1':{value:'contato@escola.test'}};
+  let committedSchool=null;
+  const schoolMessages=[];
+  const schoolRecovery=vm.createContext({currentProfile:{},pendingSchoolSaves:new Set(),queuedSchoolSaves:new Set(),pendingLogos:{s1:'data:image/png;base64,AA=='},
+    document:{getElementById:id=>schoolFields[id]||null},showToast:(message,type)=>schoolMessages.push({message,type}),loadSchools:async()=>{},
+    window:{ExamImageStorage:{persistTree:async()=>({logo:'asset://10000000-0000-4000-8000-000000000001'}),discardTree:async()=>{discardedRecoveredLogo=true;}}},
+    auth:{canManageSchools:()=>true,authenticatedRequest:async(url,opt={})=>{
+      if(opt.method==='PATCH'){committedSchool={id:'s1',...JSON.parse(opt.body)};throw new Error('timeout depois do commit');}
+      return committedSchool?[committedSchool]:[];
+    }},
+  });
+  vm.runInContext(extract('schools.html','saveSchoolEdit',2),schoolRecovery);
+  await schoolRecovery.saveSchoolEdit('s1');
+  assert.equal(discardedRecoveredLogo,false,'logo confirmado no banco nao pode ser descartado');
+  assert.equal('s1' in schoolRecovery.pendingLogos,false);
+  assert.match(schoolMessages.at(-1).message,/confirmação foi recuperada/);
+  console.log('OK REFINAMENTO edicao escolar preserva logo confirmado apos timeout');
+
+  const inviteFields={linkSchoolSelect:{value:'s1'},linkProfEmail:{value:'prof@escola.test'},inviteRoleSelect:{value:'teacher'},linkGradeCheckboxes:{},linkResult:{textContent:'',innerHTML:''},createInviteBtn:{disabled:false}};
+  let invitePosts=0,inviteReads=0,uuidCalls=0,committedInvite=null;
+  const postedInviteIds=[];
+  const inviteRecovery=vm.createContext({currentProfile:{school_id:'s1'},pendingInviteAttempt:null,crypto:{randomUUID:()=>{uuidCalls++;return '10000000-0000-4000-8000-000000000099';}},
+    document:{getElementById:id=>inviteFields[id],querySelectorAll:()=>[]},getCheckedValues:()=>['5A'],canManageInvites:()=>true,
+    buildInviteLink:token=>`login.html?invite=${token}`,esc:value=>String(value),showToast(){},loadInvites:async()=>{},
+    auth:{hasRole:roles=>roles.includes('coordinator'),getCurrentUser:()=>({id:'u1'}),authenticatedRequest:async(url,opt={})=>{
+      if(opt.method==='POST'){invitePosts++;const body=JSON.parse(opt.body);postedInviteIds.push(body.id);committedInvite={...body,token:'token-confirmado'};throw new Error(invitePosts===1?'timeout depois do commit':'chave duplicada');}
+      inviteReads++;if(inviteReads===1)throw new Error('rede ainda indisponivel');
+      return committedInvite?[committedInvite]:[];
+    }},
+  });
+  vm.runInContext(extract('schools.html','createInvite',2),inviteRecovery);
+  await inviteRecovery.createInvite();
+  await inviteRecovery.createInvite();
+  assert.equal(new Set(postedInviteIds).size,1,'nova tentativa deve reutilizar o UUID cuja confirmacao ficou incerta');
+  assert.equal(uuidCalls,1);
+  assert.match(inviteFields.linkResult.innerHTML,/token-confirmado/);
+  console.log('OK REFINAMENTO convite recupera a criacao pelo UUID conhecido');
+
+  const printMessages=[];
+  const printFields={printCopiesInput:{value:'2'},printNotesInput:{value:''},confirmPrintBtn:{disabled:false}};
+  const printRecovery=vm.createContext({pendingPrintId:'e1',reviews:[{id:'e1',review_status:'aprovada',print_status:'impressa',updated_at:'antiga'}],pendingActions:new Set(),
+    document:{getElementById:id=>printFields[id]},getReviewActions:()=>({print:true}),renderReviews(){},closePrintModal(){throw new Error('nao deveria confirmar');},
+    showToast:(message,type)=>printMessages.push({message,type}),loadExamState:async()=>({id:'e1',print_status:'impressa',print_requested_at:'pedido-antigo',print_requested_by:'u1'}),
+    auth:{getCurrentUser:()=>({id:'u1'}),authenticatedRequest:async()=>[]},
+  });
+  vm.runInContext(extract('coordenacao.html','sendToPrint',2),printRecovery);
+  await printRecovery.sendToPrint();
+  assert.equal(printMessages.at(-1).type,'error','estado impresso antigo nao confirma um novo reenvio');
+  console.log('OK REFINAMENTO reenvio de impressao exige identidade da tentativa atual');
+  let releaseProfileSave;
+  const profileSaveGate=new Promise(resolve=>{releaseProfileSave=resolve;});
+  const profilePayloads=[];
+  const profileSaves=vm.createContext({pendingProfileUpdates:new Set(),queuedProfileUpdates:new Map(),
+    auth:{authenticatedRequest:async(url,opt)=>{profilePayloads.push(JSON.parse(opt.body));if(profilePayloads.length===1)await profileSaveGate;return [{id:'p1'}];}},
+  });
+  vm.runInContext(extract('schools.html','persistProfileUpdate',2),profileSaves);
+  const firstProfileSave=profileSaves.persistProfileUpdate('p1',{role:'coordinator'});
+  await profileSaves.persistProfileUpdate('p1',{role:'teacher',school_grade:'2A'});
+  releaseProfileSave(); await firstProfileSave;
+  assert.deepEqual(profilePayloads,[{role:'coordinator'},{role:'teacher',school_grade:'2A'}]);
+  console.log('OK REFINAMENTO alteracoes rapidas de perfil preservam a ultima escolha');
   for(const mode of ['active','withdrawn','printed','missing','offline','account']) {
     let prints=0,rendered=null;
     const fresh={id:'e1',title:'Atualizada',review_status:mode==='withdrawn'?'em_revisao':'aprovada',print_status:mode==='printed'?'impressa':'enviada',questions:[]};

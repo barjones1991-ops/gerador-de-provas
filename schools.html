@@ -403,6 +403,13 @@
   let pendingTeacherRemoval = null;
   const pendingSchoolSaves = new Set();
   const queuedSchoolSaves = new Set();
+  const pendingClassSaves = new Set();
+  const queuedClassSaves = new Map();
+  const pendingDisciplineSaves = new Set();
+  const queuedDisciplineSaves = new Map();
+  const pendingProfileUpdates = new Set();
+  const queuedProfileUpdates = new Map();
+  let pendingInviteAttempt = null;
 
   const MAX_LOGO_FILE_BYTES = window.CONFIG?.MAX_FILE_SIZE || (5 * 1024 * 1024);
   const MAX_LOGO_DATA_URL_BYTES = 220 * 1024;
@@ -617,7 +624,10 @@
           try {
             const resolved = await imageStorage.resolveTree({ logo: school.logo_data_url }, { auth, scope: `school-${school.id}` });
             return { ...school, logo_data_url: resolved.logo };
-          } catch { return school; }
+          } catch (error) {
+            console.warn('Logo escolar indisponível; exibindo marcador neutro.', error);
+            return { ...school, logo_data_url: '' };
+          }
         }));
       }
       renderSchools();
@@ -772,6 +782,7 @@
     const hasPendingLogo = schoolId in pendingLogos;
     const pendingLogoSnapshot = pendingLogos[schoolId];
     let storedLogo = null;
+    let savedAfterRecovery = false;
     pendingSchoolSaves.add(schoolId);
     try {
       if (hasPendingLogo) {
@@ -790,8 +801,26 @@
       showToast('Escola atualizada!');
       await loadSchools();
     } catch (err) {
-      if (storedLogo) await imageStorage?.discardTree?.({ logo: storedLogo }, { auth, scope: `school-${schoolId}` });
-      showToast('Erro ao salvar: ' + err.message, 'error');
+      try {
+        const rows = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id,name,city,admin_email,logo_data_url`);
+        const fresh = Array.isArray(rows) ? rows[0] : null;
+        const logoMatches = !hasPendingLogo || fresh?.logo_data_url === storedLogo;
+        savedAfterRecovery = Boolean(fresh
+          && fresh.name === payload.name
+          && (fresh.city || null) === payload.city
+          && (fresh.admin_email || null) === payload.admin_email
+          && logoMatches);
+        if (savedAfterRecovery) {
+          if (hasPendingLogo && pendingLogos[schoolId] === pendingLogoSnapshot) delete pendingLogos[schoolId];
+          showToast('Escola atualizada. A confirmação foi recuperada após a falha de conexão.');
+          await loadSchools();
+        } else {
+          if (storedLogo) await imageStorage?.discardTree?.({ logo: storedLogo }, { auth, scope: `school-${schoolId}` });
+          showToast('Erro ao salvar: ' + err.message, 'error');
+        }
+      } catch {
+        showToast('A conexão caiu antes da confirmação. Atualize os dados da escola antes de tentar salvar novamente.', 'error');
+      }
     } finally {
       pendingSchoolSaves.delete(schoolId);
       if (queuedSchoolSaves.delete(schoolId)) saveSchoolEdit(schoolId);
@@ -835,6 +864,11 @@
     return next.length ? next.join(', ') : null;
   }
 
+  function filterDisciplinesBySchool(rawDisciplines, disciplines) {
+    const official = new Set(getUniqueList(disciplines).map(item => item.toLowerCase()));
+    return getUniqueList(rawDisciplines).filter(item => official.has(item.toLowerCase()));
+  }
+
   async function cleanupRemovedSchoolClasses(schoolId, classes) {
     const profileUpdates = teamProfiles
       .filter(profile => profile.school_id === schoolId)
@@ -864,15 +898,46 @@
     if (failed.length) throw new Error(`${failed.length} vínculo(s) não puderam ser ajustados à nova lista de turmas.`);
     return { updated: changes.length };
   }
-  function removeSchoolDisc(schoolId, idx) {
+
+  async function cleanupRemovedSchoolDisciplines(schoolId, disciplines) {
+    const profileUpdates = teamProfiles
+      .filter(profile => profile.school_id === schoolId && auth.normalizeRole(profile.role) === 'teacher')
+      .map(profile => ({ profile, next: filterDisciplinesBySchool(profile.disciplines, disciplines) }))
+      .filter(({ profile, next }) => JSON.stringify(getUniqueList(profile.disciplines)) !== JSON.stringify(next));
+
+    const inviteUpdates = invites
+      .filter(invite => invite.school_id === schoolId && auth.normalizeRole(invite.role) === 'teacher' && !invite.accepted_at && !invite.canceled_at)
+      .map(invite => ({ invite, next: filterDisciplinesBySchool(invite.disciplines, disciplines) }))
+      .filter(({ invite, next }) => JSON.stringify(getUniqueList(invite.disciplines)) !== JSON.stringify(next));
+
+    const changes = [
+      ...profileUpdates.map(({ profile, next }) => ({ type: 'perfil', id: profile.id, path: 'profiles', next })),
+      ...inviteUpdates.map(({ invite, next }) => ({ type: 'convite', id: invite.id, path: 'user_invites', next })),
+    ];
+    const results = await Promise.allSettled(changes.map(async change => {
+      const rows = await auth.authenticatedRequest(`/${change.path}?id=eq.${encodeURIComponent(change.id)}&select=id`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ disciplines: change.next }),
+      });
+      if (!Array.isArray(rows) || rows.length !== 1 || rows[0].id !== change.id) {
+        throw new Error(`${change.type} ${change.id} não confirmou a atualização`);
+      }
+    }));
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length) throw new Error(`${failed.length} vínculo(s) não puderam ser ajustados à nova lista de disciplinas.`);
+    return { updated: changes.length };
+  }
+  async function removeSchoolDisc(schoolId, idx) {
     const s = getSchool(schoolId);
     if (!s) return;
     const discs = Array.isArray(s.disciplines) ? [...s.disciplines] : [];
     discs.splice(idx, 1);
-    saveSchoolDisciplines(schoolId, discs);
+    s.disciplines = discs;
+    if (!await saveSchoolDisciplines(schoolId, discs)) await loadSchools();
   }
 
-  function addSchoolDisc(schoolId) {
+  async function addSchoolDisc(schoolId) {
     const inp = document.getElementById(`di-${schoolId}`);
     const val = inp ? inp.value.trim() : '';
     if (!val) return;
@@ -881,7 +946,8 @@
     const discs = Array.isArray(s.disciplines) ? [...s.disciplines] : [];
     if (!discs.includes(val)) discs.push(val);
     inp.value = '';
-    saveSchoolDisciplines(schoolId, discs);
+    s.disciplines = discs;
+    if (!await saveSchoolDisciplines(schoolId, discs)) await loadSchools();
   }
 
   async function removeSchoolClass(schoolId, idx) {
@@ -889,7 +955,8 @@
     if (!s) return;
     const classes = getSchoolClasses(s);
     classes.splice(idx, 1);
-    await saveSchoolClasses(schoolId, classes);
+    s.classes = classes;
+    if (!await saveSchoolClasses(schoolId, classes)) await loadSchools();
   }
 
   async function addSchoolClass(schoolId) {
@@ -901,7 +968,8 @@
     const classes = getSchoolClasses(s);
     if (!classes.includes(val)) classes.push(val);
     inp.value = '';
-    await saveSchoolClasses(schoolId, classes);
+    s.classes = classes;
+    if (!await saveSchoolClasses(schoolId, classes)) await loadSchools();
   }
 
   async function saveSchoolClasses(schoolId, classes) {
@@ -909,9 +977,14 @@
       showToast('Você não tem permissão para editar turmas da escola.', 'error');
       return false;
     }
+    const cleanClasses = getUniqueList(classes);
+    if (pendingClassSaves.has(schoolId)) {
+      queuedClassSaves.set(schoolId, cleanClasses);
+      return true;
+    }
+    pendingClassSaves.add(schoolId);
     let schoolSaved = false;
     try {
-      const cleanClasses = getUniqueList(classes);
       const saved = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id`, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
@@ -919,6 +992,8 @@
       });
       if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A escola não existe mais ou não pôde ser atualizada.');
       schoolSaved = true;
+      // Uma edição mais recente já está na fila: não remova vínculos com base neste estado intermediário.
+      if (queuedClassSaves.has(schoolId)) return true;
       await cleanupRemovedSchoolClasses(schoolId, cleanClasses);
       showToast('Turmas atualizadas!');
       await Promise.all([loadSchools(), loadProfessors(), loadInvites()]);
@@ -933,27 +1008,58 @@
         showToast('Erro ao salvar turmas: ' + err.message, 'error');
       }
       return false;
+    } finally {
+      pendingClassSaves.delete(schoolId);
+      if (queuedClassSaves.has(schoolId)) {
+        const nextClasses = queuedClassSaves.get(schoolId);
+        queuedClassSaves.delete(schoolId);
+        saveSchoolClasses(schoolId, nextClasses);
+      }
     }
   }
   async function saveSchoolDisciplines(schoolId, discs) {
     if (!auth.canManageSchools(currentProfile)) {
       showToast('Você não tem permissão para editar disciplinas da escola.', 'error');
-      return;
+      return false;
     }
+    const cleanDisciplines = getUniqueList(discs);
+    if (pendingDisciplineSaves.has(schoolId)) {
+      queuedDisciplineSaves.set(schoolId, cleanDisciplines);
+      return true;
+    }
+    pendingDisciplineSaves.add(schoolId);
+    let schoolSaved = false;
     try {
       const saved = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id`, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ disciplines: discs }),
+        body: JSON.stringify({ disciplines: cleanDisciplines }),
       });
       if (!Array.isArray(saved) || saved.length !== 1) throw new Error('A escola não existe mais ou não pôde ser atualizada.');
+      schoolSaved = true;
+      if (queuedDisciplineSaves.has(schoolId)) return true;
+      await cleanupRemovedSchoolDisciplines(schoolId, cleanDisciplines);
       showToast('Disciplinas atualizadas!');
-      await loadSchools();
+      await Promise.all([loadSchools(), loadProfessors(), loadInvites()]);
       // Re-open the edit panel after re-render
       const el = document.getElementById(`de-${schoolId}`);
       if (el) el.classList.add('open');
+      return true;
     } catch (err) {
-      showToast('Erro ao salvar disciplinas: ' + err.message, 'error');
+      if (schoolSaved) {
+        showToast('As disciplinas foram salvas, mas houve falha ao ajustar vínculos: ' + err.message + ' Atualize e tente novamente.', 'error');
+        await Promise.allSettled([loadSchools(), loadProfessors(), loadInvites()]);
+      } else {
+        showToast('Erro ao salvar disciplinas: ' + err.message, 'error');
+      }
+      return false;
+    } finally {
+      pendingDisciplineSaves.delete(schoolId);
+      if (queuedDisciplineSaves.has(schoolId)) {
+        const nextDisciplines = queuedDisciplineSaves.get(schoolId);
+        queuedDisciplineSaves.delete(schoolId);
+        saveSchoolDisciplines(schoolId, nextDisciplines);
+      }
     }
   }
 
@@ -1034,6 +1140,8 @@
     });
     const imageStorage = window.ExamImageStorage;
     let storedLogo = null;
+    let creationError = null;
+    let createdConfirmed = false;
     try {
       storedLogo = newSchoolLogoDataUrl && imageStorage
         ? (await imageStorage.persistTree({ logo: newSchoolLogoDataUrl }, { auth, scope: `school-${schoolId}` })).logo
@@ -1052,6 +1160,20 @@
         }),
       });
       if (!Array.isArray(created) || created.length !== 1 || created[0].id !== schoolId) throw new Error('O servidor não confirmou a criação da escola.');
+      createdConfirmed = true;
+    } catch (err) {
+      creationError = err;
+      try {
+        const rows = await auth.authenticatedRequest(`/schools?id=eq.${encodeURIComponent(schoolId)}&select=id`);
+        createdConfirmed = Array.isArray(rows) && rows.some((row) => row?.id === schoolId);
+      } catch {
+        showToast('A conexão caiu antes da confirmação. Atualize a lista de escolas antes de tentar cadastrar novamente.', 'error');
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    if (createdConfirmed) {
       document.getElementById('schoolNameInput').value = '';
       document.getElementById('schoolCityInput').value = '';
       document.getElementById('schoolAdminInput').value = '';
@@ -1063,11 +1185,13 @@
       newSchoolClasses = [];
       renderNewSchoolTags();
       renderNewSchoolClassTags();
-      showToast('Escola cadastrada com sucesso!');
+      showToast(creationError
+        ? 'Escola cadastrada com sucesso. A confirmação foi recuperada após a falha de conexão.'
+        : 'Escola cadastrada com sucesso!');
       await loadSchools();
-    } catch (err) {
+    } else {
       if (storedLogo) await imageStorage?.discardTree?.({ logo: storedLogo }, { auth, scope: `school-${schoolId}` });
-      showToast('Erro ao cadastrar escola: ' + err.message, 'error');
+      showToast('Erro ao cadastrar escola: ' + (creationError?.message || 'o servidor não confirmou a criação.'), 'error');
     }
     btn.disabled = false;
   }
@@ -1121,8 +1245,8 @@
       const renderProfileCard = (p) => {
         const role = auth.normalizeRole(p.role);
         const school = schools.find(s => s.id === p.school_id);
-        const discs = Array.isArray(p.disciplines) ? p.disciplines : [];
-        const profGrades = normalizeGrades(p.school_grade);
+        const discs = getValidProfileDisciplines(p);
+        const profGrades = getValidProfileGrades(p);
         const schoolDiscs = school && Array.isArray(school.disciplines) ? school.disciplines : [];
         const canChangeSchool = canChangeTeamSchool(p);
         const schoolControl = canChangeSchool ? renderProfileSchoolSelect(p.id, p.school_id) : '';
@@ -1212,12 +1336,28 @@
 
   function getTeacherAccessStatus(profile) {
     if (!profile?.school_id) return { complete: false, label: 'Sem escola definida' };
-    const hasGrades = normalizeGrades(profile.school_grade).length > 0;
-    const hasDisciplines = Array.isArray(profile.disciplines) && profile.disciplines.length > 0;
+    const validGrades = getValidProfileGrades(profile);
+    const validDisciplines = getValidProfileDisciplines(profile);
+    const hasGrades = validGrades.length > 0;
+    const hasDisciplines = validDisciplines.length > 0;
     if (!hasGrades && !hasDisciplines) return { complete: false, label: 'Faltam turmas e disciplinas' };
     if (!hasGrades) return { complete: false, label: 'Falta definir turmas' };
     if (!hasDisciplines) return { complete: false, label: 'Falta definir disciplinas' };
     return { complete: true, label: 'Acesso completo' };
+  }
+
+  function getValidProfileGrades(profile) {
+    const school = schools.find(item => item.id === profile?.school_id);
+    const grades = normalizeGrades(profile?.school_grade);
+    if (!school || !Array.isArray(school.classes)) return grades;
+    const official = new Set(getUniqueList(school.classes).map(item => item.toLowerCase()));
+    return grades.filter(grade => official.has(grade.toLowerCase()));
+  }
+
+  function getValidProfileDisciplines(profile) {
+    const school = schools.find(item => item.id === profile?.school_id);
+    if (!school || !Array.isArray(school.disciplines)) return getUniqueList(profile?.disciplines);
+    return filterDisciplinesBySchool(profile?.disciplines, school.disciplines);
   }
 
   function canManageInvites() {
@@ -1335,6 +1475,31 @@
     if (el) el.classList.toggle('open');
   }
 
+  async function persistProfileUpdate(profId, update) {
+    if (pendingProfileUpdates.has(profId)) {
+      queuedProfileUpdates.set(profId, { ...(queuedProfileUpdates.get(profId) || {}), ...update });
+      return false;
+    }
+    pendingProfileUpdates.add(profId);
+    let nextUpdate = update;
+    try {
+      while (nextUpdate) {
+        const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(profId)}&select=id`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(nextUpdate),
+        });
+        if (!Array.isArray(saved) || saved.length !== 1) throw new Error('O perfil não existe mais ou não pôde ser atualizado.');
+        nextUpdate = queuedProfileUpdates.get(profId) || null;
+        queuedProfileUpdates.delete(profId);
+      }
+      return true;
+    } finally {
+      pendingProfileUpdates.delete(profId);
+      queuedProfileUpdates.delete(profId);
+    }
+  }
+
   async function saveProfEdit(profId) {
     const profile = teamProfiles.find(p => p.id === profId);
     if (!canEditTeamProfile(profile)) {
@@ -1356,12 +1521,7 @@
     const update = { school_grade: grade || null, disciplines: checked };
     if (canChangeTeamSchool(profile)) update.school_id = schoolId || null;
     try {
-      const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(profId)}&select=id`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(update),
-      });
-      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('O perfil não existe mais ou não pôde ser atualizado.');
+      if (!await persistProfileUpdate(profId, update)) return;
       showToast('Vínculo atualizado!');
       await loadProfessors();
     } catch (err) {
@@ -1400,12 +1560,7 @@
     const update = { role };
     if (schoolId) update.school_id = schoolId;
     try {
-      const saved = await auth.authenticatedRequest(`/profiles?id=eq.${encodeURIComponent(profId)}&select=id`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(update),
-      });
-      if (!Array.isArray(saved) || saved.length !== 1) throw new Error('O perfil não existe mais ou não pôde ser atualizado.');
+      if (!await persistProfileUpdate(profId, update)) return;
       showToast('Perfil de acesso atualizado.');
       await loadProfessors();
     } catch (err) {
@@ -1563,7 +1718,7 @@
     const hasDisciplines = schools.some(s => Array.isArray(s.disciplines) && s.disciplines.length > 0);
     const hasClasses = schools.some(s => Array.isArray(s.classes) && s.classes.length > 0);
     const hasCoordinator = teamProfiles.some(p => auth.normalizeRole(p.role) === 'coordinator' && p.school_id);
-    const hasTeacher = teamProfiles.some(p => auth.normalizeRole(p.role) === 'teacher' && p.school_id && normalizeGrades(p.school_grade).length > 0 && Array.isArray(p.disciplines) && p.disciplines.length > 0);
+    const hasTeacher = teamProfiles.some(p => auth.normalizeRole(p.role) === 'teacher' && p.school_id && getTeacherAccessStatus(p).complete);
     const steps = [
       { done: hasSchool, title: 'Cadastrar a escola', text: 'Cadastre a escola com nome e cidade.' },
       { done: hasDisciplines, title: 'Definir disciplinas', text: hasDisciplines ? 'Há disciplinas disponíveis para vincular aos professores.' : 'Adicione as disciplinas oferecidas pela escola.' },
@@ -1772,11 +1927,23 @@
     const btn = document.getElementById('createInviteBtn');
     btn.disabled = true;
     resultEl.textContent = 'Gerando convite...';
+    const inviteFingerprint = JSON.stringify([schoolId, email.toLowerCase(), role, grade || null, checkedDiscs]);
+    const inviteId = pendingInviteAttempt?.fingerprint === inviteFingerprint
+      ? pendingInviteAttempt.id
+      : globalThis.crypto?.randomUUID?.();
+    if (!inviteId) {
+      resultEl.textContent = 'Este navegador não consegue criar uma identidade segura para o convite.';
+      btn.disabled = false;
+      return;
+    }
+    pendingInviteAttempt = { id: inviteId, fingerprint: inviteFingerprint };
+    let invite = null;
     try {
       const data = await auth.authenticatedRequest('/user_invites', {
         method: 'POST',
         headers: { 'Prefer': 'return=representation' },
         body: JSON.stringify({
+          id: inviteId,
           email,
           role,
           school_id: schoolId,
@@ -1785,8 +1952,28 @@
           created_by: auth.getCurrentUser().id,
         }),
       });
-      const invite = Array.isArray(data) ? data[0] : data;
+      invite = Array.isArray(data) ? data[0] : data;
       if (!invite?.id || !invite?.token) throw new Error('O servidor não confirmou a criação do convite.');
+    } catch (err) {
+      try {
+        const rows = await auth.authenticatedRequest(`/user_invites?id=eq.${encodeURIComponent(inviteId)}&select=id,token,email`);
+        invite = Array.isArray(rows) ? rows[0] : null;
+      } catch {
+        resultEl.textContent = 'A conexão caiu antes da confirmação. Atualize os convites antes de tentar novamente.';
+        showToast('Não foi possível confirmar a criação do convite.', 'error');
+        btn.disabled = false;
+        return;
+      }
+      if (!invite?.id || !invite?.token) {
+        pendingInviteAttempt = null;
+        resultEl.textContent = 'Erro: ' + err.message;
+        showToast('Erro ao gerar convite.', 'error');
+        btn.disabled = false;
+        return;
+      }
+    }
+    pendingInviteAttempt = null;
+    try {
       const link = invite?.token ? buildInviteLink(invite.token) : '';
       resultEl.innerHTML = link
         ? `Convite criado para ${esc(email)}.<br><input readonly style="margin-top:6px;" value="${esc(link)}" onclick="this.select()" />`

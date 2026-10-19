@@ -132,6 +132,26 @@ const auth = {
   assert.equal(assets.size, createdCount - 1, 'rollback remove o registro do asset copiado');
   assert.equal(objects.size, 2, 'rollback remove apenas o arquivo copiado e preserva o legado de teste');
 
+  const objectsBeforeTimeout = objects.size;
+  const assetsBeforeTimeout = assets.size;
+  let simulateCommittedTimeout = true;
+  auth.authenticatedRequest = async (path, options = {}) => {
+    if (simulateCommittedTimeout && options.method === 'POST' && path.startsWith('/image_assets?select=')) {
+      simulateCommittedTimeout = false;
+      const row = JSON.parse(options.body);
+      assets.set(row.id, row);
+      throw new Error('timeout depois do commit');
+    }
+    return authenticatedRequest(path, options);
+  };
+  const recoveredUpload = await storage.persistTree({ image: 'data:image/png;base64,dGltZW91dA==' }, {
+    auth, scope: 'exam-timeout',
+  });
+  auth.authenticatedRequest = authenticatedRequest;
+  assert.match(recoveredUpload.image, /^asset:\/\/[0-9a-f-]{36}$/);
+  assert.equal(assets.size, assetsBeforeTimeout + 1, 'registro confirmado após timeout deve ser reutilizado');
+  assert.equal(objects.size, objectsBeforeTimeout + 1, 'arquivo físico confirmado não deve ser removido');
+
   const previousFetch = global.fetch;
   const previousWarn = console.warn;
   let usedFallback = false;
