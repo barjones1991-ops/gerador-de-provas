@@ -81,14 +81,14 @@ async function main() {
       const card=app.document.querySelector('.qcard'); assert(card,type);
       assert(card.classList.contains('compact-question-editor'),type);
       assert.equal(card.querySelector('.question-score label').textContent,'Valor',type);
-      assert(card.querySelector('.qhead .question-remove-icon'),type);
+      assert(card.querySelector('.question-footer button[title="Remover questão"]'),type);
       assert(!card.querySelector('.question-appearance'),type);
-      const number=card.querySelector('.qhead [data-presentation="number"]'); assert(number,type);
+      const number=card.querySelector('.discursive-settings [data-presentation="number"]'); assert(number,type);
       number.checked=false; app.event(number,'change'); assert.equal(app.run('state.questions[0].hideNumber'),true,type);
       const bncc=card.querySelector('.question-bncc [data-k="bncc"]'); assert(bncc,type);
       bncc.value='EF01CI01'; app.event(bncc,'input');
       assert.equal(app.run('state.questions[0].bncc'),'EF01CI01',type);
-      assert.equal(card.querySelector('.question-bncc summary').textContent,'Código BNCC · EF01CI01',type);
+      assert.equal(card.querySelector('.discursive-settings-title').textContent,'Ajustes complementares · BNCC EF01CI01',type);
       assert(!card.querySelector('.enunciation-extra-images > input[type="file"]'),type);
       assert(!card.querySelector('.question-images-details'),type);
       assert(!card.textContent.includes('Conteúdo e respostas'),type);

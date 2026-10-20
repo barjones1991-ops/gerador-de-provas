@@ -92,6 +92,8 @@ const EditorTools = {
       const summary = card.querySelector('.qhead-subtitle');
       const text = String(q.text || '').trim() || 'Sem enunciado ainda';
       if (summary) { summary.textContent = text; summary.title = text; }
+      if (q.type === 'discursiva') this.syncDiscursive(card, q, Number(card.dataset.questionIndex));
+      else this.syncStandardQuestion(card, q, Number(card.dataset.questionIndex));
     });
   },
   changed() {
@@ -285,6 +287,8 @@ const EditorTools = {
         this.organizeAlternatives(card, q, index);
         this.organizeAnswerItemImages(card, q, index);
         this.embedFieldImages(card, q);
+        this.organizeDiscursive(card, q, index);
+        this.organizeStandardQuestion(card, q, index);
         this.addMathStatementTools(card, q);
       }
     });
@@ -353,7 +357,7 @@ const EditorTools = {
         const summary = settings.querySelector('summary');
         const updateCode = () => {
           const code = input.value.trim();
-          summary.textContent = code ? `Código BNCC · ${code}` : 'Código BNCC (opcional)';
+          if (q.type !== 'discursiva' && !card.dataset.standardQuestionOrganized) summary.textContent = code ? `Código BNCC · ${code}` : 'Código BNCC (opcional)';
         };
         updateCode();
         input.addEventListener('input', updateCode);
@@ -374,6 +378,393 @@ const EditorTools = {
     const bank = footer?.querySelector('button[title="Salvar no banco de questões"]');
     if (bank) bank.textContent = 'Guardar no banco para reutilizar';
     if (footer && !footer.children.length) footer.remove();
+  },
+  organizeDiscursive(card, q, index) {
+    if (q.type !== 'discursiva' || card.dataset.discursiveOrganized) return;
+    card.dataset.discursiveOrganized = 'true';
+    card.classList.add('discursive-editor');
+    const body = card.querySelector(':scope > .row');
+    const statement = card.querySelector('.question-essentials');
+    const format = card.querySelector('[data-k="answerStyle"]');
+    const controls = format.parentElement.parentElement;
+    const answerToggle = card.querySelector('[data-presentation="answer-space"]').closest('label');
+    const criteria = card.querySelector('[data-k="expectedAnswer"]');
+    const settings = card.querySelector('.question-settings');
+    const footer = card.querySelector('.question-footer');
+    const icon = name => this.questionIcon(name);
+    const blockHeading = (heading, name, description) => this.questionBlockHeading(heading, name, description);
+    const makeSection = (name, className) => {
+      const section = document.createElement('section'); section.className = `discursive-section ${className}`;
+      const heading = document.createElement('h3'); heading.textContent = name;
+      heading.id = `discursive-${className}-${index}`; section.setAttribute('aria-labelledby', heading.id);
+      section.appendChild(heading); return section;
+    };
+    const content = makeSection('Enunciado', 'discursive-content');
+    const contentHeading = content.querySelector('h3');
+    content.appendChild(blockHeading(contentHeading, 'document', 'Texto que será exibido ao aluno na prova.'));
+    const text = statement.querySelector('textarea');
+    const label = statement.querySelector('label');
+    label.classList.add('sr-only');
+    content.appendChild(statement);
+    const trigger = content.querySelector('.image-use-wrap > button');
+    if (trigger) {
+      trigger.classList.add('discursive-image-button');
+      trigger.classList.remove('primary'); trigger.classList.add('outline');
+      const panel = content.querySelector('.image-edit-panel');
+      if (panel) { panel.classList.add('hidden'); trigger.setAttribute('aria-expanded', 'false'); }
+    }
+    const answer = makeSection('Resposta do aluno', 'discursive-response');
+    const answerHeader = document.createElement('div'); answerHeader.className = 'discursive-response-heading';
+    answer.appendChild(answerHeader);
+    answerHeader.append(blockHeading(answer.querySelector('h3'), 'settings', 'Defina o espaço para o aluno responder na prova.'), answerToggle);
+    const answerCheck = answerToggle.querySelector('input');
+    answerToggle.classList.add('discursive-space-switch');
+    answerCheck.setAttribute('aria-label', 'Mostrar espaço para o aluno responder');
+    const switchTrack = document.createElement('span'); switchTrack.className = 'discursive-switch-track'; switchTrack.setAttribute('aria-hidden','true');
+    const switchCopy = document.createElement('span'); switchCopy.className = 'discursive-switch-copy';
+    const switchTitle = document.createElement('strong'); switchTitle.textContent = 'Reservar espaço';
+    const switchHint = document.createElement('span'); switchHint.textContent = 'Deixa um espaço para o aluno responder na prova.';
+    switchCopy.append(switchTitle, switchHint); answerToggle.replaceChildren(answerCheck, switchTrack, switchCopy);
+    controls.classList.add('discursive-response-controls');
+    answer.appendChild(controls);
+    const hint = card.querySelector('.answer-space-hint'); controls.appendChild(hint);
+    hint.id = `discursive-space-hint-${index}`;
+    controls.querySelector('[data-k="lines"]').setAttribute('aria-describedby', hint.id);
+    const responseState = document.createElement('p'); responseState.className = 'discursive-response-state';
+    answer.appendChild(responseState);
+    const check = document.createElement('button'); check.type = 'button'; check.className = 'discursive-check-preview';
+    check.textContent = 'Conferir na prova →';
+    check.addEventListener('click', () => {
+      if (window.innerWidth <= 1150) this.previewQuestion(index);
+      else { this.pendingPreviewFocus = index; this.updatePreview(); }
+    });
+    const correction = makeSection('Resposta esperada', 'discursive-correction');
+    const correctionTitle = correction.querySelector('h3');
+    const privateNote = document.createElement('span'); privateNote.className = 'discursive-private-badge';
+    privateNote.append(icon('lock'), document.createTextNode('Só no gabarito')); correctionTitle.appendChild(privateNote);
+    correction.appendChild(blockHeading(correctionTitle, 'bulb', 'Não aparece na prova do aluno. Serve como referência para a correção.'));
+    const criteriaBlock = criteria.parentElement;
+    criteriaBlock.querySelector('label').classList.add('sr-only');
+    criteriaBlock.querySelector('label').textContent = 'Resposta esperada ou critérios de correção (opcional)';
+    criteria.placeholder = 'Descreva a resposta esperada ou os critérios de correção (opcional).';
+    correction.appendChild(criteriaBlock);
+    const number = card.querySelector('.question-number-toggle');
+    number.replaceChildren(number.querySelector('input'), document.createTextNode('Exibir numeração na prova'));
+    settings.prepend(number); settings.prepend(settings.querySelector('summary'));
+    settings.classList.add('discursive-settings');
+    const settingsSummary = settings.querySelector('summary'); settingsSummary.replaceChildren();
+    const settingsTitle = document.createElement('strong'); settingsTitle.className = 'discursive-settings-title';
+    settingsSummary.appendChild(blockHeading(settingsTitle, 'sliders', 'Opções complementares de configuração da questão.'));
+    const updateSettings = () => {
+      const code = settings.querySelector('[data-k="bncc"]').value.trim();
+      settingsTitle.textContent = `Ajustes complementares${code ? ` · BNCC ${code}` : ''}`;
+    };
+    settings.querySelector('[data-k="bncc"]').addEventListener('input', updateSettings); updateSettings();
+    const printedNumber = document.createElement('span'); printedNumber.className = 'discursive-print-number';
+    card.querySelector('.qhead-left-copy').appendChild(printedNumber);
+    const close = card.querySelector('.qnum'); close.textContent = '×'; close.classList.add('discursive-close');
+    card.querySelector('.question-head-actions').appendChild(close);
+    const remove = card.querySelector('.question-remove-icon');
+    if (remove && footer) { remove.classList.remove('question-remove-icon'); remove.textContent = 'Excluir questão'; footer.appendChild(remove); }
+    const bank = footer?.querySelector('[title="Salvar no banco de questões"]');
+    if (bank) { bank.textContent = ''; bank.append(icon('database'), document.createTextNode('Guardar no banco de questões')); }
+    if (footer) footer.insertBefore(check, remove || null);
+    body.querySelectorAll(':scope > .prop-sec').forEach(node => node.remove());
+    body.prepend(content); content.after(answer); answer.after(correction); correction.after(settings);
+    for (const input of [text, criteria]) {
+      input.addEventListener('input', () => this.fitDiscursiveText(input));
+      this.fitDiscursiveText(input);
+      window.requestAnimationFrame?.(() => { if (input.isConnected) this.fitDiscursiveText(input); });
+    }
+    this.syncDiscursive(card, q, index);
+  },
+  questionIcon(name) {
+      const paths = {
+        document:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h6"/>',
+        settings:'<path d="m9 3-1 3-3 1 1 3-2 2 2 2-1 3 3 1 1 3h6l1-3 3-1-1-3 2-2-2-2 1-3-3-1-1-3z"/><circle cx="12" cy="12" r="3"/>',
+        bulb:'<path d="M9 18h6M9 21h6M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4z"/>',
+        sliders:'<path d="M3 6h5m4 0h9M3 12h11m4 0h3M3 18h3m4 0h11"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>',
+        lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"/>',
+        database:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
+      };
+      const node = document.createElement('span'); node.className = `discursive-icon discursive-icon-${name}`;
+      node.setAttribute('aria-hidden','true');
+      node.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+      return node;
+  },
+  questionBlockHeading(heading, name, description) {
+      const wrapper = document.createElement('div'); wrapper.className = 'discursive-block-heading';
+      const copy = document.createElement('div'); copy.className = 'discursive-block-copy';
+      const hint = document.createElement('p'); hint.textContent = description;
+      copy.append(heading, hint); wrapper.append(this.questionIcon(name), copy); return wrapper;
+  },
+  questionItemField(input, title) {
+    const label = document.createElement('label'); label.className = 'standard-item-field';
+    const caption = document.createElement('span'); caption.textContent = title;
+    label.append(caption,input); return label;
+  },
+  organizeStandardQuestion(card, q, index) {
+    if (!q || q.type === 'discursiva' || card.dataset.standardQuestionOrganized) return;
+    const body = card.querySelector(':scope > .row');
+    const essentials = card.querySelector('.question-essentials');
+    if (!body || !essentials) return;
+    card.dataset.standardQuestionOrganized = 'true';
+    card.classList.add('standard-question-editor');
+    const profiles = {
+      multipla:['Alternativas','Marque a resposta correta junto da alternativa.'],
+      marcarx: q.markMode === 'vf' ? ['Afirmações','Defina V ou F em cada afirmação para o gabarito.']
+        : q.markMode === 'checklist' ? ['Itens para marcar','O aluno marca os itens; esta lista não tem gabarito.']
+        : ['Alternativas',q.markMode === 'multipla' ? 'Marque todas as respostas corretas junto das alternativas.' : 'Marque a resposta correta junto da alternativa.'],
+      vf:['Afirmações','Defina V ou F em cada afirmação para o gabarito.'],
+      lacunas:['Frases com lacunas','Escreva a frase com ___ e informe a resposta no campo verde de cada item.'],
+      relacione:['Pares correspondentes','Preencha os pares corretos. A coluna direita pode ser embaralhada para a prova.'],
+      associacao_setas:['Pares correspondentes','Cadastre os pares corretos; a coluna direita será embaralhada na prova.'],
+      relacione_imagens:['Imagens e palavras','Cadastre os pares corretos. As palavras podem ser embaralhadas para a prova.'],
+      imagem:['Resposta do aluno','Escolha a forma de resposta para a imagem.'],
+      interpretacao_imagem:['Perguntas sobre a imagem','Cadastre as perguntas e configure o espaço de resposta.'],
+      texto_base:['Resposta do aluno','Escolha como o aluno responderá à leitura.'],
+      subitens:['Subitens','Escreva os comandos e configure o espaço de resposta de cada item.'],
+      matematica_coluna:['Operações','Os resultados são calculados automaticamente e aparecem apenas no gabarito.'],
+      expressao_matematica:['Expressões matemáticas','Digite como no papel: 1/2, (3^3)/5 ou √(49/81). Use os botões para inserir símbolos.'],
+      ditado:['Resposta do aluno','Defina a quantidade de espaços para as palavras ditadas.'],
+      ordenacao:['Frases ou etapas','O número junto de cada frase define sua ordem correta.'],
+      problema_matematico:['Resposta e cálculo','Configure os espaços de escrita e de rascunho.'],
+      espaco_livre:['Espaço do aluno','Defina a área para escrita ou desenho.'],
+      tabela:['Resposta do aluno','Defina como o aluno responderá à tabela.'],
+      sequencia_numerica:['Sequências numéricas','Use ___ nas lacunas e informe as respostas junto de cada sequência.'],
+      leitura_escrita:['Palavras e frases','Cadastre o conteúdo para leitura e cópia.'],
+      silabas:['Palavras e sílabas','Escolha o exercício e preencha a resposta junto de cada palavra.'],
+      sequencia_imagens:['Sequência de imagens','O número junto de cada imagem define sua ordem correta.'],
+      comparar_imagens:['Resposta do aluno','Configure o espaço para comparar as duas imagens.'],
+      legenda_imagens:['Imagens para nomear','A resposta de cada imagem fica no campo verde do gabarito.'],
+      associacao_imagem_imagem:['Pares de imagens','Mantenha as duas imagens de cada par lado a lado.'],
+      grade_imagens:['Grade de imagens','Cada figura reúne sua legenda e sua resposta esperada.'],
+      identificar_imagem:['Partes numeradas','Informe o nome de cada parte; posicione os números na imagem acima.'],
+      caca_palavras:['Montagem do caça-palavras','Defina as palavras e confira a grade na prévia.'],
+      cruzadinha:['Pistas e respostas','Cada pista permanece junto da resposta que define seus quadrinhos.'],
+    };
+    const profile = profiles[q.type] || ['Atividade','Configure o conteúdo e a resposta da atividade.'];
+    const section = (name, tone, description, key) => {
+      const node = document.createElement('section');
+      node.className = `discursive-section standard-${key} discursive-${tone}`;
+      const heading = document.createElement('h3'); heading.textContent = name;
+      heading.id = `question-${index}-${key}`; node.setAttribute('aria-labelledby', heading.id);
+      node.appendChild(this.questionBlockHeading(heading, tone === 'content' ? 'document' : tone === 'correction' ? 'bulb' : 'settings', description));
+      return node;
+    };
+    const content = section('Enunciado','content','Texto que será exibido ao aluno na prova.','content');
+    essentials.querySelector('label')?.classList.add('sr-only');
+    content.appendChild(essentials);
+    const activity = section(profile[0],'response',profile[1],'activity');
+    const activityBody = document.createElement('div'); activityBody.className = 'standard-activity-body';
+    activity.appendChild(activityBody);
+    const settings = card.querySelector('.question-settings');
+    const footer = card.querySelector('.question-footer');
+    const criteria = card.querySelector('[data-k="expectedAnswer"]')?.parentElement;
+    const answerLabel = card.querySelector('[data-presentation="answer-space"]')?.closest('label');
+    const hints = card.querySelector('.answer-space-hint');
+    const original = [...body.children].filter(node => node !== settings && node !== footer && node !== criteria && node !== answerLabel && node !== hints);
+    original.forEach(node => {
+      if (node.matches('.prop-sec')) node.remove();
+      else activityBody.appendChild(node);
+    });
+    body.prepend(content); content.after(activity);
+    // These types combine support material and answer controls in one legacy
+    // wrapper. Move whole control groups, preserving their handlers and lists.
+    const fieldGroup = key => card.querySelector(`[data-k="${key}"]`)?.parentElement;
+    let support = null;
+    const moveSupport = (node, name) => {
+      if (!node) return;
+      if (name) {
+        if (!support) support = section(name,'content','Conteúdo de apoio que acompanha a questão.','support');
+        support.appendChild(node);
+      } else content.appendChild(node);
+    };
+    if (q.type === 'texto_base') moveSupport(fieldGroup('textBase'),'Texto-base');
+    if (['imagem','interpretacao_imagem','comparar_imagens','identificar_imagem'].includes(q.type)) {
+      const root = activityBody.querySelector(':scope > .row');
+      if (root) {
+        if (q.type === 'imagem') {
+          const mode = fieldGroup('imageAnswerType');
+          const lines = fieldGroup('lines')?.parentElement;
+          const choices = root.querySelector('.option-row')?.parentElement;
+          if (mode) activityBody.appendChild(mode);
+          if (lines) activityBody.appendChild(lines);
+          if (choices) activityBody.appendChild(choices);
+          if (lines) lines.classList.add('standard-answer-options');
+        } else if (q.type === 'interpretacao_imagem') {
+          const prompts = [...root.children].find(node => node.querySelector('input[placeholder="Pergunta 1"]'));
+          if (prompts) activityBody.appendChild(prompts);
+          const options = fieldGroup('lines')?.parentElement;
+          if (options) { options.classList.add('standard-answer-options'); activityBody.appendChild(options); }
+        } else if (q.type === 'comparar_imagens') {
+          const options = fieldGroup('lines')?.parentElement;
+          if (options) { options.classList.add('standard-answer-options'); activityBody.appendChild(options); }
+        } else {
+          const markers = root.querySelector('[data-marker-row]')?.parentElement;
+          if (markers) activityBody.appendChild(markers);
+          const list = fieldGroup('showAnswerList'); if (list) activityBody.appendChild(list);
+        }
+        moveSupport(root);
+      }
+    }
+    if (q.type === 'tabela') {
+      const table = activityBody.firstElementChild;
+      const options = fieldGroup('answerType')?.parentElement;
+      const choices = table?.querySelector('input[type="radio"]')?.closest('.row');
+      if (options) activityBody.prepend(options);
+      if (choices) activityBody.appendChild(choices);
+      moveSupport(table,'Tabela da atividade');
+    }
+    let correction = null;
+    if (criteria || q.type === 'ditado') {
+      correction = section(q.type === 'ditado' ? 'Palavras do ditado' : 'Resposta esperada','correction',
+        'Uso do professor: este conteúdo aparece somente no gabarito.','correction');
+      const badge = document.createElement('span'); badge.className = 'discursive-private-badge';
+      badge.append(this.questionIcon('lock'),document.createTextNode('Só no gabarito'));
+      correction.querySelector('h3').appendChild(badge);
+      if (criteria) {
+        criteria.querySelector('label')?.classList.add('sr-only');
+        correction.appendChild(criteria);
+      }
+      if (q.type === 'ditado') {
+        const words = fieldGroup('wordList');
+        words.querySelector('label').classList.add('sr-only'); correction.appendChild(words);
+        const count = fieldGroup('wordCount');
+        activityBody.replaceChildren(count);
+      }
+    }
+    // Formatting stays available under a single supplementary disclosure.
+    // Essential response modes and item answers remain alongside the activity.
+    const number = card.querySelector('.question-number-toggle');
+    if (settings) {
+      settings.classList.add('standard-settings','discursive-settings');
+      const summary = settings.querySelector('summary'); summary.replaceChildren();
+      const title = document.createElement('strong'); title.className = 'discursive-settings-title';
+      summary.appendChild(this.questionBlockHeading(title,'sliders','Numeração, BNCC e apresentação na prova.'));
+      if (number) {
+        number.replaceChildren(number.querySelector('input'), document.createTextNode('Exibir numeração na prova'));
+        summary.after(number);
+      }
+      const update = () => { const code = settings.querySelector('[data-k="bncc"]').value.trim(); title.textContent = `Ajustes complementares${code ? ` · BNCC ${code}` : ''}`; };
+      settings.querySelector('[data-k="bncc"]').addEventListener('input',update); update();
+      activityBody.querySelectorAll(':scope > .appearance-settings').forEach(node => settings.appendChild(node));
+      for (const key of ['markLayout']) { const group = fieldGroup(key); if (group) settings.appendChild(group); }
+      if (q.type === 'subitens') { const config = fieldGroup('labelStyle'); if (config) settings.appendChild(config); }
+      if (q.type === 'leitura_escrita') { const columns = fieldGroup('columns'); if (columns) settings.appendChild(columns); }
+      if (q.type === 'grade_imagens') { const columns = fieldGroup('columns'); if (columns) settings.appendChild(columns); }
+    }
+    if (answerLabel) {
+      answerLabel.classList.add('discursive-space-switch');
+      const check = answerLabel.querySelector('input');
+      const track = document.createElement('span'); track.className = 'discursive-switch-track'; track.setAttribute('aria-hidden','true');
+      const copy = document.createElement('span'); copy.className = 'discursive-switch-copy';
+      const label = document.createElement('strong'); label.textContent = 'Reservar espaço'; copy.appendChild(label);
+      answerLabel.replaceChildren(check,track,copy);
+      activity.querySelector('.discursive-block-heading').appendChild(answerLabel);
+      const message = document.createElement('p'); message.className = 'standard-response-state discursive-response-state';
+      message.textContent = 'A questão será impressa sem espaço para escrever ou desenhar.';
+      activityBody.appendChild(message);
+    }
+    if (hints) activityBody.appendChild(hints);
+    activityBody.querySelectorAll(':scope > .row > label:first-child').forEach(label => {
+      if (!label.querySelector('input,textarea,select')) label.classList.add('sr-only');
+    });
+    if (['vf','marcarx','multipla','lacunas','relacione','relacione_imagens','ordenacao','sequencia_imagens','legenda_imagens','cruzadinha'].includes(q.type)) {
+      activityBody.querySelectorAll(':scope > .row > .small').forEach(hint => hint.remove());
+    }
+    activityBody.querySelectorAll('.math-editor-heading, .expression-editor-heading').forEach(heading => heading.remove());
+    if (q.type === 'caca_palavras') {
+      const words = fieldGroup('wordsText');
+      words.classList.add('standard-full-width'); words.parentElement.prepend(words);
+    }
+    const title = card.querySelector('.qhead-left-name'); title.textContent = this.printedQuestionLabel(index);
+    const caption = document.createElement('span'); caption.className = 'discursive-print-number';
+    card.querySelector('.qhead-left-copy').appendChild(caption);
+    const close = card.querySelector('.qnum'); close.textContent = '×'; close.classList.add('discursive-close');
+    card.querySelector('.question-head-actions').appendChild(close);
+    if (footer) {
+      const remove = card.querySelector('.question-remove-icon');
+      if (remove) { remove.classList.remove('question-remove-icon'); remove.textContent = 'Excluir questão'; footer.appendChild(remove); }
+      const bank = footer.querySelector('[title="Salvar no banco de questões"]');
+      if (bank) { bank.replaceChildren(this.questionIcon('database'),document.createTextNode('Guardar no banco de questões')); }
+      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'discursive-check-preview';
+      preview.textContent = 'Conferir na prova →';
+      preview.addEventListener('click',() => {
+        if (window.innerWidth <= 1150) this.previewQuestion(index);
+        else { this.pendingPreviewFocus = index; this.updatePreview(); }
+      });
+      footer.insertBefore(preview,remove || null);
+    }
+    body.prepend(content);
+    content.after(activity); if (support) content.after(support);
+    if (correction) activity.after(correction);
+    if (settings) body.appendChild(settings); if (footer) body.appendChild(footer);
+    this.syncStandardQuestion(card,q,index);
+  },
+  syncStandardQuestion(card, q, index) {
+    if (!card.classList.contains('standard-question-editor')) return;
+    card.querySelector('.qhead-left-name').textContent = this.printedQuestionLabel(index);
+    card.querySelector('.discursive-print-number').textContent = `${typeLabel[q.type] || q.type}${this.bankId ? '' : ` · item ${index + 1} da lista`}`;
+    card.querySelector('.qnum').setAttribute('aria-label',`Fechar edição: ${this.printedQuestionLabel(index)}`);
+    const openAnswer = q.type !== 'imagem' || !q.imageAnswerType || q.imageAnswerType === 'discursiva';
+    const toggle = card.querySelector('[data-presentation="answer-space"]')?.closest('label');
+    if (toggle) toggle.hidden = !openAnswer;
+    card.querySelectorAll('.standard-answer-options, .answer-space-hint').forEach(node => {
+      node.hidden = !openAnswer || q.showAnswerSpace === false;
+    });
+    const message = card.querySelector('.standard-response-state');
+    if (message) message.hidden = !openAnswer || q.showAnswerSpace !== false;
+    const hint = card.querySelector('.answer-space-hint');
+    if (hint) hint.textContent = (q.answerStyle === 'linhas' ? 'De 1 a 40 linhas.' : 'De 1 a 40 linhas equivalentes de altura.')
+      + (q.type === 'interpretacao_imagem' ? ' O espaço vale para cada pergunta.' : '');
+    // Hide only response-space fields, never content or the response-mode selector.
+    card.querySelectorAll('.standard-activity [data-k="lines"], .standard-activity [data-k="calcLines"], .standard-activity [data-k="answerStyle"], .standard-activity [data-k="height"], .standard-activity [data-k="borderStyle"]').forEach(input => {
+      input.parentElement.hidden = !openAnswer || Boolean(toggle && q.showAnswerSpace === false)
+        || (q.type === 'tabela' && q.answerType !== 'discursiva');
+    });
+  },
+  fitDiscursiveText(input) {
+    if (!input?.getClientRects?.().length) return;
+    input.style.height = 'auto';
+    input.style.height = `${Math.max(input.dataset.k === 'text' ? 96 : 76, Math.min(320, input.scrollHeight + 2))}px`;
+  },
+  printedQuestionLabel(index) {
+    const question = state.questions[index];
+    if (!question) return '';
+    if (this.bankId) return 'Questão do banco';
+    return question.hideNumber ? 'Bloco sem número' : `Questão ${state.questions.slice(0, index + 1).filter(item => !item.hideNumber).length}`;
+  },
+  syncDiscursive(card, q, index) {
+    if (!card.classList.contains('discursive-editor')) return;
+    const controls = card.querySelector('.discursive-response-controls');
+    controls.hidden = q.showAnswerSpace === false;
+    const responseState = card.querySelector('.discursive-response-state');
+    responseState.hidden = q.showAnswerSpace !== false;
+    responseState.textContent = 'A questão será impressa sem espaço para escrever a resposta.';
+    const lines = card.querySelector('[data-k="lines"]');
+    const label = lines.parentElement.querySelector('label');
+    label.textContent = q.answerStyle === 'linhas' ? 'Número de linhas' : 'Altura (em linhas)';
+    label.title = 'De 1 a 40 linhas. Em caixas e espaços em branco, o número define a altura equivalente.';
+    card.querySelector('[data-k="answerStyle"]').parentElement.querySelector('label').textContent = 'Formato da resposta';
+    card.querySelector('.discursive-title-option label').lastChild.textContent = ' Com título';
+    lines.setAttribute('aria-label', q.answerStyle === 'linhas' ? 'Quantidade de linhas' : 'Altura do espaço em linhas equivalentes');
+    card.querySelector('.answer-space-hint').textContent = q.answerStyle === 'linhas'
+      ? 'De 1 a 40 linhas.' : `Equivalente a ${q.lines} ${Number(q.lines) === 1 ? 'linha' : 'linhas'} de escrita. De 1 a 40.`;
+    card.querySelector('.qhead-left-name').textContent = this.printedQuestionLabel(index);
+    card.querySelector('.discursive-print-number').textContent = this.bankId ? 'Discursiva' : `Discursiva · item ${index + 1} da lista`;
+    card.querySelector('.qnum').setAttribute('aria-label', `Fechar edição: ${this.printedQuestionLabel(index)}`);
+    const trigger = card.querySelector('.enunciation-image-field > .image-use-wrap > button');
+    if (trigger) {
+      trigger.classList.add('discursive-image-button');
+      const hasImage = Boolean(q.headerImage?.dataUrl || q.headerImage?.items?.some(item => item.dataUrl) || q.freeImages?.length);
+      trigger.textContent = hasImage ? 'Imagem do enunciado' : 'Adicionar imagem';
+      trigger.classList.toggle('has-image', hasImage);
+    }
+    card.querySelectorAll('.header-image-layout select option').forEach(option => {
+      if (option.value === 'lado_esquerda') option.textContent = 'Imagem à esquerda do texto';
+      if (option.value === 'lado_direita') option.textContent = 'Imagem à direita do texto';
+    });
   },
   embedFieldImages(card, q) {
     if (card.dataset.fieldImagesEmbedded) return;
@@ -527,6 +918,10 @@ const EditorTools = {
     }
     options.forEach((row, i) => {
       const letter = String.fromCharCode(65 + i);
+      if (q.type === 'multipla') {
+        const badge = document.createElement('span'); badge.className = 'alternative-badge'; badge.textContent = letter;
+        badge.setAttribute('aria-hidden','true'); row.prepend(badge); row.classList.add('legacy-alternative-row');
+      }
       row.querySelector('input[type="radio"],input[type="checkbox"]')?.setAttribute('aria-label', `Marcar alternativa ${letter} como correta`);
       const correct = q.type === 'multipla' ? q.correctOption === i : !!q.items[i]?.checked;
       row.classList.toggle('is-correct', correct);
@@ -714,6 +1109,7 @@ const EditorTools = {
       document.getElementById('readinessSummary').textContent = issues.length
         ? `Revisar · ${issues.length} ${issues.length === 1 ? 'pendência' : 'pendências'}`
         : 'Conferência concluída';
+      document.getElementById('readinessDetails').classList.toggle('readiness-clear', issues.length === 0 && !this.spaceSuggestion);
     }
     const nav = document.getElementById('questionOutline');
     if (nav) {
@@ -778,6 +1174,8 @@ const EditorTools = {
       select.appendChild(option);
     });
     select.value = String(this.previewSelection); select.disabled = !count;
+    const caption = document.getElementById('previewQuestionCaption');
+    if (caption) caption.textContent = count ? this.printedQuestionLabel(this.previewSelection) : '';
     document.getElementById('previewPrevious').disabled = !count || this.previewSelection === 0;
     document.getElementById('previewNext').disabled = !count || this.previewSelection >= count - 1;
   },
@@ -934,8 +1332,12 @@ const EditorTools = {
     overview.after(readiness);
     document.getElementById('layoutOptimizationBtn').onclick = () => this.applySpaceSuggestion();
     const selectionHint = document.createElement('p'); selectionHint.id = 'editorSelectionHint'; selectionHint.textContent = 'Selecione uma questão em “Questões da prova” ou crie uma nova para começar.'; readiness.after(selectionHint);
+    const contextControls = document.createElement('div'); contextControls.className = 'editor-context-controls';
+    details.before(contextControls); contextControls.append(details, overview, readiness);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
     preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><div class="preview-tools"><button type="button" id="decorationModeBtn" class="outline">Decorar prova</button><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div></div><div id="decorationBar" class="decoration-bar" hidden><span id="decorationStatus">Arraste as imagens pela página.</span><button type="button" id="addDecorationBtn">+ Adicionar imagem</button><label>Página <select id="decorationPage" aria-label="Página da imagem decorativa"></select></label><button type="button" id="decorationRotateLeft" title="Girar para a esquerda">↶</button><button type="button" id="decorationRotateRight" title="Girar para a direita">↷</button><button type="button" id="decorationCrop">Recortar</button><button type="button" id="replaceDecorationBtn">Substituir</button><button type="button" id="removeDecorationBtn" class="danger">Remover</button><button type="button" id="finishDecorationBtn" class="primary">Concluir</button><input id="decorationFileInput" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><div id="decorationEditorLayer" class="decoration-editor-layer" aria-label="Imagens decorativas da prova"></div><iframe id="canonicalPreview" src="print.html?preview=1&v=20261019-font1" title="Prévia da prova em formato A4"></iframe></div>';
+    const previewCaption = document.createElement('span'); previewCaption.id = 'previewQuestionCaption';
+    preview.querySelector('.preview-options > strong').appendChild(previewCaption);
     document.getElementById('previewRoot').parentElement.appendChild(preview);
     document.getElementById('previewQuestionSelect').onchange = event => this.previewQuestion(Number(event.target.value));
     document.getElementById('previewPrevious').onclick = () => this.previewQuestion(this.previewSelection - 1);
@@ -947,7 +1349,10 @@ const EditorTools = {
       const workspaceObserver = new ResizeObserver(() => this.resizePreview());
       workspaceObserver.observe(preview); workspaceObserver.observe(editorColumn);
     }
-    window.addEventListener('resize', () => this.resizePreview());
+    window.addEventListener('resize', () => {
+      this.resizePreview();
+      document.querySelectorAll('.discursive-editor textarea').forEach(input => this.fitDiscursiveText(input));
+    });
     window.addEventListener('message', event => {
       if (event.origin !== location.origin || event.source !== document.getElementById('canonicalPreview').contentWindow) return;
       if (event.data?.type === 'exam-preview-ready') { this.previewReady = true; this.updatePreview(); return; }
@@ -1032,7 +1437,9 @@ const EditorTools = {
     const fit = Math.min(1, (viewport.clientWidth - 2) / 850);
     const zoom = document.getElementById('previewZoom').value === 'fit' ? fit : Number(document.getElementById('previewZoom').value);
     frame.style.zoom = String(zoom);
-    const availableHeight = Math.max(260, viewport.clientHeight, window.innerHeight - viewport.getBoundingClientRect().top - 24);
+    const availableHeight = document.body.dataset.editorView === 'edit' && window.innerWidth > 1150
+      ? Math.max(260, viewport.clientHeight)
+      : Math.max(260, viewport.clientHeight, window.innerHeight - viewport.getBoundingClientRect().top - 24);
     frame.style.height = `${availableHeight / zoom}px`;
     viewport.style.maxHeight = 'none';
     document.getElementById('viewEditBtn').setAttribute('aria-pressed', String(document.body.dataset.editorView === 'edit'));

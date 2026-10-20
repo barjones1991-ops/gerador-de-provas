@@ -22,5 +22,27 @@ const assert=require('node:assert/strict');const fs=require('fs');const {boot}=r
  assert(app.document.body.textContent.includes('A grade é gerada automaticamente.'));
  assert(![...app.document.querySelectorAll('[aria-label]')].some(el=>/Campo \d/.test(el.getAttribute('aria-label'))));
  const html=fs.readFileSync(require('path').join(__dirname,'../editor.html'),'utf8');assert(!html.includes('Ã©'));assert(!html.includes('Ã—'));
+ // Reorganizing a form must retain its actual fields, values, locks and print
+ // output. This catches lost controls even for types with nested list editors.
+ const forms=await boot();
+ forms.run('window.organizeForm=EditorTools.organizeStandardQuestion; EditorTools.organizeStandardQuestion=()=>{}');
+ for(const type of forms.run('Object.keys(templates)').filter(type=>type!=='discursiva')) {
+   forms.run(`state.questions=[templates[${JSON.stringify(type)}]()]; state.collapsedQuestions={}; renderAll()`);
+   const card=forms.document.querySelector('.qcard');
+   const fields=[...card.querySelectorAll('input,select,textarea')];
+   const before=fields.map(field=>[field.value,field.checked,field.disabled]);
+   const data=forms.run('examFingerprint()');
+   const printed=forms.run('renderQuestionPreview(state.questions[0])');
+   forms.run('window.organizeForm.call(EditorTools,document.querySelector(".qcard"),state.questions[0],0)');
+   assert.equal(forms.run('examFingerprint()'),data,type+' must not mutate exam data');
+   assert.equal(forms.run('renderQuestionPreview(state.questions[0])'),printed,type+' must not change print output');
+   assert.equal(card.querySelectorAll('input,select,textarea').length,fields.length,type+' retains all fields');
+   fields.forEach((field,i)=>{assert(card.contains(field),type+' retains the original field');assert.deepEqual([field.value,field.checked,field.disabled],before[i],type+' retains values and locks');});
+   const statement=card.querySelector('[data-k="text"]');
+   statement.value='Enunciado preservado';forms.event(statement,'input');
+   assert.equal(forms.run('state.questions[0].text'),'Enunciado preservado',type+' retains editing events');
+   assert.equal(card.querySelector('[data-k="text"]'),statement,type+' keeps focusable DOM identity');
+ }
  console.log('OK INTERFACE codificação, V/F, pistas, zoom, resumo imediato e preservação do campo');
+ console.log('OK INTERFACE todos os tipos e legados preservam campos, dados e saída impressa ao reorganizar');
 })().catch(e=>{console.error(e);process.exitCode=1});

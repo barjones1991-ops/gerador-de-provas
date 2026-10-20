@@ -15,6 +15,7 @@
     .map(style => rules(style.sheet.cssRules)).join('\n') + '\n@page { size:210mm 297mm; margin:8mm 9mm 10mm; }';
   let enabled = true;
   let revision = 0, running = null, focusIndex = null, engine = null, failed = null, lastSuggestion = null, pendingContext = null;
+  const MAX_TRANSIENT_RETRIES = 2;
 
   function outerHeight(node) {
     const rect = node.getBoundingClientRect?.();
@@ -68,6 +69,7 @@
     window.reportExamSpaceSuggestion?.(value, context, pending);
   }
   async function paginate() {
+    let retryCount = 0;
     while (enabled) {
       const version = revision;
       const context = pendingContext;
@@ -86,6 +88,7 @@
         window.renderExamDecorations?.(output);
         document.body.classList.add('paper-ready');
         failed = null;
+        retryCount = 0;
         output.removeAttribute('aria-busy');
         reportSuggestion(detectSpaceSuggestion(), context);
         if (window.parent && window.parent !== window && typeof window.parent.postMessage === 'function') window.parent.postMessage({
@@ -95,7 +98,16 @@
         if (focusIndex !== null) window.focusPreviewQuestion(focusIndex);
         break;
       } catch (error) {
-        stage.remove(); failed = error;
+        stage.remove();
+        if (!enabled) break;
+        if (version !== revision) { retryCount = 0; continue; }
+        if (retryCount < MAX_TRANSIENT_RETRIES) {
+          retryCount++;
+          console.warn('Falha temporária ao paginar a prova; tentando novamente.', error);
+          await new Promise(resolve => window.requestAnimationFrame(resolve));
+          continue;
+        }
+        failed = error;
         document.body.classList.remove('paper-ready');
         output.replaceChildren();
         reportSuggestion(null, context);

@@ -26,9 +26,8 @@ assert.equal(card.querySelectorAll('.alternative-image').length,4);assert(!card.
 app.ctx.EditorTools.enhanceFields();assert.equal(card.querySelectorAll('.alternative-image').length,4);
 assert.equal(card.querySelector('.alternative-score label').textContent,'Valor');
 assert.equal(card.querySelector('.alternative-score input').inputMode,'decimal');
-assert(card.querySelector('.qhead .question-remove-icon'));
-assert.equal(card.querySelector('.qhead .question-remove-icon').textContent,'🗑');
-assert.equal(card.querySelector('.question-footer button[title="Remover questão"]'),null);
+assert.equal(card.querySelector('.qhead .question-remove-icon'),null);
+assert.equal(card.querySelector('.question-footer button[title="Remover questão"]').textContent,'Excluir questão');
 assert(card.querySelector('.alternative-main > input'));
 assert(card.querySelector('.alternative-main > .alternative-image'));
 assert(card.querySelector('.alternative-add'));
@@ -121,8 +120,8 @@ console.log('OK ALTERNATIVAS tipo único, escolha única/múltipla, legado, resp
 const attached=await boot({questions:[{type:'discursiva',text:'Observe e explique.',points:'10',lines:5}]});
 attached.ctx.EditorTools.focusQuestion(0);
 const statement=attached.document.querySelector('textarea[data-k="text"]');
-const imageButton=attached.document.querySelector('.enunciation-image-field .field-image-trigger');
-assert(statement.parentElement.contains(imageButton),'imagem pertence ao campo de enunciado');
+const imageButton=attached.document.querySelector('.enunciation-image-field .discursive-image-button');
+assert(statement.parentElement.contains(imageButton),'ícone de imagem permanece dentro do campo de enunciado');
 attached.run('window.headerPickers=[];createImagePicker=(config)=>{window.headerPickers.push(config);return document.createElement("div")}');
 attached.event(imageButton,'click');
 assert.equal(imageButton.getAttribute('aria-expanded'),'true');
@@ -136,7 +135,9 @@ const attachedSaved=JSON.parse(attached.requests.filter(r=>r.options.method==='P
 assert.equal(attachedSaved.questions[0].text,'Observe e explique.');
 assert.equal(attachedSaved.questions[0].headerImage.fileName,'trocada.png');
 const reopenedImage=await boot({questions:attachedSaved.questions});reopenedImage.ctx.EditorTools.focusQuestion(0);
-assert(!reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
+assert(reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
+const reopenedTrigger=reopenedImage.document.querySelector('.discursive-image-button');assert.equal(reopenedTrigger.textContent,'Imagem do enunciado');
+reopenedImage.event(reopenedTrigger,'click');assert(!reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
 attached.run('window.headerPickers.at(-1).clearImage()');
 assert.equal(attached.run('buildHeaderImageHtml(state.questions[0])'),'');
 assert.equal(attached.run('state.questions[0].text'),'Observe e explique.');
@@ -153,8 +154,9 @@ for (const type of ['discursiva','imagem']) {
  assert(!shell.querySelector('.enunciation-extra-images > button'));
  assert(!shell.querySelector('.enunciation-extra-images > input[type="file"]'));
  assert.equal(shell.querySelector('.extra-image-thumbnail').alt,'original.png');
+ const trigger=extras.document.querySelector(type==='discursiva'?'.discursive-image-button':'.enunciation-image-field .field-image-trigger');
+ if(type==='discursiva')extras.event(trigger,'click');
  assert(!shell.querySelector('.image-edit-panel').classList.contains('hidden'));
- const trigger=shell.querySelector('.field-image-trigger');
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'false');
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'true');
  const width=shell.querySelector('.image-control-row input'); width.value='220'; extras.event(width,'input');

@@ -2,6 +2,15 @@ const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');con
 (async()=>{
  const questions=[0,1,2].map(i=>({type:'discursiva',text:'Enunciado '+i,points:'1',hideNumber:i===1}));
  const app=await boot({questions});const messages=[];
+ const viewport=app.document.querySelector('.preview-scroll');
+ Object.defineProperties(viewport,{clientWidth:{value:682,configurable:true},clientHeight:{value:500,configurable:true}});
+ viewport.getBoundingClientRect=()=>({top:100});
+ app.document.querySelector('.editor-column').getBoundingClientRect=()=>({height:560});
+ app.document.getElementById('canonicalPreviewPanel').getBoundingClientRect=()=>({top:60});
+ app.ctx.innerWidth=1400;app.ctx.innerHeight=1100;
+ app.document.body.dataset.editorView='edit';app.ctx.EditorTools.resizePreview();
+ const sizedFrame=app.document.getElementById('canonicalPreview');
+ assert.equal(parseFloat(sizedFrame.style.height)*Number(sizedFrame.style.zoom),500,'a folha deve caber no painel do editor sem uma segunda rolagem que esconda a questão');
  const frame=app.document.getElementById('canonicalPreview');Object.defineProperty(frame,'contentWindow',{value:{postMessage:(data,origin)=>messages.push({data,origin})},configurable:true});
  app.ctx.EditorTools.previewReady=false;app.ctx.EditorTools.previewQuestion(1);
  assert.equal(messages.length,0);assert.equal(app.ctx.EditorTools.pendingPreviewFocus,1);

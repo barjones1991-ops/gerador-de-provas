@@ -8,7 +8,7 @@
   <script src="js/image-storage.js?v=20261019-assets1"></script>
   <script src="js/image-engine.js?v=20261019-unified3"></script>
   <script src="js/exam-decorations.js?v=20261019-decor2"></script>
-  <script src="js/editor-tools.js?v=20261019-font1"></script>
+  <script src="js/editor-tools.js?v=20261019-question-design1"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -1504,7 +1504,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20261019-decor3" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20261019-question-design1" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -2886,12 +2886,8 @@
               <label>Nº de linhas</label>
               <input data-k="lines" type="number" min="2" max="40" value="${esc(q.lines)}" />
             </div>
-            <div>
-              <label>Linha de título</label>
-              <select data-k="titlePrompt">
-                <option value="false" ${!q.titlePrompt ? 'selected' : ''}>Não</option>
-                <option value="true" ${q.titlePrompt ? 'selected' : ''}>Sim — exibir linha de título</option>
-              </select>
+            <div class="discursive-title-option">
+              <label class="question-check"><input type="checkbox" data-k="titlePrompt" ${q.titlePrompt ? 'checked' : ''} /> Incluir linha para título</label>
             </div>
           `;
           body.appendChild(block);
@@ -3646,13 +3642,15 @@
             topRow.appendChild(remove);
 
             const answerRow = document.createElement('div');
+            answerRow.className = 'standard-linked-answer-row';
             answerRow.style.cssText = 'display:flex; align-items:center; gap:8px; padding:4px 10px 6px; border-top:1px solid #e2e8f0; background:#fff;';
 
             const answerLabel = document.createElement('span');
-            answerLabel.textContent = 'Resposta:';
+            answerLabel.textContent = 'Gabarito:';
             answerLabel.style.cssText = 'font-size:11px; color:#64748b; font-weight:600; white-space:nowrap;';
 
             const answerInp = document.createElement('input');
+            answerInp.className = 'standard-linked-answer';
             answerInp.value = item.answer || '';
             answerInp.placeholder = `Resposta esperada ${j + 1}`;
             answerInp.style.cssText = 'flex:1; height:26px; font-size:12px; padding:2px 8px; border-radius:6px; border:1px solid #e2e8f0;';
@@ -4361,9 +4359,10 @@
             itemsBox.innerHTML = '';
             q.items.forEach((item, i) => {
               const row = document.createElement('div');
+              row.className = 'standard-order-row';
               row.style.cssText = 'display:grid;grid-template-columns:3em 1fr auto auto;gap:6px;align-items:center;margin-bottom:6px;';
               row.innerHTML = `
-                <input type="number" value="${item.order||i+1}" min="1" max="20" title="Ordem correta" style="text-align:center;" />
+                <input class="standard-linked-answer" type="number" value="${item.order||i+1}" min="1" max="20" title="Ordem correta (gabarito)" style="text-align:center;" />
                 <input type="text" value="${esc(item.text||'')}" placeholder="Frase ${i+1}" />
                 <button type="button" class="icon-btn" title="Mover para cima">↑</button>
                 <button type="button" class="icon-btn danger" title="Remover">✕</button>
@@ -4544,14 +4543,16 @@
             snblock.innerHTML = '<label>Sequências (use ___ para lacunas)</label>';
             q.sequences.forEach((seq, si) => {
               const row = document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:2fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center;';
+              row.className = 'standard-pair-row';
               const ii = document.createElement('input'); ii.value=seq.items||''; ii.placeholder='Ex.: 2, 4, ___, 8, ___';
               ii.addEventListener('input', ()=>{ seq.items=ii.value; renderPreview(); });
               const ai = document.createElement('input'); ai.value=seq.answer||''; ai.placeholder='Resp. (gabarito)';
+              ai.className = 'standard-linked-answer';
               ai.addEventListener('input', ()=>{ seq.answer=ai.value; renderPreview(); });
               const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
               if (q.sequences.length>1) rmBtn.addEventListener('click',()=>{ q.sequences.splice(si,1); renderSeqNum(); renderPreview(); });
               else rmBtn.disabled=true;
-              row.appendChild(ii); row.appendChild(ai); row.appendChild(rmBtn);
+              row.append(EditorTools.questionItemField(ii,'Sequência'),EditorTools.questionItemField(ai,'Gabarito'),rmBtn);
               snblock.appendChild(row);
             });
             const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Sequência';
@@ -4603,14 +4604,16 @@
             wbox.innerHTML = '';
             q.words.forEach((w, wi) => {
               const row = document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:4px;align-items:center;';
+              row.className = 'standard-pair-row';
               const wi1 = document.createElement('input'); wi1.value=w.word||''; wi1.placeholder='PALAVRA (maiúscula)';
               wi1.addEventListener('input',()=>{ w.word=wi1.value; renderPreview(); });
               const ai = document.createElement('input'); ai.value=w.answer||''; ai.placeholder='Gabarito (ex: PA-LA-VRA)';
+              ai.className = 'standard-linked-answer';
               ai.addEventListener('input',()=>{ w.answer=ai.value; renderPreview(); });
               const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
               if(q.words.length>1) rmBtn.addEventListener('click',()=>{ q.words.splice(wi,1); renderSilWords(); renderPreview(); });
               else rmBtn.disabled=true;
-              row.appendChild(wi1); row.appendChild(ai); row.appendChild(rmBtn);
+              row.append(EditorTools.questionItemField(wi1,'Palavra'),EditorTools.questionItemField(ai,'Gabarito'),rmBtn);
               wbox.appendChild(row);
             });
             const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Palavra';
@@ -4681,6 +4684,7 @@
             clueBox.innerHTML = '';
             q.clues.forEach((item, ci) => {
               const row = document.createElement('div');
+              row.className = 'standard-pair-row';
               row.style.cssText = 'display:grid;grid-template-columns:1fr 160px auto;gap:6px;align-items:center;margin-bottom:6px;';
               const clue = document.createElement('input');
               clue.value = item.clue || '';
@@ -4688,6 +4692,7 @@
               clue.setAttribute('aria-label', `Questão ${idx + 1}: pista ${ci + 1}`);
               clue.addEventListener('input', () => { item.clue = clue.value; renderPreview(); });
               const answer = document.createElement('input');
+              answer.className = 'standard-linked-answer';
               answer.value = item.answer || '';
               answer.setAttribute('aria-label', `Questão ${idx + 1}: resposta da pista ${ci + 1}`);
               answer.placeholder = 'Resposta';
@@ -4700,8 +4705,8 @@
               rm.style.cssText = 'padding:5px 8px;font-size:12px;';
               rm.disabled = q.clues.length <= 1;
               rm.addEventListener('click', () => { q.clues.splice(ci, 1); renderClues(); renderPreview(); });
-              row.appendChild(clue);
-              row.appendChild(answer);
+              row.appendChild(EditorTools.questionItemField(clue,'Pista'));
+              row.appendChild(EditorTools.questionItemField(answer,'Gabarito'));
               row.appendChild(rm);
               clueBox.appendChild(row);
             });
@@ -4737,6 +4742,7 @@
               const card = document.createElement('div'); card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;';
               const toprow = document.createElement('div'); toprow.style.cssText='display:grid;grid-template-columns:3em 1fr auto;gap:8px;align-items:center;margin-bottom:8px;';
               const orderInp = document.createElement('input'); orderInp.type='number'; orderInp.value=item.order||ii+1; orderInp.min=1; orderInp.max=20; orderInp.title='Ordem correta';
+              orderInp.className = 'standard-linked-answer';
               orderInp.style.textAlign='center';
               orderInp.addEventListener('input',()=>{ item.order=Number(orderInp.value)||ii+1; renderPreview(); });
               const capInp = document.createElement('input'); capInp.value=item.caption||''; capInp.placeholder='Legenda (opcional)';
@@ -4807,11 +4813,12 @@
               }));
               const bot=document.createElement('div'); bot.style.cssText='display:flex;gap:6px;align-items:center;margin-top:6px;';
               const ai=document.createElement('input'); ai.value=item.answer||''; ai.placeholder='Gabarito (ex: cachorro)'; ai.style.flex='1';
+              ai.className = 'standard-linked-answer';
               ai.addEventListener('input',()=>{ item.answer=ai.value; saveState(); });
               const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
               if(q.items.length>1) rmBtn.addEventListener('click',()=>{ q.items.splice(ii,1); renderLeg(); renderPreview(); });
               else rmBtn.disabled=true;
-              bot.appendChild(ai); bot.appendChild(rmBtn);
+              bot.appendChild(EditorTools.questionItemField(ai,'Gabarito')); bot.appendChild(rmBtn);
               card.appendChild(bot);
               lgbox.appendChild(card);
             });
@@ -4873,12 +4880,14 @@
                 clearImage: () => { item.imageDataUrl = null; item.imageFileName = ''; renderPreview(); },
               }));
               const fields = document.createElement('div');
+              fields.className = 'standard-pair-row';
               fields.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-top:6px;';
               const caption = document.createElement('input');
               caption.value = item.caption || '';
               caption.placeholder = `Legenda ${ii + 1}`;
               caption.addEventListener('input', () => { item.caption = caption.value; renderPreview(); });
               const answer = document.createElement('input');
+              answer.className = 'standard-linked-answer';
               answer.value = item.answer || '';
               answer.placeholder = 'Gabarito / resposta esperada';
               answer.addEventListener('input', () => { item.answer = answer.value; saveState(); });
@@ -4893,8 +4902,8 @@
                 renderGradeItems();
                 renderPreview();
               });
-              fields.appendChild(caption);
-              fields.appendChild(answer);
+              fields.appendChild(EditorTools.questionItemField(caption,'Legenda na prova'));
+              fields.appendChild(EditorTools.questionItemField(answer,'Gabarito'));
               fields.appendChild(rmBtn);
               card.appendChild(fields);
               gbox.appendChild(card);
@@ -4968,7 +4977,7 @@
               row.className = 'marker-answer-row';
               row.innerHTML = `
                 <input type="text" value="${esc(marker.label || '')}" placeholder="Rótulo interno ${mi + 1}" />
-                <input type="text" value="${esc(marker.answer || '')}" placeholder="Gabarito / nome da parte" />
+                <input class="standard-linked-answer" type="text" value="${esc(marker.answer || '')}" placeholder="Gabarito / nome da parte" />
                 <input type="number" value="${ExamSafety.markerPosition(marker.x)}" min="0" max="100" title="Posição horizontal %" />
                 <input type="number" value="${ExamSafety.markerPosition(marker.y)}" min="0" max="100" title="Posição vertical %" />
                 <button type="button" class="danger" style="padding:5px 8px;font-size:12px;">×</button>
@@ -5024,6 +5033,7 @@
             const n=Math.max(q.leftItems.length,q.rightItems.length);
             for(let i=0;i<n;i++){
               const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:8px;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;align-items:start;';
+              row.className = 'standard-pair-row';
               const lcard=document.createElement('div');
               if(q.leftItems[i]) {
                 lcard.innerHTML=`<div class="small" style="margin-bottom:4px;">Esquerda ${String.fromCharCode(65+i)}</div>`;
@@ -5287,15 +5297,22 @@
           body.querySelectorAll('[data-k="answerStyle"] option').forEach(option => {
             option.textContent = {linhas:'Linhas pautadas',caixa:'Caixa para escrita ou desenho',espaco:'Espaço em branco'}[option.value] || option.textContent;
           });
-          const hint = document.createElement('p'); hint.className = 'small';
+          const hint = document.createElement('p'); hint.className = 'small answer-space-hint';
           hint.textContent = 'O tamanho de 1 a 40 linhas também define a altura da caixa ou do espaço em branco. Cada linha corresponde a aproximadamente 6 mm na impressão.' + (q.type === 'interpretacao_imagem' ? ' O tamanho vale para cada pergunta.' : '');
           body.appendChild(hint);
         }
         [head, body].forEach((scope) => scope.querySelectorAll('[data-k]').forEach((node) => {
           const key = node.getAttribute('data-k');
+          if (key === 'points') node.dataset.lastValidValue = String(q.points ?? '0');
           node.addEventListener('input', () => {
             if (key === 'lines' || key === 'wordCount' || key === 'calcLines') {
               q[key] = ExamSafety.answerLineCount(node.value, key==='lines'?5:key==='calcLines'?6:10);
+              node.value = String(q[key]);
+            } else if (key === 'points') {
+              const parsed = ExamSafety.parseBrazilianNumber(node.value);
+              const valid = Number.isFinite(parsed) && parsed >= 0;
+              node.setAttribute('aria-invalid', String(!valid));
+              if (valid) q.points = node.value;
             } else if (key === 'gridSize') {
               q.gridSize = Math.max(8, Math.min(18, Number(node.value) || 12));
             } else if (key === 'height') {
@@ -5343,12 +5360,27 @@
               renderAll();
               return;
             } else if (key === 'titlePrompt') {
-              q.titlePrompt = node.value !== 'false';
+              q.titlePrompt = node.type === 'checkbox' ? node.checked : node.value !== 'false';
             } else {
               q[key] = node.value;
             }
             renderPreview();
           });
+          if (key === 'points') {
+            const normalizePoints = () => {
+              const parsed = ExamSafety.parseBrazilianNumber(node.value);
+              const valid = Number.isFinite(parsed) && parsed >= 0;
+              const normalized = valid ? formatPt1(parsed) : node.dataset.lastValidValue;
+              q.points = normalized;
+              node.value = normalized;
+              node.dataset.lastValidValue = normalized;
+              node.setAttribute('aria-invalid', 'false');
+              if (!valid) showToast('Informe um valor válido, igual ou maior que zero.', 'warn');
+              renderPreview();
+            };
+            node.addEventListener('change', normalizePoints);
+            node.addEventListener('blur', normalizePoints);
+          }
         }));
 
         if (!EditorTools.bankId) {
@@ -7527,7 +7559,14 @@
       if (EditorTools.bankId) return;
       if (!autoSaveReady || !currentExamId || !auth || !auth.isAuthenticated()) return;
       if (EditorTools.workflowLocked()) return;
-      if (examFingerprint() === lastSavedFingerprint) return;
+      if (examFingerprint() === lastSavedFingerprint) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        try { localStorage.removeItem(pendingDraftKey()); } catch { /* armazenamento indisponível */ }
+        pendingDraftAvailable = false;
+        setAutoSaveHint('Alterações salvas automaticamente');
+        return;
+      }
       preservePendingDraft();
       if (pendingDraftAvailable) setAutoSaveHint('Alterações pendentes');
       clearTimeout(autoSaveTimer);
@@ -7578,7 +7617,12 @@
         showToast('A conta foi alterada em outra aba. Volte à conta original para salvar esta prova.', 'err');
         return false;
       }
-      if (examFingerprint() === lastSavedFingerprint) return true;
+      if (examFingerprint() === lastSavedFingerprint) {
+        try { localStorage.removeItem(pendingDraftKey()); } catch { /* armazenamento indisponível */ }
+        pendingDraftAvailable = false;
+        setAutoSaveHint('Alterações salvas automaticamente');
+        return true;
+      }
 
       if (isAuto && autoSaveInFlight) {
         autoSaveQueued = true;

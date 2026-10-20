@@ -1294,7 +1294,7 @@ async function main() {
     assert(!print.includes('.info-grid, .student-grid { grid-template-columns: 1fr; }'), 'mobile width must not stack the printable header');
     assert(!print.includes('.pv-header { flex-direction: column; }'), 'mobile width must not change the printable header direction');
     assert(!print.includes('.two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }'), 'mobile width must not collapse printable question columns');
-    assert(editor.includes('js/editor-tools.js?v=20261019-font1'), 'editor must invalidate the cached preview controller');
+    assert(/js\/editor-tools\.js\?v=20261019-[\w-]+/.test(editor), 'editor must invalidate the cached preview controller');
     assert(tools.includes('print.html?preview=1&v=20261019-font1'), 'canonical preview must load the fixed mobile layout revision');
   });
 
