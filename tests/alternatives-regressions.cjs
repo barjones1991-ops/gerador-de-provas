@@ -90,13 +90,23 @@ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),{par
 const {document}=parseHTML(fs.readFileSync(path.join(__dirname,'../print.html'),'utf8'));
 const ctx={document,ExamSafety:require('../js/exam-safety.js'),URLSearchParams,URL,console,location:{search:''},window:{location:{search:''}},addEventListener(){},setTimeout(){},clearTimeout(){}};
 vm.createContext(ctx);for(const script of document.querySelectorAll('script:not([src])'))vm.runInContext(script.textContent,ctx);
-for(const markLayout of ['lista','duas_colunas','tabela']) {
+for(const markLayout of ['lista','duas_colunas','tres_colunas','quatro_colunas','cinco_colunas','tabela']) {
  ctx.q={type:'marcarx',text:'Teste',points:'1',markMode:'unica',markLayout,items:[{text:'Planta',checked:true},{text:'Pedra'}],optionImages:[{dataUrl:'data:image/png;base64,AA=='}],showAnswerSpace:true,answerLines:4};
  vm.runInContext('renderExam({questions:[q]},false)',ctx);
  assert.equal(document.querySelectorAll('.question-block img').length,1);
  assert.equal(document.querySelectorAll('.question-block .alternative-answer-space .hline').length,4);
  assert(!document.querySelector('.question-block').textContent.includes('Correta'));
+ const columns={duas_colunas:2,tres_colunas:3,quatro_colunas:4,cinco_colunas:5}[markLayout];
+ if(columns) assert.equal(document.querySelector('.question-block .mark-grid').style.getPropertyValue('--mark-columns'),String(columns));
  ctx.q.optionImages[0].dataUrl='javascript:alert(1)';vm.runInContext('renderExam({questions:[q]},false)',ctx);assert.equal(document.querySelectorAll('.question-block img').length,0);
+}
+for(const markMode of ['vf','checklist']) {
+ ctx.q={type:'marcarx',text:'Julgue',points:'1',markMode,markLayout:'lista',items:[{text:'Afirmação para responder',answer:'V',checked:true}]};
+ vm.runInContext('renderExam({questions:[q]},false)',ctx);
+ const option=document.querySelector('.question-block .option-item');
+ assert.equal(option.firstElementChild.textContent.replace(/\s+/g,' ').trim(),'( )','aluno recebe um único espaço vazio para responder');
+ assert.equal(option.lastElementChild.textContent,'Afirmação para responder');
+ assert(!option.classList.contains('wide-marker'),'marcador compacto, sem afastar a afirmação');
 }
 for(const question of [
  {type:'vf',text:'Julgue',points:'1',items:[{text:'A',imageDataUrl:'data:image/png;base64,AA=='},{text:'B',imageDataUrl:'javascript:alert(1)'}]},
@@ -155,7 +165,8 @@ for (const type of ['discursiva','imagem']) {
  assert(!shell.querySelector('.enunciation-extra-images > input[type="file"]'));
  assert.equal(shell.querySelector('.extra-image-thumbnail').alt,'original.png');
  const trigger=extras.document.querySelector(type==='discursiva'?'.discursive-image-button':'.enunciation-image-field .field-image-trigger');
- if(type==='discursiva')extras.event(trigger,'click');
+ assert(shell.querySelector('.image-edit-panel').classList.contains('hidden'));
+ extras.event(trigger,'click');
  assert(!shell.querySelector('.image-edit-panel').classList.contains('hidden'));
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'false');
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'true');

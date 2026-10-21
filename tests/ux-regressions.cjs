@@ -6,7 +6,7 @@ const assert=require('node:assert/strict');const {boot}=require('./editor-flows.
  const card=app.document.querySelector('#question-1');const appearance=card.querySelector('.appearance-settings');assert(appearance && !appearance.open);assert(appearance.querySelector('[data-k="columns"]'));
  assert(card.textContent.indexOf('Operações') < card.textContent.indexOf('Organização das contas na prova'));
  assert(card.querySelector('.math-editor-equation'));assert(card.querySelector('.math-editor-override'));
- const search=app.document.getElementById('questionSearch');search.value='discursiva';search.oninput();assert.equal([...app.document.querySelectorAll('#questionOutline button')].filter(b=>!b.hidden).length,1);
+ const search=app.document.getElementById('questionSearch');search.value='discursiva';search.oninput();assert.equal([...app.document.querySelectorAll('#questionOutline .question-outline-item')].filter(row=>!row.hidden).length,1);
  search.value='inexistente';search.oninput();assert(!app.document.getElementById('questionSearchEmpty').hidden);
 const picker=app.document.getElementById('topQuestionMenu');const filter=picker.querySelector('input');filter.value='matem';filter.oninput();assert.equal([...picker.querySelectorAll('button[data-type]')].filter(b=>!b.hidden).length,3);
  assert(picker.querySelector('.picker-sticky'));assert(picker.querySelector('.picker-sticky .picker-header'));assert(picker.querySelector('.picker-sticky .picker-filters'));

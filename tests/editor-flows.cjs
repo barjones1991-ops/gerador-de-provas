@@ -77,7 +77,8 @@ async function main() {
     const app = await boot();
     for (const type of app.run('Object.keys(templates)')) {
       app.run(`state.questions = [templates[${JSON.stringify(type)}]()]; state.collapsedQuestions = {}; renderAll();`);
-      if (!['multipla','associacao_setas'].includes(type)) assert(app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type);
+      if (['multipla','associacao_setas','imagem'].includes(type)) assert(!app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type+' is legacy-only');
+      else assert(app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type);
       const card=app.document.querySelector('.qcard'); assert(card,type);
       assert(card.classList.contains('compact-question-editor'),type);
       assert.equal(card.querySelector('.question-score label').textContent,'Valor',type);

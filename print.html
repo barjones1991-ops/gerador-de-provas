@@ -52,6 +52,7 @@
       box-shadow: 0 18px 50px rgba(15,23,42,0.16);
       padding: 40px;
     }
+    em, i { font-style: italic; font-synthesis: style; }
     .pv-header { display: flex; justify-content: space-between; gap: 20px; border-bottom: 4px solid #0f172a; padding-bottom: 18px; }
     .pv-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.25em; color: #64748b; }
     .pv-school { font-size: 28px; font-weight: 900; margin: 6px 0 0; }
@@ -86,17 +87,28 @@
     .free-image-item.right { float: right; margin: 4px 0 8px 14px; }
     .free-image-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .free-image-clear { clear: both; height: 0; }
-    .qtitle { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-    .qtitle .n { font-size: 18px; font-weight: 900; }
-    .qtitle .p { font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .qtitle { display:flow-root; }
+    .qtitle-main { min-width:0; }
+    .qtitle .n { display:inline-flex; vertical-align:baseline; align-items:center; margin-right:9px; padding:3px 6px; border:1px solid #dbe4ed; border-radius:8px; background:#f1f5f9; box-shadow:0 2px 4px rgba(15,23,42,.14); font-size:16px; line-height:1.35; font-weight:900; white-space:nowrap; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .qtitle .qtext { display:inline; margin:0; font-size:15px; line-height:1.45; overflow-wrap:anywhere; word-break:break-word; }
+    .qtitle .p { float:right; margin:5px 0 4px 10px; font-size:13px; line-height:1.35; color:#64748b; white-space:nowrap; }
     .bncc-badge { font-size: 10px; font-weight: 700; background: #ede9fe; color: #6d28d9; border-radius: 5px; padding: 2px 6px; }
     @media print { .bncc-badge { display: none; } }
     .qtext { margin-top: 8px; font-size: 15px; line-height: 1.8; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
+    [data-font-size="14"] { font-size:14pt; }
     .qtext .inline-math { display:inline-block; margin:0 .08em; white-space:nowrap; vertical-align:baseline; }
     .qpreview { margin-top: 10px; font-size: 15px; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
     .spacey { display: grid; gap: 8px; }
-    .mark-grid.two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+    .vf-items { display:grid; grid-template-columns:repeat(var(--vf-columns,1),minmax(0,1fr)); gap:8px; }
+    .vf-item { min-width:0; padding:0; border:0; border-radius:0; break-inside:avoid; page-break-inside:avoid; overflow-wrap:anywhere; }
+    .vf-answer-space { display:inline-block; min-width:2em; margin-right:0; white-space:nowrap; }
+    .vf-statement { min-width:0; }
+    .mark-grid { display: grid; grid-template-columns: repeat(var(--mark-columns,2), minmax(0,1fr)); gap: 8px 18px; }
+    .mark-grid.two-columns { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .hline { height: 20px; border-bottom: 1px solid #cbd5e1; }
+    .subitem-label { margin-right: .3em; }
+    .subitem-answer-lines { display:flex; flex-direction:column; }
+    .subitem-answer-lines .hline { height:8mm; flex:0 0 8mm; }
     .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .connect-match {
       display: grid;
@@ -404,9 +416,9 @@
       .instructions .h { margin-bottom: 3px; font-size: 12px; }
       .questions { margin-top: 12px; }
       .question-block { margin: 0 0 12px; }
-      .qtitle { gap: 8px; }
-      .qtitle .n { font-size: 15px; }
-      .qtitle .p { font-size: 11px; }
+      .qtitle .n { padding:2px 6px; font-size:14px; }
+      .qtitle .qtext { font-size:13px; line-height:1.45; }
+      .qtitle .p { margin-top:4px; font-size:11px; }
       .qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }
       .qpreview { margin-top: 5px; font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
       .spacey { gap: 5px; }
@@ -447,9 +459,9 @@
       .instructions .h { margin-bottom: 3px; font-size: 12px; }
       .questions { margin-top: 12px; }
       .question-block { margin: 0 0 12px; }
-      .qtitle { gap: 8px; }
-      .qtitle .n { font-size: 15px; }
-      .qtitle .p { font-size: 11px; }
+      .qtitle .n { padding:2px 6px; font-size:14px; }
+      .qtitle .qtext { font-size:13px; line-height:1.45; }
+      .qtitle .p { margin-top:4px; font-size:11px; }
       .qtext { margin-top: 4px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }
       .qpreview { margin-top: 5px; font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
       .spacey { gap: 5px; }
@@ -496,6 +508,27 @@
   <script>
     function esc(s) {
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function richText(s) {
+      const prefix = '\u2063rich1:';
+      const rawValue = String(s ?? '');
+      if (!rawValue.startsWith(prefix)) return esc(rawValue);
+      const template = document.createElement('template');
+      template.innerHTML = rawValue.slice(prefix.length);
+      const safeText = value => value.replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+      const serialize = node => {
+        if (node.nodeType === 3) return safeText(node.nodeValue || '');
+        if (node.nodeType !== 1) return '';
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'br') return '<br>';
+        const content = [...node.childNodes].map(serialize).join('');
+        if (tag === 'b' || tag === 'strong') return `<strong>${content}</strong>`;
+        if (tag === 'i' || tag === 'em') return `<em>${content}</em>`;
+        if (tag === 'span' && node.getAttribute('data-font-size') === '14') return `<span data-font-size="14">${content}</span>`;
+        if (tag === 'div' || tag === 'p') return `${content}<br>`;
+        return content;
+      };
+      return [...template.content.childNodes].map(serialize).join('').replace(/(?:<br>)+$/g, '');
     }
 
 
@@ -801,8 +834,8 @@
         const number = starts.get(`${r},${c}`) || '';
         return `<div class="crossword-cell">${number}</div>`;
       }).join('')).join('');
-      const across = built.placed.filter((item) => item.dir === 'H').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
-      const down = built.placed.filter((item) => item.dir === 'V').map((item) => `<div><strong>${item.number}.</strong> ${esc(item.clue)}</div>`).join('');
+      const across = built.placed.filter((item) => item.dir === 'H').map((item) => `<div><strong>${item.number}.</strong> ${richText(item.clue)}</div>`).join('');
+      const down = built.placed.filter((item) => item.dir === 'V').map((item) => `<div><strong>${item.number}.</strong> ${richText(item.clue)}</div>`).join('');
       return `<div class="crossword-layout"><div class="crossword-grid" style="grid-template-columns: repeat(${built.grid[0].length}, 24px);">${cells}</div><div class="crossword-clues"><div><h4>Horizontais</h4>${across || '<span class="small">Nenhuma.</span>'}</div><div><h4>Verticais</h4>${down || '<span class="small">Nenhuma.</span>'}</div></div></div>`;
     }
 
@@ -822,13 +855,13 @@
       if (hi.mode==='one'&&isSafeImageDataUrl(hi.dataUrl)) {
         const sz=['small','medium','large','full'].includes(hi.size)?hi.size:'medium';
         const al=['left','center','right','lado_esquerda','lado_direita'].includes(hi.align)?hi.align:'center';
-        const cap=hi.caption?`<div class="image-caption">${esc(hi.caption)}</div>`:'';
+        const cap=hi.caption?`<div class="image-caption">${richText(hi.caption)}</div>`:'';
         return `<div class="question-image ${sz} ${al}"><img ${safeImageAttr(hi.dataUrl)} alt="" />${cap}</div>`;
       }
       if (hi.mode==='grade'&&Array.isArray(hi.items)&&hi.items.some(i=>isSafeImageDataUrl(i.dataUrl))) {
         const cols=Math.max(2,Math.min(4,Number(hi.columns)||2));
         const cells=hi.items.map(item=>{
-          const cap=item.caption?`<div class="image-caption">${esc(item.caption)}</div>`:'';
+          const cap=item.caption?`<div class="image-caption">${richText(item.caption)}</div>`:'';
           return isSafeImageDataUrl(item.dataUrl)?`<div><img ${safeImageAttr(item.dataUrl, item.imageSize)} style="width:100%;border-radius:6px;" alt=""/>${cap}</div>`:`<div style="border:1px dashed #cbd5e1;border-radius:6px;padding:16px;" class="small">—</div>`;
         }).join('');
         return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;margin-bottom:10px;">${cells}</div>`;
@@ -844,7 +877,7 @@
       const imageFigure = (question) => {
         const size = ['small', 'medium', 'large', 'full'].includes(question.imageSize) ? question.imageSize : 'medium';
         const align = ['left', 'center', 'right', 'lado_esquerda', 'lado_direita'].includes(question.imageAlign) ? question.imageAlign : 'center';
-        const caption = question.imageCaption ? `<div class="image-caption">${esc(question.imageCaption)}</div>` : '';
+        const caption = question.imageCaption ? `<div class="image-caption">${richText(question.imageCaption)}</div>` : '';
         return isSafeImageDataUrl(question.imageDataUrl)
           ? `<div class="question-image ${size} ${align}"><img ${safeImageAttr(question.imageDataUrl)} alt="${esc(question.imageFileName || 'Imagem da questão')}" />${caption}</div>`
           : `<div class="question-image ${size} ${align} small">Imagem não selecionada.</div>`;
@@ -858,8 +891,8 @@
             ? `<div><img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} style="max-height:80px;border-radius:6px;display:block;margin-bottom:4px;" alt="" /></div>`
             : '';
           return optImg
-            ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${esc(op || `Alternativa ${letter}`)}</span></div></div>`
-            : `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}</span></div>`;
+            ? `<div class="option-item" style="align-items:start;"><span>${letter})</span><div>${optImg}<span>${richText(op || `Alternativa ${letter}`)}</span></div></div>`
+            : `<div class="option-item"><span>${letter})</span><span>${richText(op || `Alternativa ${letter}`)}</span></div>`;
         }).join('');
         return `<div class="spacey">${opts}</div>${alternativeAnswerSpace()}`;
       }
@@ -871,17 +904,22 @@
       if (q.type === 'subitens') {
         const items = Array.isArray(q.items) ? q.items : [];
         const below = q.answerPosition === 'below';
-        const labelFor = (i) => q.labelStyle === 'numbers' ? `${i + 1}.` : `${String.fromCharCode(97 + i)})`;
+        const labelFor = (i) => {
+          if (q.labelStyle === 'numbers') return `${i + 1}.`;
+          let value = i, label = '';
+          do { label = String.fromCharCode(97 + value % 26) + label; value = Math.floor(value / 26) - 1; } while (value >= 0);
+          return `${label})`;
+        };
         const imgH = { small: '70px', medium: '110px', large: '160px' };
         return items.map((item, i) => {
-          const label = `<strong>${labelFor(i)}</strong>`;
-          const text = item.text ? `<span>${esc(item.text)}</span>` : '';
+          const label = `<strong class="subitem-label">${labelFor(i)}</strong>`;
+          const text = item.text ? `<span>${richText(item.text)}</span>` : '';
           const imgSrc = item.imageDataUrl;
           const h = imgH[item.imageSize || 'small'];
           const imgTag = isSafeImageDataUrl(imgSrc) ? `<img ${safeImageAttr(imgSrc, item.imageSize || 'small')} style="height:${h};width:auto;max-width:180px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;display:block;" alt="${esc(item.imageFileName||'')}" />` : '';
           if (below) {
             const lcount = Math.max(1, Math.min(5, Number(item.lines) || 1));
-            const linesHtml = Array.from({ length: lcount }, () => '<div class="hline"></div>').join('');
+            const linesHtml = `<div class="subitem-answer-lines">${Array.from({ length: lcount }, () => '<div class="hline"></div>').join('')}</div>`;
             return `<div style="margin-bottom:14px;">${label} ${imgTag}${text}${linesHtml}</div>`;
           }
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">${label}${imgTag}${text}<span style="flex:1;border-bottom:1px solid #94a3b8;min-width:60px;">&nbsp;</span></div>`;
@@ -889,12 +927,13 @@
       }
       if (q.type === 'vf') {
         if (Array.isArray(q.items) && q.items.length) {
-          return `<div class="spacey">${q.items.map((item, i) => {
+          const columns = Math.max(1, Math.min(5, Math.round(Number(q.vfColumns) || 1)));
+          return `<div class="vf-items" style="--vf-columns:${columns}">${q.items.map((item, i) => {
             const image = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName || '')}" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
-            return `<div>( &nbsp; ) ${esc(item.text || `Afirmação ${i + 1}`)}${image}</div>`;
+          return `<div class="vf-item"><span class="vf-answer-space">( &nbsp; )</span><span class="vf-statement">${richText(item.text || `Afirmação ${i + 1}`)}${image}</span></div>`;
           }).join('')}</div>`;
         }
-        return '<div>( &nbsp; ) Verdadeiro &nbsp;&nbsp;&nbsp; ( &nbsp; ) Falso</div>';
+        return '';
       }
       if (q.type === 'marcarx') {
         const items = q.items || [];
@@ -904,7 +943,7 @@
             const text = typeof item === 'string' ? item : item.text;
             const letter = String.fromCharCode(65 + i);
             const marker = markMode === 'vf'
-              ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F'
+              ? '( &nbsp; )'
               : markMode === 'checklist'
                 ? '( &nbsp; )'
                 : `${letter})`;
@@ -913,16 +952,18 @@
               : markMode === 'checklist'
                 ? `Item ${i + 1}`
                 : `Alternativa ${letter}`;
-            return `<tr><td>${marker}</td><td>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
+            return `<tr><td>${marker}</td><td>${richText(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</td></tr>`;
           }).join('');
           return `<table class="mark-table"><tbody>${rows}</tbody></table>${alternativeAnswerSpace()}`;
         }
-        const layoutClass = q.markLayout === 'duas_colunas' ? 'mark-grid two-columns' : 'spacey';
-        return `<div class="${layoutClass}">${items.map((item, i) => {
+        const markColumns = ({ duas_colunas:2, tres_colunas:3, quatro_colunas:4, cinco_colunas:5 })[q.markLayout] || 1;
+        const layoutClass = markColumns === 2 ? 'mark-grid two-columns' : markColumns > 2 ? 'mark-grid' : 'spacey';
+        const layoutStyle = markColumns > 1 ? ` style="--mark-columns:${markColumns}"` : '';
+        return `<div class="${layoutClass}"${layoutStyle}>${items.map((item, i) => {
           const text = typeof item === 'string' ? item : item.text;
           const letter = String.fromCharCode(65 + i);
           const marker = markMode === 'vf'
-            ? '( &nbsp; ) V &nbsp;&nbsp; ( &nbsp; ) F'
+            ? '( &nbsp; )'
             : markMode === 'checklist'
               ? '( &nbsp; )'
               : `${letter})`;
@@ -931,20 +972,19 @@
             : markMode === 'checklist'
               ? `Item ${i + 1}`
               : `Alternativa ${letter}`;
-          const optionClass = markMode === 'vf' ? 'option-item wide-marker' : 'option-item';
-          return `<div class="${optionClass}"><span>${marker}</span><span>${esc(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
+          return `<div class="option-item"><span>${marker}</span><span>${richText(text || fallback)}${isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;" />` : ''}</span></div>`;
         }).join('')}</div>${alternativeAnswerSpace()}`;
       }
       if (q.type === 'lacunas') {
         normalizeLacunasQuestion(q);
-        return `<div class="spacey">${q.items.map((item, i) => `<div>${i + 1}. ${esc(item.text || `Frase com lacuna ${i + 1}`)}</div>`).join('')}</div>`;
+        return `<div class="spacey">${q.items.map((item, i) => `<div>${i + 1}. ${richText(item.text || `Frase com lacuna ${i + 1}`)}</div>`).join('')}</div>`;
       }
       if (q.type === 'relacione') {
         normalizeRelacioneQuestion(q);
-        const left = q.pairs.map((pair, i) => `<div class="connect-item"><span>${esc(pair.left || `Item da esquerda ${i + 1}`)}</span><span class="connect-dot"></span></div>`).join('');
+        const left = q.pairs.map((pair, i) => `<div class="connect-item"><span>${richText(pair.left || `Item da esquerda ${i + 1}`)}</span><span class="connect-dot"></span></div>`).join('');
         const right = q.rightOrder.map((pairIndex, i) => {
           const pair = q.pairs[pairIndex] || {};
-          return `<div class="connect-item"><span class="connect-dot"></span><span>${esc(pair.right || `Item da direita ${i + 1}`)}</span></div>`;
+          return `<div class="connect-item"><span class="connect-dot"></span><span>${richText(pair.right || `Item da direita ${i + 1}`)}</span></div>`;
         }).join('');
         const lines = q.pairs.map(() => '<div class="connect-line"></div>').join('');
         return `<div class="connect-match"><div class="connect-col">${left}</div><div class="connect-lines">${lines}</div><div class="connect-col">${right}</div></div>`;
@@ -955,7 +995,7 @@
           if (!ei.dataUrl) return '';
           const eSize = ['small','medium','large','full'].includes(ei.size) ? ei.size : 'medium';
           const eAlign = ['left','center','right'].includes(ei.align) ? ei.align : 'center';
-          const eCap = ei.caption ? `<div class="image-caption">${esc(ei.caption)}</div>` : '';
+          const eCap = ei.caption ? `<div class="image-caption">${richText(ei.caption)}</div>` : '';
           return `<div class="question-image ${eSize} ${eAlign}"><img ${safeImageAttr(ei.dataUrl)} alt="${esc(ei.fileName||'Imagem extra')}" />${eCap}</div>`;
         }).join('') : '';
         const allImages = `${image}${extraImgsHtml}`;
@@ -963,7 +1003,7 @@
           const options = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
             const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
-            return `<div><span>${letter})</span> <span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
+          return `<div><span>${letter})</span> <span>${richText(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${allImages}<div class="spacey">${options}</div>`;
         }
@@ -971,7 +1011,7 @@
           const items = (q.items || []).map((item, i) => {
             const text = typeof item === 'string' ? item : item.text;
             const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
-            return `<div>( &nbsp; ) ${esc(text || `Item ${i + 1}`)}${optionImage}</div>`;
+            return `<div>( &nbsp; ) ${richText(text || `Item ${i + 1}`)}${optionImage}</div>`;
           }).join('');
           return `${allImages}<div class="spacey">${items}</div>`;
         }
@@ -983,7 +1023,7 @@
         const prompts = Array.isArray(q.prompts) && q.prompts.length ? q.prompts : [''];
         const items = prompts.map((prompt, i) => {
           const answer = q.showAnswerSpace === false ? '' : answerArea(q);
-          return `<div style="margin-top:10px;"><strong>${i + 1}.</strong> ${esc(prompt || `Pergunta ${i + 1}`)}${answer}</div>`;
+          return `<div style="margin-top:10px;"><strong>${i + 1}.</strong> ${richText(prompt || `Pergunta ${i + 1}`)}${answer}</div>`;
         }).join('');
         return `${image}<div class="spacey">${items}</div>`;
       }
@@ -998,18 +1038,18 @@
         `).join('');
         const words = q.wordOrder.map((pairIndex, i) => {
           const pair = pairs[pairIndex] || {};
-          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`;
+          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${richText(pair.word || `Palavra ${i + 1}`)}</div>`;
         }).join('');
         return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
       }
       if (q.type === 'texto_base') {
-        const textBox = q.textBase && !omitTextBase ? `<div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
+        const textBox = q.textBase && !omitTextBase ? `<div class="texto-base-box">${richText(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${richText(q.textBaseCaption)}</div>` : ''}</div>` : '';
 
         if (q.answerType === 'multipla') {
           const opts = (q.options || []).map((op, i) => {
             const letter = String.fromCharCode(65 + i);
             const optionImage = isSafeImageDataUrl(q.optionImages?.[i]?.dataUrl) ? `<img ${safeImageAttr(q.optionImages[i].dataUrl, q.optionImages[i].imageSize)} alt="" style="display:block;max-width:100%;max-height:80px;margin-top:4px;border-radius:6px;" />` : '';
-            return `<div class="option-item"><span>${letter})</span><span>${esc(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
+            return `<div class="option-item"><span>${letter})</span><span>${richText(op || `Alternativa ${letter}`)}${optionImage}</span></div>`;
           }).join('');
           return `${textBox}<div class="spacey">${opts}</div>`;
         }
@@ -1102,7 +1142,7 @@
       if (q.type === 'ordenacao') {
         const items = Array.isArray(q.items) ? q.items : [];
         return `<div class="ordem-items">${items.map((item) =>
-          `<div class="ordem-item"><div class="ordem-num">&nbsp;</div><span>${esc(item.text || 'Frase não preenchida.')}</span></div>`
+          `<div class="ordem-item"><div class="ordem-num">&nbsp;</div><span>${richText(item.text || 'Frase não preenchida.')}</span></div>`
         ).join('')}</div>`;
       }
       if (q.type === 'problema_matematico') {
@@ -1122,11 +1162,11 @@
         const headers = q.headers || [];
         const rows = q.rows || [];
         const thead = `<tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
-        const tbody = rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
+        const tbody = rows.map(row=>`<tr>${row.map(cell=>`<td>${richText(cell)}</td>`).join('')}</tr>`).join('');
         const table = `<table class="q-tabela"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
         if (q.answerType === 'multipla') {
           const options = (q.options || []).map((option, i) => '<div class="option-item"><span>' +
-            String.fromCharCode(65 + i) + ')</span><span>' + esc(option || 'Alternativa ' + String.fromCharCode(65 + i)) + '</span></div>').join('');
+            String.fromCharCode(65 + i) + ')</span><span>' + richText(option || 'Alternativa ' + String.fromCharCode(65 + i)) + '</span></div>').join('');
           return table + '<div class="spacey">' + options + '</div>';
         }
         if (q.answerType === 'nenhuma' || q.showAnswerSpace === false) return table;
@@ -1175,7 +1215,7 @@
         const items = q.items||[];
         const cards = items.map(item => {
           const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
-          const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
+          const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${richText(item.caption)}</div>` : '';
           return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num"></div></div>`;
         }).join('');
         return `<div class="seq-img-grid">${cards}</div>`;
@@ -1183,7 +1223,7 @@
       if (q.type === 'comparar_imagens') {
         const img1 = isSafeImageDataUrl(q.image1DataUrl) ? `<img ${safeImageAttr(q.image1DataUrl, q.image1Size)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;
         const img2 = isSafeImageDataUrl(q.image2DataUrl) ? `<img ${safeImageAttr(q.image2DataUrl, q.image2Size)} alt="${esc(q.image2FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem B</div>`;
-        const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${esc(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${esc(q.image2Caption||'Imagem B')}</div></div></div>`;
+        const grid = `<div class="comparar-grid"><div class="comparar-img">${img1}<div class="comparar-caption">${richText(q.image1Caption||'Imagem A')}</div></div><div class="comparar-img">${img2}<div class="comparar-caption">${richText(q.image2Caption||'Imagem B')}</div></div></div>`;
         if (q.showAnswerSpace===false) return grid;
         return `${grid}${answerArea(q)}`;
       }
@@ -1202,7 +1242,7 @@
           const img = item.imageDataUrl
             ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName || item.caption || `Imagem ${i + 1}`)}" />`
             : `<div class="grade-img-placeholder">Sem imagem</div>`;
-          const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${esc(item.caption || `Imagem ${i + 1}`)}</div>`;
+          const caption = q.showCaptions === false ? '' : `<div class="grade-img-caption">${richText(item.caption || `Imagem ${i + 1}`)}</div>`;
           const line = q.showAnswerLines === false ? '' : '<div class="grade-img-line"></div>';
           return `<div class="grade-img-card">${img}${caption}${line}</div>`;
         }).join('');
@@ -1218,7 +1258,7 @@
         const image = q.imageDataUrl
           ? `<div class="identify-image-wrap"><img ${safeImageAttr(q.imageDataUrl)} alt="${esc(q.imageFileName || 'Imagem para identificar')}" />${markerHtml}</div>`
           : `<div class="identify-image-wrap"><div class="identify-image-placeholder">Imagem não selecionada</div>${markerHtml}</div>`;
-        const caption = q.imageCaption ? `<div class="image-caption">${esc(q.imageCaption)}</div>` : '';
+        const caption = q.imageCaption ? `<div class="image-caption">${richText(q.imageCaption)}</div>` : '';
         const list = q.showAnswerList === false ? '' : `<div class="identify-answer-list">${markers.map((marker, i) => `
           <div class="identify-answer-item"><span class="identify-answer-num">${i + 1}</span><span class="identify-answer-line"></span></div>
         `).join('')}</div>`;
@@ -1280,17 +1320,13 @@
         return String.fromCharCode(65 + q.correctOption);
       }
       if (q.type === 'vf' && Array.isArray(q.items)) {
-        const answers = q.items
-          .map((item, i) => item.answer ? `${i + 1}-${item.answer}` : '')
-          .filter(Boolean);
+        const answers = q.items.map(item => item.answer === 'V' || item.answer === 'F' ? item.answer : '?');
         return answers.join('; ');
       }
       if (q.type === 'marcarx' && Array.isArray(q.items)) {
         if (q.markMode === 'checklist') return '';
         if (q.markMode === 'vf') {
-          const answers = q.items
-            .map((item, i) => item.answer ? `${i + 1}-${item.answer}` : '')
-            .filter(Boolean);
+          const answers = q.items.map(item => item.answer === 'V' || item.answer === 'F' ? item.answer : '?');
           return answers.join('; ');
         }
         const answers = q.items
@@ -1398,7 +1434,7 @@
         <section class="answer-key">
           <h2>Gabarito</h2>
           <div class="answer-grid">
-            ${rows.map((item) => `<div class="answer-row"><strong>${esc(item.number)}</strong><span>${esc(item.answer)}</span></div>`).join('')}
+            ${rows.map((item) => `<div class="answer-row"><strong>${esc(item.number)}</strong><span>${richText(item.answer)}</span></div>`).join('')}
           </div>
         </section>
       `;
@@ -1448,9 +1484,9 @@
 
     function renderStatementText(q) {
       const value = q.text || 'Digite o enunciado da questão.';
-      if (q.type !== 'problema_matematico') return esc(value);
+      if (q.type !== 'problema_matematico') return richText(value);
       return ExamSafety.mathTextSegments(value).map(segment => {
-        if (segment.type !== 'math') return esc(segment.value);
+        if (segment.type !== 'math') return richText(segment.value);
         if (typeof katex === 'undefined') return `<span class="inline-math">${esc(segment.value)}</span>`;
         try { return `<span class="inline-math">${katex.renderToString(segment.latex, { throwOnError: false, displayMode: false })}</span>`; }
         catch (error) { return `<span class="inline-math">${esc(segment.value)}</span>`; }
@@ -1459,17 +1495,18 @@
 
     function renderQuestionBlock(q, i, questionNumber) {
       const textFirst = q.type === 'texto_base' && q.textBaseBeforeStatement === true;
-      const leadingText = textFirst && q.textBase ? `<div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '';
+      const leadingText = textFirst && q.textBase ? `<div class="texto-base-box">${richText(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${richText(q.textBaseCaption)}</div>` : ''}</div>` : '';
       const headerImage = _buildHeaderHtml(q);
       const besideStatement = headerImage && q.headerImage?.mode === 'one' && ['lado_esquerda','lado_direita'].includes(q.headerImage.align);
       const statement = `<div class="qtext">${renderStatementText(q)}</div>`;
+      const statementInHeader = !q.hideNumber && !textFirst && !besideStatement;
       return `<div class="question-block" data-question-index="${i}" data-unnumbered="${q.hideNumber ? 'true' : 'false'}">
               <div class="qtitle">
-                ${q.hideNumber ? '' : `<div class="n">Questão ${questionNumber}</div><div class="p">Valor: ${esc(q.points)}</div>`}
+                ${q.hideNumber ? '' : `<div class="p">Valor: ${esc(q.points)}</div><div class="qtitle-main"><div class="n">Questão ${questionNumber}</div>${statementInHeader ? statement : ''}</div>`}
               </div>
               ${buildFreeImagesHtml(q)}
               ${leadingText}
-              ${besideStatement ? `<div class="question-statement-with-image">${headerImage}${statement}</div>` : statement}
+              ${statementInHeader ? '' : besideStatement ? `<div class="question-statement-with-image">${headerImage}${statement}</div>` : statement}
               <div class="qpreview">${(besideStatement ? '' : headerImage) + renderQuestionPreview(q, textFirst)}</div>
               <div class="free-image-clear"></div>
             </div>`;

@@ -2,6 +2,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const vm = require('vm');
+const { parseHTML } = require('linkedom');
 
 const root = path.resolve(__dirname, '..');
 const htmlFiles = ['index.html', 'login.html', 'dashboard.html', 'editor.html', 'print.html', 'coordenacao.html', 'schools.html', 'impressao.html', 'master.html', 'setup.html'];
@@ -284,7 +285,8 @@ async function main() {
     });
     const qtypeSelect = editor.match(/<select id="qtypeSelect">([\s\S]*?)<\/select>/)[1];
     const creationTypes = [...qtypeSelect.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
-    assert(creationTypes.length === 12, 'question creation selector should expose consolidated types only');
+    const consolidatedTypes = ['marcarx','discursiva','lacunas','relacione','matematica_coluna','tabela','caca_palavras','cruzadinha','espaco_livre','ditado','silabas'];
+    assert(JSON.stringify(creationTypes) === JSON.stringify(consolidatedTypes), 'creation selector must preserve consolidated types without the retired image-only model');
     ['multipla', 'vf', 'subitens', 'problema_matematico', 'interpretacao_imagem', 'relacione_imagens', 'associacao_imagem_imagem', 'associacao_setas', 'sequencia_imagens', 'comparar_imagens', 'legenda_imagens', 'grade_imagens', 'identificar_imagem', 'ordenacao', 'sequencia_numerica', 'leitura_escrita', 'expressao_matematica'].forEach((type) => {
       assert(!creationTypes.includes(type), `${type} should be integrated into consolidated creation options`);
     });
@@ -442,7 +444,7 @@ async function main() {
     assert(print.includes('!!item.checked'), 'print mark-x answer key missing');
     assert(print.includes("q.markMode === 'vf'"), 'print alternatives true/false mode missing');
     assert(print.includes("q.markMode === 'checklist'"), 'print alternatives checklist mode missing');
-    assert(print.includes('option-item wide-marker'), 'print alternatives wide marker layout missing');
+    assert(print.includes('.option-item { display: grid; grid-template-columns: 1.6em 1fr;'), 'print alternatives should keep a compact space between the answer marker and statement');
     assert(print.includes('mark-grid two-columns'), 'print mark-x two-column layout missing');
     assert(print.includes("q.type === 'relacione'"), 'print match-columns renderer missing');
     assert(print.includes('relacioneAnswer'), 'print match-columns answer key missing');
@@ -1294,8 +1296,39 @@ async function main() {
     assert(!print.includes('.info-grid, .student-grid { grid-template-columns: 1fr; }'), 'mobile width must not stack the printable header');
     assert(!print.includes('.pv-header { flex-direction: column; }'), 'mobile width must not change the printable header direction');
     assert(!print.includes('.two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }'), 'mobile width must not collapse printable question columns');
-    assert(/js\/editor-tools\.js\?v=20261019-[\w-]+/.test(editor), 'editor must invalidate the cached preview controller');
-    assert(tools.includes('print.html?preview=1&v=20261019-font1'), 'canonical preview must load the fixed mobile layout revision');
+    const controllerRevision = editor.match(/js\/editor-tools\.js\?v=(\d{8})-[\w-]+/);
+    assert(controllerRevision && controllerRevision[1] >= '20261019', 'editor must load the mobile fix revision or a newer controller');
+    assert(controllerRevision?.[0] === 'js/editor-tools.js?v=20261021-outline1', 'editor must bypass cached controller code after outline updates');
+    assert(tools.includes('print.html?preview=1&v=20261021-richtext4'), 'canonical preview must load the current print revision');
+  });
+
+  await test('rich text formatting is limited and rendered safely', () => {
+    const editorTools = read('js/editor-tools.js');
+    const print = read('print.html');
+    const editorCss = read('css/editor-tools.css');
+    assert(editorTools.includes('contentEditable = \'true\''), 'editable text surfaces should support selected-text formatting');
+    assert(editorTools.includes("command:'bold'") && editorTools.includes("command:'italic'"), 'toolbar should offer only bold and italic text styles');
+    assert(editorTools.includes("command:'large'") && editorTools.includes('data-font-size="14"'), 'toolbar should toggle the fixed 14 pt size');
+    assert(editorTools.includes("tag === 'span' && node.getAttribute('data-font-size') === '14'"), 'editor should discard unsupported pasted markup');
+    assert(print.includes('function richText(s)') && print.includes("node.getAttribute('data-font-size') === '14'"), 'print renderer should allowlist rich-text markup');
+    assert(editorCss.includes('.exam-rich-toolbar[hidden]') && editorCss.includes('[data-font-size="14"] { font-size:14pt; }'), 'toolbar and large-font styles should be available in the editor');
+    const helperStart = print.indexOf('    function richText(s)');
+    const helperEnd = print.indexOf('\n\n    const SAFE_IMAGE_DATA_URL_RE', helperStart);
+    const { document } = parseHTML('<html><body></body></html>');
+    const context = { document, esc: value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[char])) };
+    vm.createContext(context); vm.runInContext(print.slice(helperStart, helperEnd), context);
+    assert(context.richText('Trecho <seguro>') === 'Trecho &lt;seguro&gt;', 'unformatted legacy text must stay literal');
+    const formatted = context.richText('\u2063rich1:<strong>Ênfase</strong><img src=x onerror=alert(1)><script>alert(1)</script>');
+    assert(formatted.includes('<strong>Ênfase</strong>'), 'supported formatting should render');
+    assert(!/<(?:img|script)\b|onerror=/i.test(formatted), 'unsupported pasted markup must not render as HTML');
+    const italic = context.richText('\u2063rich1:<i>Itálico</i><em><strong>Ambos</strong></em>');
+    document.body.innerHTML = `<main id="root">${italic}</main><div id="paper-preview"><div class="pagedjs_page">${italic}</div></div><div class="paper-staging">${italic}</div>`;
+    const italicSelectors = [...print.matchAll(/([^{}]+)\{([^{}]*font-synthesis:\s*style;[^{}]*)\}/g)].map(match => match[1].trim());
+    for (const area of ['#root', '#paper-preview', '.paper-staging']) {
+      const emphasis = [...document.querySelectorAll(`${area} em`)];
+      assert(emphasis.length === 2, `${area} must retain italic text and combined bold/italic`);
+      assert(emphasis.every(node => italicSelectors.some(selector => node.matches(selector))), `${area} must permit italic synthesis, including pages cloned without #root`);
+    }
   });
 
   await test('image markers retain zero at the edge in both renderers', () => {

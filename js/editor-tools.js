@@ -90,7 +90,7 @@ const EditorTools = {
       const q = state.questions[Number(card.dataset.questionIndex)];
       if (!q) return;
       const summary = card.querySelector('.qhead-subtitle');
-      const text = String(q.text || '').trim() || 'Sem enunciado ainda';
+      const text = this.plainRichText(q.text || '').trim() || 'Sem enunciado ainda';
       if (summary) { summary.textContent = text; summary.title = text; }
       if (q.type === 'discursiva') this.syncDiscursive(card, q, Number(card.dataset.questionIndex));
       else this.syncStandardQuestion(card, q, Number(card.dataset.questionIndex));
@@ -187,6 +187,7 @@ const EditorTools = {
     if (redo) redo.disabled = !enabled || this.historyIndex >= this.history.length - 1;
     const bankSave = document.getElementById('saveBankRecordBtn');
     if (bankSave) bankSave.disabled = !enabled || this.bankSaving;
+    document.querySelectorAll('#questionOutline .question-outline-remove').forEach(node => { node.disabled = !enabled || Boolean(this.bankId); });
     const decorationButton = document.getElementById('decorationModeBtn');
     if (decorationButton) {
       decorationButton.hidden = Boolean(this.bankId);
@@ -265,6 +266,191 @@ const EditorTools = {
     this.recordHistory();
     showToast('Diagramação otimizada. Use Desfazer se quiser restaurar a ordem anterior.', 'ok');
   },
+  moveQuestion(fromIndex, toIndex) {
+    if (!this.canEdit() || this.applyingHistory || this.bankId || !Number.isInteger(fromIndex) || !Number.isInteger(toIndex)
+      || fromIndex < 0 || toIndex < 0 || fromIndex >= state.questions.length || toIndex >= state.questions.length
+      || fromIndex === toIndex) return;
+    const remapIndex = index => {
+      if (!Number.isInteger(index)) return index;
+      if (index === fromIndex) return toIndex;
+      if (fromIndex < toIndex && index > fromIndex && index <= toIndex) return index - 1;
+      if (fromIndex > toIndex && index >= toIndex && index < fromIndex) return index + 1;
+      return index;
+    };
+    this.recordHistory();
+    const [question] = state.questions.splice(fromIndex, 1);
+    state.questions.splice(toIndex, 0, question);
+    if (Number.isInteger(state.activeQuestionIndex)) state.activeQuestionIndex = remapIndex(state.activeQuestionIndex);
+    if (Number.isInteger(this.previewSelection)) this.previewSelection = remapIndex(this.previewSelection);
+    const nextCollapsed = {};
+    for (let oldIndex = 0; oldIndex < state.questions.length; oldIndex++) {
+      nextCollapsed[remapIndex(oldIndex)] = Boolean(state.collapsedQuestions[oldIndex]);
+    }
+    state.collapsedQuestions = nextCollapsed;
+    this.pendingPreviewFocus = this.previewSelection;
+    renderAll();
+  },
+  startOutlineDrag(event, item, nav) {
+    const touchMode = event.type === 'touchstart';
+    if (touchMode) {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      event = {target:event.target,isPrimary:true,button:0,clientX:touch.clientX,clientY:touch.clientY,pointerId:touch.identifier};
+    }
+    if (this.outlineDrag || !event.isPrimary || event.button !== 0 || !this.canEdit() || this.applyingHistory || this.bankId
+      || event.target.closest('.question-outline-remove')) return;
+    const rows = [...nav.children], questions = [...state.questions];
+    const fromIndex = Number(item.dataset.questionIndex);
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const drag = { started:false, settling:false, x:event.clientX, y:event.clientY, frame:null, ghost:null };
+    this.outlineDrag = drag;
+    const valid = () => this.canEdit() && !this.applyingHistory && nav.isConnected && nav.closest('details').open
+      && state.questions.length === questions.length && questions.every((question,index) => state.questions[index] === question);
+    const animateRows = change => {
+      const others = rows.filter(row => row !== item && !row.hidden);
+      const previous = new Map(others.map(row => [row,row.getBoundingClientRect().top]));
+      others.forEach(row => row.getAnimations?.().forEach(animation => animation.cancel()));
+      change();
+      others.forEach(row => {
+        const delta = previous.get(row) - row.getBoundingClientRect().top;
+        if (delta && !reducedMotion) row.animate?.([{transform:`translateY(${delta}px)`},{transform:'translateY(0)'}],
+          {duration:200,easing:'cubic-bezier(.2,.8,.2,1)'});
+      });
+    };
+    const position = () => {
+      if (!drag.started || drag.settling) return;
+      const bounds = nav.getBoundingClientRect();
+      drag.ghost.style.transform = `translate3d(${Math.max(-18,Math.min(18,drag.x-event.clientX))}px,${drag.y-event.clientY}px,0) scale(1.015)`;
+      if (drag.x < bounds.left - 40 || drag.x > bounds.right + 40) return;
+      // Use layout positions, not the in-flight animation transforms, for hit testing.
+      const others = [...nav.children].filter(row => row !== item && !row.hidden);
+      const before = others.find(row => drag.y < bounds.top + nav.clientTop + row.offsetTop - nav.scrollTop + row.offsetHeight / 2);
+      const anchor = before || others.at(-1)?.nextSibling || null;
+      if (anchor !== item && item.nextSibling !== anchor) animateRows(() => nav.insertBefore(item,anchor));
+    };
+    const tick = time => {
+      if (!valid()) { end(false); return; }
+      const bounds = nav.getBoundingClientRect();
+      const elapsed = Math.min(32,time - (drag.lastTime || time)); drag.lastTime = time;
+      if (drag.x >= bounds.left - 40 && drag.x <= bounds.right + 40) {
+        const edge = 44;
+        const speed = drag.y < bounds.top + edge ? -Math.min(1,(bounds.top+edge-drag.y)/edge)
+          : drag.y > bounds.bottom-edge ? Math.min(1,(drag.y-bounds.bottom+edge)/edge) : 0;
+        nav.scrollTop += speed * elapsed * .65;
+      }
+      position(); drag.frame = requestAnimationFrame(tick);
+    };
+    const activate = () => {
+      drag.started = true; this.recordHistory();
+      const rect = item.getBoundingClientRect();
+      drag.ghost = item.cloneNode(true); drag.ghost.classList.add('question-outline-floating');
+      drag.ghost.setAttribute('aria-hidden','true'); drag.ghost.inert = true;
+      Object.assign(drag.ghost.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
+      document.body.appendChild(drag.ghost);
+      item.style.height = `${rect.height}px`; item.classList.add('is-placeholder');
+      nav.classList.add('is-sorting'); document.body.classList.add('question-outline-sorting');
+      if (!touchMode) item.setPointerCapture?.(event.pointerId);
+      position(); drag.frame = requestAnimationFrame(tick);
+    };
+    const move = next => {
+      if (next.pointerId !== event.pointerId || drag.settling) return;
+      drag.x = next.clientX; drag.y = next.clientY;
+      if (!drag.started && Math.hypot(drag.x-event.clientX,drag.y-event.clientY) >= (touchMode ? 8 : 5)) {
+        if (touchMode) { end(false); return; } // An immediate swipe keeps native scrolling.
+        activate();
+      }
+      if (drag.started) { next.preventDefault(); position(); }
+    };
+    const cleanup = commit => {
+      if (this.outlineDrag !== drag) return;
+      const destination = [...nav.children].indexOf(item);
+      const mayCommit = commit && valid();
+      cancelAnimationFrame(drag.frame);
+      drag.ghost?.remove();
+      rows.forEach(row => row.getAnimations?.().forEach(animation => animation.cancel()));
+      item.classList.remove('is-placeholder'); item.style.removeProperty('height');
+      nav.classList.remove('is-sorting'); document.body.classList.remove('question-outline-sorting');
+      if (item.hasPointerCapture?.(event.pointerId)) item.releasePointerCapture(event.pointerId);
+      this.outlineDrag = null;
+      if (mayCommit && destination !== fromIndex) this.moveQuestion(fromIndex,destination);
+      // Restore the DOM on cancellation, and refresh numbering after a successful drop.
+      if (drag.started) {
+        this.updatePreview();
+        const focusIndex = mayCommit ? destination : fromIndex;
+        nav.querySelector(`[data-question-index="${focusIndex}"] .question-outline-open`)?.focus({preventScroll:true});
+        const status = document.getElementById('questionOutlineStatus');
+        if (status) status.textContent = mayCommit && destination !== fromIndex
+          ? `Questão movida para a posição ${destination + 1}.` : 'Ordem das questões mantida.';
+      }
+    };
+    const end = commit => {
+      if (this.outlineDrag !== drag) return;
+      document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up);
+      document.removeEventListener('pointercancel',cancel); document.removeEventListener('keydown',key,true);
+      document.removeEventListener('touchmove',touchMove); document.removeEventListener('touchend',touchEnd);
+      document.removeEventListener('touchcancel',cancel); clearTimeout(drag.holdTimer);
+      window.removeEventListener('blur',cancel);
+      cancelAnimationFrame(drag.frame);
+      if (drag.started) this.outlineSuppressClickUntil = Date.now() + 400;
+      if (commit && drag.started && valid() && !drag.settling && !reducedMotion && drag.ghost.animate) {
+        drag.settling = true;
+        const target = item.getBoundingClientRect(), origin = drag.ghost;
+        const animation = origin.animate([{transform:origin.style.transform},
+          {transform:`translate3d(${target.left-parseFloat(origin.style.left)}px,${target.top-parseFloat(origin.style.top)}px,0) scale(1)`}],
+          {duration:150,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'});
+        animation.finished.then(() => cleanup(true),() => cleanup(false));
+      } else cleanup(commit && drag.started);
+    };
+    const up = next => {
+      if (next.pointerId !== event.pointerId) return;
+      drag.x = next.clientX; drag.y = next.clientY; position();
+      const rect = nav.getBoundingClientRect();
+      end(drag.x >= rect.left-40 && drag.x <= rect.right+40 && drag.y >= rect.top-40 && drag.y <= rect.bottom+40);
+    };
+    const cancel = () => end(false);
+    const key = next => { if (next.key === 'Escape') { next.preventDefault(); next.stopImmediatePropagation(); end(false); } };
+    const touchInput = next => {
+      const touch = [...next.changedTouches].find(point => point.identifier === event.pointerId);
+      return touch && {pointerId:touch.identifier,clientX:touch.clientX,clientY:touch.clientY,preventDefault:() => next.preventDefault()};
+    };
+    const touchMove = next => {
+      if (next.touches.length > 1) { end(false); return; }
+      const input = touchInput(next); if (input) move(input);
+    };
+    const touchEnd = next => {
+      const input = touchInput(next);
+      if (input) { if (drag.started) next.preventDefault(); up(input); }
+    };
+    drag.cancel = cancel;
+    if (touchMode) {
+      drag.holdTimer = setTimeout(() => { if (valid()) activate(); else end(false); },220);
+      document.addEventListener('touchmove',touchMove,{passive:false}); document.addEventListener('touchend',touchEnd,{passive:false});
+      document.addEventListener('touchcancel',cancel);
+    } else {
+      document.addEventListener('pointermove',move,{passive:false}); document.addEventListener('pointerup',up);
+      document.addEventListener('pointercancel',cancel);
+    }
+    document.addEventListener('keydown',key,true);
+    window.addEventListener('blur',cancel);
+  },
+  removeQuestion(index) {
+    if (!this.canEdit() || this.bankId || !Number.isInteger(index) || index < 0 || index >= state.questions.length) return;
+    const label = this.plainRichText(state.questions[index].text || '').trim().slice(0,100);
+    const detail = label ? `\n\n“${label}${label.length === 100 ? '…' : ''}”` : '';
+    if (!confirm(`Excluir a questão ${index + 1}?${detail}\n\nEssa ação pode ser desfeita pelo botão Desfazer.`)) return;
+    state.questions.splice(index, 1);
+    if (state.activeQuestionIndex === index) state.activeQuestionIndex = null;
+    else if (Number.isInteger(state.activeQuestionIndex) && state.activeQuestionIndex > index) state.activeQuestionIndex -= 1;
+    if (this.previewSelection === index) this.previewSelection = state.questions.length ? Math.min(index, state.questions.length - 1) : 0;
+    else if (this.previewSelection > index) this.previewSelection -= 1;
+    const nextCollapsed = {};
+    state.questions.forEach((_, questionIndex) => {
+      nextCollapsed[questionIndex] = Boolean(state.collapsedQuestions[questionIndex >= index ? questionIndex + 1 : questionIndex]);
+    });
+    state.collapsedQuestions = nextCollapsed;
+    this.pendingPreviewFocus = state.questions.length ? this.previewSelection : null;
+    renderAll();
+  },
   enhanceFields() {
     const panel = document.querySelector('.card.no-print');
     if (!panel) return;
@@ -310,7 +496,164 @@ const EditorTools = {
         (field.type === 'file' ? 'Selecionar imagem' : field.tagName === 'SELECT' ? 'Selecionar opção' : 'Preencher resposta');
       field.setAttribute('aria-label', `${question === undefined ? '' : `Questão ${Number(question) + 1}: `}${name.trim()}`);
     });
+    this.enhanceRichTextFields(panel);
     this.refreshActions();
+  },
+  sanitizeRichTextHtml(value, isHtml = false) {
+    const prefix = '\u2063rich1:';
+    const rawValue = String(value ?? '');
+    if (!isHtml && !rawValue.startsWith(prefix)) {
+      return rawValue.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    const template = document.createElement('template');
+    template.innerHTML = isHtml ? rawValue : rawValue.slice(prefix.length);
+    const escapeText = text => text.replace(/[&<>]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[char]));
+    const serialize = node => {
+      if (node.nodeType === 3) return escapeText(node.nodeValue || '');
+      if (node.nodeType !== 1) return '';
+      const content = [...node.childNodes].map(serialize).join('');
+      const tag = node.tagName.toLowerCase();
+      if (tag === 'br') return '<br>';
+      if (['b','strong'].includes(tag)) return `<strong>${content}</strong>`;
+      if (['i','em'].includes(tag)) return `<em>${content}</em>`;
+      if (tag === 'span' && node.getAttribute('data-font-size') === '14') return `<span data-font-size="14">${content}</span>`;
+      if (['div','p'].includes(tag)) return `${content}<br>`;
+      return content;
+    };
+    return [...template.content.childNodes].map(serialize).join('').replace(/(?:<br>)+$/g, '');
+  },
+  plainRichText(value) {
+    const prefix = '\u2063rich1:';
+    const rawValue = String(value ?? '');
+    if (!rawValue.startsWith(prefix)) return rawValue;
+    const template = document.createElement('template');
+    template.innerHTML = rawValue.slice(prefix.length);
+    return template.content.textContent || '';
+  },
+  enhanceRichTextFields(panel) {
+    if (!this.richTextToolbar) {
+      const toolbar = document.createElement('div');
+      toolbar.className = 'exam-rich-toolbar';
+      toolbar.hidden = true;
+      toolbar.setAttribute('role', 'toolbar');
+      toolbar.setAttribute('aria-label', 'Formatação do texto selecionado');
+      const commands = [
+        { label:'N', title:'Negrito', command:'bold', className:'is-bold' },
+        { label:'I', title:'Itálico', command:'italic', className:'is-italic' },
+        { label:'14', title:'Alternar tamanho: padrão ou grande (14 pt)', command:'large', className:'is-large' },
+      ];
+      for (const item of commands) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = item.label; button.title = item.title;
+        button.setAttribute('aria-label', item.title); button.className = item.className;
+        button.addEventListener('pointerdown', event => event.preventDefault());
+        button.addEventListener('click', () => this.applyRichTextCommand(item.command));
+        toolbar.appendChild(button);
+      }
+      document.body.appendChild(toolbar);
+      this.richTextToolbar = toolbar;
+      document.addEventListener('selectionchange', () => this.updateRichTextToolbar());
+    }
+    panel.querySelectorAll('.qcard textarea, .qcard input[type="text"]').forEach(field => {
+      if (field.dataset.richTextEnhanced || field.disabled || field.readOnly) return;
+      if (['bncc','wordList','wordsText'].includes(field.dataset.k)) return;
+      const questionIndex = Number(field.closest('.qcard')?.dataset.questionIndex);
+      if (field.dataset.k === 'text' && state.questions[questionIndex]?.type === 'problema_matematico') return;
+      field.dataset.richTextEnhanced = 'true';
+      const editable = document.createElement('div');
+      editable.className = 'exam-rich-editor';
+      field.classList.forEach(className => editable.classList.add(className));
+      editable.contentEditable = 'true';
+      editable.spellcheck = true;
+      editable.setAttribute('role', 'textbox');
+      editable.setAttribute('aria-multiline', String(field.tagName === 'TEXTAREA'));
+      editable.setAttribute('aria-label', field.getAttribute('aria-label') || field.placeholder || 'Campo de texto');
+      editable.dataset.richField = 'true';
+      const fieldStyle = typeof getComputedStyle === 'function' ? getComputedStyle(field) : null;
+      if (fieldStyle) {
+        editable.style.fontFamily = fieldStyle.fontFamily;
+        editable.style.fontSize = fieldStyle.fontSize;
+        editable.style.lineHeight = fieldStyle.lineHeight;
+        editable.style.color = fieldStyle.color;
+      }
+      if (field.id) editable.id = `${field.id}-rich`;
+      if (field.placeholder) editable.dataset.placeholder = field.placeholder;
+      if (field.tagName === 'TEXTAREA') {
+        editable.style.minHeight = `${Math.max(76, field.clientHeight || field.rows * 24 || 90)}px`;
+      }
+      editable.innerHTML = this.sanitizeRichTextHtml(field.value);
+      field.classList.add('exam-rich-source');
+      field.insertAdjacentElement('afterend', editable);
+      const label = field.id && panel.querySelector(`label[for="${field.id}"]`);
+      if (label) label.htmlFor = editable.id;
+      const sync = () => {
+        const safeHtml = this.sanitizeRichTextHtml(editable.innerHTML, true);
+        if (/<(?:strong|em|span data-font-size="14")>/.test(safeHtml)) field.value = `\u2063rich1:${safeHtml}`;
+        else {
+          const plain = document.createElement('div'); plain.innerHTML = safeHtml.replace(/<br>/g, '\n');
+          field.value = plain.textContent || '';
+        }
+        field.dispatchEvent(new Event('input', { bubbles:true }));
+      };
+      editable.addEventListener('input', sync);
+      editable.addEventListener('paste', event => {
+        event.preventDefault();
+        const text = event.clipboardData?.getData('text/plain') || '';
+        document.execCommand('insertText', false, text);
+        sync();
+      });
+      editable.addEventListener('drop', event => {
+        event.preventDefault();
+        const text = event.dataTransfer?.getData('text/plain') || '';
+        document.execCommand('insertText', false, text);
+        sync();
+      });
+      editable.addEventListener('keydown', event => {
+        if (field.tagName !== 'TEXTAREA' && event.key === 'Enter') event.preventDefault();
+        if ((event.ctrlKey || event.metaKey) && ['b','i'].includes(event.key.toLowerCase())) {
+          event.preventDefault(); this.applyRichTextCommand(event.key.toLowerCase() === 'b' ? 'bold' : 'italic');
+        }
+      });
+      editable.addEventListener('mouseup', () => { this.richTextActive = editable; this.updateRichTextToolbar(); });
+      editable.addEventListener('keyup', () => { this.richTextActive = editable; this.updateRichTextToolbar(); });
+      editable.addEventListener('focus', () => { this.richTextActive = editable; this.updateRichTextToolbar(); });
+      editable.addEventListener('blur', () => setTimeout(() => {
+        if (!this.richTextToolbar?.contains(document.activeElement)) this.richTextToolbar.hidden = true;
+      }, 120));
+    });
+  },
+  updateRichTextToolbar() {
+    const toolbar = this.richTextToolbar, active = this.richTextActive;
+    if (!toolbar) return;
+    if (!active || !active.isConnected) { toolbar.hidden = true; return; }
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !active.contains(selection.anchorNode) || !active.contains(selection.focusNode)) { toolbar.hidden = true; return; }
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    if (!rect.width && !rect.height) { toolbar.hidden = true; return; }
+    toolbar.hidden = false;
+    const left = Math.max(8, Math.min(window.innerWidth - toolbar.offsetWidth - 8, rect.left + rect.width / 2 - toolbar.offsetWidth / 2));
+    toolbar.style.left = `${left}px`;
+    toolbar.style.top = `${Math.max(8, rect.top - toolbar.offsetHeight - 8)}px`;
+  },
+  applyRichTextCommand(command) {
+    const active = this.richTextActive, selection = window.getSelection();
+    if (!active || !selection || selection.isCollapsed || !active.contains(selection.anchorNode) || !active.contains(selection.focusNode)) return;
+    if (command === 'bold' || command === 'italic') document.execCommand(command, false);
+    else if (command === 'large') {
+      const range = selection.getRangeAt(0);
+      let wrapper = range.commonAncestorContainer.nodeType === 1
+        ? range.commonAncestorContainer.closest?.('span[data-font-size="14"]')
+        : range.commonAncestorContainer.parentElement?.closest('span[data-font-size="14"]');
+      if (wrapper && active.contains(wrapper) && wrapper.contains(range.startContainer) && wrapper.contains(range.endContainer)) {
+        wrapper.replaceWith(...wrapper.childNodes);
+      } else {
+        const span = document.createElement('span'); span.dataset.fontSize = '14';
+        span.appendChild(range.extractContents()); range.insertNode(span);
+        selection.removeAllRanges(); const selected = document.createRange(); selected.selectNodeContents(span); selection.addRange(selected);
+      }
+    }
+    active.dispatchEvent(new Event('input', { bubbles:true }));
+    this.updateRichTextToolbar();
   },
   organizeQuestionChrome(card, q, index) {
     if (card.dataset.questionChromeOrganized) return;
@@ -539,7 +882,7 @@ const EditorTools = {
       legenda_imagens:['Imagens para nomear','A resposta de cada imagem fica no campo verde do gabarito.'],
       associacao_imagem_imagem:['Pares de imagens','Mantenha as duas imagens de cada par lado a lado.'],
       grade_imagens:['Grade de imagens','Cada figura reúne sua legenda e sua resposta esperada.'],
-      identificar_imagem:['Partes numeradas','Informe o nome de cada parte; posicione os números na imagem acima.'],
+      identificar_imagem:['Partes numeradas','Informe o nome de cada parte. Abra o ícone de imagem no enunciado para posicionar os números.'],
       caca_palavras:['Montagem do caça-palavras','Defina as palavras e confira a grade na prévia.'],
       cruzadinha:['Pistas e respostas','Cada pista permanece junto da resposta que define seus quadrinhos.'],
     };
@@ -605,7 +948,7 @@ const EditorTools = {
           if (markers) activityBody.appendChild(markers);
           const list = fieldGroup('showAnswerList'); if (list) activityBody.appendChild(list);
         }
-        moveSupport(root);
+        this.embedSupportImages(card, root, q, index);
       }
     }
     if (q.type === 'tabela') {
@@ -616,6 +959,8 @@ const EditorTools = {
       if (choices) activityBody.appendChild(choices);
       moveSupport(table,'Tabela da atividade');
     }
+    const batch = card.querySelector('.question-image-batch');
+    if (batch) activityBody.prepend(batch);
     let correction = null;
     if (criteria || q.type === 'ditado') {
       correction = section(q.type === 'ditado' ? 'Palavras do ditado' : 'Resposta esperada','correction',
@@ -649,7 +994,6 @@ const EditorTools = {
       const update = () => { const code = settings.querySelector('[data-k="bncc"]').value.trim(); title.textContent = `Ajustes complementares${code ? ` · BNCC ${code}` : ''}`; };
       settings.querySelector('[data-k="bncc"]').addEventListener('input',update); update();
       activityBody.querySelectorAll(':scope > .appearance-settings').forEach(node => settings.appendChild(node));
-      for (const key of ['markLayout']) { const group = fieldGroup(key); if (group) settings.appendChild(group); }
       if (q.type === 'subitens') { const config = fieldGroup('labelStyle'); if (config) settings.appendChild(config); }
       if (q.type === 'leitura_escrita') { const columns = fieldGroup('columns'); if (columns) settings.appendChild(columns); }
       if (q.type === 'grade_imagens') { const columns = fieldGroup('columns'); if (columns) settings.appendChild(columns); }
@@ -704,6 +1048,9 @@ const EditorTools = {
   },
   syncStandardQuestion(card, q, index) {
     if (!card.classList.contains('standard-question-editor')) return;
+    card.querySelector('.enunciation-image-field .field-image-trigger')?.classList.toggle('has-image',
+      Boolean(q.imageDataUrl || q.image1DataUrl || q.image2DataUrl || q.freeImages?.length
+        || q.headerImage?.dataUrl || q.headerImage?.items?.some(item => item.dataUrl)));
     card.querySelector('.qhead-left-name').textContent = this.printedQuestionLabel(index);
     card.querySelector('.discursive-print-number').textContent = `${typeLabel[q.type] || q.type}${this.bankId ? '' : ` · item ${index + 1} da lista`}`;
     card.querySelector('.qnum').setAttribute('aria-label',`Fechar edição: ${this.printedQuestionLabel(index)}`);
@@ -772,7 +1119,15 @@ const EditorTools = {
     const text = card.querySelector('textarea[data-k="text"]');
     let toolbar = card.querySelector('.image-use-wrap');
     let panel = card.querySelector('.image-edit-panel');
-    if (text && !toolbar && (q.freeImages?.length || card.querySelector('[data-batch-images]'))) {
+    // Batch uploads populate activity items, not the statement image.
+    const batch = card.querySelector('[data-batch-images]')?.closest('.row');
+    if (batch) {
+      const details = document.createElement('details'); details.className = 'question-image-batch';
+      const summary = document.createElement('summary'); summary.textContent = 'Adicionar várias imagens aos itens';
+      batch.before(details); details.append(summary, batch);
+      card.querySelector(':scope > .row').appendChild(details);
+    }
+    if (text && !toolbar && q.freeImages?.length) {
       toolbar = document.createElement('div'); toolbar.className = 'image-use-wrap';
       panel = document.createElement('div'); panel.className = 'image-edit-panel hidden';
       const button = document.createElement('button'); button.type = 'button';
@@ -793,6 +1148,8 @@ const EditorTools = {
       trigger.setAttribute('aria-label', trigger.title);
       panel.id = `enunciation-image-${card.dataset.questionIndex}`;
       trigger.setAttribute('aria-controls', panel.id);
+      panel.classList.add('hidden');
+      trigger.setAttribute('aria-expanded', 'false');
       const images = card.querySelector('.question-images');
       if (images) {
         const oldDetails = images.closest('.question-images-details');
@@ -800,7 +1157,6 @@ const EditorTools = {
         images.querySelector(':scope > p')?.remove();
         images.classList.add('enunciation-extra-images');
         shell.appendChild(images); oldDetails?.remove();
-        if (q.freeImages?.length) panel.classList.remove('hidden');
         trigger.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
       }
       const menu = toolbar.querySelector('.image-use-menu');
@@ -834,6 +1190,44 @@ const EditorTools = {
       }
       details.querySelector('summary').textContent = 'Imagens complementares';
       if (q.freeImages?.length) details.open = true;
+    }
+  },
+  embedSupportImages(card, root, q, index) {
+    // Reuse the native image controls and callbacks; never create headerImage
+    // for types whose renderer consumes imageDataUrl / images instead.
+    const text = card.querySelector('textarea[data-k="text"]');
+    text.setAttribute('aria-label','Enunciado');
+    let shell = text.closest('.enunciation-image-field');
+    if (!shell) {
+      shell = document.createElement('div'); shell.className = 'field-image-shell enunciation-image-field';
+      text.before(shell); shell.appendChild(text);
+      const toolbar = document.createElement('div'); toolbar.className = 'image-use-wrap';
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'field-image-trigger';
+      button.title = 'Adicionar ou editar imagem do enunciado';
+      button.setAttribute('aria-label', button.title);
+      button.textContent = button.title;
+      const panel = document.createElement('div'); panel.className = 'image-edit-panel hidden';
+      panel.id = `enunciation-image-${index}`;
+      button.setAttribute('aria-controls', panel.id); button.setAttribute('aria-expanded','false');
+      button.addEventListener('click', () => {
+        if (!this.canEdit()) return;
+        panel.classList.toggle('hidden');
+        button.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
+      });
+      toolbar.appendChild(button); shell.append(toolbar, panel);
+    }
+    const panel = shell.querySelector(':scope > .image-edit-panel');
+    panel.classList.add('hidden');
+    const button = shell.querySelector('.field-image-trigger');
+    button.setAttribute('aria-expanded','false');
+    button.classList.toggle('has-image', Boolean(q.imageDataUrl || q.freeImages?.length
+      || q.image1DataUrl || q.image2DataUrl));
+    panel.prepend(root);
+    const extras = root.querySelector('.native-extra-images');
+    if (extras) {
+      const details = document.createElement('details'); details.className = 'native-extra-images-details';
+      const summary = document.createElement('summary'); summary.textContent = 'Imagens adicionais (até 2 extras)';
+      extras.before(details); details.append(summary,extras);
     }
   },
   addMathStatementTools(card, q) {
@@ -1112,18 +1506,52 @@ const EditorTools = {
       document.getElementById('readinessDetails').classList.toggle('readiness-clear', issues.length === 0 && !this.spaceSuggestion);
     }
     const nav = document.getElementById('questionOutline');
-    if (nav) {
+    if (nav && !this.outlineDrag) {
       const overviewSummary = document.querySelector('#questionOverview > summary');
       if (overviewSummary) overviewSummary.textContent = `Questões da prova (${state.questions.length})`;
+      const outlineScroll = nav.scrollTop;
       nav.replaceChildren();
       state.questions.forEach((q, index) => {
-        const button = document.createElement('button'); button.type = 'button';
-        button.textContent = `${index + 1}. ${String(q.text || typeLabel[q.type] || 'Questão').slice(0, 70)}`;
+        const item = document.createElement('div'); item.className = 'question-outline-item'; item.dataset.questionIndex = String(index);
+        const canManage = !this.bankId;
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'question-outline-open';
+        const number = document.createElement('span'); number.className = 'question-outline-number'; number.textContent = String(index + 1);
+        const copy = document.createElement('span'); copy.className = 'question-outline-copy';
+        const caption = document.createElement('span'); caption.className = 'question-outline-caption';
+        caption.textContent = this.plainRichText(q.text || '').trim() || 'Sem enunciado';
+        const type = document.createElement('span'); type.className = 'question-outline-type'; type.textContent = typeLabel[q.type] || q.type;
+        copy.append(caption,type); button.append(number,copy);
+        button.setAttribute('aria-label',`Questão ${index + 1}: ${caption.textContent}`);
         if (index === state.activeQuestionIndex) button.setAttribute('aria-current','true');
         button.dataset.questionType = typeLabel[q.type] || q.type;
-        button.title = `${index + 1}. ${q.text || ''}`;
-        button.addEventListener('click', () => this.focusQuestion(index)); nav.appendChild(button);
+        button.title = `${index + 1}. ${this.plainRichText(q.text || '')}`;
+        button.addEventListener('click', () => this.focusQuestion(index));
+        item.addEventListener('click', next => {
+          if (this.outlineDrag?.started || Date.now() < (this.outlineSuppressClickUntil || 0)) { next.preventDefault(); next.stopImmediatePropagation(); }
+        },true);
+        item.appendChild(button);
+        if (canManage) {
+          const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'question-outline-remove';
+          remove.textContent = '×'; remove.title = `Excluir questão ${index + 1}`; remove.setAttribute('aria-label', `Excluir questão ${index + 1}`);
+          remove.disabled = !this.canEdit(); remove.addEventListener('click', () => this.removeQuestion(index)); item.appendChild(remove);
+        }
+        item.addEventListener('pointerdown', next => { if (next.pointerType !== 'touch') this.startOutlineDrag(next,item,nav); });
+        item.addEventListener('touchstart', next => this.startOutlineDrag(next,item,nav),{passive:true});
+        item.addEventListener('contextmenu', next => { if (this.outlineDrag?.started) next.preventDefault(); });
+        item.addEventListener('dragstart', next => next.preventDefault());
+        button.setAttribute('aria-keyshortcuts','Alt+ArrowUp Alt+ArrowDown');
+        button.addEventListener('keydown', next => {
+          if (!next.altKey || !['ArrowUp','ArrowDown'].includes(next.key) || !this.canEdit() || this.bankId || this.outlineDrag) return;
+          next.preventDefault();
+          const destination = Math.max(0,Math.min(state.questions.length-1,index+(next.key === 'ArrowUp' ? -1 : 1)));
+          this.moveQuestion(index,destination); this.updatePreview();
+          nav.querySelector(`[data-question-index="${destination}"] .question-outline-open`)?.focus({preventScroll:true});
+          const status = document.getElementById('questionOutlineStatus');
+          if (status) status.textContent = `Questão na posição ${destination+1}.`;
+        });
+        nav.appendChild(item);
       });
+      nav.scrollTop = outlineScroll;
     }
     this.filterQuestions();
     const empty = document.getElementById('editorSelectionHint');
@@ -1170,7 +1598,7 @@ const EditorTools = {
     select.replaceChildren();
     state.questions.forEach((q,index) => {
       const option = document.createElement('option'); option.value = String(index);
-      option.textContent = (index + 1) + '. ' + (String(q.text || '').trim() || 'Sem enunciado').slice(0,70);
+      option.textContent = (index + 1) + '. ' + (this.plainRichText(q.text || '').trim() || 'Sem enunciado').slice(0,70);
       select.appendChild(option);
     });
     select.value = String(this.previewSelection); select.disabled = !count;
@@ -1326,7 +1754,13 @@ const EditorTools = {
     const overview = document.createElement('details'); overview.id = 'questionOverview';
     overview.innerHTML = '<summary>Questões da prova</summary><input id="questionSearch" type="search" aria-label="Buscar questão" placeholder="Buscar por enunciado ou tipo"><p id="questionSearchEmpty" class="small" hidden>Nenhuma questão encontrada.</p><nav id="questionOutline" aria-label="Navegar pelas questões"></nav>';
     details.after(overview);
-    document.getElementById('questionSearch').oninput = () => this.filterQuestions();
+    document.getElementById('questionSearch').oninput = () => { this.outlineDrag?.cancel(); this.filterQuestions(); };
+    const outlineHint = document.createElement('p'); outlineHint.className = 'question-outline-hint';
+    outlineHint.textContent = 'Arraste para mudar a ordem. No celular, segure antes de arrastar.';
+    document.getElementById('questionSearch').after(outlineHint);
+    const outlineStatus = document.createElement('span'); outlineStatus.id = 'questionOutlineStatus';
+    outlineStatus.className = 'sr-only'; outlineStatus.setAttribute('role','status'); overview.appendChild(outlineStatus);
+    overview.addEventListener('toggle', () => { if (!overview.open) this.outlineDrag?.cancel(); });
     const readiness = document.createElement('details'); readiness.id = 'readinessDetails';
     readiness.innerHTML = '<summary id="readinessSummary">Conferir prova</summary><p class="small">Esta conferência verifica preenchimento, pontuação, estrutura do gabarito e oportunidades de melhorar a diagramação. Revise também o conteúdo e as respostas antes de aplicar a prova.</p><div id="examIssues"></div><div id="layoutOptimization" class="layout-optimization" hidden><div><strong>Sugestão de diagramação</strong><span id="layoutOptimizationCopy"></span></div><button id="layoutOptimizationBtn" type="button">Sugerir otimização de espaço</button></div>';
     overview.after(readiness);
@@ -1335,7 +1769,7 @@ const EditorTools = {
     const contextControls = document.createElement('div'); contextControls.className = 'editor-context-controls';
     details.before(contextControls); contextControls.append(details, overview, readiness);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><div class="preview-tools"><button type="button" id="decorationModeBtn" class="outline">Decorar prova</button><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div></div><div id="decorationBar" class="decoration-bar" hidden><span id="decorationStatus">Arraste as imagens pela página.</span><button type="button" id="addDecorationBtn">+ Adicionar imagem</button><label>Página <select id="decorationPage" aria-label="Página da imagem decorativa"></select></label><button type="button" id="decorationRotateLeft" title="Girar para a esquerda">↶</button><button type="button" id="decorationRotateRight" title="Girar para a direita">↷</button><button type="button" id="decorationCrop">Recortar</button><button type="button" id="replaceDecorationBtn">Substituir</button><button type="button" id="removeDecorationBtn" class="danger">Remover</button><button type="button" id="finishDecorationBtn" class="primary">Concluir</button><input id="decorationFileInput" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div class="preview-navigation"><button type="button" id="previewPrevious" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button type="button" id="previewNext" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><div id="decorationEditorLayer" class="decoration-editor-layer" aria-label="Imagens decorativas da prova"></div><iframe id="canonicalPreview" src="print.html?preview=1&v=20261019-font1" title="Prévia da prova em formato A4"></iframe></div>';
+    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><div class="preview-tools"><button type="button" id="decorationModeBtn" class="outline">Decorar prova</button><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div></div><div id="decorationBar" class="decoration-bar" hidden><span id="decorationStatus">Arraste as imagens pela página.</span><button id="addDecorationBtn" type="button">+ Adicionar imagem</button><label>Página <select id="decorationPage" aria-label="Página da imagem decorativa"></select></label><button id="decorationRotateLeft" type="button" title="Girar para a esquerda">↶</button><button id="decorationRotateRight" type="button" title="Girar para a direita">↷</button><button id="decorationCrop" type="button">Recortar</button><button id="replaceDecorationBtn" type="button">Substituir</button><button id="removeDecorationBtn" type="button" class="danger">Remover</button><button id="finishDecorationBtn" type="button" class="primary">Concluir</button><input id="decorationFileInput" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div class="preview-navigation"><button id="previewPrevious" type="button" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button id="previewNext" type="button" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><div id="decorationEditorLayer" class="decoration-editor-layer" aria-label="Imagens decorativas da prova"></div><iframe id="canonicalPreview" src="print.html?preview=1&v=20261021-richtext4" title="Prévia da prova em formato A4"></iframe></div>';
     const previewCaption = document.createElement('span'); previewCaption.id = 'previewQuestionCaption';
     preview.querySelector('.preview-options > strong').appendChild(previewCaption);
     document.getElementById('previewRoot').parentElement.appendChild(preview);
@@ -1367,7 +1801,7 @@ const EditorTools = {
       : ['matematica_coluna','expressao_matematica','problema_matematico','sequencia_numerica','tabela'].includes(type) ? 'Matemática e dados'
       : ['ditado','silabas','leitura_escrita','caca_palavras','cruzadinha'].includes(type) ? 'Linguagem e alfabetização' : 'Imagens e desenho';
     for (const [type, label] of Object.entries(typeLabel)) {
-      if (!templates[type] || ['multipla','associacao_setas'].includes(type)) continue;
+      if (!templates[type] || ['multipla','associacao_setas','imagem'].includes(type)) continue;
       const name = category(type);
       if (!groups[name]) { groups[name] = document.createElement('optgroup'); groups[name].label = name; select.appendChild(groups[name]); }
       const option = document.createElement('option'); option.value = type; option.textContent = label; groups[name].appendChild(option);
@@ -1449,9 +1883,10 @@ const EditorTools = {
   filterQuestions() {
     const query = (document.getElementById('questionSearch')?.value || '').trim().toLocaleLowerCase('pt-BR');
     let visible = 0;
-    document.querySelectorAll('#questionOutline button').forEach(button => {
-      button.hidden = !`${button.textContent} ${button.dataset.questionType}`.toLocaleLowerCase('pt-BR').includes(query);
-      if (!button.hidden) visible++;
+    document.querySelectorAll('#questionOutline .question-outline-item').forEach(item => {
+      const button = item.querySelector('.question-outline-open');
+      item.hidden = !`${button?.textContent || ''} ${button?.dataset.questionType || ''}`.toLocaleLowerCase('pt-BR').includes(query);
+      if (!item.hidden) visible++;
     });
     const empty = document.getElementById('questionSearchEmpty');
     if (empty) empty.hidden = visible > 0 || !query;

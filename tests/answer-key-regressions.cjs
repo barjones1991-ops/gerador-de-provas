@@ -48,7 +48,10 @@ function renderer(){
  assert.equal(r.ctx.getQuestionAnswer({type:'sequencia_imagens',items:[{order:0},{}]}),'Imagem 1: ?; Imagem 2: ?');
  assert.equal(r.ctx.getQuestionAnswer({type:'legenda_imagens',items:[{answer:'  '}]}),'1: ?');
  assert.equal(r.ctx.getQuestionAnswer({type:'marcarx',markMode:'checklist',items:[{checked:true}]}),'');
- assert.equal(r.ctx.getQuestionAnswer({type:'marcarx',markMode:'vf',items:[{answer:'V'},{answer:'F'}]}),'1-V; 2-F');
+ for (const type of ['marcarx','vf']) {
+  assert.equal(r.ctx.getQuestionAnswer({type,markMode:'vf',items:[{answer:'V'},{answer:'F'}]}),'V; F');
+  assert.equal(r.ctx.getQuestionAnswer({type,markMode:'vf',items:[{answer:'V'},{answer:''},{answer:'F'}]}),'V; ?; F','gabarito preserva a posição de respostas ausentes');
+ }
  assert.equal(r.ctx.getQuestionAnswer({type:'associacao_imagem_imagem',leftItems:[image('a')],rightItems:[image('a')]}),'1-A');
  const hostile={type:'discursiva',text:'Questão',expectedAnswer:'<img src=x onerror=alert(1)>',points:'1,0'};
  r.ctx.exam={questions:[hostile]};r.run('renderExam(exam,true)');

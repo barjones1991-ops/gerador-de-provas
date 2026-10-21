@@ -60,7 +60,8 @@ async function open(op) {
  manual.edit('resposta manual','');assert.equal(safety.operationAnswer(manual.operation()),'6');
  console.log('OK OPERACOES legado preservado, divergencia avisada e retorno ao automatico');
  const print=fs.readFileSync(path.join(__dirname,'../print.html'),'utf8');
- const source=print.slice(print.indexOf('function getQuestionAnswer(q)'),print.indexOf('function normalizeExam(exam)'));
+ const richTextSource=print.slice(print.indexOf('    function richText(s)'),print.indexOf('\n\n    const SAFE_IMAGE_DATA_URL_RE'));
+ const source=richTextSource+'\n'+print.slice(print.indexOf('function getQuestionAnswer(q)'),print.indexOf('function normalizeExam(exam)'));
  const ctx={ExamSafety:safety,esc:s=>String(s)};vm.createContext(ctx);vm.runInContext(source,ctx);
  assert(ctx.renderAnswerKey([payload.questions[0]]).includes('1. 5'));
  assert(!ctx.renderAnswerKey([payload.questions[0]]).includes('569'));

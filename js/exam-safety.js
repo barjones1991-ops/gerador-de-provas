@@ -2,7 +2,7 @@
 (function (root) {
   const numericLimits = {
     lines: [1, 40], answerLines: [1, 40], calcLines: [1, 40], wordCount: [1, 40],
-    columns: [1, 4], gridSize: [8, 18], answerBoxes: [1, 12], width: [40, 1400], height: [30, 1400],
+    columns: [1, 4], vfColumns: [1, 5], gridSize: [8, 18], answerBoxes: [1, 12], width: [40, 1400], height: [30, 1400],
     offsetY: [0, 500], x: [0, 100], y: [0, 100], imageWidth: [40, 1400], imageHeight: [30, 1400],
     order: [0, 500], crosswordSeed: [0, 10000], wordSearchSeed: [0, 2147483647],
   };
