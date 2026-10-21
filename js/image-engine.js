@@ -34,6 +34,7 @@
   function loadImage(src) {
     return new Promise((resolve, reject) => {
       const image = new Image();
+      if (/^https?:\/\//i.test(String(src || ''))) image.crossOrigin = 'anonymous';
       image.onload = () => resolve(image);
       image.onerror = () => reject(new Error('Não foi possível carregar esta imagem.'));
       image.src = String(src || '');
@@ -111,16 +112,23 @@
 
     const title = document.createElement('div');
     title.className = 'crop-modal-title';
-    title.textContent = 'Recortar imagem — arraste para selecionar a área';
+    title.textContent = 'Recortar imagem';
     const hint = document.createElement('div');
     hint.className = 'small';
-    hint.textContent = 'Clique e arraste sobre a imagem para marcar a área de recorte.';
+    hint.textContent = 'Arraste os cantos para ajustar. Arraste dentro da seleção para mover a área que será mantida.';
     const canvasWrap = document.createElement('div');
     canvasWrap.className = 'crop-canvas-wrap';
     const displayCanvas = document.createElement('canvas');
     const selection = document.createElement('div');
     selection.className = 'crop-selection';
     selection.style.display = 'none';
+    for (const corner of ['nw', 'ne', 'sw', 'se']) {
+      const handle = document.createElement('span');
+      handle.className = `crop-handle crop-handle-${corner}`;
+      handle.dataset.corner = corner;
+      handle.setAttribute('aria-hidden', 'true');
+      selection.appendChild(handle);
+    }
     canvasWrap.append(displayCanvas, selection);
 
     let sourceImage = null;
@@ -128,6 +136,9 @@
     let startX = 0;
     let startY = 0;
     let dragging = false;
+    let dragMode = 'draw';
+    let dragRect = null;
+    let activePointer = null;
     let cropX = 0;
     let cropY = 0;
     let cropW = 0;
@@ -173,33 +184,56 @@
         y: Math.max(0, Math.min(displayCanvas.height, Math.round((event.clientY - rect.top) * displayCanvas.height / rect.height))),
       };
     };
-    displayCanvas.addEventListener('pointerdown', event => {
+    canvasWrap.addEventListener('pointerdown', event => {
+      if (!sourceImage || (event.button != null && event.button !== 0) || dragging) return;
+      event.preventDefault();
       const point = pointerPosition(event);
       startX = point.x;
       startY = point.y;
       dragging = true;
-      cropX = point.x;
-      cropY = point.y;
-      cropW = 0;
-      cropH = 0;
-      displayCanvas.setPointerCapture?.(event.pointerId);
+      activePointer = event.pointerId;
+      dragMode = event.target.dataset?.corner || (selection.contains(event.target) ? 'move' : 'draw');
+      dragRect = { x: cropX, y: cropY, w: cropW, h: cropH };
+      if (dragMode === 'draw') { cropX = point.x; cropY = point.y; cropW = 0; cropH = 0; }
+      canvasWrap.setPointerCapture?.(event.pointerId);
       syncSelection();
     });
-    displayCanvas.addEventListener('pointermove', event => {
-      if (!dragging) return;
+    canvasWrap.addEventListener('pointermove', event => {
+      if (!dragging || event.pointerId !== activePointer) return;
       const point = pointerPosition(event);
-      cropX = Math.min(startX, point.x);
-      cropY = Math.min(startY, point.y);
-      cropW = Math.abs(point.x - startX);
-      cropH = Math.abs(point.y - startY);
+      if (dragMode === 'move') {
+        cropX = Math.max(0, Math.min(displayCanvas.width - cropW, dragRect.x + point.x - startX));
+        cropY = Math.max(0, Math.min(displayCanvas.height - cropH, dragRect.y + point.y - startY));
+      } else {
+        const anchorX = dragMode === 'draw' ? startX : dragRect.x + (dragMode.includes('w') ? dragRect.w : 0);
+        const anchorY = dragMode === 'draw' ? startY : dragRect.y + (dragMode.includes('n') ? dragRect.h : 0);
+        cropX = Math.min(anchorX, point.x);
+        cropY = Math.min(anchorY, point.y);
+        cropW = Math.abs(point.x - anchorX);
+        cropH = Math.abs(point.y - anchorY);
+      }
       syncSelection();
     });
-    const endDrag = () => { dragging = false; };
-    displayCanvas.addEventListener('pointerup', endDrag);
-    displayCanvas.addEventListener('pointercancel', endDrag);
+    const endDrag = event => {
+      if (event.pointerId !== activePointer) return;
+      if (event.type === 'pointercancel' && dragRect) {
+        ({ x: cropX, y: cropY, w: cropW, h: cropH } = dragRect);
+        syncSelection();
+      }
+      dragging = false;
+      activePointer = null;
+    };
+    canvasWrap.addEventListener('pointerup', endDrag);
+    canvasWrap.addEventListener('pointercancel', endDrag);
+    canvasWrap.addEventListener('lostpointercapture', endDrag);
 
     const numeric = document.createElement('div');
     numeric.className = 'row two';
+    const precise = document.createElement('details');
+    precise.className = 'crop-precise';
+    const preciseTitle = document.createElement('summary');
+    preciseTitle.textContent = 'Ajuste preciso por teclado';
+    precise.append(preciseTitle, numeric);
     for (const [key, labelText, value] of [['x', 'Esquerda (%)', 0], ['y', 'Topo (%)', 0], ['w', 'Largura (%)', 100], ['h', 'Altura (%)', 100]]) {
       const label = document.createElement('label');
       label.textContent = labelText;
@@ -226,7 +260,7 @@
     const confirm = document.createElement('button');
     confirm.type = 'button';
     confirm.className = 'primary';
-    confirm.textContent = '✂️ Confirmar recorte';
+    confirm.textContent = 'Aplicar recorte';
     confirm.addEventListener('click', () => {
       if (!sourceImage || cropW < 4 || cropH < 4) {
         options.showError?.('Selecione uma área de recorte primeiro.');
@@ -240,27 +274,48 @@
       output.width = originalW;
       output.height = originalH;
       output.getContext('2d').drawImage(sourceImage, originalX, originalY, originalW, originalH, 0, 0, originalW, originalH);
-      const result = canvasOutput(output, 0.82);
-      close();
-      if (!options.canEdit || options.canEdit()) onConfirm(result);
+      try {
+        const result = canvasOutput(output, 0.82);
+        close();
+        if (!options.canEdit || options.canEdit()) onConfirm(result);
+      } catch (error) {
+        options.showError?.('Não foi possível aplicar o recorte. Tente substituir a imagem pelo arquivo original.');
+      }
     });
     const cancel = document.createElement('button');
     cancel.type = 'button';
     cancel.className = 'outline';
     cancel.textContent = 'Cancelar';
     cancel.addEventListener('click', close);
-    buttons.append(confirm, cancel);
-    box.append(title, hint, canvasWrap, numeric, buttons);
+    buttons.append(cancel, confirm);
+    box.append(title, hint, canvasWrap, precise, buttons);
     overlay.appendChild(box);
     overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
     document.body.appendChild(overlay);
     options.openModal?.(overlay);
+    return overlay;
   }
 
   function createPicker(options) {
     let busy = false;
+    let editorOverlay = null;
+    let cropOverlay = null;
+    let presentation = null;
     const wrap = document.createElement('div');
     wrap.className = 'row image-picker';
+    let openedFromDocument = false;
+    const callerCanEdit = options.canEdit;
+    options = { ...options, canEdit: () => (!openedFromDocument || wrap.isConnected) && (!callerCanEdit || callerCanEdit()) };
+    const launcher = document.createElement('button');
+    launcher.type = 'button';
+    launcher.className = 'image-launcher';
+    const workspace = document.createElement('div');
+    workspace.className = 'image-workspace';
+    workspace.hidden = true;
+    const visual = document.createElement('div');
+    visual.className = 'image-workspace-visual';
+    const settings = document.createElement('div');
+    settings.className = 'image-workspace-settings';
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -276,7 +331,7 @@
     sizeInfo.className = 'img-size-info';
     const sizeControl = document.createElement('label');
     sizeControl.className = 'item-image-size-control';
-    sizeControl.appendChild(document.createTextNode('Tamanho'));
+    sizeControl.appendChild(document.createTextNode('Tamanho na prova'));
     const sizeSelect = document.createElement('select');
     sizeSelect.setAttribute('aria-label', 'Tamanho da imagem');
     sizeSelect.innerHTML = '<option value="small">Pequena</option><option value="medium">Média</option><option value="large">Grande</option>';
@@ -299,15 +354,32 @@
       actions.appendChild(button);
       return button;
     };
-    const rotateLeft = actionButton('↶', 'Girar 90° para a esquerda');
-    const rotateRight = actionButton('↷', 'Girar 90° para a direita');
-    const crop = actionButton('✂', 'Recortar imagem');
-    const remove = actionButton('×', 'Remover imagem', 'danger');
+    const replace = actionButton('Trocar imagem', 'Substituir imagem');
+    const crop = actionButton('Recortar', 'Recortar imagem');
+    const rotateLeft = actionButton('↶ Girar', 'Girar 90° para a esquerda');
+    const rotateRight = actionButton('↷ Girar', 'Girar 90° para a direita');
+    const remove = actionButton('Remover imagem', 'Remover imagem', 'danger image-remove-action');
 
     const refresh = () => {
       const image = options.getImage() || {};
       const hasImage = !!image.dataUrl;
       const editable = !options.canEdit || options.canEdit();
+      launcher.replaceChildren();
+      launcher.disabled = busy || !editable;
+      launcher.setAttribute('aria-label', hasImage ? 'Editar imagem' : 'Adicionar imagem');
+      if (hasImage) {
+        const thumb = document.createElement('img');
+        thumb.src = image.dataUrl;
+        thumb.alt = '';
+        launcher.appendChild(thumb);
+      }
+      const launcherCopy = document.createElement('span');
+      const launcherTitle = document.createElement('strong');
+      launcherTitle.textContent = busy ? 'Processando imagem…' : hasImage ? 'Editar imagem' : '+ Adicionar imagem';
+      const launcherHint = document.createElement('small');
+      launcherHint.textContent = hasImage ? 'Recorte, rotação e apresentação' : 'Escolha um arquivo ou arraste para cá';
+      launcherCopy.append(launcherTitle, launcherHint);
+      launcher.appendChild(launcherCopy);
       drop.replaceChildren();
       drop.setAttribute('aria-label', hasImage ? 'Substituir imagem' : 'Selecionar imagem do computador');
       drop.setAttribute('aria-busy', String(busy));
@@ -320,18 +392,20 @@
         preview.alt = image.fileName || 'Imagem da questão';
         drop.appendChild(preview);
         const bytes = dataUrlBytes(image.dataUrl);
-        sizeInfo.textContent = formatBytes(bytes) + (bytes > 600 * 1024 ? ' pesado' : '');
+        sizeInfo.textContent = 'Arquivo pesado: ' + formatBytes(bytes);
         sizeInfo.className = bytes > 600 * 1024 ? 'img-size-warn' : 'img-size-info';
-        drop.appendChild(sizeInfo);
+        if (bytes > 600 * 1024) drop.appendChild(sizeInfo);
+        drop.title = 'Trocar imagem';
       } else {
         const empty = document.createElement('div');
         empty.innerHTML = '<strong>Arraste uma imagem aqui</strong><br><span class="small">ou clique para selecionar do computador</span>';
         drop.appendChild(empty);
+        drop.title = 'Selecionar imagem';
       }
       sizeControl.hidden = !hasImage || !options.setSize;
       sizeSelect.value = options.getSize?.() || 'small';
       sizeSelect.disabled = busy || !editable;
-      [rotateLeft, rotateRight, crop, remove].forEach(button => {
+      [replace, rotateLeft, rotateRight, crop, remove].forEach(button => {
         button.hidden = !hasImage;
         button.disabled = busy || !editable;
       });
@@ -362,6 +436,58 @@
     const chooseFile = () => {
       if (!busy && (!options.canEdit || options.canEdit())) fileInput.click();
     };
+    const closeEditor = (force = false) => {
+      if (!editorOverlay || (busy && !force)) return;
+      if (cropOverlay) { cropOverlay.dismiss(); cropOverlay = null; }
+      workspace.hidden = true;
+      wrap.appendChild(workspace);
+      editorOverlay.remove();
+      editorOverlay = null;
+      options.modal?.closeModal?.();
+      launcher.focus();
+    };
+    const openEditor = () => {
+      if (busy || editorOverlay || (options.canEdit && !options.canEdit())) return;
+      if (!options.getImage()?.dataUrl) { chooseFile(); return; }
+      openedFromDocument = wrap.isConnected;
+      editorOverlay = document.createElement('div');
+      editorOverlay.className = 'image-editor-overlay';
+      const dialog = document.createElement('section');
+      dialog.className = 'image-editor-dialog';
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.setAttribute('aria-label', 'Editar imagem');
+      const heading = document.createElement('header');
+      heading.innerHTML = '<h2>Editar imagem</h2><p>Ajuste a imagem aqui. Confira sua posição e tamanho na prévia da prova.</p>';
+      const footer = document.createElement('footer');
+      const note = document.createElement('span');
+      note.textContent = 'Os ajustes são aplicados à prova automaticamente.';
+      const done = document.createElement('button');
+      done.type = 'button'; done.className = 'primary'; done.textContent = 'Concluir';
+      done.addEventListener('click', () => closeEditor());
+      footer.append(note, done);
+      workspace.hidden = false;
+      dialog.append(heading, workspace, footer);
+      editorOverlay.appendChild(dialog);
+      editorOverlay.dismiss = () => closeEditor();
+      document.body.appendChild(editorOverlay);
+      options.modal?.openModal?.(editorOverlay);
+    };
+    launcher.addEventListener('click', openEditor);
+    wrap.closeImageEditor = () => closeEditor(true);
+    launcher.addEventListener('dragover', event => { event.preventDefault(); launcher.classList.add('dragover'); });
+    launcher.addEventListener('dragleave', () => launcher.classList.remove('dragover'));
+    launcher.addEventListener('drop', event => {
+      event.preventDefault(); launcher.classList.remove('dragover');
+      applyFile(event.dataTransfer.files?.[0]);
+    });
+    // Context adapters hand over their real controls, retaining their listeners and stored fields.
+    wrap.attachPresentationControls = controls => {
+      if (presentation === controls) return;
+      presentation = controls;
+      settings.appendChild(controls);
+    };
+    replace.addEventListener('click', chooseFile);
     drop.addEventListener('click', chooseFile);
     drop.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -403,16 +529,18 @@
       const image = options.getImage() || {};
       if (!image.dataUrl || busy || (options.canEdit && !options.canEdit())) return;
       setBusy(true);
-      openCrop(image.dataUrl, output => {
+      cropOverlay = openCrop(image.dataUrl, output => {
         options.setImage(output, image.fileName);
         refresh();
         options.onChange?.();
       }, {
         ...(options.modal || {}),
-        canEdit: options.modal?.canEdit || options.canEdit,
+        canEdit: options.canEdit,
         onClose: () => {
           options.modal?.onClose?.();
           setBusy(false);
+          cropOverlay = null;
+          if (editorOverlay) options.modal?.openModal?.(editorOverlay);
         },
       });
     });
@@ -421,11 +549,17 @@
       options.clearImage();
       refresh();
       options.onChange?.();
+      closeEditor();
     });
 
     refresh();
-    wrap.append(drop, fileInput, actions);
-    if (options.setSize) wrap.appendChild(sizeControl);
+    visual.append(drop, actions);
+    const settingsTitle = document.createElement('h3');
+    settingsTitle.textContent = 'Na prova';
+    settings.appendChild(settingsTitle);
+    if (options.setSize) settings.appendChild(sizeControl);
+    workspace.append(visual, settings);
+    wrap.append(launcher, fileInput, workspace);
     return wrap;
   }
 

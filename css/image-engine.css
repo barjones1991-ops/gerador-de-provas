@@ -1,0 +1,66 @@
+/* Shared image UI. Question types provide controls/data, never another editor. */
+.image-picker .image-launcher {
+  display:flex; align-items:center; gap:14px; width:100%; padding:12px;
+  border:1px solid #d9e2ec; border-radius:12px; background:#fff;
+  color:#172b43; text-align:left; cursor:pointer; box-shadow:none;
+}
+.image-picker .image-launcher:hover { border-color:#7ca9d1; background:#f7fbff; }
+.image-picker .image-launcher:focus-visible { outline:3px solid #9dc8f0; outline-offset:2px; }
+.image-picker .image-launcher img { width:88px; height:72px; object-fit:contain; border-radius:6px; background:#f4f7fa; }
+.image-launcher > span { display:grid; gap:4px; min-width:0; }
+.image-launcher strong { font-size:14px; }
+.image-launcher small { color:#64748b; font-size:12px; font-weight:400; line-height:1.4; }
+.image-workspace[hidden] { display:none !important; }
+.image-editor-overlay { position:fixed; inset:0; z-index:290; background:#0f172a88; display:flex; align-items:center; justify-content:center; padding:20px; }
+.image-editor-dialog { width:min(920px,100%); max-height:92vh; overflow:auto; background:#fff; border-radius:18px; box-shadow:0 20px 80px #0f172a55; }
+.image-editor-dialog > header { padding:22px 26px 18px; border-bottom:1px solid #e3eaf1; }
+.image-editor-dialog h2 { margin:0; font-size:21px; color:#15263b; }
+.image-editor-dialog header p { margin:6px 0 0; font-size:13px; color:#64748b; }
+.image-workspace { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(220px,1fr); gap:24px; padding:24px 26px; }
+.image-workspace-visual { min-width:0; }
+.image-workspace .image-drop { display:flex; align-items:center; justify-content:center; position:relative; min-height:280px; padding:16px; border:1px solid #e0e7ef; border-radius:12px; background:#f5f7fa; }
+.image-workspace .image-drop img { display:block; width:auto; height:auto; max-width:100%; max-height:320px; object-fit:contain; border-radius:0; }
+.image-workspace .image-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:12px; }
+.image-workspace .image-actions button { min-height:40px; padding:8px 6px; font-size:12px; white-space:normal; }
+.image-workspace .image-actions button::first-letter { font-size:inherit; }
+.image-workspace .image-actions .image-remove-action { grid-column:1/-1; justify-self:start; border:0; background:transparent; color:#b42318; padding:8px 0; box-shadow:none; margin-top:4px; }
+.image-workspace-settings { min-width:0; padding-left:22px; border-left:1px solid #e3eaf1; }
+.image-workspace-settings h3 { margin:0 0 16px; font-size:15px; color:#24364b; }
+.image-workspace-settings .image-layout-controls, .image-workspace-settings .image-layout-controls.row.three { display:grid; grid-template-columns:1fr; gap:16px; margin:0; }
+.image-workspace-settings .image-layout-controls > *, .image-workspace-settings .image-disposition-field { grid-column:1/-1; margin:0; }
+.image-workspace-settings label { display:block; margin-bottom:6px; font-size:13px; color:#42566e; text-transform:none; letter-spacing:normal; }
+.image-workspace-settings select, .image-workspace-settings input { display:block; box-sizing:border-box; width:100%; min-height:42px; border:1px solid #d9e2ec; border-radius:8px; padding:9px 10px; background:#fff; color:#15263b; font:inherit; margin-top:6px; }
+.image-workspace-settings:has(>h3:only-child) { display:none; }
+.image-workspace:has(.image-workspace-settings>h3:only-child) { grid-template-columns:1fr; }
+.image-editor-dialog > footer { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px 26px; border-top:1px solid #e3eaf1; }
+.image-editor-dialog footer span { color:#64748b; font-size:12px; }
+.image-editor-dialog footer button { min-width:110px; min-height:42px; }
+.image-word-media .image-launcher { flex-direction:column; gap:6px; padding:6px; text-align:center; }
+.image-word-media .image-launcher img { width:100%; height:66px; }
+.image-word-media .image-launcher strong { font-size:11px; }
+.image-word-media .image-launcher small { display:none; }
+.crop-modal-overlay { position:fixed; inset:0; background:#0f172abf; z-index:300; display:flex; align-items:center; justify-content:center; }
+.crop-modal-box { background:#fff; border-radius:18px; padding:20px; display:flex; flex-direction:column; gap:12px; max-width:92vw; max-height:92vh; overflow:auto; }
+.crop-modal-title { font-weight:800; font-size:16px; }
+.crop-canvas-wrap { position:relative; display:inline-block; align-self:center; max-width:100%; cursor:crosshair; user-select:none; line-height:0; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; touch-action:none; }
+.crop-canvas-wrap canvas { display:block; max-width:70vw; max-height:60vh; touch-action:none; }
+.crop-selection { position:absolute; border:2px solid #667eea; box-sizing:border-box; background:transparent; box-shadow:0 0 0 10000px #0f172a88; cursor:move; touch-action:none; }
+.crop-handle { position:absolute; width:18px; height:18px; background:#fff; border:2px solid #2563eb; border-radius:4px; box-sizing:border-box; }
+.crop-handle-nw { left:0; top:0; cursor:nwse-resize; }
+.crop-handle-ne { right:0; top:0; cursor:nesw-resize; }
+.crop-handle-sw { left:0; bottom:0; cursor:nesw-resize; }
+.crop-handle-se { right:0; bottom:0; cursor:nwse-resize; }
+.crop-precise > summary { cursor:pointer; color:#475569; padding:8px 0; font-size:13px; }
+.crop-precise .row { margin:8px 0; }
+.crop-modal-btns { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+@media(max-width:600px) {
+  .image-editor-overlay { padding:8px; }
+  .image-editor-dialog { max-height:96dvh; border-radius:12px; }
+  .image-editor-dialog > header, .image-editor-dialog > footer { padding:16px; }
+  .image-workspace { grid-template-columns:1fr; padding:16px; gap:16px; }
+  .image-workspace .image-drop { min-height:150px; }
+  .image-workspace .image-drop img { max-height:220px; }
+  .image-workspace-settings { border-left:0; border-top:1px solid #e3eaf1; padding:16px 0 0; }
+  .image-workspace .image-actions { grid-template-columns:1fr 1fr; }
+  .image-workspace .image-actions button { min-height:44px; }
+}

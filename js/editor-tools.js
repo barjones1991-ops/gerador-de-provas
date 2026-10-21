@@ -475,6 +475,7 @@ const EditorTools = {
         this.embedFieldImages(card, q);
         this.organizeDiscursive(card, q, index);
         this.organizeStandardQuestion(card, q, index);
+        this.organizeImagePanels(card);
         this.addMathStatementTools(card, q);
       }
     });
@@ -862,7 +863,7 @@ const EditorTools = {
       lacunas:['Frases com lacunas','Escreva a frase com ___ e informe a resposta no campo verde de cada item.'],
       relacione:['Pares correspondentes','Preencha os pares corretos. A coluna direita pode ser embaralhada para a prova.'],
       associacao_setas:['Pares correspondentes','Cadastre os pares corretos; a coluna direita será embaralhada na prova.'],
-      relacione_imagens:['Imagens e palavras','Cadastre os pares corretos. As palavras podem ser embaralhadas para a prova.'],
+      relacione_imagens:['Imagens e palavras','Escolha uma imagem e escreva a palavra que a identifica. Confira a atividade montada na prévia.'],
       imagem:['Resposta do aluno','Escolha a forma de resposta para a imagem.'],
       interpretacao_imagem:['Perguntas sobre a imagem','Cadastre as perguntas e configure o espaço de resposta.'],
       texto_base:['Resposta do aluno','Escolha como o aluno responderá à leitura.'],
@@ -1071,6 +1072,53 @@ const EditorTools = {
         || (q.type === 'tabela' && q.answerType !== 'discursiva');
     });
   },
+  organizeImagePanels(card) {
+    // Preserve the original controls/listeners: this is presentation, not a new data format.
+    card.querySelectorAll('.image-picker').forEach(picker => {
+      const layout = picker.nextElementSibling;
+      if (!layout || !layout.querySelector('select option[value="small"]') || !layout.querySelector('label')) return;
+      if (layout.classList.contains('image-layout-controls')) return;
+      layout.classList.add('image-layout-controls');
+      layout.querySelectorAll('label').forEach(label => {
+        if (/^Tamanho(?: da imagem)?$/.test(label.textContent.trim())) label.textContent = 'Tamanho na prova';
+        if (label.textContent.trim() === 'Legenda') label.textContent = 'Legenda na prova — opcional';
+        if (label.textContent.trim() === 'Alinhamento') label.textContent = 'Posição';
+      });
+      picker.attachPresentationControls?.(layout);
+    });
+    card.querySelectorAll('select').forEach(position => {
+      if (!position.querySelector('option[value="lado_esquerda"]') || position.dataset.imageDisposition) return;
+      position.dataset.imageDisposition = 'true';
+      const field = document.createElement('label');
+      field.className = 'image-disposition-field';
+      field.appendChild(document.createTextNode('Disposição'));
+      const disposition = document.createElement('select');
+      disposition.setAttribute('aria-label', 'Disposição da imagem');
+      disposition.innerHTML = '<option value="own">Em uma linha própria</option><option value="beside">Com texto ao lado</option>';
+      field.appendChild(disposition);
+      position.parentElement.before(field);
+      const sync = () => {
+        const beside = position.value.startsWith('lado_');
+        disposition.value = beside ? 'beside' : 'own';
+        disposition.disabled = position.disabled || !this.canEdit();
+        position.querySelectorAll('option').forEach(option => {
+          const sideOption = option.value.startsWith('lado_');
+          option.hidden = sideOption !== beside;
+          option.disabled = sideOption !== beside;
+          if (sideOption) option.textContent = option.value === 'lado_esquerda' ? 'Esquerda' : 'Direita';
+        });
+      };
+      disposition.addEventListener('change', () => {
+        if (!this.canEdit() || position.disabled) { sync(); return; }
+        const right = position.value.endsWith('direita') || position.value === 'right';
+        position.value = disposition.value === 'beside' ? (right ? 'lado_direita' : 'lado_esquerda') : (right ? 'right' : 'left');
+        sync();
+        position.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      position.addEventListener('change', sync);
+      sync();
+    });
+  },
   fitDiscursiveText(input) {
     if (!input?.getClientRects?.().length) return;
     input.style.height = 'auto';
@@ -1109,6 +1157,7 @@ const EditorTools = {
       trigger.classList.toggle('has-image', hasImage);
     }
     card.querySelectorAll('.header-image-layout select option').forEach(option => {
+      if (option.parentElement.dataset.imageDisposition) return;
       if (option.value === 'lado_esquerda') option.textContent = 'Imagem à esquerda do texto';
       if (option.value === 'lado_direita') option.textContent = 'Imagem à direita do texto';
     });
@@ -1769,7 +1818,7 @@ const EditorTools = {
     const contextControls = document.createElement('div'); contextControls.className = 'editor-context-controls';
     details.before(contextControls); contextControls.append(details, overview, readiness);
     const preview = document.createElement('section'); preview.id = 'canonicalPreviewPanel';
-    preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><div class="preview-tools"><button type="button" id="decorationModeBtn" class="outline">Decorar prova</button><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div></div><div id="decorationBar" class="decoration-bar" hidden><span id="decorationStatus">Arraste as imagens pela página.</span><button id="addDecorationBtn" type="button">+ Adicionar imagem</button><label>Página <select id="decorationPage" aria-label="Página da imagem decorativa"></select></label><button id="decorationRotateLeft" type="button" title="Girar para a esquerda">↶</button><button id="decorationRotateRight" type="button" title="Girar para a direita">↷</button><button id="decorationCrop" type="button">Recortar</button><button id="replaceDecorationBtn" type="button">Substituir</button><button id="removeDecorationBtn" type="button" class="danger">Remover</button><button id="finishDecorationBtn" type="button" class="primary">Concluir</button><input id="decorationFileInput" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div class="preview-navigation"><button id="previewPrevious" type="button" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button id="previewNext" type="button" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><div id="decorationEditorLayer" class="decoration-editor-layer" aria-label="Imagens decorativas da prova"></div><iframe id="canonicalPreview" src="print.html?preview=1&v=20261021-richtext4" title="Prévia da prova em formato A4"></iframe></div>';
+preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><strong>Prévia da prova</strong><div class="preview-tools"><button type="button" id="decorationModeBtn" class="outline">Decorar prova</button><label class="preview-answer-key"><input class="sr-only" type="checkbox" id="previewAnswerKey" aria-label="Mostrar gabarito na prévia"><span>Ver respostas</span></label><select class="sr-only" id="previewZoom" aria-label="Zoom da prévia"><option value="fit" selected>Ajustar à largura</option></select></div></div><div id="decorationBar" class="decoration-bar" hidden><span id="decorationStatus">Arraste as imagens pela página.</span><button id="addDecorationBtn" type="button">+ Adicionar imagem</button><label>Página <select id="decorationPage" aria-label="Página da imagem decorativa"></select></label><button id="decorationRotateLeft" type="button" title="Girar para a esquerda">↶</button><button id="decorationRotateRight" type="button" title="Girar para a direita">↷</button><button id="decorationCrop" type="button">Recortar</button><button id="replaceDecorationBtn" type="button">Substituir</button><button id="removeDecorationBtn" type="button" class="danger">Remover</button><button id="finishDecorationBtn" type="button" class="primary">Concluir</button><input id="decorationFileInput" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div class="preview-navigation"><button id="previewPrevious" type="button" aria-label="Questão anterior na prévia" title="Questão anterior">‹</button><label class="sr-only" for="previewQuestionSelect">Ir à questão</label><select id="previewQuestionSelect" aria-label="Ir à questão na prévia"></select><button id="previewNext" type="button" aria-label="Próxima questão na prévia" title="Próxima questão">›</button></div></div><div class="preview-scroll"><div id="decorationEditorLayer" class="decoration-editor-layer" aria-label="Imagens decorativas da prova"></div><iframe id="canonicalPreview" src="print.html?preview=1&v=20261021-imageworkspace1" title="Prévia da prova em formato A4"></iframe></div>';
     const previewCaption = document.createElement('span'); previewCaption.id = 'previewQuestionCaption';
     preview.querySelector('.preview-options > strong').appendChild(previewCaption);
     document.getElementById('previewRoot').parentElement.appendChild(preview);
@@ -1793,7 +1842,7 @@ const EditorTools = {
       if (event.data?.type === 'exam-preview-space-suggestion') this.setSpaceSuggestion(event.data.suggestion, event.data);
       if (event.data?.type === 'exam-preview-paginated') window.refreshDecorationLayer?.(event.data.pages);
     });
-    // All implemented types have an explicit creation path and a short example.
+    // Available creation types have a short example; retired types remain readable in saved exams.
     const select = document.getElementById('qtypeSelect'); select.replaceChildren();
     const groups = {};
     const category = type => ['multipla','vf','marcarx','relacione','associacao_setas'].includes(type) ? 'Alternativas e relações'
@@ -1801,7 +1850,7 @@ const EditorTools = {
       : ['matematica_coluna','expressao_matematica','problema_matematico','sequencia_numerica','tabela'].includes(type) ? 'Matemática e dados'
       : ['ditado','silabas','leitura_escrita','caca_palavras','cruzadinha'].includes(type) ? 'Linguagem e alfabetização' : 'Imagens e desenho';
     for (const [type, label] of Object.entries(typeLabel)) {
-      if (!templates[type] || ['multipla','associacao_setas','imagem'].includes(type)) continue;
+      if (!templates[type] || ['multipla','associacao_setas','imagem','interpretacao_imagem'].includes(type)) continue;
       const name = category(type);
       if (!groups[name]) { groups[name] = document.createElement('optgroup'); groups[name].label = name; select.appendChild(groups[name]); }
       const option = document.createElement('option'); option.value = type; option.textContent = label; groups[name].appendChild(option);

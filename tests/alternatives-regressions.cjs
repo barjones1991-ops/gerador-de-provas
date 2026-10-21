@@ -228,6 +228,12 @@ for(const question of [
  const sizes=await boot({questions:[{...question,text:'Observe.',points:'10'}]}); sizes.ctx.EditorTools.focusQuestion(0);
  const control=[...sizes.document.querySelectorAll('.item-image-size-control')].find(node=>!node.hidden);
  assert(control,question.type);
+ const sharedPicker=control.closest('.image-picker');
+ assert(sharedPicker?.querySelector('.image-launcher'),question.type+' usa a entrada do editor compartilhado');
+ sizes.event(sharedPicker.querySelector('.image-launcher'),'click');
+ assert(sizes.document.querySelector('.image-editor-dialog').contains(control),question.type+' edita no mesmo painel');
+ sizes.event(sizes.document.querySelector('.image-editor-dialog footer button'),'click');
+ assert(sharedPicker.contains(control),question.type+' preserva controles ao fechar');
  const select=control.querySelector('select'); select.value='large'; sizes.event(select,'change');
  await sizes.run('saveToCloud()');
  const savedQuestion=JSON.parse(sizes.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0];
@@ -235,7 +241,7 @@ for(const question of [
  assert(document.querySelector('img[data-item-image-size="large"]'),question.type+' imprime tamanho escolhido');
  const again=await boot({questions:[savedQuestion]}); again.ctx.EditorTools.focusQuestion(0);
  assert([...again.document.querySelectorAll('.item-image-size-control select')].some(node=>node.value==='large'),question.type+' reabre tamanho salvo');
- const picker=control.closest('.image-picker'); const remove=[...picker.querySelectorAll('button')].find(node=>node.title==='Remover imagem');
+ const picker=control.closest('.image-word-row') || control.closest('.image-picker'); const remove=[...picker.querySelectorAll('button')].find(node=>node.title==='Remover imagem');
  sizes.event(remove,'click'); assert(control.hidden,question.type+' oculta tamanho ao remover');
  sizes.run('readImageFile=(file,done)=>done("data:image/png;base64,BB==",file.name,1)');
  const fileInput=picker.querySelector('input[type="file"]'); fileInput.files=[{name:'nova.png'}]; sizes.event(fileInput,'change');

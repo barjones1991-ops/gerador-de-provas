@@ -77,7 +77,7 @@ async function main() {
     const app = await boot();
     for (const type of app.run('Object.keys(templates)')) {
       app.run(`state.questions = [templates[${JSON.stringify(type)}]()]; state.collapsedQuestions = {}; renderAll();`);
-      if (['multipla','associacao_setas','imagem'].includes(type)) assert(!app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type+' is legacy-only');
+      if (['multipla','associacao_setas','imagem','interpretacao_imagem'].includes(type)) assert(!app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type+' is legacy-only');
       else assert(app.document.querySelector(`#qtypeSelect option[value="${type}"]`),type);
       const card=app.document.querySelector('.qcard'); assert(card,type);
       assert(card.classList.contains('compact-question-editor'),type);
@@ -181,6 +181,44 @@ async function main() {
     assert.equal(document.querySelectorAll('.question-block')[1],untouched);
     vm.runInContext('renderExam({questions:[{type:"ditado",wordCount:"1\\\" data-injected=\\\"sim",text:"Teste",points:"1,0"}]})',ctx);
     assert.equal(document.querySelector('[data-injected]'),null);
+  });
+  await test('relacione imagens usa instrucao unica, espacos sem letras e gabarito direto', async () => {
+    const question = {
+      type:'relacione_imagens',
+      text:'Escreva o número da imagem correspondente ao lado de cada palavra.',
+      points:'4,0',
+      pairs:[
+        {imageDataUrl:'',imageFileName:'raiz.png',word:'Raiz'},
+        {imageDataUrl:'',imageFileName:'caule.png',word:'Caule'},
+        {imageDataUrl:'',imageFileName:'folha.png',word:'Folha'},
+        {imageDataUrl:'',imageFileName:'flor.png',word:'Flor'},
+      ],
+      wordOrder:[3,1,0,2],
+    };
+    const app = await boot({questions:[question]});
+    assert.equal(app.run('templates.relacione_imagens().text'),question.text);
+    const editorHtml = app.run('renderQuestionPreview(state.questions[0])');
+    assert.equal((editorHtml.match(/image-match-answer-space/g) || []).length,4);
+    assert(!editorHtml.includes('A)') && !editorHtml.includes('B)'));
+    assert.equal(app.run('relacioneImagensAnswer(state.questions[0])'),'Imagem 1 — Raiz; Imagem 2 — Caule; Imagem 3 — Folha; Imagem 4 — Flor');
+
+    const { document } = parseHTML(read('print.html'));
+    const ctx = { document, ExamSafety:Safety, URLSearchParams, URL, console, location:{search:'?preview=1'},
+      window:{location:{search:'?preview=1'}}, addEventListener() {}, setTimeout() {}, clearTimeout() {} };
+    vm.createContext(ctx);
+    for (const script of document.querySelectorAll('script:not([src])')) vm.runInContext(script.textContent,ctx);
+    ctx.exam = {title:'Biologia',questions:[question],total_value:'4,0'};
+    vm.runInContext('currentExam=exam; renderExam(exam,true)',ctx);
+    const block = document.querySelector('.question-block');
+    assert.equal(block.querySelectorAll('.image-match-answer-space').length,4);
+    assert.deepEqual([...block.querySelectorAll('.image-word-match-row')].map(row => [
+      row.querySelector('.match-image strong').textContent,
+      row.querySelector('.image-match-word-text').textContent,
+      row.querySelector('.image-match-answer-space').textContent.replace(/\s/g,''),
+    ]), [['1.','Flor','()'],['2.','Caule','()'],['3.','Raiz','()'],['4.','Folha','()']]);
+    assert(!block.textContent.includes('A)') && !block.textContent.includes('B)'));
+    assert.equal(block.querySelector('.image-match-instruction'),null);
+    assert.equal(vm.runInContext('getQuestionAnswer(currentExam.questions[0])',ctx),'Imagem 1 — Raiz; Imagem 2 — Caule; Imagem 3 — Folha; Imagem 4 — Flor');
   });
   await test('digitacao agrupa copia local e perguntas recolhidas nao montam seus formularios', async () => {
     const questions = Array.from({length:100}, (_,i)=>({type:'discursiva',text:`Questão ${i+1}`,points:'0,1',lines:5}));

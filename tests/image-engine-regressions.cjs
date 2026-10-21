@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { parseHTML } = require('linkedom');
 
-function bootEngine() {
+function bootEngine({ imageMock = class {} } = {}) {
   const { window } = parseHTML('<!doctype html><html><body></body></html>');
   const selectPrototype = window.HTMLSelectElement.prototype;
   if (!Object.getOwnPropertyDescriptor(selectPrototype, 'value').set) {
@@ -26,7 +26,7 @@ function bootEngine() {
     console,
     setTimeout,
     clearTimeout,
-    Image: class {},
+    Image: imageMock,
   });
   const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'image-engine.js'), 'utf8');
   vm.runInContext(source, context, { filename: 'js/image-engine.js' });
@@ -54,9 +54,68 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
     assert.equal(file.hidden, true);
     assert.equal(file.getAttribute('aria-hidden'), 'true');
     assert(remove, 'ações por ícone precisam de nome acessível');
+    assert.equal(remove.textContent, 'Remover imagem');
+    assert.equal(picker.querySelector('[aria-label="Recortar imagem"]').textContent, 'Recortar');
+    let picked = 0;
+    file.click = () => { picked++; };
+    fire(window, picker.querySelector('button[aria-label="Substituir imagem"]'), 'click');
+    assert.equal(picked, 1, 'troca explícita reutiliza a seleção de arquivo');
+    assert.equal(picker.querySelector('.img-size-info'), null, 'peso normal não ocupa a miniatura');
     editable = false;
     fire(window, remove, 'click');
     assert.equal(cleared, 0, 'remoção não pode alterar uma prova bloqueada durante a interação');
+  }
+
+  {
+    const { window, document, engine } = bootEngine({ imageMock: class {
+      constructor() { this.width = 400; this.height = 300; }
+      set src(value) { this.onload(); }
+    } });
+    const create = document.createElement.bind(document);
+    let drawn;
+    document.createElement = name => {
+      const el = create(name);
+      if (name === 'canvas') {
+        el.getContext = () => ({ drawImage(...args) { drawn = args; } });
+        el.toDataURL = () => 'data:image/webp;base64,AAAA';
+        el.getBoundingClientRect = () => ({ left:0, top:0, width:400, height:300 });
+      }
+      return el;
+    };
+    let applied = 0;
+    engine.openCrop('data:image/png;base64,AAAA', () => applied++);
+    await settle();
+    const overlay = document.querySelector('.crop-modal-overlay');
+    const wrap = overlay.querySelector('.crop-canvas-wrap');
+    const inputs = [...overlay.querySelectorAll('.crop-precise input')];
+    assert.equal(overlay.querySelectorAll('.crop-handle').length, 4);
+    assert.equal(overlay.querySelector('.crop-precise').hasAttribute('open'), false);
+    const pointer = (node, type, x, y) => {
+      const event = new window.Event(type, { bubbles:true, cancelable:true });
+      Object.assign(event, { pointerId:1, button:0, clientX:x, clientY:y });
+      node.dispatchEvent(event);
+    };
+    pointer(overlay.querySelector('.crop-handle-se'), 'pointerdown', 400, 300);
+    pointer(wrap, 'pointermove', 200, 150);
+    pointer(wrap, 'pointerup', 200, 150);
+    assert.deepEqual(inputs.map(input => Number(input.value)), [0,0,50,50]);
+    pointer(overlay.querySelector('.crop-selection'), 'pointerdown', 100, 75);
+    pointer(wrap, 'pointermove', 140, 105);
+    pointer(wrap, 'pointerup', 140, 105);
+    assert.deepEqual(inputs.map(input => Number(input.value)), [10,10,50,50]);
+    pointer(overlay.querySelector('.crop-handle-nw'), 'pointerdown', 40, 30);
+    pointer(wrap, 'pointermove', 80, 60);
+    pointer(wrap, 'pointercancel', 80, 60);
+    assert.deepEqual(inputs.map(input => Number(input.value)), [10,10,50,50], 'cancelar gesto preserva seleção anterior');
+    inputs[2].value = '25'; fire(window, inputs[2], 'input');
+    fire(window, overlay.querySelector('.primary'), 'click');
+    assert.equal(applied, 1);
+    assert.deepEqual(drawn.slice(1,5), [40,30,100,150], 'recorte aplica exatamente a seleção movida/ajustada');
+    assert.equal(document.querySelector('.crop-modal-overlay'), null);
+    engine.openCrop('data:image/png;base64,AAAA', () => applied++);
+    await settle();
+    fire(window, document.querySelector('.crop-modal-btns .outline'), 'click');
+    assert.equal(applied, 1, 'cancelar não altera a imagem');
   }
 
   {

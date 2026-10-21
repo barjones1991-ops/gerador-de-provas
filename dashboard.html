@@ -296,13 +296,6 @@
     .card-btn.edit { background: #2563eb; color: white; }
     .card-btn.edit:hover { background: #1d4ed8; color: white; border-color: #1d4ed8; }
     .card-btn.review { background: white; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .exam-menu { margin-left: auto; position: relative; }
-    .exam-menu summary { list-style: none; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 24px; }
-    .exam-menu summary::-webkit-details-marker { display: none; }
-    .exam-menu-items { position: absolute; right: 0; top: 42px; z-index: 5; width: 180px; padding: 6px; display: grid; gap: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; box-shadow: 0 6px 16px #0002; }
-    .exam-menu-items .card-btn { text-align: left; background: white; color: #334155; width: 100%; }
-    .exam-menu-items .delete { color: #b91c1c; }
-    .exam-menu-items .card-btn:hover { background: #f1f5f9; }
     .load-error { color: #991b1b; margin-bottom: 16px; font-size: 14px; }
     :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
     [hidden] { display: none !important; }
@@ -316,6 +309,460 @@
       .user-info { min-width: 0; }
       .user-email, .user-name { overflow-wrap: anywhere; }
       .exam-tab { padding: 10px 6px; }
+    }
+
+    /* EXPERIMENTO VISUAL — biblioteca inspirada em sistemas móveis */
+    :root {
+      --app-blue: #2563eb;
+      --app-blue-dark: #1746b4;
+      --app-ink: #101828;
+      --app-muted: #667085;
+      --app-surface: rgba(255, 255, 255, 0.86);
+      --app-line: rgba(148, 163, 184, 0.24);
+      --app-shadow: 0 18px 50px rgba(37, 51, 87, 0.10);
+    }
+    body {
+      background:
+        radial-gradient(circle at 76% -8%, rgba(96, 165, 250, 0.22), transparent 34rem),
+        radial-gradient(circle at 8% 88%, rgba(196, 181, 253, 0.20), transparent 30rem),
+        #eef3f9;
+      color: var(--app-ink);
+      padding-left: 226px;
+    }
+    .app-sidebar {
+      inset: 16px auto 16px 16px;
+      width: 194px;
+      border: 1px solid rgba(255,255,255,0.86);
+      border-radius: 28px;
+      padding: 18px 12px;
+      background: rgba(255,255,255,0.78);
+      box-shadow: var(--app-shadow);
+      backdrop-filter: blur(22px) saturate(150%);
+    }
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 8px 16px;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+    .app-brand::before {
+      content: "P";
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      flex: none;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 900;
+      background: linear-gradient(145deg, #4f8cff, #2457d6);
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255,255,255,0.35);
+    }
+    .app-nav { gap: 7px; }
+    .app-nav-link {
+      min-height: 44px;
+      gap: 10px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .app-nav-link::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      flex: none;
+      border-radius: 3px;
+      background: #cbd5e1;
+      box-shadow: 0 0 0 4px rgba(203, 213, 225, 0.24);
+    }
+    .app-nav-link.active {
+      background: linear-gradient(145deg, #2768ea, #1d4fc3);
+      box-shadow: 0 9px 20px rgba(37, 99, 235, 0.24);
+    }
+    .app-nav-link.active::before {
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.18);
+    }
+    header {
+      height: 72px;
+      padding: 0 28px;
+      border-bottom: 1px solid rgba(255,255,255,0.78);
+      background: rgba(248,250,252,0.74);
+      box-shadow: none;
+      backdrop-filter: blur(18px) saturate(145%);
+    }
+    .page-title {
+      display: grid;
+      gap: 1px;
+      color: #667085;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .page-title strong {
+      color: var(--app-ink);
+      font-size: 15px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      text-transform: none;
+    }
+    .header-right { gap: 10px; }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 13px;
+      background: linear-gradient(145deg, #4384ff, #255bd7);
+      box-shadow: 0 6px 15px rgba(37,99,235,0.22);
+    }
+    .btn-profile, .btn-logout {
+      min-height: 38px;
+      border: 1px solid var(--app-line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.72);
+    }
+    .main {
+      max-width: 1160px;
+      padding: 30px 28px 64px;
+    }
+    .topbar {
+      position: relative;
+      overflow: hidden;
+      min-height: 154px;
+      margin-bottom: 18px;
+      padding: 28px 30px;
+      border: 1px solid rgba(255,255,255,0.42);
+      border-radius: 30px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 84% 20%, rgba(255,255,255,0.20), transparent 15rem),
+        linear-gradient(135deg, #1f63e9, #5b4bdb);
+      box-shadow: 0 22px 45px rgba(48, 73, 170, 0.20);
+    }
+    .topbar::after {
+      content: "";
+      position: absolute;
+      width: 170px;
+      height: 170px;
+      right: 14%;
+      bottom: -126px;
+      border: 28px solid rgba(255,255,255,0.08);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .topbar-copy { position: relative; z-index: 1; max-width: 610px; }
+    .topbar-kicker {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.72);
+    }
+    .topbar h1 {
+      color: #fff;
+      font-size: clamp(27px, 3vw, 36px);
+      letter-spacing: -0.035em;
+    }
+    .topbar-description {
+      max-width: 520px;
+      margin-top: 7px;
+      color: rgba(255,255,255,0.80);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .btn-new {
+      position: relative;
+      z-index: 1;
+      min-height: 48px;
+      padding: 0 20px;
+      border: 1px solid rgba(255,255,255,0.72);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.96);
+      color: #1e54c6;
+      box-shadow: 0 12px 25px rgba(21, 40, 112, 0.24);
+    }
+    .btn-new:hover { background: #fff; color: #1746b4; transform: translateY(-1px); box-shadow: 0 15px 30px rgba(21,40,112,0.28); }
+    .library-panel {
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,0.84);
+      border-radius: 30px;
+      background: rgba(255,255,255,0.58);
+      box-shadow: var(--app-shadow);
+      backdrop-filter: blur(18px) saturate(135%);
+    }
+    .exam-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 0;
+      border: 0;
+    }
+    .exam-tab {
+      min-height: 64px;
+      padding: 10px 8px;
+      border: 1px solid var(--app-line);
+      border-radius: 17px;
+      background: rgba(255,255,255,0.72);
+      color: #667085;
+      line-height: 1.25;
+    }
+    .exam-tab:hover { background: #fff; border-color: rgba(37,99,235,0.28); }
+    .exam-tab[aria-pressed="true"] {
+      border: 1px solid rgba(37,99,235,0.22);
+      background: #fff;
+      color: #1649b8;
+      box-shadow: 0 8px 20px rgba(37,99,235,0.10);
+    }
+    .exam-tab span {
+      display: grid;
+      place-items: center;
+      width: 25px;
+      height: 25px;
+      min-width: 25px;
+      margin: 5px auto 0;
+      border-radius: 9px;
+      background: #eef2f7;
+      color: #475467;
+      font-size: 12px;
+    }
+    .exam-tab[aria-pressed="true"] span { background: #e7efff; color: #1746b4; }
+    .controls {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .search-wrap::before {
+      content: "⌕";
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      z-index: 1;
+      transform: translateY(-52%);
+      color: #667085;
+      font-size: 23px;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .search-wrap input,
+    .select-control {
+      min-height: 48px;
+      border: 1px solid var(--app-line);
+      border-radius: 15px;
+      background: rgba(255,255,255,0.82);
+      color: #344054;
+    }
+    .search-wrap input { padding: 12px 16px 12px 47px; }
+    .search-wrap input:focus,
+    .select-control:focus { border-color: #80a7fb; box-shadow: 0 0 0 4px rgba(37,99,235,0.10); }
+    .list-toolbar {
+      min-height: 42px;
+      margin: 0 1px 12px;
+      color: #667085;
+    }
+    #showingInfo { font-weight: 650; }
+    #sortSelect { min-height: 40px; border-radius: 13px; }
+    .grid {
+      grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+      align-items: stretch;
+      gap: 12px;
+    }
+    .exam-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      min-height: 265px;
+      aspect-ratio: 1 / 1;
+      padding: 15px;
+      border: 1px solid rgba(148,163,184,0.19);
+      border-radius: 22px;
+      background: rgba(255,255,255,0.90);
+      box-shadow: 0 6px 20px rgba(31, 48, 82, 0.055);
+    }
+    .exam-card:hover {
+      border-color: rgba(37,99,235,0.30);
+      background: #fff;
+      box-shadow: 0 13px 30px rgba(31,48,82,0.09);
+      transform: translateY(-1px);
+    }
+    .exam-status-dot {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      margin: 5px 3px 0;
+      border: 4px solid rgba(255,255,255,0.92);
+      border-radius: 50%;
+      background: #98a2b3;
+      box-shadow: 0 0 0 4px rgba(152,162,179,0.15), 0 3px 8px rgba(16,24,40,0.10);
+    }
+    .exam-status-dot.status-publicada { background: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.14), 0 3px 8px rgba(16,24,40,0.10); }
+    .exam-status-dot.status-enviada,
+    .exam-status-dot.status-em_revisao { background: #f79009; box-shadow: 0 0 0 4px rgba(247,144,9,0.15), 0 3px 8px rgba(16,24,40,0.10); }
+    .exam-status-dot.status-aprovada { background: #22a95a; box-shadow: 0 0 0 4px rgba(34,169,90,0.15), 0 3px 8px rgba(16,24,40,0.10); }
+    .exam-status-dot.status-devolvida { background: #f97316; box-shadow: 0 0 0 4px rgba(249,115,22,0.15), 0 3px 8px rgba(16,24,40,0.10); }
+    .exam-status-dot.status-bloqueada { background: #e5484d; box-shadow: 0 0 0 4px rgba(229,72,77,0.15), 0 3px 8px rgba(16,24,40,0.10); }
+    .card-heading {
+      min-height: 50px;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 10px;
+    }
+    .card-heading-copy {
+      min-width: 0;
+    }
+    .card-title {
+      color: var(--app-ink);
+      font-size: 15px;
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+    }
+    .card-meta {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px 12px;
+      padding: 10px 0;
+      border-top: 1px solid #edf0f5;
+      border-bottom: 1px solid #edf0f5;
+    }
+    .meta-row { gap: 2px; }
+    .meta-label { font-size: 11px; color: #98a2b3; }
+    .meta-value { font-size: 12px; color: #344054; }
+    .exam-context { margin-top: -2px; color: #667085; }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: auto;
+      padding-top: 11px;
+    }
+    .card-footer .small {
+      flex: 1 0 100%;
+      order: -1;
+      margin: 0;
+      color: #667085;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .card-btn {
+      min-height: 38px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border-color: var(--app-line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      line-height: 1.15;
+    }
+    .card-btn .action-icon { width: 17px; height: 17px; display: inline-grid; place-items: center; flex: none; }
+    .card-btn .action-icon svg { width: 17px; height: 17px; stroke: currentColor; }
+    .card-btn.icon-only {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      min-height: 42px;
+      padding: 0;
+      border-radius: 14px;
+    }
+    .card-btn.icon-only .action-icon,
+    .card-btn.icon-only .action-icon svg { width: 20px; height: 20px; }
+    .card-btn.edit {
+      border-color: #2867e5;
+      background: linear-gradient(145deg, #3478f3, #245bd0);
+      box-shadow: 0 6px 13px rgba(37,99,235,0.17);
+    }
+    .card-btn.review.icon-only { color: #245bd0; border-color: #c9dafd; background: #f4f7ff; }
+    .card-btn.duplicate.icon-only { color: #6840c6; border-color: #ded4f8; background: #faf8ff; }
+    .card-btn.delete.icon-only { color: #c43232; border-color: #f2caca; background: #fff8f8; }
+    .card-btn.icon-only:hover { transform: translateY(-1px); box-shadow: 0 7px 15px rgba(31,48,82,0.10); }
+    .card-btn.icon-only:disabled { transform: none; box-shadow: none; opacity: .48; cursor: not-allowed; }
+    .empty { padding: 72px 24px; border-radius: 22px; background: rgba(255,255,255,0.72); }
+    .modal-overlay { background: rgba(15, 23, 42, 0.36); backdrop-filter: blur(8px); }
+    .modal { border: 1px solid rgba(255,255,255,0.8); border-radius: 28px; box-shadow: 0 28px 70px rgba(15,23,42,0.24); }
+    .toast { border-radius: 16px; }
+
+    @media (max-width: 980px) {
+      body { padding-left: 0; }
+      .app-sidebar {
+        position: fixed;
+        inset: auto 14px 12px;
+        width: auto;
+        min-height: 68px;
+        padding: 8px;
+        border-radius: 22px;
+        z-index: 80;
+      }
+      .app-brand { display: none; }
+      .app-nav {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        overflow-x: auto;
+      }
+      .app-nav-link {
+        flex: 1 0 auto;
+        justify-content: center;
+        min-height: 50px;
+        padding: 8px 12px;
+        text-align: center;
+      }
+      header { top: 0; padding: 0 18px; }
+      .main { padding: 22px 18px 106px; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      header { height: 64px; }
+      .page-title span { display: none; }
+      .user-info { display: none; }
+      .btn-profile, .btn-logout { min-height: 36px; padding: 7px 9px; font-size: 12px; }
+      .avatar { width: 36px; height: 36px; border-radius: 12px; }
+      .main { padding: 14px 10px 100px; }
+      .topbar {
+        min-height: 0;
+        align-items: stretch;
+        padding: 22px;
+        border-radius: 25px;
+      }
+      .topbar h1 { font-size: 29px; }
+      .topbar-description { font-size: 13px; }
+      .btn-new { justify-content: center; width: 100%; margin-top: 5px; }
+      .library-panel { padding: 10px; border-radius: 24px; }
+      .exam-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 7px;
+        overflow-x: auto;
+        padding: 1px 1px 6px;
+        scroll-snap-type: x proximity;
+      }
+      .exam-tab { flex: 0 0 116px; min-height: 60px; scroll-snap-align: start; }
+      .controls { grid-template-columns: minmax(0, 1fr); }
+      .list-toolbar { gap: 7px; }
+      #showingInfo { flex-basis: 100%; }
+      #sortSelect { width: 100%; order: 3; }
+      .exam-card {
+        min-height: 0;
+        aspect-ratio: auto;
+        gap: 12px;
+        padding: 14px;
+        border-radius: 19px;
+      }
+      .grid { grid-template-columns: minmax(0, 1fr); }
+      .card-heading { min-height: 48px; flex-direction: row; gap: 11px; }
+      .card-title { font-size: 15px; }
+      .card-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card-footer { justify-content: center; }
+      .modal-overlay { place-items: end center; padding: 8px; }
+      .modal { max-width: none !important; padding: 24px 20px; border-radius: 28px 28px 20px 20px; }
+      .toast { left: 12px; right: 12px; bottom: 92px; text-align: center; }
     }
   </style>
 </head>
@@ -332,7 +779,7 @@
   </nav>
 </aside>
 <header>
-  <div class="page-title">Minhas provas</div>
+  <div class="page-title"><span>Biblioteca pessoal</span><strong>Minhas provas</strong></div>
   <div class="header-right">
     <div class="user-info">
       <div class="user-name" id="userName">Professor</div>
@@ -346,51 +793,57 @@
 
 <div class="main">
   <div class="topbar">
-    <h1>Minhas Provas</h1>
+    <div class="topbar-copy">
+      <span class="topbar-kicker">Seu espaço de trabalho</span>
+      <h1>Minhas provas</h1>
+      <p class="topbar-description">Crie, retome e acompanhe suas avaliações em um só lugar.</p>
+    </div>
     <button class="btn-new" id="newExamBtn">＋ Nova Prova</button>
   </div>
 
-  <div class="exam-tabs" id="examTabs" aria-label="Situação das provas"></div>
+  <section class="library-panel" aria-label="Biblioteca de provas">
+    <div class="exam-tabs" id="examTabs" aria-label="Situação das provas"></div>
 
-  <div class="controls">
-    <div class="search-wrap">
-      <input type="search" id="searchInput" aria-label="Buscar provas" placeholder="Buscar por título, disciplina ou turma..." />
+    <div class="controls">
+      <div class="search-wrap">
+        <input type="search" id="searchInput" aria-label="Buscar provas" placeholder="Buscar por título, disciplina ou turma..." />
+      </div>
+      <select class="select-control" id="classFilter" aria-label="Filtrar por turma"><option value="">Todas as turmas</option></select>
+      <select class="select-control" id="subjectFilter" aria-label="Filtrar por disciplina">
+        <option value="">Todas as disciplinas</option>
+      </select>
+      <select class="select-control" id="termFilter" aria-label="Filtrar por bimestre">
+        <option value="">Todos os bimestres</option>
+        <option value="1º Bimestre">1º Bimestre</option>
+        <option value="2º Bimestre">2º Bimestre</option>
+        <option value="3º Bimestre">3º Bimestre</option>
+        <option value="4º Bimestre">4º Bimestre</option>
+        <option value="1º Semestre">1º Semestre</option>
+        <option value="2º Semestre">2º Semestre</option>
+        <option value="Anual">Anual</option>
+      </select>
     </div>
-    <select class="select-control" id="classFilter" aria-label="Filtrar por turma"><option value="">Todas as turmas</option></select>
-    <select class="select-control" id="subjectFilter" aria-label="Filtrar por disciplina">
-      <option value="">Todas as disciplinas</option>
-    </select>
-    <select class="select-control" id="termFilter" aria-label="Filtrar por bimestre">
-      <option value="">Todos os bimestres</option>
-      <option value="1º Bimestre">1º Bimestre</option>
-      <option value="2º Bimestre">2º Bimestre</option>
-      <option value="3º Bimestre">3º Bimestre</option>
-      <option value="4º Bimestre">4º Bimestre</option>
-      <option value="1º Semestre">1º Semestre</option>
-      <option value="2º Semestre">2º Semestre</option>
-      <option value="Anual">Anual</option>
-    </select>
-  </div>
-  <div class="list-toolbar">
-    <span id="showingInfo" role="status" aria-live="polite"></span>
-    <button class="btn-profile" id="clearFiltersBtn" type="button" hidden>Limpar filtros</button>
-    <button class="btn-profile" id="reloadExamsBtn" type="button">Atualizar</button>
-    <select class="select-control" id="sortSelect" aria-label="Ordenar provas">
-      <option value="priority">Precisam de atenção primeiro</option>
-      <option value="updated_desc">Última atualização</option>
-      <option value="created_desc">Mais recentes</option>
-      <option value="created_asc">Mais antigas</option>
-      <option value="title_asc">Título A-Z</option>
-      <option value="subject_asc">Disciplina A-Z</option>
-    </select>
-  </div>
+    <div class="list-toolbar">
+      <span id="showingInfo" role="status" aria-live="polite"></span>
+      <button class="btn-profile" id="clearFiltersBtn" type="button" hidden>Limpar filtros</button>
+      <button class="btn-profile" id="reloadExamsBtn" type="button">Atualizar</button>
+      <select class="select-control" id="sortSelect" aria-label="Ordenar provas">
+        <option value="priority">Precisam de atenção primeiro</option>
+        <option value="updated_desc">Última atualização</option>
+        <option value="created_desc">Mais recentes</option>
+        <option value="created_asc">Mais antigas</option>
+        <option value="title_asc">Título A-Z</option>
+        <option value="subject_asc">Disciplina A-Z</option>
+      </select>
+    </div>
 
-  <p id="examsLoadError" class="load-error" role="alert" hidden></p>
-  <div class="grid" id="examsGrid">
-    <div class="skeleton"></div>
-    <div class="skeleton"></div>
-    <div class="skeleton"></div>
-  </div>
+    <p id="examsLoadError" class="load-error" role="alert" hidden></p>
+    <div class="grid" id="examsGrid">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+  </section>
 </div>
 
 <!-- Modal de nova prova -->
@@ -572,18 +1025,6 @@
     });
     document.getElementById('clearFiltersBtn').addEventListener('click', clearExamFilters);
     document.getElementById('reloadExamsBtn').addEventListener('click', loadExams);
-    document.addEventListener('click', event => {
-      document.querySelectorAll('.exam-menu[open]').forEach(menu => {
-        if (!menu.contains(event.target)) menu.open = false;
-      });
-    });
-    document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape') return;
-      document.querySelectorAll('.exam-menu[open]').forEach(menu => {
-        menu.open = false;
-        menu.querySelector('summary').focus();
-      });
-    });
     await loadExams();
     globalThis.ExamImageStorage?.cleanupOrphanedAssets?.({
       auth,
@@ -734,6 +1175,17 @@
     renderExams();
   }
 
+  function examActionIcon(name) {
+    const paths = {
+      edit: '<path d="M4 20l4.2-1 10.4-10.4a2.1 2.1 0 0 0-3-3L5.2 16z"/><path d="m14.5 6.5 3 3"/>',
+      send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+      view: '<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.5"/>',
+      copy: '<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+      delete: '<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',
+    };
+    return `<span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ''}</svg></span>`;
+  }
+
   function renderExams() {
     const grid = document.getElementById('examsGrid');
     const search = document.getElementById('searchInput').value.toLowerCase();
@@ -772,16 +1224,9 @@
       const state = getTeacherExamState(exam);
       const review = state.review;
       const label = state.label;
-      const badgeMap = {
-        rascunho: 'badge-draft', publicada: 'badge-published',
-        enviada: 'badge-sent', em_revisao: 'badge-review',
-        aprovada: 'badge-approved', devolvida: 'badge-returned', bloqueada: 'badge-locked',
-      };
-      const badgeClass = state.returned ? 'badge-returned' : badgeMap[review] || 'badge-draft';
+      const statusClass = state.returned ? 'status-devolvida' : `status-${review || 'rascunho'}`;
       const locked = ['aprovada', 'bloqueada'].includes(review);
       const reviewInProgress = ['enviada', 'em_revisao'].includes(review);
-      const date = exam.updated_at || exam.created_at;
-      const updated = date ? new Date(date).toLocaleDateString('pt-BR') : 'Não informada';
       const qCount = Number.isFinite(Number(exam.questions_count)) ? Number(exam.questions_count) : getExamQuestions(exam).length;
       const ownedByCurrentUser = exam.user_id === auth.getCurrentUser()?.id;
       const canEdit = auth.canEditExam(exam, currentProfile);
@@ -791,33 +1236,39 @@
       const sendReady = qCount > 0 && scoreCheck.isConsistent;
       const primaryLabel = state.returned ? 'Corrigir prova' : qCount === 0 ? 'Adicionar questões' : !scoreCheck.isConsistent ? 'Corrigir nota' : 'Continuar editando';
       const printLabel = { nao_enviada: 'Aguardando envio para impressão', enviada: 'Na fila de impressão', impressa: 'Impressa' }[exam.print_status || 'nao_enviada'];
-      const context = review === 'aprovada' ? printLabel : review === 'bloqueada' ? 'Entre em contato com a coordenação para liberar a prova.' : review === 'enviada' ? 'Aguardando análise da coordenação.' : review === 'em_revisao' ? 'A coordenação está revisando sua prova.' : state.returned ? 'Após os ajustes, reenvie a prova para coordenação.' : '';
+      const context = review === 'aprovada'
+        ? printLabel
+        : review === 'bloqueada'
+          ? 'Entre em contato com a coordenação para liberar a prova.'
+          : review === 'enviada'
+            ? 'Aguardando análise da coordenação.'
+            : review === 'em_revisao'
+              ? 'A coordenação está revisando sua prova.'
+              : state.returned
+                ? 'Faça os ajustes solicitados e reenvie para coordenação.'
+                : review === 'publicada'
+                  ? 'Prova publicada.'
+                  : 'Continue a elaboração desta prova.';
 
       return `
-        <article class="exam-card">
-          <div class="card-heading"><h2 class="card-title">${esc(exam.title || 'Sem título')}</h2>
-          <span class="card-badge ${badgeClass}">${label}</span>
+        <article class="exam-card ${state.returned ? 'state-devolvida' : `state-${review}`}">
+          <div class="card-heading">
+            <span class="exam-status-dot ${statusClass}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>
+            <div class="card-heading-copy"><h2 class="card-title">${esc(exam.title || 'Sem título')}</h2></div>
           </div>
           <div class="card-meta">
             <div class="meta-row"><span class="meta-label">Disciplina</span><span class="meta-value">${esc(exam.subject || '—')}</span></div>
             <div class="meta-row"><span class="meta-label">Turma</span><span class="meta-value">${esc(exam.class_name || '—')}</span></div>
-            <div class="meta-row"><span class="meta-label">Questões</span><span class="meta-value">${qCount}</span></div>
-            <div class="meta-row"><span class="meta-label">Nota</span><span class="meta-value">${formatPt1(scoreCheck.questionTotal)} / ${formatPt1(scoreCheck.expectedTotal)}</span></div>
-            <div class="meta-row"><span class="meta-label">Atualizada em</span><span class="meta-value">${updated}</span></div>
           </div>
           ${qCount > 0 && !scoreCheck.isConsistent ? `<div class="review-note"><strong>Atenção</strong>${esc(scoreCheck.message)}</div>` : ''}
           ${state.returned && state.notes ? `<div class="review-note"><strong>Devolutiva da coordenação</strong>${esc(state.notes)}</div>` : ''}
           ${context ? `<p class="exam-context">${esc(context)}</p>` : ''}
           <div class="card-footer">
-            ${state.drafting && canEdit ? `<button class="card-btn edit" onclick="editExam('${exam.id}')">${primaryLabel}</button>` : `<button class="card-btn edit" onclick="printExam('${exam.id}')">Visualizar prova</button>`}
+            ${state.drafting && canEdit ? `<button class="card-btn icon-only edit" aria-label="${primaryLabel}" title="${primaryLabel}" onclick="editExam('${exam.id}')">${examActionIcon('edit')}</button>` : `<button class="card-btn icon-only edit" aria-label="Visualizar prova" title="Visualizar prova" onclick="printExam('${exam.id}')">${examActionIcon('view')}</button>`}
             ${canSendToReview && !qCount ? '<p class="small">Adicione questões antes de enviar para coordenação.</p>' : ''}
-            ${canSendToReview ? `<button class="card-btn review" ${sendReady ? '' : 'disabled'} onclick="sendToReview('${exam.id}')">${state.returned ? 'Reenviar para coordenação' : 'Enviar para coordenação'}</button>` : ''}
-            <details class="exam-menu"><summary aria-label="Mais ações para ${esc(exam.title || 'prova')}" title="Mais ações">⋯</summary><div class="exam-menu-items">
-
-
-              <button class="card-btn" ${pendingExamOperations.has(exam.id) ? 'disabled' : ''} onclick="duplicateExam('${exam.id}')">${pendingExamOperations.has(exam.id) ? 'Copiando...' : 'Criar cópia'}</button>
-              ${canDelete ? `<button class="card-btn delete" onclick="askDelete('${exam.id}')">Excluir prova</button>` : ''}
-            </div></details>
+            ${canSendToReview ? `<button class="card-btn icon-only review" aria-label="${state.returned ? 'Reenviar para coordenação' : 'Enviar para coordenação'}" title="${state.returned ? 'Reenviar para coordenação' : 'Enviar para coordenação'}" ${sendReady ? '' : 'disabled'} onclick="sendToReview('${exam.id}')">${examActionIcon('send')}</button>` : ''}
+            <button class="card-btn icon-only duplicate" aria-label="${pendingExamOperations.has(exam.id) ? 'Copiando prova' : 'Criar cópia'}" title="${pendingExamOperations.has(exam.id) ? 'Copiando...' : 'Criar cópia'}" ${pendingExamOperations.has(exam.id) ? 'disabled' : ''} onclick="duplicateExam('${exam.id}')">${examActionIcon('copy')}</button>
+            ${canDelete ? `<button class="card-btn icon-only delete" aria-label="Excluir prova" title="Excluir prova" onclick="askDelete('${exam.id}')">${examActionIcon('delete')}</button>` : ''}
           </div>
         </article>`;
     }).join('');

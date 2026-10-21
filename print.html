@@ -192,6 +192,18 @@
       gap: 18px;
       align-items: start;
     }
+    .image-word-exercise.image-match-grid { display:block; }
+    .image-word-match-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; align-items:center; margin:12px 0; break-inside:avoid; }
+    .image-word-exercise .match-image { display:grid; grid-template-columns:2em minmax(0,1fr); gap:8px; align-items:center; border:0; border-radius:0; padding:0; min-width:0; }
+    .image-word-exercise .match-image > strong { justify-self:end; }
+    .image-word-exercise .match-image img { --match-image-width:120px; width:var(--match-image-width) !important; height:auto !important; max-height:calc(var(--match-image-width) * 1.5) !important; max-width:100% !important; object-fit:contain; margin:0; justify-self:start; }
+    .image-word-exercise img[data-item-image-size="medium"] { --match-image-width:160px; }
+    .image-word-exercise img[data-item-image-size="large"] { --match-image-width:200px; }
+    .image-word-exercise .image-match-empty { width:120px; max-width:100%; justify-self:start; box-sizing:border-box; padding:6px; }
+    .image-word-exercise .image-match-word { display:flex; align-items:baseline; margin:0; min-width:0; line-height:1.5; }
+    .image-word-exercise .image-match-answer-space { flex:0 0 auto; margin-right:8px; white-space:nowrap; }
+    .image-word-exercise .image-match-word-text { min-width:0; overflow-wrap:anywhere; }
+    .image-match-empty { height:95px; display:flex; align-items:center; justify-content:center; border:1px dashed #cbd5e1; border-radius:8px; color:#8492a4; font-size:11px; }
     .match-images {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -540,6 +552,7 @@
     let currentExam = null;
     let previewAnswerKey = false;
     let currentPreviewContext = null;
+    const isEmbeddedPreview = new URLSearchParams(location.search).get('preview') === '1' && window.parent !== window;
 
     window.reportExamSpaceSuggestion = (suggestion, context = null, pending = false) => {
       if (new URLSearchParams(location.search).get('preview') !== '1' || window.parent === window) return;
@@ -729,11 +742,7 @@
     function relacioneImagensAnswer(q) {
       normalizeRelacioneImagensQuestion(q);
       return q.pairs
-        .map((_, i) => {
-          const pos = q.wordOrder.indexOf(i);
-          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
-        })
-        .filter(Boolean)
+        .map((pair, i) => `Imagem ${i + 1} — ${String(pair.word || '').trim() || '?'}`)
         .join('; ');
     }
     function normalizePuzzleWord(word) {
@@ -1030,17 +1039,14 @@
       if (q.type === 'relacione_imagens') {
         normalizeRelacioneImagensQuestion(q);
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
-        const images = pairs.map((pair, i) => `
-          <div class="match-image">
-            ${isSafeImageDataUrl(pair.imageDataUrl) ? `<img ${safeImageAttr(pair.imageDataUrl, pair.imageSize)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
-            <strong>Imagem ${i + 1}</strong>
-          </div>
-        `).join('');
-        const words = q.wordOrder.map((pairIndex, i) => {
-          const pair = pairs[pairIndex] || {};
-          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${richText(pair.word || `Palavra ${i + 1}`)}</div>`;
+        const rows = pairs.map((pair, i) => {
+          const word = String(pairs[q.wordOrder[i]]?.word || '').trim();
+          const shownWord = word || (isEmbeddedPreview ? 'Palavra ainda não preenchida' : '');
+          return `<div class="image-word-match-row"><div class="match-image"><strong>${i + 1}.</strong>
+            ${isSafeImageDataUrl(pair.imageDataUrl) ? `<img ${safeImageAttr(pair.imageDataUrl, pair.imageSize || 'small')} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : isEmbeddedPreview ? '<div class="image-match-empty">Imagem ainda não adicionada</div>' : ''}
+            </div><div class="image-match-word"><span class="image-match-answer-space">(&nbsp;&nbsp;&nbsp;)</span><span class="image-match-word-text">${richText(shownWord)}</span></div></div>`;
         }).join('');
-        return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
+        return `<div class="image-match-grid image-word-exercise">${rows}</div>`;
       }
       if (q.type === 'texto_base') {
         const textBox = q.textBase && !omitTextBase ? `<div class="texto-base-box">${richText(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${richText(q.textBaseCaption)}</div>` : ''}</div>` : '';

@@ -87,4 +87,36 @@ const assert=require('node:assert/strict');const fs=require('fs');const {boot}=r
    }
  }
  console.log('OK INTERFACE imagens nativas no enunciado; lotes nos itens; controles recolhidos sem alterar dados');
+ const imageApp=await boot({questions:[{type:'discursiva',text:'Observe',points:'1',lines:3,headerImage:{mode:'one',dataUrl:'data:image/png;base64,AAAA',fileName:'teste.png',size:'medium',align:'lado_direita',caption:'Figura 1'}}]});
+ imageApp.run('state.collapsedQuestions={};renderAll()');
+ const imageCard=imageApp.document.querySelector('.qcard');
+ const position=imageCard.querySelector('select[data-image-disposition]');
+ const disposition=imageCard.querySelector('[aria-label="Disposição da imagem"]');
+ assert(position && disposition);
+ assert.equal(disposition.value,'beside');
+ assert.equal(position.value,'lado_direita');
+ assert(position.querySelector('option[value="center"]').hidden);
+ const fingerprint=imageApp.run('examFingerprint()');
+ imageApp.run('EditorTools.enhanceFields()');
+ assert.equal(imageApp.run('examFingerprint()'),fingerprint);
+ assert.equal(imageCard.querySelectorAll('.image-workspace .image-layout-controls').length,1,'reorganizar é idempotente');
+ const launcher=imageCard.querySelector('.image-launcher');
+ imageApp.event(launcher,'click');
+ assert(imageApp.document.querySelector('.image-editor-dialog').contains(position),'editor único recebe os controles originais');
+ assert.equal(imageApp.document.querySelectorAll('.image-editor-dialog').length,1);
+ imageApp.event(launcher,'click');
+ assert.equal(imageApp.document.querySelectorAll('.image-editor-dialog').length,1,'não abre editor duplicado');
+ imageApp.event(imageApp.document.querySelector('.image-editor-dialog footer button'),'click');
+ assert(imageCard.contains(position),'fechar devolve controles sem perder eventos');
+ disposition.value='own';imageApp.event(disposition,'change');
+ assert.equal(imageApp.run('state.questions[0].headerImage.align'),'right');
+ position.value='center';imageApp.event(position,'change');
+ assert.equal(imageApp.run('state.questions[0].headerImage.align'),'center');
+ disposition.value='beside';imageApp.event(disposition,'change');
+ assert.equal(imageApp.run('state.questions[0].headerImage.align'),'lado_esquerda');
+ assert.equal(imageApp.run('state.questions[0].headerImage.caption'),'Figura 1');
+ imageApp.run('EditorTools.canEdit=()=>false');
+ disposition.value='own';imageApp.event(disposition,'change');
+ assert.equal(imageApp.run('state.questions[0].headerImage.align'),'lado_esquerda','disposição respeita bloqueio');
+ console.log('OK IMAGEM disposição/posição preservam dados, controles, identidade e bloqueio');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -6,9 +6,9 @@
   <title>Editor de Prova - Gerador de Provas</title>
   <script src="js/exam-safety.js?v=20260921-math-combined"></script>
   <script src="js/image-storage.js?v=20261019-assets1"></script>
-  <script src="js/image-engine.js?v=20261019-unified3"></script>
+  <script src="js/image-engine.js?v=20261021-imageworkspace1"></script>
   <script src="js/exam-decorations.js?v=20261019-decor2"></script>
-  <script src="js/editor-tools.js?v=20261021-outline1"></script>
+  <script src="js/editor-tools.js?v=20261021-imageworkspace1"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -980,28 +980,6 @@
       background: rgba(254, 242, 242, 0.95);
     }
 
-    /* Modal de recorte de imagem */
-    .crop-modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-      z-index: 300; display: flex; align-items: center; justify-content: center;
-    }
-    .crop-modal-box {
-      background: #fff; border-radius: 18px; padding: 20px;
-      display: flex; flex-direction: column; gap: 12px;
-      max-width: 92vw; max-height: 92vh; overflow: auto;
-    }
-    .crop-modal-title { font-weight: 800; font-size: 15px; }
-    .crop-canvas-wrap {
-      position: relative; display: inline-block;
-      cursor: crosshair; user-select: none; line-height: 0;
-      border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
-    }
-    .crop-canvas-wrap canvas { display: block; max-width: 70vw; max-height: 60vh; }
-    .crop-selection {
-      position: absolute; border: 2px solid #667eea;
-      background: rgba(102,126,234,0.18); pointer-events: none;
-    }
-    .crop-modal-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 
 
     img[data-item-image-size] { height:auto !important; max-width:100% !important; max-height:none !important; object-fit:contain; }
@@ -1516,7 +1494,8 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="css/editor-tools.css?v=20261021-outline1" />
+  <link rel="stylesheet" href="css/editor-tools.css?v=20261021-imageworkspace1" />
+  <link rel="stylesheet" href="css/image-engine.css?v=20261021-imageworkspace1" />
 </head>
 <body>
   <aside class="app-sidebar no-print">
@@ -1852,11 +1831,7 @@
     function relacioneImagensAnswer(q) {
       normalizeRelacioneImagensQuestion(q);
       return q.pairs
-        .map((_, i) => {
-          const pos = q.wordOrder.indexOf(i);
-          return pos >= 0 ? `${i + 1}-${String.fromCharCode(65 + pos)}` : '';
-        })
-        .filter(Boolean)
+        .map((pair, i) => `Imagem ${i + 1} — ${String(pair.word || '').trim() || '?'}`)
         .join('; ');
     }
     function normalizePuzzleWord(word) {
@@ -2122,7 +2097,7 @@
       }),
       relacione_imagens: () => ({
         type: 'relacione_imagens',
-        text: 'Relacione as imagens com as palavras.',
+        text: 'Escreva o número da imagem correspondente ao lado de cada palavra.',
         pairs: [
           { imageDataUrl: '', imageFileName: '', word: '' },
           { imageDataUrl: '', imageFileName: '', word: '' },
@@ -2683,6 +2658,7 @@
       // secContent.textContent = 'Conteúdo'
       // secPontuacao.textContent = 'Pontuação e configurações'
       const root = el('questionsEditor');
+      root.querySelectorAll('.image-picker').forEach(picker => picker.closeImageEditor?.());
       root.innerHTML = '';
 
       if (state.questions.length === 0) {
@@ -3915,25 +3891,29 @@
           normalizeRelacioneImagensQuestion(q);
           const block = document.createElement('div');
           block.className = 'row';
-          block.innerHTML = `<label>Imagens e palavras</label><div class="small">Cadastre cada par correto. As palavras podem ser embaralhadas na prova.</div>`;
+          block.innerHTML = '<label>Imagens e palavras correspondentes</label>';
           const grid = document.createElement('div');
           grid.className = 'image-word-grid';
           q.pairs.forEach((pair, j) => {
             const card = document.createElement('div');
-            card.className = 'image-word-card';
+            card.className = 'image-word-card image-word-row';
+            const media = document.createElement('div');
+            media.className = 'image-word-media';
+            const content = document.createElement('div');
+            content.className = 'image-word-content';
             const title = document.createElement('div');
-            title.className = 'small';
-            title.style.marginBottom = '8px';
+            title.className = 'image-word-number';
             title.textContent = `Imagem ${j + 1}`;
             const input = document.createElement('input');
             input.value = pair.word || '';
-            input.placeholder = `Palavra ${j + 1}`;
+            input.placeholder = 'Palavra correspondente';
+            input.setAttribute('aria-label', `Questão ${idx + 1}: palavra correspondente ao par ${j + 1}`);
             input.addEventListener('input', () => {
               pair.word = input.value;
               renderPreview();
             });
-            card.appendChild(title);
-            card.appendChild(createImagePicker({
+            media.appendChild(title);
+            const picker = createImagePicker({
               getImage: () => ({ dataUrl: pair.imageDataUrl || '', fileName: pair.imageFileName || '' }),
               getSize: () => pair.imageSize, setSize: value => { pair.imageSize = value; },
               setImage: (dataUrl, fileName) => {
@@ -3944,14 +3924,22 @@
                 pair.imageDataUrl = '';
                 pair.imageFileName = '';
               },
-            }));
-            card.appendChild(input);
+            });
+            media.appendChild(picker);
+            const wordLabel = document.createElement('label');
+            wordLabel.className = 'image-word-label';
+            const wordCaption = document.createElement('span');
+            wordCaption.textContent = 'Palavra desta imagem';
+            wordLabel.append(wordCaption, input);
+            content.appendChild(wordLabel);
+            card.append(media, content);
             const remove = document.createElement('button');
             remove.type = 'button';
-            remove.className = 'danger';
-            remove.textContent = 'Remover par';
+            remove.className = 'danger image-word-remove';
+            remove.textContent = '×';
+            remove.title = `Remover par ${j + 1}`;
+            remove.setAttribute('aria-label', `Remover par ${j + 1}`);
             remove.disabled = q.pairs.length <= 2;
-            remove.style.marginTop = '8px';
             remove.addEventListener('click', () => {
               q.pairs.splice(j, 1);
               q.wordOrder = q.wordOrder.filter((n) => n !== j).map((n) => n > j ? n - 1 : n);
@@ -3979,7 +3967,7 @@
           const shuffleWords = document.createElement('button');
           shuffleWords.type = 'button';
           shuffleWords.className = 'secondary';
-          shuffleWords.textContent = 'Embaralhar palavras';
+          shuffleWords.textContent = 'Embaralhar palavras na prova';
           shuffleWords.addEventListener('click', () => {
             const previous = q.wordOrder.join(',');
             q.wordOrder = q.pairs.map((_, pairIndex) => pairIndex);
@@ -5365,6 +5353,7 @@
                 imgSection.appendChild(card);
               });
             }
+            EditorTools.organizeImagePanels(imgSection);
           };
           rebuildImgPanel();
           body.appendChild(imgWrap);
@@ -5749,17 +5738,13 @@
       if (q.type === 'relacione_imagens') {
         normalizeRelacioneImagensQuestion(q);
         const pairs = Array.isArray(q.pairs) ? q.pairs : [];
-        const images = pairs.map((pair, i) => `
-          <div class="match-image">
-            ${pair.imageDataUrl ? `<img ${safeImageAttr(pair.imageDataUrl, pair.imageSize)} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
-            <strong>Imagem ${i + 1}</strong>
-          </div>
-        `).join('');
-        const words = q.wordOrder.map((pairIndex, i) => {
-          const pair = pairs[pairIndex] || {};
-          return `<div>( &nbsp; ) ${String.fromCharCode(65 + i)}) ${esc(pair.word || `Palavra ${i + 1}`)}</div>`;
+        const rows = pairs.map((pair, i) => {
+          const word = pairs[q.wordOrder[i]]?.word || `Palavra ${i + 1}`;
+          return `<div class="image-word-match-row"><div class="match-image"><strong>${i + 1}.</strong>
+            ${isSafeImageDataUrl(pair.imageDataUrl) ? `<img ${safeImageAttr(pair.imageDataUrl, pair.imageSize || 'small')} alt="${esc(pair.imageFileName || `Imagem ${i + 1}`)}" />` : '<div class="small">Sem imagem</div>'}
+            </div><div class="image-match-word"><span class="image-match-answer-space">(&nbsp;&nbsp;&nbsp;)</span><span class="image-match-word-text">${esc(word)}</span></div></div>`;
         }).join('');
-        return `<div class="image-match-grid"><div class="match-images">${images}</div><div class="spacey">${words}</div></div>`;
+        return `<div class="image-match-grid image-word-exercise">${rows}</div>`;
       }
       if (q.type === 'texto_base') {
         const base = q.textBase ? `<div class="texto-base-label">Leia o texto:</div><div class="texto-base-box">${esc(q.textBase)}${String(q.textBaseCaption || '').trim() ? `<div class="text-base-caption">${esc(q.textBaseCaption)}</div>` : ''}</div>` : '<div class="small">Texto-base não preenchido.</div>';
@@ -7519,7 +7504,7 @@
       if (info) {
         info.textContent = labels[currentReviewStatus] || '';
       }
-      document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button')
+      document.querySelectorAll('.card.no-print input, .card.no-print select, .card.no-print textarea, .card.no-print button, .image-workspace input, .image-workspace select, .image-workspace button')
         .forEach((node) => {
           if (node.classList.contains('qnum') || node.id === 'questionSearch') { EditorTools.lockControl(node, EditorTools.loading); return; }
           if (['printBtn', 'printBtn2'].includes(node.id)) return;

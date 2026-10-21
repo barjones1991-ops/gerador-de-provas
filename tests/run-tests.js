@@ -1298,8 +1298,8 @@ async function main() {
     assert(!print.includes('.two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }'), 'mobile width must not collapse printable question columns');
     const controllerRevision = editor.match(/js\/editor-tools\.js\?v=(\d{8})-[\w-]+/);
     assert(controllerRevision && controllerRevision[1] >= '20261019', 'editor must load the mobile fix revision or a newer controller');
-    assert(controllerRevision?.[0] === 'js/editor-tools.js?v=20261021-outline1', 'editor must bypass cached controller code after outline updates');
-    assert(tools.includes('print.html?preview=1&v=20261021-richtext4'), 'canonical preview must load the current print revision');
+    assert(controllerRevision?.[0] === 'js/editor-tools.js?v=20261021-imageworkspace1', 'editor must bypass cached controller code after image-word layout updates');
+    assert(tools.includes('print.html?preview=1&v=20261021-imageworkspace1'), 'canonical preview must load the current print revision');
   });
 
   await test('rich text formatting is limited and rendered safely', () => {

@@ -75,7 +75,6 @@ summary { cursor:pointer; font-weight:700; padding:4px; }
 .free-image-fields { border:1px solid #cbd5e1; border-radius:8px; margin-top:12px; }
 .image-control-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
 .free-image-item { touch-action:none; }
-.crop-canvas-wrap canvas { touch-action:none; }
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
 #saveBankRecordBtn { display:none; }
 .bank-mode #saveBankRecordBtn { display:inline-flex; }
@@ -813,6 +812,38 @@ body[data-editor-view="preview"] .editor-column { display:none; }
 .standard-question-editor .standard-pair-row > input { min-width:0; }
 .standard-question-editor .standard-pair-row:has(.image-picker) { grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px; }
 .standard-question-editor .standard-pair-row > button { padding:6px; min-height:38px; }
+.standard-question-editor .image-word-grid { grid-template-columns:minmax(0,1fr); gap:10px; }
+.standard-question-editor .image-word-row { display:grid; grid-template-columns:100px minmax(0,1fr) 28px; gap:14px; align-items:center; padding:12px; border-radius:10px; }
+.image-word-media, .image-word-content { min-width:0; }
+.image-word-number { margin-bottom:6px; font-size:12px; font-weight:650; color:#526477; }
+.image-word-media .image-picker { margin:0; gap:0; }
+.image-word-media .image-drop { min-height:80px; height:80px; padding:6px; border-radius:8px; }
+.image-word-media .image-drop img { width:100%; height:100%; max-height:100%; object-fit:contain; }
+.image-word-media .image-drop .img-size-info, .image-word-media .image-drop .img-size-warn { display:none; }
+.image-word-media .image-drop:not(:has(img)) > div { display:none; }
+.image-word-media .image-drop:not(:has(img))::after { content:'+ Imagem'; font-size:12px; font-weight:600; }
+.image-word-label { display:grid; gap:6px; margin:0; }
+.image-word-label > span { font-size:12px; font-weight:650; color:#526477; }
+.image-word-content .image-word-adjustments { margin-top:8px; }
+.image-word-adjustments > summary { font-size:12px; color:#526477; cursor:pointer; }
+.image-word-row:not(:has(.image-drop img)) .image-word-adjustments { display:none; }
+.image-word-adjustments .image-actions { margin-top:8px; }
+.image-word-adjustments .item-image-size-control { margin-top:8px; }
+.image-word-row > .image-word-remove { align-self:start; width:28px; min-height:28px; padding:0; border:0; background:transparent; font-size:20px; }
+.image-word-exercise.image-match-grid { display:block; }
+.image-word-match-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; align-items:center; margin:12px 0; break-inside:avoid; }
+.image-word-exercise .match-image { display:grid; grid-template-columns:2em minmax(0,1fr); gap:8px; align-items:center; border:0; border-radius:0; padding:0; min-width:0; }
+.image-word-exercise .match-image > strong { justify-self:end; }
+.image-word-exercise .match-image img { --match-image-width:120px; width:var(--match-image-width) !important; height:auto !important; max-height:calc(var(--match-image-width) * 1.5) !important; max-width:100% !important; object-fit:contain; margin:0; justify-self:start; }
+.image-word-exercise img[data-item-image-size="medium"] { --match-image-width:160px; }
+.image-word-exercise img[data-item-image-size="large"] { --match-image-width:200px; }
+.image-word-exercise .image-match-word { display:flex; align-items:baseline; min-width:0; line-height:1.5; }
+.image-word-exercise .image-match-answer-space { flex:0 0 auto; margin-right:8px; white-space:nowrap; }
+.image-word-exercise .image-match-word-text { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:420px) {
+  .standard-question-editor .image-word-row { grid-template-columns:74px minmax(0,1fr) 24px; gap:8px; padding:8px; }
+  .image-word-media .image-drop { min-height:66px; height:66px; }
+}
 .standard-question-editor .standard-settings > .row, .standard-question-editor .standard-settings > div { margin-top:10px; margin-bottom:14px; }
 .standard-question-editor .standard-settings > .appearance-settings { margin:0 14px 14px; }
 .standard-question-editor .standard-settings > div:not(.bncc) { max-width:360px; }
