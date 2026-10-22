@@ -127,7 +127,7 @@
     <a href="index.html" class="back-link">← Voltar ao início</a>
   </div>
 
-  <script src="config.js"></script>
+  <script src="config.js?v=20261022-recovery1"></script>
   <script src="js/auth.js"></script>
   <script>
     let isLogin = true;
@@ -454,7 +454,7 @@
       btn.textContent = 'Enviando...';
 
       try {
-        const redirectTo = `${window.location.origin}${window.location.pathname}`;
+        const redirectTo = new URL('login.html', CONFIG.PUBLIC_APP_URL).href;
         const result = await auth.resetPassword(email, redirectTo);
         if (!result.success) {
           showAlert(traduzirErro(result.error), 'error');

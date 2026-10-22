@@ -22,6 +22,7 @@ const CONFIG = {
   // URLs base
   API_URL: 'https://birtgmrtaryfjogegimn.supabase.co/rest/v1',
   AUTH_URL: 'https://birtgmrtaryfjogegimn.supabase.co/auth/v1',
+  PUBLIC_APP_URL: 'https://barjones1991-ops.github.io/gerador-de-provas/',
 
   // Outras configurações
   TIMEOUT: 10000, // 10 segundos

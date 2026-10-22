@@ -219,7 +219,7 @@ const imageRecord={imageDataUrl:'data:image/png;base64,AA==',imageFileName:'figu
 for(const question of [
  {type:'marcarx',items:[{text:'A',checked:true},{text:'B'}],optionImages:[{dataUrl:imageRecord.imageDataUrl,fileName:'figura.png'}]},
  {type:'vf',items:[{...imageRecord,text:'Afirmação',answer:true}]},
- {type:'sequencia_imagens',items:[{...imageRecord,order:1},{order:2}]},
+ {type:'sequencia_imagens',items:[{...imageRecord,order:2},{order:1},{order:3}]},
  {type:'legenda_imagens',items:[{...imageRecord}]},
  {type:'grade_imagens',items:[{...imageRecord}]},
  {type:'relacione_imagens',pairs:[{...imageRecord,word:'Planta'}]},
@@ -238,8 +238,32 @@ for(const question of [
  const savedQuestion=JSON.parse(sizes.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0];
  ctx.q=savedQuestion; vm.runInContext('renderExam({questions:[q]},false)',ctx);
  assert(document.querySelector('img[data-item-image-size="large"]'),question.type+' imprime tamanho escolhido');
+ if(question.type==='sequencia_imagens') {
+  const sequenceCard=document.querySelector('.seq-img-card');
+  assert(document.querySelector('.seq-img-grid.seq-img-count-3'),'sequência usa a escala correspondente a três imagens');
+  assert(sequenceCard.querySelector('.seq-img-media img'),'sequência centraliza a imagem em uma área uniforme');
+  assert(sequenceCard.querySelector('.seq-img-caption'),'sequência reserva uma linha própria para a legenda');
+  assert(sequenceCard.lastElementChild.classList.contains('seq-img-num'),'sequência mantém a resposta alinhada na base');
+  for(const count of [3,4,5]) {
+   ctx.q={type:'sequencia_imagens',text:'Ordene',points:'1',items:Array.from({length:count},(_,index)=>({...imageRecord,order:index+1}))};
+   vm.runInContext('renderExam({questions:[q]},false)',ctx);
+   assert(document.querySelector(`.seq-img-grid.seq-img-count-${count}`),`sequência aplica a escala de ${count} imagens`);
+  }
+ }
  const again=await boot({questions:[savedQuestion]}); again.ctx.EditorTools.focusQuestion(0);
  assert([...again.document.querySelectorAll('.item-image-size-control select')].some(node=>node.value==='large'),question.type+' reabre tamanho salvo');
+ if(question.type==='sequencia_imagens') {
+  const editorCard=again.document.querySelector('.sequence-image-editor-card');
+  assert(editorCard.querySelector('.image-actions').contains(editorCard.querySelector('.sequence-image-meta-row')),'sequência mantém ordem, legenda e exclusão ao lado dos ícones');
+  assert(!again.document.querySelector('[data-batch-images]'),'sequência não oferece importação em lote');
+  const removeButtons=()=>[...again.document.querySelectorAll('#question-0 .danger')].filter(node=>node.textContent==='✕');
+  const addButton=()=>[...again.document.querySelectorAll('#question-0 button')].find(node=>node.textContent==='+ Imagem');
+  assert(removeButtons().every(node=>node.disabled),'sequência não remove abaixo de três imagens');
+  again.event(addButton(),'click'); again.event(addButton(),'click');
+  assert.equal(again.run('state.questions[0].items.length'),5);
+  assert(addButton().disabled,'sequência não adiciona acima de cinco imagens');
+  assert.equal(again.run('state.questions[0].text'),'Observe.','sequência preserva enunciado personalizado ao mudar a quantidade');
+ }
  const picker=control.closest('.image-word-row') || control.closest('.image-picker'); const remove=[...picker.querySelectorAll('button')].find(node=>node.title==='Remover imagem');
  sizes.event(remove,'click'); assert(control.hidden,question.type+' oculta tamanho ao remover');
  sizes.run('readImageFile=(file,done)=>done("data:image/png;base64,BB==",file.name,1)');
@@ -252,6 +276,15 @@ for(const question of [
  assert.equal(select.value,'medium',question.type+' substituição preserva tamanho');
 }
 console.log('OK TAMANHO POR ITEM alternativas, afirmações, sequência, legenda, grade, relações e comparação: salvar, imprimir, reabrir e remover');
+const sequencePrompt=await boot({questions:[{type:'sequencia_imagens',text:'Numere as imagens na ordem correta de 1 a 3:',points:'10',items:[1,2,3].map(order=>({...imageRecord,order}))}]});
+sequencePrompt.ctx.EditorTools.focusQuestion(0);
+const sequenceAdd=()=>[...sequencePrompt.document.querySelectorAll('#question-0 button')].find(node=>node.textContent==='+ Imagem');
+sequencePrompt.event(sequenceAdd(),'click');sequencePrompt.event(sequenceAdd(),'click');
+assert.equal(sequencePrompt.run('state.questions[0].text'),'Numere as imagens na ordem correta de 1 a 5:');
+const sequenceRemove=[...sequencePrompt.document.querySelectorAll('#question-0 .danger')].find(node=>node.textContent==='✕');
+sequencePrompt.event(sequenceRemove,'click');
+assert.equal(sequencePrompt.run('state.questions[0].text'),'Numere as imagens na ordem correta de 1 a 4:');
+console.log('OK SEQUÊNCIA DE IMAGENS limites de 3 a 5 e enunciado padrão acompanham a quantidade');
 const textChoices=await boot({questions:[{type:'texto_base',answerType:'multipla',text:'Leia',textBase:'Texto original',points:'10',options:['A','B','C','D'],correctOption:2,optionImages:[{fileName:'A'},{fileName:'B'},{fileName:'C'},{fileName:'D'}]}]});
 textChoices.ctx.EditorTools.focusQuestion(0);
 const removeTextChoice=index=>textChoices.event(textChoices.document.querySelectorAll('.text-option-remove')[index],'click');

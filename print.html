@@ -346,10 +346,18 @@
     .crossword-cell.empty { border-color: transparent; background: transparent; }
     .crossword-clues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; font-size: 13px; }
     .crossword-clues h4 { margin: 0 0 6px; font-size: 13px; }
-    .seq-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; }
-    .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; break-inside: avoid; }
-    .seq-img-card img { max-width: 100%; max-height: 90px; object-fit: contain; border-radius: 6px; }
-    .seq-img-num { width: 32px; height: 32px; border: 2px solid #94a3b8; border-radius: 6px; margin: 6px auto 0; }
+    .seq-img-grid { --seq-media-height:96px; --seq-small-width:70px; --seq-medium-width:95px; --seq-large-width:120px; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; align-items: stretch; }
+    .seq-img-grid.seq-img-count-3 { --seq-media-height:145px; --seq-small-width:120px; --seq-medium-width:160px; --seq-large-width:190px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .seq-img-grid.seq-img-count-4 { --seq-media-height:118px; --seq-small-width:90px; --seq-medium-width:120px; --seq-large-width:150px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .seq-img-grid.seq-img-count-5 { grid-template-columns:repeat(5,minmax(0,1fr)); }
+    .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; break-inside: avoid; display: grid; grid-template-rows: var(--seq-media-height) minmax(28px, auto) 32px; gap: 6px; align-items: center; }
+    .seq-img-media { width: 100%; height: var(--seq-media-height); display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
+    .seq-img-media img { display: block; width: var(--seq-medium-width) !important; height: auto !important; max-width: 100% !important; max-height: 100% !important; object-fit: contain; border-radius: 6px; }
+    .seq-img-media img[data-item-image-size="small"] { width:var(--seq-small-width) !important; }
+    .seq-img-media img[data-item-image-size="large"] { width:var(--seq-large-width) !important; }
+    .seq-img-placeholder { width: 100%; height: 80px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #94a3b8; }
+    .seq-img-caption { min-width: 0; min-height: 28px; display: flex; align-items: flex-start; justify-content: center; font-size: 11px; line-height: 1.25; color: #64748b; overflow-wrap: anywhere; }
+    .seq-img-num { width: 32px; height: 32px; border: 2px solid #94a3b8; border-radius: 6px; margin: 0 auto; }
     .comparar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
     .comparar-img { text-align: center; }
     .comparar-img img { max-width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px; }
@@ -1219,12 +1227,13 @@
       }
       if (q.type === 'sequencia_imagens') {
         const items = q.items||[];
+        const countClass = [3,4,5].includes(items.length) ? ` seq-img-count-${items.length}` : '';
         const cards = items.map(item => {
-          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />` : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
-          const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${richText(item.caption)}</div>` : '';
-          return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num"></div></div>`;
+          const img = isSafeImageDataUrl(item.imageDataUrl) ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />` : '<div class="seq-img-placeholder">Sem imagem</div>';
+          const cap = item.caption ? richText(item.caption) : '';
+          return `<div class="seq-img-card"><div class="seq-img-media">${img}</div><div class="seq-img-caption">${cap}</div><div class="seq-img-num"></div></div>`;
         }).join('');
-        return `<div class="seq-img-grid">${cards}</div>`;
+        return `<div class="seq-img-grid${countClass}">${cards}</div>`;
       }
       if (q.type === 'comparar_imagens') {
         const img1 = isSafeImageDataUrl(q.image1DataUrl) ? `<img ${safeImageAttr(q.image1DataUrl, q.image1Size)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;

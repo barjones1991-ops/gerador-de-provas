@@ -18,7 +18,7 @@ const valid=[
  question('lacunas',{text:'A planta precisa de ___.',answers:['água']}),
  question('subitens',{items:[{imageDataUrl:img}]}),
  question('ordenacao',{items:[{text:'A',order:2},{text:'B',order:1}]}),
- question('sequencia_imagens',{items:[{imageDataUrl:img,order:1}]}),
+ question('sequencia_imagens',{items:[{imageDataUrl:img,order:2},{imageDataUrl:img,order:3},{imageDataUrl:img,order:1}]}),
  question('legenda_imagens',{items:[{imageDataUrl:img,answer:'Árvore'}]}),
  question('grade_imagens',{showAnswerLines:false,items:[{imageDataUrl:img}]}),
  question('identificar_imagem',{imageDataUrl:img,showAnswerList:false,markers:[{label:'A'}]}),
@@ -60,6 +60,10 @@ assert(check(question('associacao_setas',{leftItems:['A'],rightItems:[]})).some(
 assert(check(question('tabela',{headers:['A'],rows:[['a','b']]})).some(i=>i.blocking));
 assert(check(question('relacione',{pairs:'invalid'})).some(i=>i.blocking));
 assert(check(question('lacunas',{items:[null]})).some(i=>i.blocking));
+for(const count of [2,6]) {
+ const items=Array.from({length:count},(_,index)=>({imageDataUrl:img,order:index+1}));
+ assert(check(question('sequencia_imagens',{items})).some(i=>i.blocking&&i.message.includes(count<3?'pelo menos 3':'máximo 5')));
+}
 console.log('OK CONFERENCIA campos por tipo, formatos abertos, ordens, pares e imutabilidade');
 (async()=>{
  const app=await boot({questions:[question('discursiva',{points:'5'}),question('expressao_matematica',{points:'5',expressions:[{latex:'1+1',answer:''}]})]});

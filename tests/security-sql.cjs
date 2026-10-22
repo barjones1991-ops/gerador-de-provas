@@ -14,7 +14,7 @@ let checks = 0;
       CREATE SCHEMA auth;
       CREATE ROLE anon NOLOGIN;
       CREATE ROLE authenticated NOLOGIN;
-      CREATE TABLE auth.users (id UUID PRIMARY KEY, email TEXT, email_confirmed_at TIMESTAMPTZ,
+      CREATE TABLE auth.users (id UUID PRIMARY KEY, email TEXT, email_confirmed_at TIMESTAMPTZ, encrypted_password TEXT,
         raw_user_meta_data JSONB DEFAULT '{}', updated_at TIMESTAMPTZ DEFAULT now());
       CREATE FUNCTION auth.jwt() RETURNS JSONB LANGUAGE SQL STABLE AS
         $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
@@ -47,6 +47,13 @@ let checks = 0;
     // Parte anterior a escola fixa: exercita uma atualizacao com acervo legado real.
     const legacySetup = setup.split('-- Migracao 20260908_02_escola_da_prova')[0] + '\nCOMMIT;';
     await db.exec(legacySetup);
+    await db.exec(`
+      CREATE SCHEMA extensions;
+      CREATE FUNCTION extensions.crypt(value TEXT, salt TEXT) RETURNS TEXT LANGUAGE SQL
+        AS $$ SELECT public.crypt(value, salt) $$;
+      CREATE FUNCTION extensions.gen_salt(kind TEXT) RETURNS TEXT LANGUAGE SQL
+        AS $$ SELECT public.gen_salt(kind) $$;
+    `);
     await db.exec(`GRANT USAGE ON SCHEMA public, auth TO anon, authenticated;
       GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles, public.exams, public.schools,
         public.question_bank, public.user_invites TO authenticated;
@@ -169,7 +176,14 @@ let checks = 0;
     await denied('convite aceito nao pode ser reutilizado', 4, 'SELECT accept_user_invite($1)', [token]);
     await asUser(2, 'INSERT INTO user_invites(email,role,school_id,token,canceled_at) VALUES ($1,$2,$3,$4,now())', ['test4@example.invalid','teacher',schoolA,'b'.repeat(32)]);
     await denied('convite cancelado rejeitado', 4, 'SELECT accept_user_invite($1)', ['b'.repeat(32)]);
-    assert.equal((await db.query("SELECT to_regprocedure('public.admin_reset_user_password(uuid)') AS fn")).rows[0].fn, null); checks++;
+    assert.notEqual((await db.query("SELECT to_regprocedure('public.admin_reset_user_password(uuid)') AS fn")).rows[0].fn, null); checks++;
+    await asUser(3, 'SELECT admin_reset_user_password($1)', [uuid(4)]);
+    const resetTeacher = (await db.query('SELECT encrypted_password FROM auth.users WHERE id=$1', [uuid(4)])).rows[0];
+    assert(resetTeacher.encrypted_password && resetTeacher.encrypted_password !== '123456');
+    assert.equal((await db.query('SELECT force_password_change FROM profiles WHERE id=$1', [uuid(4)])).rows[0].force_password_change, true); checks++;
+    await denied('professor nao reseta senha de outra conta', 4, 'SELECT admin_reset_user_password($1)', [uuid(6)]);
+    await denied('coordenador nao reseta senha de outra escola', 3, 'SELECT admin_reset_user_password($1)', [uuid(6)]);
+    await denied('gestor nao usa reset administrativo na propria conta', 1, 'SELECT admin_reset_user_password($1)', [uuid(1)]);
     // Reaplicar a migracao nao promove ninguem nem altera o acervo.
     await db.exec(fs.readFileSync(path.join(root, 'migrations/20260908_01_seguranca.sql'), 'utf8'));
     assert.equal((await db.query('SELECT role FROM profiles WHERE id=$1', [uuid(4)])).rows[0].role, 'teacher'); checks++;
@@ -203,6 +217,9 @@ let checks = 0;
     await db.exec(schoolMigration);
     await db.exec(setup);
     await db.exec(setup); // Reaplicar setup completo tambem preserva a fotografia original.
+    assert.notEqual((await db.query("SELECT to_regprocedure('public.admin_reset_user_password(uuid)') AS fn")).rows[0].fn, null); checks++;
+    assert.equal((await db.query("SELECT has_function_privilege('anon', 'public.admin_reset_user_password(uuid)', 'EXECUTE') AS allowed")).rows[0].allowed, false); checks++;
+    assert.equal((await db.query("SELECT has_function_privilege('authenticated', 'public.admin_reset_user_password(uuid)', 'EXECUTE') AS allowed")).rows[0].allowed, true); checks++;
     assert.equal((await db.query('SELECT school_id FROM exams WHERE id=$1', [personalExam])).rows[0].school_id, null);
     assert.equal((await db.query('SELECT school_id FROM exams WHERE id=$1', [exam])).rows[0].school_id, schoolA);
     assert.equal((await db.query('SELECT school_id FROM exams WHERE id=$1', [newExam])).rows[0].school_id, schoolB);

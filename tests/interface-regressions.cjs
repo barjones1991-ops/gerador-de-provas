@@ -85,10 +85,10 @@ const assert=require('node:assert/strict');const fs=require('fs');const {boot}=r
    const card=forms.document.querySelector('.qcard');
    assert(!card.querySelector('.enunciation-image-field'),type+' does not disguise item upload as statement image');
    assert(card.querySelector('.standard-activity .image-picker'),type+' keeps images beside activity items');
-   if(type!=='associacao_imagem_imagem') {
+   if(!['associacao_imagem_imagem','sequencia_imagens'].includes(type)) {
      assert(card.querySelector('.standard-activity .question-image-batch [data-batch-images]'));
      assert(!card.querySelector('.question-image-batch').open);
-   }
+   } else if(type==='sequencia_imagens') assert(!card.querySelector('[data-batch-images]'));
  }
  console.log('OK INTERFACE imagens nativas no enunciado; lotes nos itens; controles recolhidos sem alterar dados');
  const imageApp=await boot({questions:[{type:'discursiva',text:'Observe',points:'1',lines:3,headerImage:{mode:'one',dataUrl:'data:image/png;base64,AAAA',fileName:'teste.png',size:'medium',align:'lado_direita',caption:'Figura 1'}}]});

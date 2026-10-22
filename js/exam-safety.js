@@ -167,6 +167,8 @@
     }
     if (['ordenacao','sequencia_imagens'].includes(q.type)) {
       requireItems('items', q.type === 'ordenacao' ? [['text','Texto']] : [], 'itens para ordenar');
+      if (q.type === 'sequencia_imagens' && q.items.length < 3) add('Adicione pelo menos 3 imagens à sequência.', true);
+      if (q.type === 'sequencia_imagens' && q.items.length > 5) add('Use no máximo 5 imagens na sequência.', true);
       if (q.items.length) permutation(raw.items.map(item => item.order), q.items.length, 1, 'Ordem dos itens');
     }
     if (['relacione','relacione_imagens'].includes(q.type)) {

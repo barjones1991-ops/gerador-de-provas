@@ -59,6 +59,7 @@ const CONFIG = {
   SUPABASE_ANON_KEY: 'sua-anon-key-publica',
   API_URL: 'https://seu-projeto.supabase.co/rest/v1',
   AUTH_URL: 'https://seu-projeto.supabase.co/auth/v1',
+  PUBLIC_APP_URL: 'https://barjones1991-ops.github.io/gerador-de-provas/',
   MAX_FILE_SIZE: 5 * 1024 * 1024,
   IMAGE_STORAGE_ENABLED: true,
   IMAGE_STORAGE_BUCKET: 'exam-images',
@@ -83,7 +84,7 @@ Para um ambiente novo, execute `setup_supabase.sql`, depois `setup_storage.sql` 
 
 Para atualizar um ambiente existente, faça backup e siga [o guia das migrações](migrations/README.md): execute a migração 01 de segurança e, após conferir o acervo legado, a migração 02 de escola permanente da prova. O usuário informou a execução dos scripts no Supabase em 08/09/2026. A criação inicial do master deve ser feita por UUID conferido em `auth.users`, conforme o mesmo guia.
 
-Em Auth, ative a confirmação de e-mail e configure SMTP e URLs de retorno. A migração SQL não muda essas configurações. A recuperação administrativa envia um link individual; nenhuma senha compartilhada é criada.
+Em Auth, ative a confirmação de e-mail e configure SMTP e URLs de retorno. Em **Authentication > URL Configuration**, use `https://barjones1991-ops.github.io/gerador-de-provas/` como **Site URL** e permita exatamente `https://barjones1991-ops.github.io/gerador-de-provas/login.html` em **Redirect URLs**. O frontend usa `CONFIG.PUBLIC_APP_URL` para que pedidos feitos durante a validação local também retornem ao site publicado. A migração SQL não muda essas configurações. A recuperação individual por e-mail continua disponível no login. Na gestão da equipe, administradores autorizados podem redefinir temporariamente a senha para `123456`; o próximo acesso exige a criação de outra senha.
 
 ## Perfis
 

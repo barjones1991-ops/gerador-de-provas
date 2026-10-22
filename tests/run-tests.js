@@ -206,7 +206,17 @@ async function main() {
     const config = sandbox.window.CONFIG || sandbox.module.exports;
     assert(config.SUPABASE_URL && config.SUPABASE_URL.includes('supabase.co'), 'SUPABASE_URL is not configured');
     assert(config.API_URL && config.AUTH_URL, 'API_URL or AUTH_URL missing');
+    assert(config.PUBLIC_APP_URL === 'https://barjones1991-ops.github.io/gerador-de-provas/', 'PUBLIC_APP_URL must point to the published application');
     assert(!config.SUPABASE_URL.includes('seu-projeto'), 'placeholder Supabase URL still present');
+  });
+
+  await test('self-service password recovery returns to the published login page', () => {
+    const login = read('login.html');
+    const canonicalRedirect = "new URL('login.html', CONFIG.PUBLIC_APP_URL).href";
+
+    assert(login.includes(canonicalRedirect), 'self-service recovery must use the canonical public login URL');
+    assert(login.includes('config.js?v=20261022-recovery1'), 'login must bypass a cached configuration without PUBLIC_APP_URL');
+    assert(!login.includes('`${window.location.origin}${window.location.pathname}`'), 'recovery must not embed a localhost origin in email links');
   });
 
   await test('security operation files avoid private credentials', () => {
@@ -558,8 +568,10 @@ async function main() {
     assert(sql.includes("public.normalized_role(current_profile.role) IN ('school_owner', 'print_operator')"), 'print queue access should include school owners and print operators');
     assert(sql.includes('force_password_change'), 'forced password change flag missing');
     assert(sql.includes('admin_reset_user_password'), 'admin password reset RPC missing');
-    assert(!sql.includes("crypt('123456'"), 'SQL must never set a shared password');
-    assert(sql.includes('DROP FUNCTION IF EXISTS public.admin_reset_user_password(UUID)'), 'legacy shared password RPC must be removed');
+    assert(sql.includes("extensions.crypt('123456'"), 'temporary password reset must use a bcrypt hash');
+    assert(sql.includes('IF NOT public.can_manage_profile(target_profile_id)'), 'temporary password reset must enforce management scope');
+    assert(sql.includes('REVOKE ALL ON FUNCTION public.admin_reset_user_password(UUID) FROM PUBLIC'), 'temporary password reset must not be public');
+    assert(sql.includes('GRANT EXECUTE ON FUNCTION public.admin_reset_user_password(UUID) TO authenticated'), 'temporary password reset must be restricted to authenticated users');
     assert(sql.includes("FOR DELETE USING (") && sql.includes("COALESCE(review_status, 'rascunho') NOT IN ('aprovada', 'bloqueada')"), 'approved/blocked exams should not be deletable by teacher');
     assert(sql.includes('protect_profile_managed_fields'), 'profile managed fields protection trigger missing');
     assert(sql.includes('NEW.school_id = OLD.school_id'), 'profile school_id should be protected from self updates');
@@ -961,10 +973,11 @@ async function main() {
     assert(page.includes('canceled_at:is.null') || page.includes('canceled_at=is.null'), 'cancel invite should target only active invites');
     assert(page.includes("method: 'PATCH'") && page.includes('canceled_by: auth.getCurrentUser().id'), 'cancel invite should persist cancellation instead of deleting history');
     assert(page.includes('resetProfessorPassword'), 'school page should allow resetting a professor password');
-    assert(page.includes('auth.resetPassword(profile.email'), 'password recovery must use an individual email link');
+    assert(page.includes('/rpc/admin_reset_user_password'), 'administrative password reset must use the protected RPC');
+    assert(page.includes('target_profile_id: profId'), 'administrative password reset must target the selected profile');
+    assert(page.includes('Senha resetada para 123456'), 'administrative password reset must explain the temporary password');
     assert(page.includes('Conta desativada: use um novo convite para reativá-la.'), 'direct linking should not pretend to reactivate a removed account');
     assert(page.includes('O servidor não confirmou a criação do convite.'), 'invite creation should require a returned token');
-    assert(!page.includes('/rpc/admin_reset_user_password'), 'UI must not call the legacy shared-password RPC');
     assert(!page.includes('linkGradeSelect'), 'school page should not use a single grade select for linking');
   });
 
@@ -1307,7 +1320,7 @@ async function main() {
     assert(controllerRevision?.[0] === 'js/editor-tools.js?v=20261022-imageexpanded1', 'editor must bypass cached controller code after image-control updates');
     assert(editor.includes('js/image-engine.js?v=20261022-imageicons2'), 'editor must bypass cached image-engine behavior after inline integration');
     assert(editor.includes('css/image-engine.css?v=20261022-imageicons2'), 'editor must bypass cached image-engine layout after inline integration');
-    assert(tools.includes('print.html?preview=1&v=20261021-imageworkspace1'), 'canonical preview must load the current print revision');
+    assert(tools.includes('print.html?preview=1&v=20261022-imagesequence1'), 'canonical preview must load the current print revision');
   });
 
   await test('rich text formatting is limited and rendered safely', () => {

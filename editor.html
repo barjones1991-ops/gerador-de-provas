@@ -550,10 +550,18 @@
     .silaba-blank { border-bottom: 2px dashed #94a3b8; height: 24px; }
 
     /* Sequência de imagens */
-    .seq-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; }
-    .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; }
-    .seq-img-card img { max-width: 100%; max-height: 90px; object-fit: contain; border-radius: 6px; }
-    .seq-img-num { width: 32px; height: 32px; border: 2px solid #94a3b8; border-radius: 6px; margin: 6px auto 0; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .seq-img-grid { --seq-media-height:96px; --seq-small-width:70px; --seq-medium-width:95px; --seq-large-width:120px; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 8px; align-items: stretch; }
+    .seq-img-grid.seq-img-count-3 { --seq-media-height:145px; --seq-small-width:120px; --seq-medium-width:160px; --seq-large-width:190px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .seq-img-grid.seq-img-count-4 { --seq-media-height:118px; --seq-small-width:90px; --seq-medium-width:120px; --seq-large-width:150px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .seq-img-grid.seq-img-count-5 { grid-template-columns:repeat(5,minmax(0,1fr)); }
+    .seq-img-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; text-align: center; display: grid; grid-template-rows: var(--seq-media-height) minmax(28px, auto) 32px; gap: 6px; align-items: center; }
+    .seq-img-media { width: 100%; height: var(--seq-media-height); display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
+    .seq-img-media img { display: block; width: var(--seq-medium-width) !important; height: auto !important; max-width: 100% !important; max-height: 100% !important; object-fit: contain; border-radius: 6px; }
+    .seq-img-media img[data-item-image-size="small"] { width:var(--seq-small-width) !important; }
+    .seq-img-media img[data-item-image-size="large"] { width:var(--seq-large-width) !important; }
+    .seq-img-placeholder { width: 100%; height: 80px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #94a3b8; }
+    .seq-img-caption { min-width: 0; min-height: 28px; display: flex; align-items: flex-start; justify-content: center; font-size: 11px; line-height: 1.25; color: #64748b; overflow-wrap: anywhere; }
+    .seq-img-num { width: 32px; height: 32px; border: 2px solid #94a3b8; border-radius: 6px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 
     /* Comparar imagens */
     .comparar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
@@ -2589,6 +2597,11 @@
       if (!files.length) return 0;
       if (files.length > 20) throw new Error('Selecione até 20 imagens por vez.');
       if (!['grade_imagens','sequencia_imagens','legenda_imagens','relacione_imagens'].includes(q.type)) throw new Error('Tipo de questão sem importação em lote.');
+      if (q.type === 'sequencia_imagens') {
+        const current = Array.isArray(q.items) ? q.items : [];
+        const empty = current.filter(item => !item.imageDataUrl).length;
+        if (current.length + Math.max(0, files.length - empty) > 5) throw new Error('A sequência de imagens aceita no máximo 5 imagens.');
+      }
       const owner = auth.getCurrentUser()?.id;
       const key = q.type === 'relacione_imagens' ? 'pairs' : 'items';
       const original = JSON.stringify(q[key] || []);
@@ -4879,34 +4892,45 @@
         if (q.type === 'sequencia_imagens') {
           if (!Array.isArray(q.items)||!q.items.length) q.items=[{imageDataUrl:null,imageFileName:'',order:1,caption:''},{imageDataUrl:null,imageFileName:'',order:2,caption:''},{imageDataUrl:null,imageFileName:'',order:3,caption:''}];
           const siblock = document.createElement('div'); siblock.className = 'row';
-          siblock.innerHTML = '<label>Imagens em sequência (defina a ordem correta)</label><div class="small">O aluno escreverá os números nos quadradinhos. A ordem definida aqui é o gabarito.</div>';
+          siblock.innerHTML = '<label>Imagens em sequência (defina a ordem correta)</label><div class="small">Use de 3 a 5 imagens. O aluno escreverá os números nos quadradinhos; a ordem definida aqui é o gabarito.</div>';
           const sibox = document.createElement('div');
+          const syncSequencePrompt = () => {
+            if (!/^Numere as imagens na ordem correta de 1 a \d+:$/i.test(String(q.text || '').trim())) return;
+            q.text = `Numere as imagens na ordem correta de 1 a ${q.items.length}:`;
+            const source = body.querySelector('textarea[data-k="text"]');
+            if (!source) return;
+            source.value = q.text;
+            if (source.nextElementSibling?.classList.contains('exam-rich-editor')) source.nextElementSibling.textContent = q.text;
+          };
           const renderSeqImgs = () => {
             sibox.innerHTML = '';
             q.items.forEach((item, ii) => {
-              const card = document.createElement('div'); card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;';
-              const toprow = document.createElement('div'); toprow.style.cssText='display:grid;grid-template-columns:3em 1fr auto;gap:8px;align-items:center;margin-bottom:8px;';
-              const orderInp = document.createElement('input'); orderInp.type='number'; orderInp.value=item.order||ii+1; orderInp.min=1; orderInp.max=20; orderInp.title='Ordem correta';
+              const card = document.createElement('div'); card.className='sequence-image-editor-card'; card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;';
+              const toprow = document.createElement('div'); toprow.className='sequence-image-meta-row'; toprow.style.cssText='display:grid;grid-template-columns:3em minmax(120px,1fr) auto;gap:8px;align-items:center;flex:1 1 290px;min-width:260px;margin-left:4px;padding-left:10px;border-left:1px solid #dbe3ec;';
+              const orderInp = document.createElement('input'); orderInp.type='number'; orderInp.value=item.order||ii+1; orderInp.min=1; orderInp.max=Math.max(5,q.items.length); orderInp.title='Ordem correta';
               orderInp.className = 'standard-linked-answer';
               orderInp.style.textAlign='center';
               orderInp.addEventListener('input',()=>{ item.order=Number(orderInp.value)||ii+1; renderPreview(); });
               const capInp = document.createElement('input'); capInp.value=item.caption||''; capInp.placeholder='Legenda (opcional)';
               capInp.addEventListener('input',()=>{ item.caption=capInp.value; renderPreview(); });
               const rmBtn=document.createElement('button'); rmBtn.type='button'; rmBtn.className='danger'; rmBtn.textContent='✕'; rmBtn.style.cssText='padding:5px 8px;font-size:12px;';
-              if(q.items.length>2) rmBtn.addEventListener('click',()=>{ q.items.splice(ii,1); renderSeqImgs(); renderPreview(); });
+              if(q.items.length>3) rmBtn.addEventListener('click',()=>{ const removedOrder=Number(item.order); q.items.splice(ii,1); if(Number.isInteger(removedOrder)) q.items.forEach(other=>{ if(Number(other.order)>removedOrder) other.order=Number(other.order)-1; }); syncSequencePrompt(); renderSeqImgs(); renderPreview(); });
               else rmBtn.disabled=true;
               toprow.appendChild(orderInp); toprow.appendChild(capInp); toprow.appendChild(rmBtn);
-              card.appendChild(toprow);
-              card.appendChild(createImagePicker({
+              const picker = createImagePicker({
                 getImage:()=>({dataUrl:item.imageDataUrl||'',fileName:item.imageFileName||''}),
                 getSize: () => item.imageSize, setSize: value => { item.imageSize = value; },
                 setImage:(d,f)=>{ item.imageDataUrl=d; item.imageFileName=f; renderPreview(); },
                 clearImage:()=>{ item.imageDataUrl=null; item.imageFileName=''; renderPreview(); },
-              }));
+              });
+              picker.querySelector('.image-actions')?.appendChild(toprow);
+              card.appendChild(picker);
               sibox.appendChild(card);
             });
             const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='secondary'; addBtn.textContent='+ Imagem';
-            addBtn.addEventListener('click',()=>{ q.items.push({imageDataUrl:null,imageFileName:'',order:q.items.length+1,caption:''}); renderSeqImgs(); renderPreview(); });
+            addBtn.disabled=q.items.length>=5;
+            addBtn.title=addBtn.disabled?'Limite de 5 imagens atingido':'Adicionar imagem';
+            addBtn.addEventListener('click',()=>{ if(q.items.length>=5) return; q.items.push({imageDataUrl:null,imageFileName:'',order:q.items.length+1,caption:''}); syncSequencePrompt(); renderSeqImgs(); renderPreview(); });
             sibox.appendChild(addBtn);
           };
           renderSeqImgs();
@@ -5386,7 +5410,7 @@
         images.append(imageHint);
         body.appendChild(images);
 
-        if (['grade_imagens','sequencia_imagens','legenda_imagens','relacione_imagens'].includes(q.type)) {
+        if (['grade_imagens','legenda_imagens','relacione_imagens'].includes(q.type)) {
           const batch = document.createElement('div'); batch.className = 'row';
           const label = document.createElement('label'); label.textContent = 'Adicionar várias imagens';
           const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -5930,14 +5954,15 @@
       }
       if (q.type === 'sequencia_imagens') {
         const items = q.items || [];
+        const countClass = [3,4,5].includes(items.length) ? ` seq-img-count-${items.length}` : '';
         const cards = items.map(item => {
           const img = item.imageDataUrl
             ? `<img ${safeImageAttr(item.imageDataUrl, item.imageSize)} alt="${esc(item.imageFileName||'')}" />`
-            : `<div style="height:80px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;">Sem imagem</div>`;
-          const cap = item.caption ? `<div style="font-size:11px;color:#64748b;margin-top:4px;">${esc(item.caption)}</div>` : '';
-          return `<div class="seq-img-card">${img}${cap}<div class="seq-img-num">&nbsp;</div></div>`;
+            : '<div class="seq-img-placeholder">Sem imagem</div>';
+          const cap = item.caption ? esc(item.caption) : '';
+          return `<div class="seq-img-card"><div class="seq-img-media">${img}</div><div class="seq-img-caption">${cap}</div><div class="seq-img-num">&nbsp;</div></div>`;
         }).join('');
-        return `<div class="seq-img-grid">${cards}</div>`;
+        return `<div class="seq-img-grid${countClass}">${cards}</div>`;
       }
       if (q.type === 'comparar_imagens') {
         const img1 = q.image1DataUrl ? `<img ${safeImageAttr(q.image1DataUrl, q.image1Size)} alt="${esc(q.image1FileName||'')}" />` : `<div style="height:140px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">Imagem A</div>`;

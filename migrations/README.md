@@ -46,12 +46,12 @@ Migração aplicada pelo conector Supabase no projeto de produção em 05/10/202
 
 1. Faça backup dos dados e do schema por uma ferramenta administrativa. Uma cópia do SQL do projeto não substitui backup de provas e usuários.
 2. No SQL Editor do projeto correto, execute `20260908_01_seguranca.sql` inteiro. O script usa uma transação e registra a versão em `public.schema_migrations`.
-3. Em Authentication, ative **Confirm email**. Configure SMTP e permita o retorno ao `login.html` do site publicado e ao endereço local usado na validação. A confirmação não é ativada por SQL.
+3. Em Authentication, ative **Confirm email**. Configure SMTP, defina `https://barjones1991-ops.github.io/gerador-de-provas/` como **Site URL** e permita exatamente `https://barjones1991-ops.github.io/gerador-de-provas/login.html` em **Redirect URLs**. O endereço local pode permanecer autorizado para outros testes, mas a recuperação de senha usa o endereço público definido em `CONFIG.PUBLIC_APP_URL`. A confirmação não é ativada por SQL.
 4. Revise contas criadas enquanto a confirmação estava desativada e contas que receberam a antiga senha compartilhada. Não presuma que o indicador `email_confirmed_at` de uma conta antiga prova verificação de caixa postal.
 5. Teste com contas controladas: acesso por escola, recuperação por e-mail, aceitar/cancelar convite, professor criar/enviar prova, coordenação aprovar e operador imprimir. Não use destinatários reais em testes de e-mail.
 6. Valide o frontend local; publique o frontend somente depois dessa validação.
 
-A migração remove a RPC de senha fixa, protege novos papéis/escopos e estados das provas, remove a leitura de tokens de convite pelo destinatário e impede reutilização concorrente de convites. Não promove contas, não apaga provas, não transfere escolas e não redefine senhas existentes.
+A migração 01 removeu a RPC antiga de senha fixa, protege novos papéis/escopos e estados das provas, remove a leitura de tokens de convite pelo destinatário e impede reutilização concorrente de convites. A migração `20261022185606_restaurar_reset_senha_temporaria.sql` restaura o reset temporário para `123456` com autorização por `can_manage_profile`, execução restrita a `authenticated` e troca obrigatória no próximo acesso. Aplicar a migração não redefine senhas existentes; a alteração só ocorre quando um gestor usa a ação no sistema.
 
 Se a aplicação de uma instrução falhar, a transação deve ser revertida; não execute trechos restantes de forma avulsa. Corrija a causa e execute novamente o arquivo completo.
 
