@@ -711,8 +711,11 @@ async function main() {
     assert(dashboard.includes('if (!hasExamQuestions(exam))'), 'send-to-review should use normalized question count');
     assert(dashboard.includes('function getExamScoreCheck(exam)'), 'dashboard should compare question score total before review');
     assert(dashboard.includes('Divergência de nota: soma das questões'), 'dashboard should warn about score divergence');
+    assert(dashboard.includes('<strong>Atenção:</strong> divergências encontradas.'), 'dashboard should summarize score divergence without overcrowding the card');
     assert(dashboard.includes('const sendReady = qCount > 0 && scoreCheck.isConsistent') && dashboard.includes("sendReady ? '' : 'disabled'"), 'dashboard should explain but disable incomplete submissions');
     assert(dashboard.includes('if (!scoreCheck.isConsistent)'), 'send-to-review should block score divergence on click');
+    assert(dashboard.includes('height: 285px') && dashboard.includes('height: auto'), 'desktop cards should keep a uniform height while mobile cards remain fluid');
+    assert(dashboard.includes("titleLength > 80 ? 'title-very-long'") && dashboard.includes("titleLength > 48 ? 'title-long'") && dashboard.includes("titleLength > 28 ? 'title-medium'"), 'long exam titles should reduce their font size progressively');
   });
 
   await test('teacher stages preserve feedback and prioritize pending corrections', () => {
@@ -1038,6 +1041,9 @@ async function main() {
     assert(page.includes('requiresPasswordChange()'), 'dashboard should check forced password change state');
     assert(page.includes('return Boolean(currentProfile.force_password_change)'), 'dashboard forced password check should use profile flag as source of truth');
     assert(page.includes("document.getElementById('profileModal').classList.remove('show')"), 'dashboard should close profile modal after successful password change');
+    assert(page.includes('modal profile-modal') && page.includes('aria-labelledby="profileModalTitle"'), 'profile modal should expose its responsive dialog structure');
+    assert(page.includes('max-height: calc(100dvh - 32px)') && page.includes('overflow-y: auto'), 'profile modal content should remain reachable on low-height notebooks');
+    assert(page.includes('.profile-modal #saveProfileBtn') && page.includes('grid-column: 1 / -1'), 'profile actions should remain usable on narrow screens');
   });
 
   await test('coordination page has review actions', () => {
@@ -1298,7 +1304,9 @@ async function main() {
     assert(!print.includes('.two-cols, .image-match-grid, .match-images, .mark-grid.two-columns { grid-template-columns: 1fr; }'), 'mobile width must not collapse printable question columns');
     const controllerRevision = editor.match(/js\/editor-tools\.js\?v=(\d{8})-[\w-]+/);
     assert(controllerRevision && controllerRevision[1] >= '20261019', 'editor must load the mobile fix revision or a newer controller');
-    assert(controllerRevision?.[0] === 'js/editor-tools.js?v=20261021-imageworkspace1', 'editor must bypass cached controller code after image-word layout updates');
+    assert(controllerRevision?.[0] === 'js/editor-tools.js?v=20261022-imageexpanded1', 'editor must bypass cached controller code after image-control updates');
+    assert(editor.includes('js/image-engine.js?v=20261022-imageicons2'), 'editor must bypass cached image-engine behavior after inline integration');
+    assert(editor.includes('css/image-engine.css?v=20261022-imageicons2'), 'editor must bypass cached image-engine layout after inline integration');
     assert(tools.includes('print.html?preview=1&v=20261021-imageworkspace1'), 'canonical preview must load the current print revision');
   });
 

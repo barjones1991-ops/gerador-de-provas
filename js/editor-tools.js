@@ -755,7 +755,11 @@ const EditorTools = {
       trigger.classList.add('discursive-image-button');
       trigger.classList.remove('primary'); trigger.classList.add('outline');
       const panel = content.querySelector('.image-edit-panel');
-      if (panel) { panel.classList.add('hidden'); trigger.setAttribute('aria-expanded', 'false'); }
+      if (panel) {
+        const expanded = this.hasStatementImage(q);
+        panel.classList.toggle('hidden', !expanded);
+        trigger.setAttribute('aria-expanded', String(expanded));
+      }
     }
     const answer = makeSection('Resposta do aluno', 'discursive-response');
     const answerHeader = document.createElement('div'); answerHeader.className = 'discursive-response-heading';
@@ -1086,38 +1090,6 @@ const EditorTools = {
       });
       picker.attachPresentationControls?.(layout);
     });
-    card.querySelectorAll('select').forEach(position => {
-      if (!position.querySelector('option[value="lado_esquerda"]') || position.dataset.imageDisposition) return;
-      position.dataset.imageDisposition = 'true';
-      const field = document.createElement('label');
-      field.className = 'image-disposition-field';
-      field.appendChild(document.createTextNode('Disposição'));
-      const disposition = document.createElement('select');
-      disposition.setAttribute('aria-label', 'Disposição da imagem');
-      disposition.innerHTML = '<option value="own">Em uma linha própria</option><option value="beside">Com texto ao lado</option>';
-      field.appendChild(disposition);
-      position.parentElement.before(field);
-      const sync = () => {
-        const beside = position.value.startsWith('lado_');
-        disposition.value = beside ? 'beside' : 'own';
-        disposition.disabled = position.disabled || !this.canEdit();
-        position.querySelectorAll('option').forEach(option => {
-          const sideOption = option.value.startsWith('lado_');
-          option.hidden = sideOption !== beside;
-          option.disabled = sideOption !== beside;
-          if (sideOption) option.textContent = option.value === 'lado_esquerda' ? 'Esquerda' : 'Direita';
-        });
-      };
-      disposition.addEventListener('change', () => {
-        if (!this.canEdit() || position.disabled) { sync(); return; }
-        const right = position.value.endsWith('direita') || position.value === 'right';
-        position.value = disposition.value === 'beside' ? (right ? 'lado_direita' : 'lado_esquerda') : (right ? 'right' : 'left');
-        sync();
-        position.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      position.addEventListener('change', sync);
-      sync();
-    });
   },
   fitDiscursiveText(input) {
     if (!input?.getClientRects?.().length) return;
@@ -1162,6 +1134,11 @@ const EditorTools = {
       if (option.value === 'lado_direita') option.textContent = 'Imagem à direita do texto';
     });
   },
+  hasStatementImage(q) {
+    return Boolean(q.imageDataUrl || q.image1DataUrl || q.image2DataUrl
+      || q.headerImage?.dataUrl || q.headerImage?.items?.some(item => item.dataUrl)
+      || q.freeImages?.some(item => item.dataUrl) || q.extraImages?.some(item => item.dataUrl));
+  },
   embedFieldImages(card, q) {
     if (card.dataset.fieldImagesEmbedded) return;
     card.dataset.fieldImagesEmbedded = 'true';
@@ -1197,8 +1174,9 @@ const EditorTools = {
       trigger.setAttribute('aria-label', trigger.title);
       panel.id = `enunciation-image-${card.dataset.questionIndex}`;
       trigger.setAttribute('aria-controls', panel.id);
-      panel.classList.add('hidden');
-      trigger.setAttribute('aria-expanded', 'false');
+      const expanded = this.hasStatementImage(q);
+      panel.classList.toggle('hidden', !expanded);
+      trigger.setAttribute('aria-expanded', String(expanded));
       const images = card.querySelector('.question-images');
       if (images) {
         const oldDetails = images.closest('.question-images-details');
@@ -1266,15 +1244,17 @@ const EditorTools = {
       toolbar.appendChild(button); shell.append(toolbar, panel);
     }
     const panel = shell.querySelector(':scope > .image-edit-panel');
-    panel.classList.add('hidden');
+    const expanded = this.hasStatementImage(q);
+    panel.classList.toggle('hidden', !expanded);
     const button = shell.querySelector('.field-image-trigger');
-    button.setAttribute('aria-expanded','false');
+    button.setAttribute('aria-expanded',String(expanded));
     button.classList.toggle('has-image', Boolean(q.imageDataUrl || q.freeImages?.length
       || q.image1DataUrl || q.image2DataUrl));
     panel.prepend(root);
     const extras = root.querySelector('.native-extra-images');
     if (extras) {
       const details = document.createElement('details'); details.className = 'native-extra-images-details';
+      details.open = Boolean(q.extraImages?.some(item => item.dataUrl));
       const summary = document.createElement('summary'); summary.textContent = 'Imagens adicionais (até 2 extras)';
       extras.before(details); details.append(summary,extras);
     }
@@ -1947,23 +1927,72 @@ preview.innerHTML = '<div class="preview-toolbar"><div class="preview-options"><
     const bank = menu.querySelector('[data-action="bank"]');
     menu.replaceChildren();
     const header = document.createElement('div'); header.className = 'picker-header';
-    header.innerHTML = '<h2>Nova questão</h2><button type="button" data-picker-close aria-label="Fechar escolha de questão">Fechar</button>';
+    header.innerHTML = '<div class="picker-title-block"><span>Adicionar conteúdo</span><h2>Escolha o tipo de questão</h2><p>Comece por um modelo e personalize o enunciado e as respostas.</p></div><button class="picker-close" type="button" data-picker-close aria-label="Fechar escolha de questão"><span aria-hidden="true">×</span></button>';
     const filters = document.createElement('div'); filters.className = 'picker-filters';
-    filters.innerHTML = '<input type="search" aria-label="Buscar tipo de questão" placeholder="Que tipo de questão você quer criar?"><select aria-label="Categoria de questão"><option value="">Todas as categorias</option></select>';
+    filters.innerHTML = '<label class="picker-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar tipo de questão" placeholder="Buscar um tipo de questão..."></label><select aria-label="Categoria de questão"><option value="">Todas as categorias</option></select>';
     const select = filters.querySelector('select');
     [...new Set(types.map(b => category(b.dataset.type)))].forEach(name => { const option = document.createElement('option'); option.value = name; option.textContent = name; select.append(option); });
     const grid = document.createElement('div'); grid.className = 'picker-grid';
     const samples = { multipla:'◉ A   ○ B   ○ C', vf:'(V) Afirmação   (F) Afirmação', marcarx:'Uma resposta correta ou várias: ◉ A / ☑ A ☑ B', discursiva:'Resposta: __________________', matematica_coluna:'12 + 8 = ____', lacunas:'A planta precisa de ____.', espaco_livre:'▧ Espaço para desenhar', tabela:'Grupo | Quantidade', subitens:'a) Pergunta   b) Pergunta', problema_matematico:'3 sementes + 2 sementes. Quantas ao todo?', ordenacao:'2 → 1 → 3 • Ordene as etapas', relacione:'Olhos → Ver • Ouvidos → Ouvir', expressao_matematica:'(2 + 3) × 4 = ____' };
+    const svg = body => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${body}</svg>`;
+    const iconBodies = {
+      choice:'<circle cx="5" cy="6" r="2"></circle><path d="m4.2 6 .6.7 1.2-1.5M10 6h9M3 12h4M10 12h9M3 18h4M10 18h9"></path>',
+      trueFalse:'<rect x="3" y="4" width="7" height="7" rx="2"></rect><path d="m5 7.5 1.3 1.3L8.5 6M15 6l5 5M20 6l-5 5"></path><rect x="3" y="14" width="7" height="7" rx="2"></rect><path d="M14 17.5h7"></path>',
+      write:'<path d="M4 20h4l10.8-10.8a2.1 2.1 0 0 0-3-3L5 17v3ZM13.8 8.2l3 3M4 12h5M4 7h7"></path>',
+      draw:'<path d="m5 12 9-9 4 4-9 9-5 1 1-5ZM13 4l4 4M4 21c3-4 5 2 8-1s5-2 8 0"></path>',
+      fill:'<path d="M4 6h16M4 12h5M15 12h5M4 18h16"></path><path d="M10 14h4" stroke-width="2.6"></path>',
+      book:'<path d="M3 5.5A3.5 3.5 0 0 1 6.5 3H11v16H6.5A3.5 3.5 0 0 0 3 21V5.5ZM21 5.5A3.5 3.5 0 0 0 17.5 3H13v16h4.5A3.5 3.5 0 0 1 21 21V5.5Z"></path>',
+      readWrite:'<path d="M3 5h7a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H3V5ZM21 5h-7a2 2 0 0 0-2 2v5"></path><path d="m14 17 5-5 2 2-5 5-3 1 1-3Z"></path>',
+      order:'<path d="M8 6h11M8 12h11M8 18h11M4 4v4M2.5 6 4 4.5 5.5 6M4 20v-4M2.5 18 4 19.5 5.5 18"></path>',
+      list:'<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"></path>',
+      relation:'<circle cx="5" cy="7" r="2"></circle><circle cx="19" cy="17" r="2"></circle><circle cx="5" cy="17" r="2"></circle><circle cx="19" cy="7" r="2"></circle><path d="M7 7h10M7 17h10"></path>',
+      image:'<rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="8" cy="9" r="2"></circle><path d="m4 17 5-5 4 4 3-3 4 4"></path>',
+      images:'<rect x="6" y="3" width="15" height="14" rx="2"></rect><path d="M18 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1M9 13l3-3 4 4 2-2 3 3"></path>',
+      imageRelation:'<rect x="3" y="5" width="8" height="8" rx="2"></rect><path d="m4 12 2.5-2.5L10 13M13 7h8M13 11h6M11 9h2"></path><path d="M5 17h14"></path>',
+      imageSequence:'<rect x="2" y="5" width="5" height="8" rx="1"></rect><rect x="9.5" y="5" width="5" height="8" rx="1"></rect><rect x="17" y="5" width="5" height="8" rx="1"></rect><path d="M7 9h2.5M14.5 9H17M4.5 17v3M11 18.5h2M19 17c1-1 2.5.5 1 1.5 1.5 1 0 2-1 1.5"></path>',
+      imagePair:'<rect x="2" y="5" width="8" height="12" rx="2"></rect><rect x="14" y="5" width="8" height="12" rx="2"></rect><path d="m3 15 2.5-3 3.5 4M15 15l2.5-3 3.5 4M10 11h4"></path>',
+      caption:'<rect x="4" y="3" width="16" height="12" rx="2"></rect><path d="m5 14 4-4 3 3 2-2 5 4M7 19h10M9 22h6"></path>',
+      compare:'<rect x="3" y="5" width="8" height="14" rx="2"></rect><rect x="13" y="5" width="8" height="14" rx="2"></rect><path d="M7 9h.01M17 9h.01M6 15h2M16 15h2"></path>',
+      grid:'<rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18M15 3v18M3 9h18M3 15h18"></path>',
+      target:'<rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="15" cy="10" r="3"></circle><path d="M15 5v2M15 13v2M10 10h2M18 10h2M5 17l4-4 3 3"></path>',
+      math:'<rect x="4" y="2" width="16" height="20" rx="3"></rect><path d="M7 6h10M8 11h2M14 11h2M8 15h2M14 15h2M8 19h2M14 19h2"></path>',
+      expression:'<text x="3" y="14.5" fill="currentColor" stroke="none" font-size="10" font-weight="800">x+y</text><path d="M3 18h18M17 5l4 4M21 5l-4 4"></path>',
+      problem:'<path d="M4 4h16v13H8l-4 4V4Z"></path><path d="M8 9h8M12 6v6M8 14h5"></path>',
+      table:'<rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 4v16M15 4v16"></path>',
+      numbers:'<circle cx="5" cy="12" r="3"></circle><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="12" r="3"></circle><path d="M5 11v2M11 11.2c.3-.8 1.8-.8 2 0 .2.7-.8 1-2 2h2M18 11c.8-1 2.3 0 1 1 1.3 1 0 2-1 1"></path>',
+      mic:'<rect x="8" y="3" width="8" height="12" rx="4"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"></path>',
+      letters:'<path d="M4 19 9 5l5 14M6 14h6M15 10h5M17.5 7.5v5"></path>',
+      search:'<circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5M7 8h6M7 11h4"></path>',
+      crossword:'<path d="M4 4h6v6H4zM10 10h6v6h-6zM16 16h4v4h-4zM16 4h4v6h-4zM4 16h6v4H4z"></path>'
+    };
+    const iconTypes = {
+      marcarx:'choice', vf:'trueFalse', discursiva:'write', lacunas:'fill', texto_base:'book', ordenacao:'order', subitens:'list', relacione:'relation', relacione_imagens:'imageRelation', espaco_livre:'draw', sequencia_imagens:'imageSequence', comparar_imagens:'compare', legenda_imagens:'caption', associacao_imagem_imagem:'imagePair', grade_imagens:'grid', identificar_imagem:'target', matematica_coluna:'math', expressao_matematica:'expression', problema_matematico:'problem', tabela:'table', sequencia_numerica:'numbers', ditado:'mic', leitura_escrita:'readWrite', silabas:'letters', caca_palavras:'search', cruzadinha:'crossword'
+    };
+    const categoryTones = { 'Escrita e interpretação':'writing', 'Alternativas e relações':'choice', 'Imagens e desenho':'image', 'Matemática e dados':'math', 'Linguagem e alfabetização':'language' };
     types.forEach(button => {
-      button.dataset.category = category(button.dataset.type);
+      const categoryName = category(button.dataset.type);
+      button.dataset.category = categoryName;
+      button.dataset.tone = categoryTones[categoryName] || 'choice';
       const hint = button.querySelector('small');
       if (hint && samples[button.dataset.type]) hint.textContent = samples[button.dataset.type];
+      const label = [...button.childNodes].filter(node => node.nodeType === 3).map(node => node.textContent.trim()).filter(Boolean).join(' ') || button.dataset.type;
+      const icon = document.createElement('span'); icon.className = 'picker-type-icon'; icon.setAttribute('aria-hidden','true');
+      icon.innerHTML = svg(iconBodies[iconTypes[button.dataset.type]] || iconBodies.list);
+      const title = document.createElement('strong'); title.className = 'picker-type-title'; title.textContent = label;
+      button.classList.add('picker-type-card');
+      button.replaceChildren(icon, title, hint || '');
+      button.setAttribute('aria-label', `${label}. ${hint?.textContent || 'Criar este tipo de questão.'}`);
       grid.append(button);
     });
     const empty = document.createElement('p'); empty.textContent = 'Nenhum tipo encontrado. Tente outro termo.'; empty.hidden = true;
     const sticky = document.createElement('div'); sticky.className = 'picker-sticky';
     sticky.append(header, filters);
-    if (bank) sticky.append(bank);
+    if (bank) {
+      bank.classList.add('picker-bank-action');
+      bank.innerHTML = `<span class="picker-bank-icon" aria-hidden="true">${svg('<ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>')}</span><span class="picker-bank-copy"><strong>Usar questão do banco</strong><small>Reaproveite uma questão já cadastrada.</small></span><span class="picker-bank-arrow" aria-hidden="true">→</span>`;
+      bank.setAttribute('aria-label','Usar uma questão já cadastrada no banco');
+      sticky.append(bank);
+    }
     menu.append(sticky, grid, empty);
     const close = () => { menu.classList.add('hidden'); document.getElementById('topNewQuestionBtn').setAttribute('aria-expanded','false'); document.getElementById('topNewQuestionBtn').focus(); };
     header.querySelector('button').onclick = close;

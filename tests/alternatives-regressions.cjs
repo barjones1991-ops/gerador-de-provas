@@ -145,9 +145,12 @@ const attachedSaved=JSON.parse(attached.requests.filter(r=>r.options.method==='P
 assert.equal(attachedSaved.questions[0].text,'Observe e explique.');
 assert.equal(attachedSaved.questions[0].headerImage.fileName,'trocada.png');
 const reopenedImage=await boot({questions:attachedSaved.questions});reopenedImage.ctx.EditorTools.focusQuestion(0);
-assert(reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
+assert(!reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
 const reopenedTrigger=reopenedImage.document.querySelector('.discursive-image-button');assert.equal(reopenedTrigger.textContent,'Imagem do enunciado');
-reopenedImage.event(reopenedTrigger,'click');assert(!reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
+assert.equal(reopenedTrigger.getAttribute('aria-expanded'),'true');
+reopenedImage.event(reopenedTrigger,'click');assert(reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'));
+reopenedImage.run('EditorTools.enhanceFields()');
+assert(reopenedImage.document.querySelector('.enunciation-image-field .image-edit-panel').classList.contains('hidden'),'recolhimento manual é preservado durante edição');
 attached.run('window.headerPickers.at(-1).clearImage()');
 assert.equal(attached.run('buildHeaderImageHtml(state.questions[0])'),'');
 assert.equal(attached.run('state.questions[0].text'),'Observe e explique.');
@@ -165,8 +168,6 @@ for (const type of ['discursiva','imagem']) {
  assert(!shell.querySelector('.enunciation-extra-images > input[type="file"]'));
  assert.equal(shell.querySelector('.extra-image-thumbnail').alt,'original.png');
  const trigger=extras.document.querySelector(type==='discursiva'?'.discursive-image-button':'.enunciation-image-field .field-image-trigger');
- assert(shell.querySelector('.image-edit-panel').classList.contains('hidden'));
- extras.event(trigger,'click');
  assert(!shell.querySelector('.image-edit-panel').classList.contains('hidden'));
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'false');
  extras.event(trigger,'click'); assert.equal(trigger.getAttribute('aria-expanded'),'true');
@@ -230,10 +231,8 @@ for(const question of [
  assert(control,question.type);
  const sharedPicker=control.closest('.image-picker');
  assert(sharedPicker?.querySelector('.image-launcher'),question.type+' usa a entrada do editor compartilhado');
- sizes.event(sharedPicker.querySelector('.image-launcher'),'click');
- assert(sizes.document.querySelector('.image-editor-dialog').contains(control),question.type+' edita no mesmo painel');
- sizes.event(sizes.document.querySelector('.image-editor-dialog footer button'),'click');
- assert(sharedPicker.contains(control),question.type+' preserva controles ao fechar');
+ assert(sharedPicker.querySelector('.image-workspace').contains(control),question.type+' edita no painel da própria questão');
+ assert.equal(sharedPicker.querySelector('.image-workspace').hidden,false,question.type+' mostra os controles junto da imagem');
  const select=control.querySelector('select'); select.value='large'; sizes.event(select,'change');
  await sizes.run('saveToCloud()');
  const savedQuestion=JSON.parse(sizes.requests.filter(r=>r.options.method==='PATCH').at(-1).options.body).questions[0];

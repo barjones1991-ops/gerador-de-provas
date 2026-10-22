@@ -138,6 +138,14 @@
       line-height: 1.45; margin-top: 2px;
     }
     .review-note strong { display: block; margin-bottom: 4px; color: #92400e; }
+    .review-note.score-alert {
+      padding: 8px 10px;
+      line-height: 1.3;
+    }
+    .review-note.score-alert strong {
+      display: inline;
+      margin: 0 5px 0 0;
+    }
     .card-footer {
       display: flex; gap: 8px; padding-top: 14px;
       border-top: 1px solid #f1f5f9; margin-top: 4px;
@@ -218,6 +226,21 @@
     .profile-sec-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; margin-top: 4px; }
     .profile-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
     .profile-tag { background: #ede9fe; color: #6d28d9; border-radius: 20px; font-size: 11px; font-weight: 700; padding: 3px 10px; }
+    .profile-modal {
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100dvh - 32px);
+      overflow: hidden;
+    }
+    .profile-modal .modal-form {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+      margin-bottom: 18px;
+      padding-right: 4px;
+    }
+    .profile-modal .modal-btns { flex: 0 0 auto; }
     .modal-btns { display: flex; gap: 10px; }
     .modal-btns button {
       flex: 1; padding: 12px; border-radius: 10px;
@@ -578,8 +601,9 @@
       flex-direction: column;
       gap: 10px;
       min-width: 0;
-      min-height: 265px;
-      aspect-ratio: 1 / 1;
+      width: 100%;
+      height: 285px;
+      min-height: 285px;
       padding: 15px;
       border: 1px solid rgba(148,163,184,0.19);
       border-radius: 22px;
@@ -609,7 +633,9 @@
     .exam-status-dot.status-devolvida { background: #f97316; box-shadow: 0 0 0 4px rgba(249,115,22,0.15), 0 3px 8px rgba(16,24,40,0.10); }
     .exam-status-dot.status-bloqueada { background: #e5484d; box-shadow: 0 0 0 4px rgba(229,72,77,0.15), 0 3px 8px rgba(16,24,40,0.10); }
     .card-heading {
+      height: 50px;
       min-height: 50px;
+      overflow: hidden;
       align-items: flex-start;
       justify-content: flex-start;
       gap: 10px;
@@ -622,17 +648,40 @@
       font-size: 15px;
       line-height: 1.35;
       letter-spacing: -0.01em;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+    .card-title.title-medium { font-size: 14px; line-height: 1.3; }
+    .card-title.title-long {
+      font-size: 13px;
+      line-height: 1.25;
+      -webkit-line-clamp: 3;
+    }
+    .card-title.title-very-long {
+      font-size: 12px;
+      line-height: 1.2;
+      -webkit-line-clamp: 3;
     }
     .card-meta {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 9px 12px;
+      min-height: 67px;
       padding: 10px 0;
       border-top: 1px solid #edf0f5;
       border-bottom: 1px solid #edf0f5;
     }
     .meta-row { gap: 2px; }
     .meta-label { font-size: 11px; color: #98a2b3; }
-    .meta-value { font-size: 12px; color: #344054; }
+    .meta-value {
+      font-size: 12px;
+      color: #344054;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
     .exam-context { margin-top: -2px; color: #667085; }
     .card-footer {
       display: flex;
@@ -749,6 +798,7 @@
       #showingInfo { flex-basis: 100%; }
       #sortSelect { width: 100%; order: 3; }
       .exam-card {
+        height: auto;
         min-height: 0;
         aspect-ratio: auto;
         gap: 12px;
@@ -762,7 +812,24 @@
       .card-footer { justify-content: center; }
       .modal-overlay { place-items: end center; padding: 8px; }
       .modal { max-width: none !important; padding: 24px 20px; border-radius: 28px 28px 20px 20px; }
+      .profile-modal {
+        max-height: calc(100dvh - 16px);
+        padding: 20px 16px 16px;
+      }
+      .profile-modal .modal-icon { margin-bottom: 6px; font-size: 32px; }
+      .profile-modal > p { margin-bottom: 12px; }
+      .profile-modal .modal-form { margin: 12px 0 14px; }
       .toast { left: 12px; right: 12px; bottom: 92px; text-align: center; }
+    }
+    @media (max-width: 420px) {
+      .profile-modal .modal-btns {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .profile-modal #saveProfileBtn {
+        grid-column: 1 / -1;
+        grid-row: 1;
+      }
     }
   </style>
 </head>
@@ -872,9 +939,9 @@
 
 <!-- Modal de perfil -->
 <div class="modal-overlay" id="profileModal">
-  <div class="modal" style="max-width:440px;">
+  <div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle" style="max-width:440px;">
     <div class="modal-icon">👤</div>
-    <h3>Meu perfil</h3>
+    <h3 id="profileModalTitle">Meu perfil</h3>
     <p>Edite seu nome. Escola, série e disciplinas são definidas pela coordenação.</p>
     <div class="modal-form">
       <div>
@@ -1236,6 +1303,9 @@
       const sendReady = qCount > 0 && scoreCheck.isConsistent;
       const primaryLabel = state.returned ? 'Corrigir prova' : qCount === 0 ? 'Adicionar questões' : !scoreCheck.isConsistent ? 'Corrigir nota' : 'Continuar editando';
       const printLabel = { nao_enviada: 'Aguardando envio para impressão', enviada: 'Na fila de impressão', impressa: 'Impressa' }[exam.print_status || 'nao_enviada'];
+      const examTitle = String(exam.title || 'Sem título').trim() || 'Sem título';
+      const titleLength = Array.from(examTitle).length;
+      const titleClass = titleLength > 80 ? 'title-very-long' : titleLength > 48 ? 'title-long' : titleLength > 28 ? 'title-medium' : '';
       const context = review === 'aprovada'
         ? printLabel
         : review === 'bloqueada'
@@ -1250,19 +1320,21 @@
                   ? 'Prova publicada.'
                   : 'Continue a elaboração desta prova.';
 
+      const visibleContext = qCount > 0 && !scoreCheck.isConsistent ? '' : context;
+
       return `
         <article class="exam-card ${state.returned ? 'state-devolvida' : `state-${review}`}">
           <div class="card-heading">
             <span class="exam-status-dot ${statusClass}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>
-            <div class="card-heading-copy"><h2 class="card-title">${esc(exam.title || 'Sem título')}</h2></div>
+            <div class="card-heading-copy"><h2 class="card-title ${titleClass}" title="${esc(examTitle)}">${esc(examTitle)}</h2></div>
           </div>
           <div class="card-meta">
             <div class="meta-row"><span class="meta-label">Disciplina</span><span class="meta-value">${esc(exam.subject || '—')}</span></div>
             <div class="meta-row"><span class="meta-label">Turma</span><span class="meta-value">${esc(exam.class_name || '—')}</span></div>
           </div>
-          ${qCount > 0 && !scoreCheck.isConsistent ? `<div class="review-note"><strong>Atenção</strong>${esc(scoreCheck.message)}</div>` : ''}
-          ${state.returned && state.notes ? `<div class="review-note"><strong>Devolutiva da coordenação</strong>${esc(state.notes)}</div>` : ''}
-          ${context ? `<p class="exam-context">${esc(context)}</p>` : ''}
+          ${qCount > 0 && !scoreCheck.isConsistent ? '<div class="review-note score-alert"><strong>Atenção:</strong> divergências encontradas.</div>' : ''}
+          ${state.returned && state.notes ? `<div class="review-note score-alert" title="${esc(state.notes)}"><strong>Devolutiva da coordenação:</strong> ajustes solicitados.</div>` : ''}
+          ${visibleContext ? `<p class="exam-context">${esc(visibleContext)}</p>` : ''}
           <div class="card-footer">
             ${state.drafting && canEdit ? `<button class="card-btn icon-only edit" aria-label="${primaryLabel}" title="${primaryLabel}" onclick="editExam('${exam.id}')">${examActionIcon('edit')}</button>` : `<button class="card-btn icon-only edit" aria-label="Visualizar prova" title="Visualizar prova" onclick="printExam('${exam.id}')">${examActionIcon('view')}</button>`}
             ${canSendToReview && !qCount ? '<p class="small">Adicione questões antes de enviar para coordenação.</p>' : ''}

@@ -298,9 +298,9 @@
 
   function createPicker(options) {
     let busy = false;
-    let editorOverlay = null;
     let cropOverlay = null;
     let presentation = null;
+    const presentationSyncs = [];
     const wrap = document.createElement('div');
     wrap.className = 'row image-picker';
     let openedFromDocument = false;
@@ -344,21 +344,25 @@
 
     const actions = document.createElement('div');
     actions.className = 'image-actions';
-    const actionButton = (text, title, className = 'outline') => {
+    const actionButton = (text, title, path, className = 'outline') => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = className;
-      button.textContent = text;
+      button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+      if (text) {
+        const label = document.createElement('span');
+        label.textContent = text;
+        button.appendChild(label);
+      }
       button.title = title;
       button.setAttribute('aria-label', title);
       actions.appendChild(button);
       return button;
     };
-    const replace = actionButton('Trocar imagem', 'Substituir imagem');
-    const crop = actionButton('Recortar', 'Recortar imagem');
-    const rotateLeft = actionButton('↶ Girar', 'Girar 90° para a esquerda');
-    const rotateRight = actionButton('↷ Girar', 'Girar 90° para a direita');
-    const remove = actionButton('Remover imagem', 'Remover imagem', 'danger image-remove-action');
+    const replace = actionButton('Trocar', 'Substituir imagem', '<path d="M10 20H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h15a1 1 0 0 1 1 1v6"/><circle cx="8" cy="8" r="1.5"/><path d="m3 16 5-5 4 4M14 14h7l-2-2M21 19h-7l2 2"/>');
+    const crop = actionButton('Recortar', 'Recortar imagem', '<path d="M6 3v15h15M3 6h15v15"/>');
+    const rotateRight = actionButton('', 'Girar 90° para a direita', '<rect x="4" y="11" width="9" height="10" rx="1"/><path d="M5 7a8 8 0 0 1 15 3M20 4v6h-6"/>');
+    const remove = actionButton('', 'Remover imagem', '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>', 'danger image-remove-action');
 
     const refresh = () => {
       const image = options.getImage() || {};
@@ -366,18 +370,15 @@
       const editable = !options.canEdit || options.canEdit();
       launcher.replaceChildren();
       launcher.disabled = busy || !editable;
-      launcher.setAttribute('aria-label', hasImage ? 'Editar imagem' : 'Adicionar imagem');
-      if (hasImage) {
-        const thumb = document.createElement('img');
-        thumb.src = image.dataUrl;
-        thumb.alt = '';
-        launcher.appendChild(thumb);
-      }
+      launcher.setAttribute('aria-label', 'Adicionar imagem');
+      launcher.hidden = hasImage;
+      workspace.hidden = !hasImage;
+      wrap.classList.toggle('image-editor-open', hasImage);
       const launcherCopy = document.createElement('span');
       const launcherTitle = document.createElement('strong');
-      launcherTitle.textContent = busy ? 'Processando imagem…' : hasImage ? 'Editar imagem' : '+ Adicionar imagem';
+      launcherTitle.textContent = busy ? 'Processando imagem…' : '+ Adicionar imagem';
       const launcherHint = document.createElement('small');
-      launcherHint.textContent = hasImage ? 'Recorte, rotação e apresentação' : 'Escolha um arquivo ou arraste para cá';
+      launcherHint.textContent = 'Escolha um arquivo ou arraste para cá';
       launcherCopy.append(launcherTitle, launcherHint);
       launcher.appendChild(launcherCopy);
       drop.replaceChildren();
@@ -405,13 +406,15 @@
       sizeControl.hidden = !hasImage || !options.setSize;
       sizeSelect.value = options.getSize?.() || 'small';
       sizeSelect.disabled = busy || !editable;
-      [replace, rotateLeft, rotateRight, crop, remove].forEach(button => {
+      [replace, rotateRight, crop, remove].forEach(button => {
         button.hidden = !hasImage;
         button.disabled = busy || !editable;
       });
+      presentationSyncs.forEach(sync => sync());
     };
 
     const setBusy = value => {
+      if (value && wrap.isConnected) openedFromDocument = true;
       busy = Boolean(value);
       refresh();
     };
@@ -437,41 +440,15 @@
       if (!busy && (!options.canEdit || options.canEdit())) fileInput.click();
     };
     const closeEditor = (force = false) => {
-      if (!editorOverlay || (busy && !force)) return;
+      if (busy && !force) return;
       if (cropOverlay) { cropOverlay.dismiss(); cropOverlay = null; }
-      workspace.hidden = true;
-      wrap.appendChild(workspace);
-      editorOverlay.remove();
-      editorOverlay = null;
-      options.modal?.closeModal?.();
-      launcher.focus();
     };
     const openEditor = () => {
-      if (busy || editorOverlay || (options.canEdit && !options.canEdit())) return;
+      if (busy || (options.canEdit && !options.canEdit())) return;
       if (!options.getImage()?.dataUrl) { chooseFile(); return; }
       openedFromDocument = wrap.isConnected;
-      editorOverlay = document.createElement('div');
-      editorOverlay.className = 'image-editor-overlay';
-      const dialog = document.createElement('section');
-      dialog.className = 'image-editor-dialog';
-      dialog.setAttribute('role', 'dialog');
-      dialog.setAttribute('aria-modal', 'true');
-      dialog.setAttribute('aria-label', 'Editar imagem');
-      const heading = document.createElement('header');
-      heading.innerHTML = '<h2>Editar imagem</h2><p>Ajuste a imagem aqui. Confira sua posição e tamanho na prévia da prova.</p>';
-      const footer = document.createElement('footer');
-      const note = document.createElement('span');
-      note.textContent = 'Os ajustes são aplicados à prova automaticamente.';
-      const done = document.createElement('button');
-      done.type = 'button'; done.className = 'primary'; done.textContent = 'Concluir';
-      done.addEventListener('click', () => closeEditor());
-      footer.append(note, done);
-      workspace.hidden = false;
-      dialog.append(heading, workspace, footer);
-      editorOverlay.appendChild(dialog);
-      editorOverlay.dismiss = () => closeEditor();
-      document.body.appendChild(editorOverlay);
-      options.modal?.openModal?.(editorOverlay);
+      refresh();
+      drop.focus({ preventScroll:true });
     };
     launcher.addEventListener('click', openEditor);
     wrap.closeImageEditor = () => closeEditor(true);
@@ -486,6 +463,72 @@
       if (presentation === controls) return;
       presentation = controls;
       settings.appendChild(controls);
+      enhancePresentationControls();
+    };
+    // Keep the original selects and change handlers as the source of truth.
+    // The visible buttons only choose supported values through those controls.
+    const enhancePresentationControls = () => {
+      settings.querySelectorAll('select').forEach(select => {
+        if (select.dataset.imageButtons) return;
+        const values = [...select.querySelectorAll('option')].map(option => option.value);
+        const isSize = values.includes('small') && values.includes('medium') && values.includes('large');
+        const isPosition = values.includes('left') && values.includes('center') && values.includes('right');
+        if (!isSize && !isPosition) return;
+        select.dataset.imageButtons = 'true';
+        select.hidden = true;
+        select.parentElement.classList.add('image-presentation-source');
+        const group = document.createElement('div');
+        group.className = 'image-choice-buttons';
+        group.setAttribute('role', 'group');
+        group.setAttribute('aria-label', isSize ? 'Tamanho da imagem' : 'Posição da imagem');
+        const buttons = [];
+        const choose = value => {
+          if (busy || select.disabled || (options.canEdit && !options.canEdit())) return;
+          const option = [...select.querySelectorAll('option')].find(item => item.value === value);
+          if (!option || option.disabled) return;
+          select.value = value;
+          select.dispatchEvent(new global.Event('change', { bubbles:true }));
+          sync();
+        };
+        const add = (value, label, content, getValue = () => value) => {
+          const button = document.createElement('button');
+          button.type = 'button'; button.title = label; button.setAttribute('aria-label', label);
+          button.dataset.imageChoice = value;
+          button.innerHTML = content;
+          button.addEventListener('click', () => choose(getValue()));
+          group.appendChild(button); buttons.push(button);
+        };
+        const icon = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+        if (isSize) {
+          add('small', 'Imagem pequena', 'P');
+          add('medium', 'Imagem média', 'M');
+          add('large', 'Imagem grande', 'G');
+          if (values.includes('full')) add('full', 'Largura total', icon('<rect x="3" y="3" width="18" height="9" rx="1" fill="currentColor" fill-opacity=".16"/><path d="M3 18h18M6 15l-3 3 3 3M18 15l3 3-3 3"/>'));
+        } else {
+          const isBeside = () => select.value.startsWith('lado_');
+          add('left', 'Imagem à esquerda', icon('<rect x="3" y="3" width="8" height="9" rx="1" fill="currentColor" fill-opacity=".16"/><path d="M3 16h18M3 20h18"/>'), () => isBeside() ? 'lado_esquerda' : 'left');
+          add('center', 'Imagem centralizada', icon('<rect x="8" y="3" width="8" height="9" rx="1" fill="currentColor" fill-opacity=".16"/><path d="M3 16h18M3 20h18"/>'));
+          add('right', 'Imagem à direita', icon('<rect x="13" y="3" width="8" height="9" rx="1" fill="currentColor" fill-opacity=".16"/><path d="M3 16h18M3 20h18"/>'), () => isBeside() ? 'lado_direita' : 'right');
+          if (values.includes('lado_esquerda') && values.includes('lado_direita')) {
+            add('beside', 'Texto ao lado da imagem', icon('<rect x="3" y="3" width="8" height="9" rx="1" fill="currentColor" fill-opacity=".16"/><path d="M14 4h7M14 8h7M14 12h7M3 16h18M3 20h18"/>'), () => {
+              if (isBeside()) return select.value === 'lado_direita' ? 'right' : 'left';
+              return select.value === 'right' ? 'lado_direita' : 'lado_esquerda';
+            });
+          }
+        }
+        const sync = () => buttons.forEach(button => {
+          const value = button.dataset.imageChoice;
+          const selected = select.value;
+          const pressed = value === selected || (value === 'beside' && selected.startsWith('lado_'))
+            || (value === 'left' && selected === 'lado_esquerda') || (value === 'right' && selected === 'lado_direita');
+          button.setAttribute('aria-pressed', String(pressed));
+          button.disabled = busy || select.disabled || (options.canEdit && !options.canEdit());
+        });
+        actions.insertBefore(group, remove);
+        select.addEventListener('change', sync);
+        presentationSyncs.push(sync);
+        sync();
+      });
     };
     replace.addEventListener('click', chooseFile);
     drop.addEventListener('click', chooseFile);
@@ -508,7 +551,7 @@
       event.target.value = '';
     });
 
-    const applyRotation = async (degrees, button) => {
+    const applyRotation = async degrees => {
       const image = options.getImage() || {};
       if (!image.dataUrl || busy || (options.canEdit && !options.canEdit())) return;
       setBusy(true);
@@ -523,8 +566,7 @@
         setBusy(false);
       }
     };
-    rotateLeft.addEventListener('click', () => applyRotation(270, rotateLeft));
-    rotateRight.addEventListener('click', () => applyRotation(90, rotateRight));
+    rotateRight.addEventListener('click', () => applyRotation(90));
     crop.addEventListener('click', () => {
       const image = options.getImage() || {};
       if (!image.dataUrl || busy || (options.canEdit && !options.canEdit())) return;
@@ -540,7 +582,6 @@
           options.modal?.onClose?.();
           setBusy(false);
           cropOverlay = null;
-          if (editorOverlay) options.modal?.openModal?.(editorOverlay);
         },
       });
     });
@@ -552,12 +593,20 @@
       closeEditor();
     });
 
+    // Public commands let each question adapter drive this same shared engine
+    // without creating another upload/crop/rotation implementation.
+    wrap.openImageEditor = openEditor;
+    wrap.chooseImageFile = chooseFile;
+    wrap.cropImage = () => crop.click();
+    wrap.rotateImageLeft = () => applyRotation(270);
+    wrap.rotateImageRight = () => rotateRight.click();
+    wrap.removeImage = () => remove.click();
+    wrap.refreshImagePicker = refresh;
+
     refresh();
     visual.append(drop, actions);
-    const settingsTitle = document.createElement('h3');
-    settingsTitle.textContent = 'Na prova';
-    settings.appendChild(settingsTitle);
     if (options.setSize) settings.appendChild(sizeControl);
+    enhancePresentationControls();
     workspace.append(visual, settings);
     wrap.append(launcher, fileInput, workspace);
     return wrap;

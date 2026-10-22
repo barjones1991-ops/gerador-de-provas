@@ -48,13 +48,22 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
       canEdit: () => editable,
     });
     document.body.appendChild(picker);
+    for (const command of ['openImageEditor','chooseImageFile','cropImage','rotateImageLeft','rotateImageRight','removeImage']) {
+      assert.equal(typeof picker[command], 'function', `a questão deve reutilizar o comando ${command} do motor compartilhado`);
+    }
+    const launcher = picker.querySelector('button[aria-label="Adicionar imagem"]');
+    const workspace = picker.querySelector('.image-workspace');
+    assert.equal(workspace.hidden, false, 'imagem existente já expõe seus ajustes quando o campo é aberto');
+    assert.equal(launcher.hidden, true, 'não repetir cartão de abertura quando a imagem já está presente');
+    assert.equal(picker.querySelectorAll('img').length, 1, 'exibir a imagem uma única vez');
+    assert.equal(document.querySelector('.image-editor-overlay'), null, 'o motor não deve abrir um segundo editor sobre a prévia');
     const file = picker.querySelector('input[type="file"]');
     const remove = picker.querySelector('button[aria-label="Remover imagem"]');
     assert.equal(file.tabIndex, -1);
     assert.equal(file.hidden, true);
     assert.equal(file.getAttribute('aria-hidden'), 'true');
     assert(remove, 'ações por ícone precisam de nome acessível');
-    assert.equal(remove.textContent, 'Remover imagem');
+    assert.equal(remove.getAttribute('title'), 'Remover imagem');
     assert.equal(picker.querySelector('[aria-label="Recortar imagem"]').textContent, 'Recortar');
     let picked = 0;
     file.click = () => { picked++; };
@@ -147,6 +156,12 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(image, { dataUrl: 'data:image/png;base64,BBBB', fileName: 'primeira.png' });
     assert.equal(picker.querySelector('.image-drop').getAttribute('aria-busy'), 'false');
     assert.equal(file.disabled, false);
+    assert.equal(picker.querySelector('.image-workspace').hidden, false, 'upload concluído mostra ajustes sem clique adicional');
+    assert.equal(picker.querySelector('.image-launcher').hidden, true);
+    fire(window, picker.querySelector('[aria-label="Remover imagem"]'), 'click');
+    assert.equal(image, null);
+    assert.equal(picker.querySelector('.image-workspace').hidden, true);
+    assert.equal(picker.querySelector('.image-launcher').hidden, false, 'remoção devolve a entrada de arquivo');
   }
 
   const engineSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'image-engine.js'), 'utf8');
@@ -155,7 +170,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
     'o recorte precisa atualizar a miniatura depois de receber o novo conteúdo',
   );
 
-  console.log('OK MOTOR DE IMAGENS bloqueio, concorrência e acessibilidade dos controles');
+  console.log('OK MOTOR DE IMAGENS edição na questão, bloqueio, concorrência e acessibilidade dos controles');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
